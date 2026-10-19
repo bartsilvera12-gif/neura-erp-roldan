@@ -36,7 +36,7 @@ Esta instancia arranca con estos doce módulos y nada más (ver `supabase/roldan
 | Módulo | Slug | Ruta |
 |---|---|---|
 | Dashboard | `dashboard` | `/` |
-| Caja (ventas) | `ventas` | `/ventas` |
+| Caja (ventas) | `ventas` | `/ventas` (turnos de caja, arqueo y movimientos) |
 | Inventario | `inventario` | `/inventario` (productos, movimientos, categorías, ubicaciones, depósitos) |
 | Clientes | `clientes` | `/clientes` |
 | Sucursales | `sucursales` | `/configuracion/sucursales` |
@@ -71,8 +71,24 @@ Los scripts están en `supabase/roldanerp/` y se pegan en el SQL editor de Supab
 4. `04_catalogos.sql` — catálogos que el clon deja vacíos y el ERP necesita con filas
    desde el arranque: vistas del tablero (`dashboard_views`) y etapas del CRM (`crm_etapas`).
    Sin esto el Dashboard muestra "Sin vistas asignadas" aunque el usuario sea admin.
+5. `05_modulo_caja.sql` — tablas del módulo Caja (`cajas`, `caja_movimientos`) y la columna
+   `ventas.caja_id`. El schema de origen no tiene sistema de caja; sin este script la pantalla
+   de Caja no abre turno y las ventas se bloquean.
 
 Después hay que exponer el schema en Supabase: **Settings → API → Exposed schemas** incluir `roldanerp`.
+
+## Módulo Caja
+
+La venta se imputa a un **turno de caja** (`ventas.caja_id`), no a la fecha calendario: el cierre
+agrupa por turno. Reglas, heredadas de `neura-erp-hierros`:
+
+- Sin turno abierto **no se puede registrar una venta**. Se abre desde `/ventas`.
+- Se admiten varias cajas abiertas en paralelo (Caja 1, Caja 2, …). Si hay más de una, el cajero
+  elige en `/ventas/nueva`; la elección se recuerda por navegador.
+- El arqueo de cierre compara lo contado contra lo esperado. **El cheque no entra al cajón**: va a
+  su propio total y no suma al efectivo esperado.
+- Para dejar de bloquear la venta cuando no hay caja abierta, el guard está en
+  `src/lib/ventas/server/create-venta-pg.ts` (resolución de `cajaIdActual`).
 
 ## Pendientes conocidos antes de ir a producción
 
