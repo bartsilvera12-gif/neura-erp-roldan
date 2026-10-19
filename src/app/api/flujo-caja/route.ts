@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { mensajeErrorFlujo } from "@/lib/flujo-caja/errores";
 import type {
   EntradaFlujo, EstadoCheque, FilaFlujo, FlujoCajaMes, MonedaFlujo, TipoSaldo, TotalesDia,
 } from "@/lib/flujo-caja/types";
@@ -329,7 +330,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(successResponse(payload));
   } catch (err) {
     console.error("[/api/flujo-caja GET]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo cargar el flujo de caja."), { status: 500 });
+    return NextResponse.json(
+      errorResponse(mensajeErrorFlujo(err, "No se pudo cargar el flujo de caja")),
+      { status: 500 }
+    );
   }
 }
 
@@ -366,6 +370,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(successResponse({ config: data }));
   } catch (err) {
     console.error("[/api/flujo-caja PUT]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo guardar la configuración."), { status: 500 });
+    return NextResponse.json(
+      errorResponse(mensajeErrorFlujo(err, "No se pudo guardar la configuración")),
+      { status: 500 }
+    );
   }
 }

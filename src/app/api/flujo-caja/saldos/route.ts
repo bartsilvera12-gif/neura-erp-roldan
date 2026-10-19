@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { mensajeErrorFlujo } from "@/lib/flujo-caja/errores";
 
 /**
  * Posición de liquidez del mes: saldos por banco y moneda, efectivo en caja y
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(successResponse({ saldos: data ?? [] }));
   } catch (err) {
     console.error("[/api/flujo-caja/saldos GET]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudieron cargar los saldos."), { status: 500 });
+    return NextResponse.json(errorResponse(mensajeErrorFlujo(err, "No se pudieron cargar los saldos")), { status: 500 });
   }
 }
 
@@ -121,6 +122,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(successResponse({ guardados: filas.length }));
   } catch (err) {
     console.error("[/api/flujo-caja/saldos PUT]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudieron guardar los saldos."), { status: 500 });
+    return NextResponse.json(errorResponse(mensajeErrorFlujo(err, "No se pudieron guardar los saldos")), { status: 500 });
   }
 }
