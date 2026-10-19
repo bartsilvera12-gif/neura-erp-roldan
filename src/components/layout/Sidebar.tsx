@@ -175,6 +175,7 @@ const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { label: "Cobros a clientes", href: "/pagos", exactMatch: true },
       { label: "Pagos a proveedores", href: "/pagos/proveedores" },
+      { label: "Flujo de caja", href: "/pagos/flujo-caja" },
     ],
   },
   {

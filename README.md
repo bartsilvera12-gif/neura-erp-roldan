@@ -77,8 +77,29 @@ Los scripts están en `supabase/roldanerp/` y se pegan en el SQL editor de Supab
 6. `06_habilitar_modulo.sql` — habilita un módulo que no vino en el set inicial. Tal como está
    habilita **Planes** (lo pide el CRM para cargar servicios de interés en un lead); para otro,
    se cambia `v_slug`. No hace falta tocar código ni redeployar.
+7. `07_flujo_caja_cheques.sql` — módulo de flujo de caja de proveedores: `cheques`,
+   `cheque_compras`, `flujo_caja_config` y `proveedores.agrupa_en_varios`.
 
 Después hay que exponer el schema en Supabase: **Settings → API → Exposed schemas** incluir `roldanerp`.
+
+## Flujo de caja de proveedores
+
+Reemplaza la planilla que se llevaba a mano (`/pagos/flujo-caja`). Una fila por proveedor,
+una columna por día del mes.
+
+- Una factura de compra **a crédito** cae sola en `fecha_factura + plazo_dias`.
+- Un **cheque** es de un solo proveedor y puede cubrir varias de sus facturas.
+- Estados y colores: `pendiente_emision` (lila) → `emitido` (verde) → `cobrado` (amarillo).
+  Un cheque cobrado ya salió del banco y **deja de sumar** al flujo.
+- Los proveedores chicos o locales se marcan con `proveedores.agrupa_en_varios` y no llevan
+  fila propia: se suman en **VARIOS**, en guaraníes.
+- El **tipo de cambio** lo fija la empresa por mes (suelen usar uno por encima del real como
+  colchón), junto con los **fondos disponibles** con los que arranca el mes.
+- Lo que antes iba en los comentarios de Excel —nº de factura, nº de carga, nº de cheque y
+  fecha de cobro— sale de los datos y se arma solo en el tooltip de cada celda.
+
+Diferencia con la planilla: ahí el acumulado se llevaba en negativo. Acá se muestra como
+**Disponible**, positivo mientras quede plata y en rojo si los pagos superan los fondos.
 
 ## Módulo Caja
 
