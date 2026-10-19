@@ -186,5 +186,12 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
   if (p.startsWith("/marketing")) return "marketing";
   if (p.startsWith("/sorteos")) return "sorteos";
   if (p.startsWith("/consignaciones")) return "consignataria";
+  // Rutas que no tenían gate y quedaban accesibles con solo estar logueado.
+  if (p.startsWith("/rrhh")) return "rrhh";
+  if (p.startsWith("/depositos")) return "inventario";
+  if (p.startsWith("/notas-remision")) return "notas_remision";
+  if (p.startsWith("/ordenes-venta")) return "ordenes_venta";
+  if (p.startsWith("/facturas")) return "ventas";
+  if (p.startsWith("/cobros")) return "pagos";
   return null;
 }
