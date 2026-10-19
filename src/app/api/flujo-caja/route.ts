@@ -3,7 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import type {
-  EntradaFlujo, EstadoCheque, FilaFlujo, FlujoCajaMes, MonedaFlujo, TotalesDia,
+  EntradaFlujo, EstadoCheque, FilaFlujo, FlujoCajaMes, MonedaFlujo, TipoSaldo, TotalesDia,
 } from "@/lib/flujo-caja/types";
 
 /**
@@ -61,7 +61,27 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
     if (cfgQ.error) throw new Error(cfgQ.error.message);
     const tipoCambio = num(cfgQ.data?.tipo_cambio);
-    const fondos = num(cfgQ.data?.fondos_disponibles);
+
+    // ── Fondos con los que arranca el mes.
+    //    Si hay posición de liquidez cargada, manda ella: bancos + efectivo,
+    //    convertidos a guaraníes. La mercadería NO entra: no es plata disponible.
+    //    Si no hay nada cargado, vale el monto manual de la config.
+    const saldosQ = await ctx.supabase
+      .from("flujo_caja_saldos")
+      .select("tipo, descripcion, moneda, importe")
+      .eq("empresa_id", empresaId).eq("anio", anio).eq("mes", mes);
+    if (saldosQ.error) throw new Error(saldosQ.error.message);
+    const saldos = (saldosQ.data ?? []) as Array<Record<string, unknown>>;
+
+    let liquidezGs = 0, mercaderiaGs = 0;
+    for (const s of saldos) {
+      const enGs = String(s.moneda ?? "PYG").toUpperCase() === "USD"
+        ? num(s.importe) * tipoCambio
+        : num(s.importe);
+      if (String(s.tipo) === "mercaderia") mercaderiaGs += enGs;
+      else liquidezGs += enGs;
+    }
+    const fondos = saldos.length > 0 ? liquidezGs : num(cfgQ.data?.fondos_disponibles);
 
     // ── Proveedores: definen las filas y qué se agrupa en VARIOS.
     const provQ = await ctx.supabase
@@ -292,6 +312,18 @@ export async function GET(request: NextRequest) {
         total_gs: totalGs,
         egreso_total_gs: totalUsd * tipoCambio + totalGs,
         acumulado_final_gs: acumulado,
+      },
+      liquidez: {
+        // Informativo: la foto sobre la que se apoya el flujo.
+        origen: saldos.length > 0 ? "saldos" : "manual",
+        total_gs: fondos,
+        mercaderia_gs: mercaderiaGs,
+        detalle: saldos.map((s) => ({
+          tipo: String(s.tipo) as TipoSaldo,
+          descripcion: String(s.descripcion ?? ""),
+          moneda: String(s.moneda ?? "PYG").toUpperCase() === "USD" ? "USD" : "PYG",
+          importe: num(s.importe),
+        })),
       },
     };
     return NextResponse.json(successResponse(payload));

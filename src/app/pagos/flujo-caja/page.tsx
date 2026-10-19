@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import type { EntradaFlujo, FlujoCajaMes } from "@/lib/flujo-caja/types";
+import type { EntradaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
 
 /**
  * Flujo de caja de proveedores.
@@ -78,6 +78,11 @@ export default function FlujoCajaPage() {
   const [fondos, setFondos] = useState("");
   const [guardando, setGuardando] = useState(false);
 
+  // Posición de liquidez: bancos, efectivo y mercadería. Carga manual.
+  const [saldos, setSaldos] = useState<SaldoLiquidez[]>([]);
+  const [editandoSaldos, setEditandoSaldos] = useState(false);
+  const [guardandoSaldos, setGuardandoSaldos] = useState(false);
+
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
@@ -89,6 +94,7 @@ export default function FlujoCajaPage() {
       setData(d);
       setTc(d.config.tipo_cambio ? String(d.config.tipo_cambio) : "");
       setFondos(d.config.fondos_disponibles ? String(d.config.fondos_disponibles) : "");
+      setSaldos(d.liquidez.detalle);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar el flujo.");
       setData(null);
@@ -120,6 +126,31 @@ export default function FlujoCajaPage() {
     } finally {
       setGuardando(false);
     }
+  }
+
+  async function guardarSaldos() {
+    setGuardandoSaldos(true);
+    setError(null);
+    try {
+      const r = await fetchWithSupabaseSession("/api/flujo-caja/saldos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anio, mes, saldos }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
+      setEditandoSaldos(false);
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudieron guardar los saldos.");
+    } finally {
+      setGuardandoSaldos(false);
+    }
+  }
+
+  function agregarSaldo(tipo: TipoSaldo) {
+    setSaldos((prev) => [...prev, { tipo, descripcion: "", moneda: "PYG", importe: 0 }]);
+    setEditandoSaldos(true);
   }
 
   const dias = useMemo(
@@ -183,6 +214,137 @@ export default function FlujoCajaPage() {
           dejar colchón ante subas del dólar.
         </p>
       </div>
+
+      {/* Posición de liquidez — informativa: la foto sobre la que se apoya el flujo.
+          No alimenta la proyección de pagos; solo aporta los fondos iniciales. */}
+      {data && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4FAEB2]">
+                Posición de liquidez
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Bancos, efectivo y mercadería. Se cargan a mano: el ERP no tiene conciliación bancaria.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {editandoSaldos ? (
+                <>
+                  <button
+                    type="button" onClick={() => { setEditandoSaldos(false); void cargar(); }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button" onClick={guardarSaldos} disabled={guardandoSaldos}
+                    className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+                  >
+                    {guardandoSaldos ? "Guardando…" : "Guardar saldos"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button" onClick={() => setEditandoSaldos(true)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(["banco", "efectivo", "mercaderia"] as const).map((tipo) => {
+              const delTipo = saldos
+                .map((s, i) => ({ s, i }))
+                .filter(({ s }) => s.tipo === tipo);
+              const titulo = tipo === "banco" ? "Bancos" : tipo === "efectivo" ? "Efectivo en caja" : "Mercadería";
+              return (
+                <div key={tipo} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">{titulo}</span>
+                    {editandoSaldos && (
+                      <button
+                        type="button" onClick={() => agregarSaldo(tipo)}
+                        className="text-[11px] font-semibold text-[#3F8E91] hover:underline"
+                      >
+                        + Agregar
+                      </button>
+                    )}
+                  </div>
+                  {delTipo.length === 0 ? (
+                    <p className="text-[11px] text-slate-400">Sin cargar</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {delTipo.map(({ s, i }) => (
+                        <li key={i} className="flex items-center gap-1.5 text-xs">
+                          {editandoSaldos ? (
+                            <>
+                              <input
+                                value={s.descripcion}
+                                placeholder={tipo === "banco" ? "Banco" : tipo === "efectivo" ? "Caja" : "Depósito"}
+                                onChange={(e) => setSaldos((prev) => prev.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))}
+                                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-xs"
+                              />
+                              <select
+                                value={s.moneda}
+                                onChange={(e) => setSaldos((prev) => prev.map((x, j) => j === i ? { ...x, moneda: e.target.value === "USD" ? "USD" : "PYG" } : x))}
+                                className="rounded border border-slate-200 px-1 py-1 text-xs"
+                              >
+                                <option value="PYG">Gs.</option>
+                                <option value="USD">US$</option>
+                              </select>
+                              <input
+                                type="number" value={s.importe}
+                                onChange={(e) => setSaldos((prev) => prev.map((x, j) => j === i ? { ...x, importe: Number(e.target.value) || 0 } : x))}
+                                className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right text-xs tabular-nums"
+                              />
+                              <button
+                                type="button" onClick={() => setSaldos((prev) => prev.filter((_, j) => j !== i))}
+                                className="text-slate-400 hover:text-red-600" title="Quitar"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="min-w-0 flex-1 truncate text-slate-600">{s.descripcion}</span>
+                              <span className="tabular-nums font-medium text-slate-800">
+                                {s.moneda === "USD" ? `US$ ${miles(s.importe, 2)}` : miles(s.importe)}
+                              </span>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-slate-100 pt-3 text-xs">
+            <span className="text-slate-600">
+              Disponible al inicio:{" "}
+              <strong className="tabular-nums text-slate-900">Gs. {miles(data.liquidez.total_gs)}</strong>
+            </span>
+            {data.liquidez.mercaderia_gs > 0 && (
+              <span className="text-slate-500">
+                Mercadería:{" "}
+                <strong className="tabular-nums">Gs. {miles(data.liquidez.mercaderia_gs)}</strong>
+                <span className="ml-1 text-slate-400">(no es plata disponible)</span>
+              </span>
+            )}
+            <span className="ml-auto text-[11px] text-slate-400">
+              {data.liquidez.origen === "saldos"
+                ? "Los fondos del flujo salen de bancos + efectivo."
+                : "Sin saldos cargados: se usa el monto manual de arriba."}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Leyenda de colores */}
       <div className="flex flex-wrap items-center gap-3 text-[11px]">

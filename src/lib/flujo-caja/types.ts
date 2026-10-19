@@ -98,4 +98,27 @@ export interface FlujoCajaMes {
     egreso_total_gs: number;
     acumulado_final_gs: number;
   };
+  /**
+   * Posición de liquidez del mes. Es informativa: la foto sobre la que se apoya
+   * el flujo, no un insumo de la proyección de pagos. Los fondos iniciales salen
+   * de bancos + efectivo; la mercadería va aparte porque no es plata disponible.
+   */
+  liquidez: {
+    /** `saldos` si hay cuentas cargadas; `manual` si vale el monto de la config. */
+    origen: "saldos" | "manual";
+    total_gs: number;
+    mercaderia_gs: number;
+    detalle: SaldoLiquidez[];
+  };
+}
+
+export type TipoSaldo = "banco" | "efectivo" | "mercaderia";
+
+/** Una línea de la posición de liquidez: una cuenta, la caja o el stock. */
+export interface SaldoLiquidez {
+  tipo: TipoSaldo;
+  /** Nombre del banco, "Caja central", "Depósito"… */
+  descripcion: string;
+  moneda: MonedaFlujo;
+  importe: number;
 }

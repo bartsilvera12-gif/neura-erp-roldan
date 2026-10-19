@@ -79,6 +79,8 @@ Los scripts están en `supabase/roldanerp/` y se pegan en el SQL editor de Supab
    se cambia `v_slug`. No hace falta tocar código ni redeployar.
 7. `07_flujo_caja_cheques.sql` — módulo de flujo de caja de proveedores: `cheques`,
    `cheque_compras`, `flujo_caja_config` y `proveedores.agrupa_en_varios`.
+8. `08_flujo_caja_saldos.sql` — posición de liquidez del flujo: saldos por banco y moneda,
+   efectivo en caja y valor de mercadería (`flujo_caja_saldos`).
 
 Después hay que exponer el schema en Supabase: **Settings → API → Exposed schemas** incluir `roldanerp`.
 
@@ -97,6 +99,17 @@ una columna por día del mes.
   colchón), junto con los **fondos disponibles** con los que arranca el mes.
 - Lo que antes iba en los comentarios de Excel —nº de factura, nº de carga, nº de cheque y
   fecha de cobro— sale de los datos y se arma solo en el tooltip de cada celda.
+
+### Posición de liquidez
+
+Arriba de la grilla, informativa: **bancos** (una fila por cuenta, cada una con su moneda),
+**efectivo en caja** y **valor de mercadería**. Se cargan a mano — el ERP no tiene
+conciliación bancaria — y no alimentan la proyección de pagos, que sale sola de las compras.
+
+Lo único que sí sale de ahí son los **fondos con los que arranca el mes**: la suma de
+bancos + efectivo, convertida al tipo de cambio del mes. La **mercadería queda afuera**
+porque no es plata disponible. Si no se carga ninguna cuenta, vale el monto manual de
+`flujo_caja_config.fondos_disponibles`.
 
 Diferencia con la planilla: ahí el acumulado se llevaba en negativo. Acá se muestra como
 **Disponible**, positivo mientras quede plata y en rojo si los pagos superan los fondos.
