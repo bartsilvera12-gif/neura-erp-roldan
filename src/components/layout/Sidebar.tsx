@@ -154,7 +154,18 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "reposicion", slug: "reposicion", label: "Reposición", href: "/inventario/reposicion", icon: ArrowLeftRight },
   { key: "notas_remision", slug: "notas_remision", label: "Notas de remisión", href: "/notas-remision", icon: ArrowLeftRight },
   { key: "ordenes_venta", slug: "ordenes_venta", label: "Órdenes de venta", href: "/ordenes-venta", icon: Package },
-  { key: "clientes", slug: "clientes", label: "Clientes", href: "/clientes", icon: Users },
+  {
+    key: "clientes",
+    slug: "clientes",
+    label: "Clientes",
+    href: "/clientes",
+    icon: Users,
+    children: [
+      { label: "Clientes", href: "/clientes", exactMatch: true },
+      { label: "Nuevo cliente", href: "/clientes/nuevo" },
+      { label: "Config · Categorías", href: "/configuracion/categorias-cliente" },
+    ],
+  },
   {
     key: "pagos",
     slug: "pagos",

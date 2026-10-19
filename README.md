@@ -31,13 +31,14 @@ exactamente lo que está en `roldanerp.empresa_modulos` con `activo = true`, sin
 
 ## Módulos habilitados
 
-Esta instancia arranca con estos módulos y nada más (ver `supabase/roldanerp/02_seed_empresa_modulos_admin.sql`):
+Esta instancia arranca con estos doce módulos y nada más (ver `supabase/roldanerp/02_seed_empresa_modulos_admin.sql`):
 
 | Módulo | Slug | Ruta |
 |---|---|---|
 | Dashboard | `dashboard` | `/` |
 | Caja (ventas) | `ventas` | `/ventas` |
 | Inventario | `inventario` | `/inventario` (productos, movimientos, categorías, ubicaciones, depósitos) |
+| Clientes | `clientes` | `/clientes` |
 | Sucursales | `sucursales` | `/configuracion/sucursales` |
 | Compras | `compras` | `/compras` |
 | Proveedores | `proveedores` | `/proveedores` |
@@ -65,7 +66,7 @@ Los scripts están en `supabase/roldanerp/` y se pegan en el SQL editor de Supab
 1. `01_clone_schema_mexicana_to_roldanerp.sql` — crea el schema y clona tipos, secuencias, tablas,
    índices, constraints, FKs, vistas, funciones, triggers, políticas RLS, grants y comments. **Sin filas.**
 2. `02_seed_empresa_modulos_admin.sql` — empresa Roldán e Hijos (UUID propio), catálogo de módulos,
-   `empresa_modulos` acotado a los 11 módulos de arriba y usuario `admin@roldanehijos.com`.
+   `empresa_modulos` acotado a los 12 módulos de arriba y usuario `admin@roldanehijos.com`.
 3. `03_verificacion.sql` — chequeos de aislamiento (nada en `public`, nada de otros tenants, 0 filas).
 
 Después hay que exponer el schema en Supabase: **Settings → API → Exposed schemas** incluir `roldanerp`.

@@ -172,6 +172,7 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
     if (p.startsWith("/configuracion/plan-de-cuentas")) return "contabilidad";
     if (p.startsWith("/configuracion/contable")) return "contabilidad";
     if (p.startsWith("/configuracion/rrhh")) return "rrhh";
+    if (p.startsWith("/configuracion/categorias-cliente")) return "clientes";
     if (p.startsWith("/configuracion/crm")) return "crm";
     if (p.startsWith("/configuracion/canales")) return "conversaciones";
     if (p.startsWith("/configuracion/colas")) return "conversaciones";

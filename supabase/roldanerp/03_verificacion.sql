@@ -154,8 +154,8 @@ SELECT relname AS tabla, filas
   ) q
  WHERE filas > 0
  ORDER BY 1;
--- Esperado: solo empresas (1), modulos (11+), empresa_modulos (11),
--- usuarios (1), usuario_modulos (11) y sucursales / usuario_sucursales (1).
+-- Esperado: solo empresas (1), modulos (12+), empresa_modulos (12),
+-- usuarios (1), usuario_modulos (12) y sucursales / usuario_sucursales (1).
 
 -- 7) Semilla: empresa, usuario y módulos habilitados.
 SELECT id, nombre_empresa, data_schema FROM roldanerp.empresas;
@@ -170,8 +170,8 @@ SELECT m.slug, m.nombre, em.activo
   JOIN roldanerp.modulos m ON m.id = em.modulo_id
  WHERE em.activo
  ORDER BY m.slug;
--- Esperado: exactamente compras, contabilidad, conversaciones, crm, dashboard,
--- inventario, pagos, proveedores, rrhh, sucursales, ventas.
+-- Esperado: exactamente clientes, compras, contabilidad, conversaciones, crm,
+-- dashboard, inventario, pagos, proveedores, rrhh, sucursales, ventas (12).
 
 -- 8) Privilegios del schema: tienen que ser los mismos que en `mexicana`.
 --    (Exponerlo en la API es aparte: Settings → API → Exposed schemas.)

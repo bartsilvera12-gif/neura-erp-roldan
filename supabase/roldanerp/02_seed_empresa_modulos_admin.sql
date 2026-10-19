@@ -14,8 +14,8 @@
 --   usuario    = admin@roldanehijos.com (rol `admin`)
 --
 -- Módulos habilitados (y nada más):
---   dashboard · ventas (caja) · inventario · sucursales · compras · proveedores
---   pagos · rrhh · contabilidad · crm · conversaciones
+--   dashboard · ventas (caja) · inventario · clientes · sucursales · compras
+--   proveedores · pagos · rrhh · contabilidad · crm · conversaciones
 --
 -- El login de Supabase Auth se crea aparte (ver el bloque final del archivo).
 -- ============================================================================
@@ -168,6 +168,7 @@ BEGIN
       ('dashboard',      'Dashboard'),
       ('ventas',         'Caja'),
       ('inventario',     'Inventario'),
+      ('clientes',       'Clientes'),
       ('sucursales',     'Sucursales'),
       ('compras',        'Compras'),
       ('proveedores',    'Proveedores'),
@@ -199,8 +200,8 @@ DO $modulos$
 DECLARE
   v_empresa uuid := '9f3c1d60-4e2a-4d7b-9a81-6c05b7e41f23';
   v_slugs   text[] := ARRAY[
-    'dashboard', 'ventas', 'inventario', 'sucursales', 'compras', 'proveedores',
-    'pagos', 'rrhh', 'contabilidad', 'crm', 'conversaciones'
+    'dashboard', 'ventas', 'inventario', 'clientes', 'sucursales', 'compras',
+    'proveedores', 'pagos', 'rrhh', 'contabilidad', 'crm', 'conversaciones'
   ];
   r         record;
   v_n       int;
