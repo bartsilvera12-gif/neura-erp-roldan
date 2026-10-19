@@ -1145,3 +1145,12 @@ END
 $resumen$;
 
 COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- Recargar el cache de esquema de PostgREST.
+-- Sin esto, la API sigue sirviendo el esquema que tenía al arrancar y el schema recién clonado
+-- no existen para la app aunque sí estén en la base ("Could not find the table
+-- ... in the schema cache"). Es la causa típica de "corrí el SQL y no anda".
+-- ---------------------------------------------------------------------------
+NOTIFY pgrst, 'reload schema';
+
