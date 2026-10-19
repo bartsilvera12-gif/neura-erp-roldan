@@ -35,3 +35,14 @@ export function isValidTelefono(value: string): boolean {
   const cleaned = cleanTelefono(value);
   return cleaned.length === 10 && cleaned.startsWith("09");
 }
+
+/**
+ * Dígitos "significativos" de un teléfono paraguayo: sin ceros a la izquierda
+ * y sin el prefijo país 595. Sirve para comparar dos números escritos distinto
+ * (0981..., +595981..., 595981...) y detectar que son el mismo.
+ */
+export function telefonoSignificativo(value: string): string {
+  let d = cleanTelefono(value).replace(/^0+/, "");
+  if (d.startsWith("595")) d = d.slice(3);
+  return d;
+}
