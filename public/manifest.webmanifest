@@ -1,0 +1,17 @@
+{
+  "name": "Neura ERP · Roldán e Hijos",
+  "short_name": "Roldán e Hijos",
+  "description": "Sistema de gestión Roldán e Hijos — facturación electrónica, ventas, inventario.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EEF2F7",
+  "theme_color": "#4FAEB2",
+  "lang": "es-PY",
+  "icons": [
+    { "src": "/brand/roldan-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/roldan-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/roldan-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" }
+  ]
+}

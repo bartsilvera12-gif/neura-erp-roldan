@@ -1,0 +1,444 @@
+"use client";
+
+import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { FacturaElectronicaPanel } from "@/components/sifen/FacturaElectronicaPanel";
+import type {
+  FacturaElectronicaDTO,
+  SifenCancelacionPreviewDTO,
+  SifenJobDTO,
+} from "@/lib/sifen/types";
+
+type FacturaApiRow = {
+  id: string;
+  numero_factura: string;
+  fecha: string;
+  fecha_vencimiento: string;
+  monto: number;
+  saldo: number;
+  estado: string;
+  tipo: string;
+  moneda: string;
+  cliente_id: string | null;
+  cliente_display?: string;
+  /** Nombre comercial / sucursal / local del cliente (para diferenciar sucursales). */
+  cliente_sucursal?: string | null;
+  /** Detalle de productos de la factura (línea por línea). */
+  items?: FacturaItem[];
+  /** Si la factura fue creada por el puente venta→factura, tiene el uuid de la venta origen. */
+  origen_venta_id?: string | null;
+};
+
+type FacturaItem = {
+  descripcion: string | null;
+  cantidad: number | null;
+  precio_unitario: number | null;
+  subtotal: number | null;
+  iva: number | null;
+  total: number | null;
+};
+
+type SifenResumen = {
+  sifen_config_exists: boolean;
+  sifen_config_activa: boolean;
+  sifen_ambiente: string | null;
+  sifen_plazo_cancelacion_horas: number;
+  factura_electronica: FacturaElectronicaDTO | null;
+  cancelacion: SifenCancelacionPreviewDTO | null;
+  sifen_job: SifenJobDTO | null;
+};
+
+function formatFecha(str: string) {
+  if (!str) return "—";
+  const [y, m, d] = str.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function FacturaDetalleInner() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = params?.id as string | undefined;
+
+  const [factura, setFactura] = useState<FacturaApiRow | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [resumen, setResumen] = useState<SifenResumen | null>(null);
+  const [loadingF, setLoadingF] = useState(true);
+  const [loadingS, setLoadingS] = useState(true);
+  const [ncResumen, setNcResumen] = useState<{
+    monto_acreditado: number;
+    monto_pendiente_aprobacion: number;
+    cantidad_ncs: number;
+    cantidad_aprobadas: number;
+  } | null>(null);
+
+  const onResumenLoaded = useCallback((r: SifenResumen) => {
+    setResumen(r);
+  }, []);
+
+  const reloadFacturaComercial = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await fetchWithSupabaseSession(`/api/facturas/${id}`);
+      const j = (await res.json()) as { success?: boolean; data?: FacturaApiRow; error?: string };
+      if (res.ok && j.success && j.data) setFactura(j.data);
+    } catch {
+      /* ignorar */
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingF(true);
+      setLoadErr(null);
+      try {
+        const res = await fetchWithSupabaseSession(`/api/facturas/${id}`);
+        const j = (await res.json()) as { success?: boolean; data?: FacturaApiRow; error?: string };
+        if (cancelled) return;
+        if (res.status === 404) {
+          setNotFound(true);
+          setFactura(null);
+          return;
+        }
+        if (!res.ok || !j.success || !j.data) {
+          setLoadErr(j.error ?? "No se pudo cargar la factura");
+          setFactura(null);
+          return;
+        }
+        setNotFound(false);
+        setFactura(j.data);
+      } catch {
+        if (!cancelled) setLoadErr("Error de red");
+      } finally {
+        if (!cancelled) setLoadingF(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingS(true);
+      try {
+        const res = await fetchWithSupabaseSession(`/api/facturas/${id}/sifen/resumen`);
+        const j = (await res.json()) as { success?: boolean; data?: SifenResumen };
+        if (cancelled) return;
+        if (res.ok && j.success && j.data) setResumen(j.data);
+        else setResumen(null);
+      } catch {
+        if (!cancelled) setResumen(null);
+      } finally {
+        if (!cancelled) setLoadingS(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Agregados de notas de crédito de esta factura (monto acreditado / pendiente).
+  // No bloqueante: si falla, la ficha se muestra igual sin la sección extra.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchWithSupabaseSession(`/api/facturas/${id}/notas-credito`, { cache: "no-store" });
+        const j = (await res.json()) as {
+          success?: boolean;
+          data?: { resumen?: typeof ncResumen };
+        };
+        if (cancelled) return;
+        if (res.ok && j.success && j.data?.resumen) {
+          setNcResumen(j.data.resumen);
+        }
+      } catch {
+        /* silencioso */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (searchParams?.get("print") === "1" && factura && !loadingF) {
+      const t = setTimeout(() => window.print(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, factura, loadingF]);
+
+  if (!id) {
+    return null;
+  }
+
+  if (loadingF) {
+    return (
+      <div className="max-w-6xl mx-auto py-20 text-center text-sm text-slate-400">Cargando factura…</div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="max-w-6xl mx-auto py-20 text-center space-y-3">
+        <p className="text-slate-600">Factura no encontrada.</p>
+        <Link href="/gestion-clientes" className="text-[#0EA5E9] text-sm font-medium hover:underline">
+          Volver a gestión de clientes
+        </Link>
+      </div>
+    );
+  }
+
+  if (loadErr || !factura) {
+    return (
+      <div className="max-w-6xl mx-auto py-20 text-center space-y-3">
+        <p className="text-red-600 text-sm">{loadErr ?? "Error"}</p>
+        <Link href="/gestion-clientes" className="text-[#0EA5E9] text-sm font-medium hover:underline">
+          Volver
+        </Link>
+      </div>
+    );
+  }
+
+  const monedaLabel = factura.moneda === "USD" ? "USD" : "Gs.";
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 py-6 px-4 sm:px-6 print:px-0 w-full">
+      <div className="flex flex-wrap items-start justify-between gap-4 print:hidden">
+        <div>
+          {/* Back link: si la factura viene del puente venta→factura, volvemos a Ventas.
+              Si no (suscripción / plan), mantenemos el back histórico a Gestión de clientes. */}
+          {factura.origen_venta_id ? (
+            <Link
+              href="/ventas"
+              className="text-xs font-medium text-[#0EA5E9] hover:underline"
+            >
+              ← Ventas
+            </Link>
+          ) : factura.cliente_id ? (
+            <Link
+              href={`/gestion-clientes?cliente=${encodeURIComponent(factura.cliente_id)}`}
+              className="text-xs font-medium text-[#0EA5E9] hover:underline"
+            >
+              ← Gestión de clientes
+            </Link>
+          ) : (
+            <Link
+              href="/gestion-clientes"
+              className="text-xs font-medium text-[#0EA5E9] hover:underline"
+            >
+              ← Gestión de clientes
+            </Link>
+          )}
+          <h1 className="text-2xl font-bold text-slate-900 mt-1">Factura {factura.numero_factura}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Cliente:{" "}
+            {factura.cliente_id ? (
+              <Link href={`/clientes/${factura.cliente_id}`} className="text-[#0EA5E9] font-medium hover:underline">
+                {factura.cliente_display ?? "Ver cliente"}
+              </Link>
+            ) : (
+              <span className="text-slate-700 font-medium">{factura.cliente_display ?? "Consumidor final"}</span>
+            )}
+            {factura.cliente_sucursal && (
+              <span className="text-sky-700 font-medium"> · {factura.cliente_sucursal}</span>
+            )}
+          </p>
+        </div>
+        <div className="flex gap-2 print:hidden">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="text-xs font-semibold px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            Imprimir
+          </button>
+          {factura.estado.toLowerCase() !== "anulado" && (
+            <button
+              type="button"
+              onClick={async () => {
+                const motivo = window.prompt("Motivo de la nota de crédito (ej. ANULACIÓN DE VENTA):", "ANULACIÓN DE FACTURA");
+                if (!motivo || !motivo.trim()) return;
+                try {
+                  const res = await fetchWithSupabaseSession(`/api/facturas/${id}/notas-credito`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ motivo: motivo.trim(), tipo_nc: "total" }),
+                  });
+                  const j = await res.json().catch(() => ({} as { error?: string; data?: { nota_credito_id?: string } }));
+                  if (!res.ok || !(j as { success?: boolean }).success) {
+                    alert((j as { error?: string }).error ?? "No se pudo emitir la nota de crédito.");
+                    return;
+                  }
+                  const ncId = (j as { data?: { nota_credito_id?: string } }).data?.nota_credito_id;
+                  window.location.href = ncId ? `/notas-credito/${ncId}` : "/notas-credito";
+                } catch (e) {
+                  alert(e instanceof Error ? e.message : "Error de red.");
+                }
+              }}
+              className="text-xs font-semibold px-3 py-2 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-50"
+              title="Anular esta factura con una nota de crédito total"
+            >
+              Emitir Nota de Crédito
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5 space-y-3">
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumen comercial</h2>
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+          <div>
+            <dt className="text-slate-400 text-xs">Emisión</dt>
+            <dd className="font-medium text-slate-800">{formatFecha(factura.fecha)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400 text-xs">Vencimiento</dt>
+            <dd className="font-medium text-slate-800">{formatFecha(factura.fecha_vencimiento)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400 text-xs">Tipo</dt>
+            <dd className="font-medium text-slate-800 capitalize">{factura.tipo}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400 text-xs">Monto</dt>
+            <dd className="font-semibold text-slate-900 tabular-nums">
+              {monedaLabel}{" "}
+              {factura.monto.toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-400 text-xs">Saldo</dt>
+            <dd className="font-semibold text-slate-900 tabular-nums">
+              {monedaLabel}{" "}
+              {factura.saldo.toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-400 text-xs">Estado</dt>
+            <dd className="font-medium text-slate-800">{factura.estado}</dd>
+          </div>
+        </dl>
+
+        {ncResumen && ncResumen.cantidad_ncs > 0 && (
+          <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">Notas de crédito</p>
+                <p className="font-semibold text-slate-800">
+                  {ncResumen.cantidad_ncs}{" "}
+                  <span className="text-[11px] font-normal text-slate-500">
+                    ({ncResumen.cantidad_aprobadas} aprob.)
+                  </span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">Acreditado</p>
+                <p className="font-semibold text-emerald-800 tabular-nums">
+                  {monedaLabel}{" "}
+                  {ncResumen.monto_acreditado.toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">Pendiente NC</p>
+                <p className="font-semibold text-amber-900 tabular-nums">
+                  {monedaLabel}{" "}
+                  {ncResumen.monto_pendiente_aprobacion.toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">Saldo restante</p>
+                <p className="font-bold text-slate-900 tabular-nums">
+                  {monedaLabel}{" "}
+                  {factura.saldo.toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                </p>
+              </div>
+            </div>
+            <p className="mt-1.5 text-[10px] text-slate-500">
+              &quot;Acreditado&quot; suma NC ya aprobadas por SIFEN (ya restadas del saldo). &quot;Pendiente&quot;
+              son NC en borrador o esperando SET (no impactan saldo aún).
+            </p>
+          </div>
+        )}
+      </div>
+
+      {factura.items && factura.items.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Detalle de productos</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-400 border-b border-slate-200">
+                  <th className="py-2 pr-3 font-medium">Descripción</th>
+                  <th className="py-2 px-3 font-medium text-right">Cant.</th>
+                  <th className="py-2 px-3 font-medium text-right">Precio unit.</th>
+                  <th className="py-2 pl-3 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {factura.items.map((it, i) => (
+                  <tr key={i} className="border-b border-slate-100 last:border-0">
+                    <td className="py-2 pr-3 text-slate-800">{it.descripcion ?? "—"}</td>
+                    <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                      {(it.cantidad ?? 0).toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                      {monedaLabel} {(it.precio_unitario ?? 0).toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                    </td>
+                    <td className="py-2 pl-3 text-right tabular-nums font-medium text-slate-900">
+                      {monedaLabel} {(it.total ?? 0).toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200">
+                  <td colSpan={3} className="py-2 pr-3 text-right text-xs uppercase tracking-wide text-slate-400 font-semibold">Total</td>
+                  <td className="py-2 pl-3 text-right tabular-nums font-bold text-slate-900">
+                    {monedaLabel} {factura.monto.toLocaleString(factura.moneda === "USD" ? "en-US" : "es-PY")}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <FacturaElectronicaPanel
+        facturaId={id}
+        clienteId={factura.cliente_id ?? ""}
+        facturaComercial={{
+          monto: factura.monto,
+          saldo: factura.saldo,
+          estado: factura.estado,
+          moneda: factura.moneda,
+          cliente_display: factura.cliente_display ?? "",
+        }}
+        resumen={resumen}
+        loadingResumen={loadingS}
+        onResumenLoaded={onResumenLoaded}
+        onComercialUpdated={reloadFacturaComercial}
+      />
+    </div>
+  );
+}
+
+export default function FacturaDetallePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-6xl mx-auto py-20 text-center text-sm text-slate-400">Cargando factura…</div>
+      }
+    >
+      <FacturaDetalleInner />
+    </Suspense>
+  );
+}
