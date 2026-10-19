@@ -1,7 +1,12 @@
 export type TipoIvaVenta = "EXENTA" | "5%" | "10%";
 export type TipoVenta   = "CONTADO" | "CREDITO";
 export type MonedaVenta = "GS" | "USD";
-export type MetodoPago  = "efectivo" | "tarjeta" | "transferencia" | "cheque";
+/**
+ * `ventas.metodo_pago`. `mixto` lo escribe /api/ventas/create cuando el cobro
+ * se reparte en más de un método: el desglose real queda en `ventas_pagos_detalle`
+ * y el arqueo de caja lo lee de ahí.
+ */
+export type MetodoPago  = "efectivo" | "tarjeta" | "transferencia" | "cheque" | "mixto";
 /**
  * Estados que `ventas.estado` realmente toma en esta instancia.
  * `devuelta_total` y `parcialmente_devuelta` los escribe el módulo de

@@ -1,16 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search, Plus, Minus, Trash2, ImageIcon, ChevronDown } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
 import { saveVenta, type FaltanteStock } from "@/lib/ventas/storage";
 import { getProductos } from "@/lib/inventario/storage";
+import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
-import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
-import type { Producto } from "@/lib/inventario/types";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { productoMatchesQuery } from "@/lib/productos/token-search";
+import type { Producto, MetodoValuacion } from "@/lib/inventario/types";
+
+/** Miniatura de producto con fallback a un placeholder si no hay imagen o falla. */
+function ProductoThumb({ url, alt, size = "h-10 w-10" }: { url?: string | null; alt: string; size?: string }) {
+  const [err, setErr] = useState(false);
+  if (!url || err) {
+    return (
+      <div className={`flex ${size} shrink-0 items-center justify-center rounded-md border border-slate-100 bg-slate-50 text-slate-300`}>
+        <ImageIcon className="h-4 w-4" />
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt={alt} loading="lazy" onError={() => setErr(true)} className={`${size} shrink-0 rounded-md border border-slate-100 object-cover`} />;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -35,20 +51,25 @@ function calcIva(tipo: TipoIvaVenta, total: number) {
  *  mayorista → precio_mayorista (>0) o fallback a precio_venta;
  *  costo     → costo_promedio.
  */
+// HIERROS VH: niveles de precio calculados sobre el precio de lista.
+//  A (minorista)    = precio de lista (precio_venta)
+//  B (mayorista)    = lista + 5%
+//  C (distribuidor) = lista + 10%
 function precioPorTipo(p: Producto, tipo: TipoPrecioVenta): number {
-  if (tipo === "mayorista") return p.precio_mayorista != null && p.precio_mayorista > 0 ? p.precio_mayorista : p.precio_venta;
-  if (tipo === "distribuidor") return p.precio_distribuidor != null && p.precio_distribuidor > 0 ? p.precio_distribuidor : p.precio_venta;
+  const lista = p.precio_venta;
+  if (tipo === "mayorista") return Math.round(lista * 1.05);    // B
+  if (tipo === "distribuidor") return Math.round(lista * 1.10); // C
   if (tipo === "costo") return p.costo_promedio ?? 0; // histórico: ya no se ofrece en la UI
-  return p.precio_venta;
+  return lista; // A
 }
 
 /** Tipos de precio ofrecidos en la UI (sin 'costo', que queda solo como histórico). */
 const TIPOS_PRECIO_UI: TipoPrecioVenta[] = ["minorista", "mayorista", "distribuidor"];
 
 const tipoPrecioLabel: Record<TipoPrecioVenta, string> = {
-  minorista: "Minorista",
-  mayorista: "Mayorista",
-  distribuidor: "Distribuidor",
+  minorista: "A (Lista)",
+  mayorista: "B (+5%)",
+  distribuidor: "C (+10%)",
   costo: "Al costo",
 };
 
@@ -106,25 +127,15 @@ const ivaLabel: Record<TipoIvaVenta, string> = {
   "10%":  "10%",
 };
 
-/**
- * Traduce la "Condición de pago" guardada en el cliente a los campos de la venta
- * (tipo de venta + plazo en días). El plazo viene dentro del texto, ej "30 DÍAS".
- *   - "contado"            -> Contado
- *   - "15/30/60/90 DÍAS"   -> Crédito con ese plazo
- *   - "credito" (sin plazo)-> Crédito, plazo vacío (el cajero lo completa)
- *   - "mensual"/otros/vacío-> null (no se toca, queda el default)
- */
-function condicionPagoAVenta(cp: string | null): { tipo: TipoVenta; plazo: string } | null {
-  if (!cp) return null;
-  const s = cp.trim().toLowerCase();
-  if (s === "contado") return { tipo: "CONTADO", plazo: "" };
-  const m = s.match(/(\d+)\s*d[ií]as?/);
-  if (m) return { tipo: "CREDITO", plazo: m[1] };
-  if (s.includes("credit")) return { tipo: "CREDITO", plazo: "" };
-  return null;
-}
-
 // ── Componente principal ───────────────────────────────────────────────────────
+
+/** Forma mínima que el flujo de venta necesita de un cliente recién creado. */
+interface ClienteCreado {
+  id: string;
+  label: string;
+  ruc: string | null;
+  usa_nota_remision: boolean;
+}
 
 export default function NuevaVentaPage() {
   const router = useRouter();
@@ -132,35 +143,13 @@ export default function NuevaVentaPage() {
   // ── Estado global ──────────────────────────────────────────────────────────
   const [productos, setProductos]   = useState<Producto[]>([]);
   const [items, setItems]           = useState<LineaVenta[]>([]);
-  // ── Lotes por producto ────────────────────────────────────────────────────
-  // Cache local de lotes activos por producto_id (se carga on-demand cuando
-  // agregás al carrito un producto con controla_lote=true). Guardamos también
-  // el lote_id seleccionado por línea del carrito (index -> lote_id).
-  //
-  // TODO(backend): actualmente el POST /api/ventas no descuenta stock de un
-  // lote específico. Cuando implementemos ese descuento server-side, el
-  // `lote_id` que enviamos por línea se usará para decrementar
-  // producto_lotes.cantidad y marcar activo=false cuando llegue a 0.
-  type LoteActivo = { id: string; numero_lote: string; fecha_vencimiento: string; cantidad: number };
-  const [lotesPorProducto, setLotesPorProducto] = useState<
-    Record<string, LoteActivo[]>
-  >({});
-  const [loteIdPorLinea, setLoteIdPorLinea] = useState<Record<number, string>>({});
   const [errorLinea, setErrorLinea] = useState<string | null>(null);
   const [errorVenta, setErrorVenta] = useState<string | null>(null);
   // Venta sin stock: faltantes devueltos por el backend + modal de confirmación.
   const [faltantes, setFaltantes] = useState<FaltanteStock[]>([]);
   const [confirmSinStockOpen, setConfirmSinStockOpen] = useState(false);
   // Panel post-venta: tras confirmar, ofrece abrir ticket y (si aplica) nota de remisión.
-  const [postVenta, setPostVenta] = useState<{
-    id: string;
-    numero: string;
-    generaNota: boolean;
-    credito: boolean;
-    facturaId?: string | null;
-    numeroFactura?: string | null;
-    facturaWarning?: string | null;
-  } | null>(null);
+  const [postVenta, setPostVenta] = useState<{ id: string; numero: string; generaNota: boolean; credito: boolean } | null>(null);
   // Guard anti doble-submit: estado para UI (botón/spinner) + ref para bloqueo síncrono
   // inmediato (React puede tardar en aplicar el estado; el ref corta el segundo disparo ya).
   const [guardando, setGuardando] = useState(false);
@@ -169,38 +158,15 @@ export default function NuevaVentaPage() {
   // Facturación de un pedido enviado a Caja (?pedido_id=...). Precarga items + cliente.
   const [pedidoId, setPedidoId] = useState<string | null>(null);
   const [pedidoNumero, setPedidoNumero] = useState<string | null>(null);
+  // Pedido del modulo Consulta (?pedido_caja_id=...). Flujo paralelo,
+  // independiente del legacy proyectos.
+  const [pedidoCajaId, setPedidoCajaId] = useState<string | null>(null);
+  const [pedidoCajaTitulo, setPedidoCajaTitulo] = useState<string | null>(null);
 
-  // ── Modo consignación ─────────────────────────────────────────────────────
-  // Cuando la Caja se abre con ?consig_id=... (desde Consignaciones), la página
-  // deja de comportarse como POS y pasa a un formulario chico de "facturación
-  // de consignación": UNA sola línea con concepto libre (producto_id=null),
-  // sin catálogo de productos ni descuento de stock. La venta se crea contra
-  // /api/ventas/create-consignacion y luego se linkea la consignación con
-  // PATCH /api/consignaciones/{id}. Ver CAMBIOS.md.
-  type ConsigParams = {
-    id: string;
-    numero: string;
-    descripcion: string;
-    clienteId: string | null;
-    clienteNombre: string;
-    clienteRuc: string;
-    monto: number;
-  };
-  const [consigParams, setConsigParams] = useState<ConsigParams | null>(null);
-  // Campos editables del formulario de consignación (se inicializan con los
-  // valores del querystring pero el cajero puede corregirlos antes de facturar).
-  const [consigForm, setConsigForm] = useState<{
-    descripcion: string;
-    clienteNombre: string;
-    clienteRuc: string;
-    monto: string;
-    tipoIva: TipoIvaVenta;
-    moneda: MonedaVenta;
-    tipoCambio: string;
-  } | null>(null);
-  const [consigGuardando, setConsigGuardando] = useState(false);
-  const [consigError, setConsigError] = useState<string | null>(null);
-  const [consigDone, setConsigDone] = useState<{ id: string; numero: string } | null>(null);
+  // ── Caja activa (múltiples cajas) ─────────────────────────────────────────
+  // La venta se asocia a la caja abierta activa del cajero. Si hay varias, elige.
+  const [cajasAbiertas, setCajasAbiertas] = useState<{ id: string; numero_caja: number }[]>([]);
+  const [cajaActivaId, setCajaActivaId] = useState<string>("");
 
   // ── Condiciones de la venta ───────────────────────────────────────────────
   // Instancia dedicada: siempre Guaraníes.
@@ -209,30 +175,56 @@ export default function NuevaVentaPage() {
   // Contado / Crédito (campos ya existentes en `ventas`: tipo_venta + plazo_dias).
   const [tipoVenta, setTipoVenta] = useState<TipoVenta>("CONTADO");
   const [plazoDias, setPlazoDias] = useState("");
-  /**
-   * Tipo de documento a emitir:
-   *  - "factura": puente venta→factura activo → tras confirmar, redirect a
-   *    /facturas/[id]?auto=1 (arranca pipeline SIFEN).
-   *  - "ticket": NO emite factura ERP. Se registra la venta y se imprime el
-   *    ticket comanda; queda un modal post-venta con acciones opcionales.
-   * Default "factura" para no cambiar el comportamiento existente por accidente.
-   */
-  const [tipoDocumento, setTipoDocumento] = useState<"factura" | "ticket">("factura");
+
+  // Tipo de documento a emitir. Solo relevante si la empresa está en modo 'sifen':
+  //  - "factura": activa el puente venta→factura. Al confirmar, redirige a
+  //    /facturas/[id]?auto=1 (arranca el pipeline SIFEN).
+  //  - "ticket": registra la venta e imprime el comprobante, sin factura ERP.
+  // Default "ticket" para NO cambiar el comportamiento actual por accidente.
+  const [tipoDocumento, setTipoDocumento] = useState<"factura" | "ticket">("ticket");
+  // La empresa emite factura electrónica (modo 'sifen'). Se resuelve al montar;
+  // si es false, el selector de documento ni se muestra (flujo actual intacto).
+  const [modoSifen, setModoSifen] = useState(false);
 
   // Cliente (opcional). Si se selecciona, se envía cliente_id al crear la venta.
-  type ClienteLite = { id: string; label: string; nombre_comercial: string | null; ruc: string | null; usa_nota_remision: boolean; nivel_precio: "minorista" | "mayorista" | "distribuidor"; metodo_pago_preferido: MetodoPago | null; condicion_pago: string | null; inactivo: boolean };
+  type ClienteLite = { id: string; label: string; ruc: string | null; telefono: string | null; usa_nota_remision: boolean };
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [clienteQuery, setClienteQuery] = useState("");
-  const [modalNuevoCliente, setModalNuevoCliente] = useState(false);
   const [clienteOpen, setClienteOpen] = useState(false);
   const clienteContainerRef = useRef<HTMLDivElement>(null);
   // Nota de remisión: activada si el cliente la usa; toggle manual solo con cliente.
   const [generaNotaRemision, setGeneraNotaRemision] = useState(false);
 
+  // Modal de alta rápida de cliente (crea en el módulo Clientes + lo selecciona).
+  const [showCrearCliente, setShowCrearCliente] = useState(false);
+
+  function handleClienteCreado(c: ClienteCreado) {
+    const lite: ClienteLite = { ...c, telefono: null };
+    setClientes((prev) => [lite, ...prev.filter((x) => x.id !== c.id)]);
+    setClienteId(c.id);
+    setClienteQuery("");
+    setGeneraNotaRemision(c.usa_nota_remision);
+    setShowCrearCliente(false);
+  }
+
   // ── Cobro (solo CONTADO, no se persiste — solo ayuda al cajero) ───────────
   const [montoRecibido, setMontoRecibido] = useState("");
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("efectivo");
+
+  // ── Pago mixto (contado con varios metodos) ───────────────────────────────
+  type PagoMixtoLinea = {
+    metodo: "efectivo" | "transferencia" | "tarjeta";
+    monto: string;
+    entidad_id: string;
+    referencia: string;
+    titular: string;
+  };
+  const [pagoMixto, setPagoMixto] = useState(false);
+  const [pagosMixto, setPagosMixto] = useState<PagoMixtoLinea[]>([
+    { metodo: "efectivo", monto: "", entidad_id: "", referencia: "", titular: "" },
+    { metodo: "transferencia", monto: "", entidad_id: "", referencia: "", titular: "" },
+  ]);
 
   // ── Detalle de cobro (conciliación bancaria) ──────────────────────────────
   const [entidades, setEntidades] = useState<{ id: string; codigo: string | null; nombre: string; tipo: string | null }[]>([]);
@@ -244,19 +236,17 @@ export default function NuevaVentaPage() {
   const [cobroModalOpen, setCobroModalOpen] = useState(false);
   const [entidadQuery, setEntidadQuery] = useState("");
 
-  // ── Línea en construcción ─────────────────────────────────────────────────
-  const [lineaProdId, setLineaProdId] = useState("");
-  const [lineaCant,   setLineaCant]   = useState("");
-  const [lineaPrecio, setLineaPrecio] = useState("");
-  const [lineaIva,    setLineaIva]    = useState<TipoIvaVenta>("10%");
-  const [lineaTipoPrecio, setLineaTipoPrecio] = useState<TipoPrecioVenta>("minorista");
-
-  // ── Combobox de producto ───────────────────────────────────────────────────
+  // ── Combobox de producto (búsqueda server-side por tokens sobre todo el catálogo) ──
   const [comboQuery,     setComboQuery]     = useState("");
   const [comboOpen,      setComboOpen]      = useState(false);
   const [comboHighlight, setComboHighlight] = useState(-1);
+  const [comboHits,      setComboHits]      = useState<Producto[]>([]);
+  const [comboBuscando,  setComboBuscando]  = useState(false);
+  const [comboCategoriaId, setComboCategoriaId] = useState<string>("");
+  const [categorias,     setCategorias]     = useState<{ id: string; nombre: string }[]>([]);
   const comboInputRef    = useRef<HTMLInputElement>(null);
   const comboContainerRef = useRef<HTMLDivElement>(null);
+  const comboTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Modal buscador (F3) ────────────────────────────────────────────────────
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -266,7 +256,6 @@ export default function NuevaVentaPage() {
       id: p.id,
       nombre: p.nombre,
       sku: p.sku,
-      tipo_iva: p.tipo_iva,
       precio_venta: p.precio_venta,
       precio_mayorista: p.precio_mayorista ?? null,
       precio_distribuidor: p.precio_distribuidor ?? null,
@@ -282,20 +271,19 @@ export default function NuevaVentaPage() {
     };
   }
 
-  function handleSelectFromPicker(p: ProductoPickerItem) {
-    const prod = pickerToProducto(p);
-    setProductos((prev) => (prev.find((x) => x.id === prod.id) ? prev : [...prev, prod]));
-    seleccionarProducto(prod);
-    setPickerOpen(false);
-  }
-
   /**
    * Agregado directo desde el modal: arma la LineaVenta usando la misma
    * logica que handleAgregarLinea pero con datos del modal, sin pasar
    * por el form inline. Mantiene el modal abierto si todo OK.
    */
   function handleAgregarDesdePicker(payload: AgregarVentaPayload): boolean {
-    const { producto: p, cantidad, precio_input, iva, tipo_precio } = payload;
+    const {
+      producto: p,
+      cantidad,
+      precio_input,
+      iva,
+      tipo_precio,
+    } = payload;
     const precioPyg = precio_input;
     // Verificar stock vs lo ya cargado SOLO si el producto controla stock.
     // Venta sin stock (Fase 5): NO se bloquea por falta de stock al agregar; la
@@ -311,7 +299,6 @@ export default function NuevaVentaPage() {
     const prodLocal = pickerToProducto(p);
     setProductos((prev) => (prev.find((x) => x.id === prodLocal.id) ? prev : [...prev, prodLocal]));
 
-    const nuevoIdx = items.length;
     setItems((prev) => [
       ...prev,
       {
@@ -328,11 +315,6 @@ export default function NuevaVentaPage() {
         total_linea: totalLinea,
       },
     ]);
-    // Disparar carga de lotes en background. Antes solo lo hacía handleAgregarLinea
-    // (form inline); cuando Jaz agregaba desde el modal buscador el fetch no salía
-    // y el "cuadrito amarillo" mostraba "Sin lotes disponibles" aunque el producto
-    // tuviera lotes activos.
-    void ensureLotesLoaded(p.id, nuevoIdx);
     setErrorVenta(null);
     return true;
   }
@@ -345,46 +327,25 @@ export default function NuevaVentaPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Parsear el querystring de consignación al montar. Si vino ?consig_id=,
-  // se congela el estado (no lo tocan otros efectos) y el render usa el
-  // formulario de consignación en vez del POS.
+  // Modo de facturación de la empresa. Si es 'sifen', mostramos el selector
+  // Factura|Ticket y por defecto proponemos "Factura". En cualquier otro modo,
+  // el selector no se muestra y la venta sigue el flujo de ticket actual.
   useEffect(() => {
-    let cid: string | null = null;
-    let params: URLSearchParams | null = null;
-    try {
-      params = new URLSearchParams(window.location.search);
-      cid = params.get("consig_id");
-    } catch {
-      cid = null;
-    }
-    if (!cid || !params) return;
-    const numero = params.get("consig_numero") ?? "";
-    const descripcion = params.get("descripcion") ?? "";
-    const clienteId = params.get("cliente_id");
-    const clienteNombre = params.get("cliente_nombre") ?? "";
-    const clienteRuc = params.get("cliente_ruc") ?? "";
-    const montoRaw = params.get("monto") ?? "0";
-    const monto = Number(montoRaw) || 0;
-    const parsed: ConsigParams = {
-      id: cid,
-      numero,
-      descripcion,
-      clienteId: clienteId && clienteId.trim() ? clienteId : null,
-      clienteNombre,
-      clienteRuc,
-      monto,
-    };
-    setConsigParams(parsed);
-    setConsigForm({
-      descripcion,
-      clienteNombre,
-      clienteRuc,
-      monto: monto > 0 ? String(Math.round(monto)) : "",
-      tipoIva: "10%",
-      moneda: "GS",
-      tipoCambio: "",
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchWithSupabaseSession("/api/configuracion/facturacion-modo", { cache: "no-store" });
+        const json = (await res.json()) as { success?: boolean; data?: { facturacion_modo?: { modo?: string } } };
+        const esSifen = res.ok && json.success === true && json.data?.facturacion_modo?.modo === "sifen";
+        if (!cancelled && esSifen) {
+          setModoSifen(true);
+          setTipoDocumento("factura");
+        }
+      } catch {
+        /* best-effort: si falla, queda en modo ticket (comportamiento actual). */
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Presupuesto asociado (?presupuesto_id=...) — se marca convertido al confirmar la venta.
@@ -432,6 +393,8 @@ export default function NuevaVentaPage() {
           });
         if (!cancelled && lineas.length) setItems(lineas);
         if (!cancelled && presu.cliente_id) setClienteId(String(presu.cliente_id));
+        // Nombre del cliente en el input (aunque el id no venga en la primer pagina de /api/clientes,
+        // o aunque el presupuesto se haya guardado con nombre libre sin id).
         if (!cancelled && typeof presu.cliente_nombre === "string" && presu.cliente_nombre.trim()) {
           setClienteQuery(presu.cliente_nombre.trim());
         }
@@ -452,19 +415,9 @@ export default function NuevaVentaPage() {
     setPedidoId(pid);
     (async () => {
       try {
-        const [res, prodList] = await Promise.all([
-          fetch(`/api/proyectos/${pid}`, { credentials: "include", cache: "no-store" }),
-          getProductos().catch(() => [] as Producto[]),
-        ]);
+        const res = await fetch(`/api/proyectos/${pid}`, { credentials: "include", cache: "no-store" });
         const j = await res.json();
         if (cancelled || !j?.success || !j.data?.proyecto) return;
-        // El pedido en caja NO guarda el IVA por ítem (brief_data.items solo trae
-        // producto_id/cantidad/precio). Recuperamos el tipo_iva REAL de cada
-        // producto para no forzar 10% al facturar (bug: productos 5%/exenta como
-        // sésamo/girasol se facturaban al 10%).
-        const ivaPorProducto = new Map<string, TipoIvaVenta>(
-          prodList.map((prod): [string, TipoIvaVenta] => [String(prod.id), (prod.tipo_iva ?? "10%") as TipoIvaVenta])
-        );
         const p = j.data.proyecto as { brief_data?: unknown; cliente_id?: string | null; metadata?: unknown };
         const brief = (p.brief_data && typeof p.brief_data === "object" && !Array.isArray(p.brief_data))
           ? (p.brief_data as Record<string, unknown>) : {};
@@ -481,13 +434,7 @@ export default function NuevaVentaPage() {
           .map((it) => {
             const cantidad = Number(it.cantidad) || 0;
             const precio = Number(it.precio_venta) || 0;
-            // Prioriza el IVA guardado en el ítem si existiera; si no, el del
-            // producto (fuente de verdad). Solo cae a 10% si no hay dato alguno.
-            const ivaGuardado = it.iva_tipo ?? it.tipo_iva;
-            const iva: TipoIvaVenta =
-              ivaGuardado === "EXENTA" || ivaGuardado === "5%" || ivaGuardado === "10%"
-                ? ivaGuardado
-                : ivaPorProducto.get(String(it.producto_id)) ?? "10%";
+            const iva: TipoIvaVenta = "10%";
             // IVA incluido: total de línea = precio × cantidad; IVA desglosado desde adentro.
             const totalLinea = cantidad * precio;
             const montoIva = calcIva(iva, totalLinea);
@@ -500,10 +447,7 @@ export default function NuevaVentaPage() {
               precio_venta_original: precio,
               precio_venta: precio,
               tipo_iva: iva,
-              tipo_precio: ((): TipoPrecioVenta => {
-                const t = typeof it.tipo_precio === "string" ? it.tipo_precio : "";
-                return t === "mayorista" || t === "distribuidor" || t === "costo" ? t as TipoPrecioVenta : "minorista";
-              })(),
+              tipo_precio: "minorista" as TipoPrecioVenta,
               subtotal,
               monto_iva: montoIva,
               total_linea: totalLinea,
@@ -511,42 +455,82 @@ export default function NuevaVentaPage() {
           });
         if (!cancelled && lineas.length) setItems(lineas);
         if (!cancelled && p.cliente_id) setClienteId(String(p.cliente_id));
+        const nombreLibre = typeof brief.cliente_nombre === "string" ? brief.cliente_nombre : "";
+        if (!cancelled && nombreLibre.trim()) setClienteQuery(nombreLibre.trim());
       } catch { /* el aviso seguirá visible; el cajero puede cargar manualmente */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  // ── Caja activa ───────────────────────────────────────────────────────────
-  // La venta se imputa al turno de caja abierto. Si hay varios, el cajero elige.
-  const [cajasAbiertas, setCajasAbiertas] = useState<{ id: string; numero_caja: number }[]>([]);
-  const [cajaActivaId, setCajaActivaId] = useState<string>("");
-
+  // Precarga al cobrar un pedido del modulo Consulta (?pedido_caja_id=...):
+  // trae el pedido y carga sus items + cliente en el carrito.
   useEffect(() => {
-    let cancel = false;
+    let cancelled = false;
+    let pid: string | null = null;
+    try {
+      pid = new URLSearchParams(window.location.search).get("pedido_caja_id");
+    } catch { pid = null; }
+    if (!pid) return;
+    setPedidoCajaId(pid);
     (async () => {
       try {
-        const res = await fetchWithSupabaseSession("/api/caja/estado", { cache: "no-store" });
+        const res = await fetch(`/api/pedidos-caja/${pid}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
         const j = await res.json();
-        const list = ((j?.data?.cajas ?? []) as Array<{ caja: { id: string; numero_caja: number; estado: string } }>)
-          .map((r) => r.caja)
-          .filter((c) => c.estado === "abierta")
-          .map((c) => ({ id: String(c.id), numero_caja: Number(c.numero_caja) || 1 }));
-        if (cancel) return;
-        setCajasAbiertas(list);
-        // Preferir la guardada; si no sigue abierta, tomar la única que haya.
-        let activa = "";
-        try { activa = localStorage.getItem("caja_activa_id") ?? ""; } catch { activa = ""; }
-        if (!list.some((c) => c.id === activa)) activa = list.length === 1 ? list[0].id : "";
-        setCajaActivaId(activa);
-      } catch { /* el server valida la caja igual */ }
+        if (cancelled || !j?.success || !j.data?.pedido) return;
+        const p = j.data.pedido as {
+          titulo: string;
+          cliente_id?: string | null;
+          cliente_nombre?: string | null;
+          items: Array<{
+            producto_id: string;
+            producto_nombre: string;
+            sku: string | null;
+            cantidad: number;
+            precio_venta: number;
+            tipo_precio?: "minorista" | "mayorista" | "distribuidor";
+            tipo_iva?: "EXENTA" | "5%" | "10%";
+          }>;
+        };
+        setPedidoCajaTitulo(p.titulo);
+        const lineas: LineaVenta[] = (p.items ?? [])
+          .filter((it) => it.producto_id && (Number(it.cantidad) || 0) > 0)
+          .map((it) => {
+            const cantidad = Number(it.cantidad) || 0;
+            const precio = Number(it.precio_venta) || 0;
+            // IVA del pedido si vino; default 10% para items legacy.
+            const iva: TipoIvaVenta =
+              it.tipo_iva === "EXENTA" || it.tipo_iva === "5%" || it.tipo_iva === "10%"
+                ? it.tipo_iva
+                : "10%";
+            const totalLinea = cantidad * precio;
+            const montoIva = calcIva(iva, totalLinea);
+            const subtotal = totalLinea - montoIva;
+            return {
+              producto_id: String(it.producto_id),
+              producto_nombre: it.producto_nombre,
+              sku: it.sku ?? "",
+              cantidad,
+              precio_venta_original: precio,
+              precio_venta: precio,
+              tipo_iva: iva,
+              tipo_precio: (it.tipo_precio ?? "minorista") as TipoPrecioVenta,
+              subtotal,
+              monto_iva: montoIva,
+              total_linea: totalLinea,
+            };
+          });
+        if (!cancelled && lineas.length) setItems(lineas);
+        if (!cancelled && p.cliente_id) setClienteId(String(p.cliente_id));
+        if (!cancelled && p.cliente_nombre && p.cliente_nombre.trim()) {
+          setClienteQuery(p.cliente_nombre.trim());
+        }
+      } catch { /* fallback: el cajero carga manualmente */ }
     })();
-    return () => { cancel = true; };
+    return () => { cancelled = true; };
   }, []);
-
-  // Recordar la caja elegida por navegador del cajero.
-  useEffect(() => {
-    try { if (cajaActivaId) localStorage.setItem("caja_activa_id", cajaActivaId); } catch { /* noop */ }
-  }, [cajaActivaId]);
 
   // Cargar entidades bancarias (caja/banco/tarjeta/billetera) para el detalle de cobro.
   useEffect(() => {
@@ -559,147 +543,131 @@ export default function NuevaVentaPage() {
   }, []);
 
   // Cargar clientes (buscador opcional de cliente en la venta).
-  // Se recarga al montar Y cada vez que la ventana recupera el foco — así, si el
-  // usuario abrió "Cargar nuevo cliente" en otra pestaña y volvió, el nuevo
-  // cliente aparece en el buscador sin refrescar la página.
-  const fetchClientes = useCallback(async () => {
-    try {
-      const r = await fetch("/api/clientes", { credentials: "include", cache: "no-store" });
-      const j = await r.json();
-      if (!j?.success || !Array.isArray(j.data)) return;
-      const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-      const lite: ClienteLite[] = (j.data as Record<string, unknown>[]).map((row) => ({
-        id: String(row.id),
-        label: s(row.empresa) || s(row.nombre_contacto) || s(row.nombre) || "Cliente",
-        nombre_comercial: s(row.nombre_comercial) || null,
-        ruc: s(row.ruc) || null,
-        usa_nota_remision: row.usa_nota_remision === true,
-        nivel_precio: (row.nivel_precio === "mayorista" || row.nivel_precio === "distribuidor" ? row.nivel_precio : "minorista") as "minorista" | "mayorista" | "distribuidor",
-        metodo_pago_preferido:
-          row.metodo_pago_preferido === "efectivo" ||
-          row.metodo_pago_preferido === "transferencia" ||
-          row.metodo_pago_preferido === "tarjeta" ||
-          row.metodo_pago_preferido === "cheque"
-            ? (row.metodo_pago_preferido as MetodoPago)
-            : null,
-        condicion_pago: s(row.condicion_pago) || null,
-        inactivo: String(row.estado ?? "activo").toLowerCase() === "inactivo",
-      }));
-      setClientes(lite);
-    } catch {
-      /* el buscador de cliente es opcional, no bloquea la venta */
-    }
-  }, []);
   useEffect(() => {
     let cancelled = false;
-    void fetchClientes();
-    const onFocus = () => { if (!cancelled) void fetchClientes(); };
-    window.addEventListener("focus", onFocus);
-    return () => { cancelled = true; window.removeEventListener("focus", onFocus); };
-  }, []);
-
-  // Cuando cambia el cliente (se elige, se cambia o se quita), recalcular el
-  // precio de los items ya cargados. Con cliente que tiene categoría y precio
-  // cargado → aplica ese precio. Sin cliente o sin match → vuelve al precio
-  // base del producto (precio_venta del catálogo).
-  useEffect(() => {
-    if (items.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const updates = await Promise.all(
-        items.map(async (linea) => {
-          // Base del producto (fallback si no hay categoría o no hay cliente)
-          const prod = productos.find((x) => x.id === linea.producto_id);
-          const precioBase = prod ? Number(prod.precio_venta) || 0 : linea.precio_venta;
-          if (!clienteId) return { producto_id: linea.producto_id, precio: precioBase, categoria: null as string | null };
-          try {
-            const r = await fetch(
-              `/api/productos/${linea.producto_id}/precio-para-cliente?cliente_id=${encodeURIComponent(clienteId)}`,
-              { cache: "no-store", credentials: "include" }
-            );
-            const j = await r.json();
-            if (r.ok && j.success) {
-              const precio = Number(j.data?.precio);
-              const categoria = j.data?.fuente === "categoria" ? (j.data?.categoria_nombre as string | null) ?? null : null;
-              if (Number.isFinite(precio) && precio > 0) {
-                return { producto_id: linea.producto_id, precio, categoria };
-              }
-            }
-          } catch { /* silencioso */ }
-          return { producto_id: linea.producto_id, precio: precioBase, categoria: null as string | null };
-        })
-      );
-      if (cancelled) return;
-      setItems((prev) =>
-        prev.map((linea) => {
-          const u = updates.find((x) => x && x.producto_id === linea.producto_id);
-          if (!u) return linea;
-          if (u.precio === linea.precio_venta && (linea.categoria_aplicada ?? null) === u.categoria) return linea;
-          const totalLinea = linea.cantidad * u.precio;
-          const montoIva = calcIva(linea.tipo_iva, totalLinea);
-          return {
-            ...linea,
-            precio_venta: u.precio,
-            precio_venta_original: u.precio,
-            total_linea: totalLinea,
-            monto_iva: montoIva,
-            subtotal: totalLinea - montoIva,
-            categoria_aplicada: u.categoria,
-          };
-        })
-      );
-    })();
+    fetch("/api/clientes", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.success || !Array.isArray(j.data)) return;
+        const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+        const lite: ClienteLite[] = (j.data as Record<string, unknown>[]).map((r) => ({
+          id: String(r.id),
+          label: s(r.empresa) || s(r.nombre_contacto) || s(r.nombre) || "Cliente",
+          ruc: s(r.ruc) || null,
+          telefono: s(r.telefono) || null,
+          usa_nota_remision: r.usa_nota_remision === true,
+        }));
+        setClientes(lite);
+      })
+      .catch(() => { /* el buscador de cliente es opcional, no bloquea la venta */ });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clienteId]);
-
-  // Autocompletar el POS cuando se abre desde una consignación (?consig_id=).
-  // Si la consignación viene con clienteId, lo pre-seleccionamos en el picker
-  // apenas la lista de clientes esté cargada. Si no hay clienteId pero sí un
-  // nombre, dejamos ese texto en el buscador para que el cajero elija o cargue.
-  // No pisamos selecciones manuales posteriores (guardamos que ya autocorrió).
-  const consigAutofillDoneRef = useRef(false);
-  useEffect(() => {
-    if (consigAutofillDoneRef.current) return;
-    if (!consigParams) return;
-    if (consigParams.clienteId) {
-      if (clientes.length === 0) return; // esperar a que carguen
-      const match = clientes.find((c) => c.id === consigParams.clienteId);
-      if (match) {
-        setClienteId(match.id);
-        setClienteQuery("");
-        setGeneraNotaRemision(match.usa_nota_remision);
-        consigAutofillDoneRef.current = true;
-        return;
-      }
-      // clienteId vino pero no aparece en la lista (borrado?): caemos al hint por nombre.
-    }
-    if (consigParams.clienteNombre) {
-      setClienteQuery(consigParams.clienteNombre);
-    }
-    consigAutofillDoneRef.current = true;
-  }, [consigParams, clientes]);
-
-  // UX rápida: abrir el buscador de productos al entrar (carrito vacío).
-  // Si el usuario lo cierra, sigue usando el formulario normal (no queda atrapado).
-  // EXCEPCIÓN: al facturar un pedido (?pedido_id=...) NO se auto-abre, porque el
-  // carrito viene precargado; el usuario usa el botón "+ Agregar producto" si quiere más.
-  // Se lee la URL directamente (no el estado pedidoId) para evitar la carrera de montaje.
-  useEffect(() => {
-    let tienePedido = false;
-    let tieneConsig = false;
-    let tienePresupuesto = false;
-    try {
-      const qs = new URLSearchParams(window.location.search);
-      tienePedido = !!qs.get("pedido_id");
-      tieneConsig = !!qs.get("consig_id");
-      tienePresupuesto = !!qs.get("presupuesto_id");
-    } catch { tienePedido = false; tieneConsig = false; tienePresupuesto = false; }
-    // En modo consignación / presupuesto tampoco se auto-abre el buscador
-    // (los items ya vienen precargados).
-    if (!tienePedido && !tieneConsig && !tienePresupuesto) setPickerOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // UX rápida: al entrar, enfocar el autocompletar para empezar a cargar de una
+  // (sin abrir modales). El "Buscador avanzado" (picker) queda a un clic.
+  useEffect(() => {
+    const t = setTimeout(() => comboInputRef.current?.focus(), 120);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Cargar catálogo de categorías una vez (para el dropdown del buscador).
+  useEffect(() => {
+    let cancel = false;
+    fetchWithSupabaseSession("/api/inventario/categorias", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel) return;
+        const rows = ((j?.data?.categorias ?? []) as Record<string, unknown>[]).map((c) => ({
+          id: String(c.id),
+          nombre: String(c.nombre ?? ""),
+        }));
+        setCategorias(rows);
+      })
+      .catch(() => undefined);
+    return () => { cancel = true; };
+  }, []);
+
+  // Autocomplete: búsqueda server-side por tokens (todo el catálogo), con debounce.
+  // Si hay categoría seleccionada, permite listado sin necesitar 2 chars.
+  useEffect(() => {
+    const q = comboQuery.trim();
+    if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+    const hayCategoria = !!comboCategoriaId;
+    if (q.length < 2 && !hayCategoria) { setComboHits([]); setComboBuscando(false); return; }
+    setComboBuscando(true);
+    comboTimerRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams();
+        if (q) params.set("q", q);
+        if (hayCategoria) params.set("categoria_id", comboCategoriaId);
+        params.set("limit", hayCategoria ? "200" : "20");
+        const res = await fetchWithSupabaseSession(
+          `/api/productos/search?${params.toString()}`,
+          { cache: "no-store" }
+        );
+        const j = await res.json();
+        const items = ((j?.data?.items ?? []) as Record<string, unknown>[]).map((p): Producto => ({
+          id: String(p.id),
+          nombre: String(p.nombre ?? ""),
+          sku: String(p.sku ?? ""),
+          costo_promedio: Number(p.costo_promedio) || 0,
+          precio_venta: Number(p.precio_venta) || 0,
+          precio_mayorista: p.precio_mayorista != null ? Number(p.precio_mayorista) : null,
+          precio_distribuidor: p.precio_distribuidor != null ? Number(p.precio_distribuidor) : null,
+          stock_actual: Number(p.stock_actual) || 0,
+          stock_minimo: Number(p.stock_minimo) || 0,
+          unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
+          metodo_valuacion: (typeof p.metodo_valuacion === "string" ? p.metodo_valuacion : "CPP") as MetodoValuacion,
+          es_vendible: p.es_vendible !== false,
+          controla_stock: p.controla_stock !== false,
+          imagen_url: (p.imagen_url as string | null) ?? null,
+          imagen_path: (p.imagen_path as string | null) ?? null,
+        }));
+        setComboHits(items);
+        // Merge a `productos` para que los lookups (tipo de precio, stock) resuelvan.
+        if (items.length > 0) {
+          setProductos((prev) => {
+            const byId = new Map(prev.map((x) => [x.id, x]));
+            for (const it of items) byId.set(it.id, { ...byId.get(it.id), ...it });
+            return [...byId.values()];
+          });
+        }
+      } catch {
+        setComboHits([]);
+      } finally {
+        setComboBuscando(false);
+      }
+    }, 220);
+    return () => { if (comboTimerRef.current) clearTimeout(comboTimerRef.current); };
+  }, [comboQuery, comboCategoriaId]);
+
+  // Cargar cajas abiertas y resolver la caja activa del cajero.
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const res = await fetchWithSupabaseSession("/api/caja/estado", { cache: "no-store" });
+        const j = await res.json();
+        const list = ((j?.data?.cajas ?? []) as Array<{ caja: { id: string; numero_caja: number; estado: string } }>)
+          .map((r) => r.caja)
+          .filter((c) => c.estado === "abierta")
+          .map((c) => ({ id: String(c.id), numero_caja: Number(c.numero_caja) || 1 }));
+        if (cancel) return;
+        setCajasAbiertas(list);
+        // Preferir la guardada; si no está entre las abiertas, tomar la única (si hay una).
+        let activa = "";
+        try { activa = localStorage.getItem("caja_activa_id") ?? ""; } catch { activa = ""; }
+        if (!list.some((c) => c.id === activa)) activa = list.length === 1 ? list[0].id : "";
+        setCajaActivaId(activa);
+      } catch { /* la caja se valida igual en el server */ }
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  // Persistir la caja activa elegida (por navegador del cajero).
+  useEffect(() => {
+    try { if (cajaActivaId) localStorage.setItem("caja_activa_id", cajaActivaId); } catch { /* noop */ }
+  }, [cajaActivaId]);
 
   // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
@@ -725,74 +693,32 @@ export default function NuevaVentaPage() {
   // ── Cálculos ───────────────────────────────────────────────────────────────
   const tipoCambioNum = 1;
 
-  const prodSel     = productos.find((p) => p.id === lineaProdId);
-  const cantNum     = parseInt(lineaCant) || 0;
-  const precioInput = parseFloat(lineaPrecio) || 0;
-  const precioGs    = precioInput;
-
-  const enCarrito = items
-    .filter((i) => i.producto_id === lineaProdId)
-    .reduce((s, i) => s + i.cantidad, 0);
-  const prodSelControlaStock = prodSel ? prodSel.controla_stock !== false : true;
-  const stockDisp = (prodSel?.stock_actual ?? 0) - enCarrito;
-
-  // IVA incluido: el total de la línea es precio × cantidad; el IVA se desglosa
-  // desde adentro y el subtotal (base imponible) = total − IVA.
-  const lineaTotalLinea = cantNum > 0 && precioGs > 0 ? cantNum * precioGs : 0;
-  const lineaMontoIva   = calcIva(lineaIva, lineaTotalLinea);
-  const lineaSubtotal   = lineaTotalLinea - lineaMontoIva;
-
-  // Aviso de stock (no bloquea): si falta stock se permite agregar igual y se pide
-  // confirmación al confirmar la venta (venta sin stock con confirmación, Fase 5).
-  // Productos del Menú (controla_stock=false) no controlan stock.
-  const stockInsuf  = prodSel !== undefined && prodSelControlaStock && cantNum > 0 && cantNum > stockDisp;
-  // Permitimos precio 0 (muestras/regalos): la venta se registra sin factura
-  // electrónica y sale solo como ticket físico.
-  const lineaValida =
-    !!prodSel && cantNum > 0 && precioGs >= 0;
-
   const totalSubtotal = items.reduce((s, i) => s + i.subtotal, 0);
   const totalIva      = items.reduce((s, i) => s + i.monto_iva, 0);
   const totalGeneral  = items.reduce((s, i) => s + i.total_linea, 0);
-  // Condición de venta: si es Crédito, exigir plazo de al menos 1 día.
+
+  // Condición de venta: si es Crédito, exigir plazo de al menos 1 día y un cliente.
   const plazoDiasNum = parseInt(plazoDias) || 0;
-  // Crédito exige cliente seleccionado Y plazo/vencimiento (≥1 día). Genera cuenta por cobrar.
   const creditoValido = tipoVenta === "CONTADO" || (plazoDiasNum >= 1 && !!clienteId);
-  // Cliente obligatorio SOLO si vamos a emitir factura electrónica (SIFEN
-  // requiere receptor) o si es crédito (necesita CxC). Para "Solo ticket" a
-  // consumidor final, la venta puede ir sin cliente.
-  // En modo consignación el endpoint acepta cliente ad-hoc (nombre+RUC del querystring),
-  // no exigimos clienteId aunque sea factura. El nombre queda en observaciones.
-  // La factura electrónica YA NO exige cliente: sin cliente se emite a consumidor
-  // final (receptor Innominado / "Sin Nombre"). Solo la venta a CRÉDITO exige
-  // cliente (hay que saber quién debe).
-  const clienteObligatorio = consigParams ? false : (tipoVenta === "CREDITO");
-  const ventaValida   = consigParams
-    ? creditoValido && (!clienteObligatorio || !!clienteId)
-    : items.length > 0 && creditoValido && (!clienteObligatorio || !!clienteId);
+  // Pago mixto: la suma de los pagos DEBE ser exactamente el total (tolerancia 1 Gs.).
+  const pagoMixtoValido =
+    !pagoMixto ||
+    tipoVenta !== "CONTADO" ||
+    Math.abs(pagosMixto.reduce((s, p) => s + (Number(p.monto) || 0), 0) - totalGeneral) < 1;
+  const ventaValida   = items.length > 0 && creditoValido && pagoMixtoValido;
 
   // Cliente (opcional) — selección + filtrado del buscador.
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null;
   const clientesFiltrados = (clienteQuery.trim() === ""
     ? clientes
-    : clientes.filter((c) => {
-        const q = clienteQuery.toLowerCase();
-        return (
-          c.label.toLowerCase().includes(q) ||
-          (c.ruc ?? "").toLowerCase().includes(q) ||
-          (c.nombre_comercial ?? "").toLowerCase().includes(q)
-        );
-      })
+    : clientes.filter((c) => productoMatchesQuery(clienteQuery, c.label, c.ruc))
   ).slice(0, 50);
 
-  // Cobro: entidad seleccionada + filtrado por código/nombre.
+  // Cobro: entidad seleccionada + filtrado por código/nombre (tokens).
   const entidadSel = entidades.find((e) => e.id === pagoEntidadId) ?? null;
   const entidadesFiltradas = (entidadQuery.trim() === ""
     ? entidades
-    : entidades.filter((e) => {
-        const q = entidadQuery.toLowerCase();
-        return e.nombre.toLowerCase().includes(q) || (e.codigo ?? "").toLowerCase().includes(q);
-      })
+    : entidades.filter((e) => productoMatchesQuery(entidadQuery, e.nombre, e.codigo))
   ).slice(0, 50);
 
   // Vuelto (solo informativo, no se persiste)
@@ -801,45 +727,9 @@ export default function NuevaVentaPage() {
 
   // ── Productos filtrados para el combobox ──────────────────────────────────
   // Solo vendibles (Reventa + Menú). Excluye materia prima / insumos.
-  const productosVendibles = productos.filter((p) => p.es_vendible !== false);
-  const comboFiltrados = comboQuery.trim() === ""
-    ? productosVendibles
-    : productosVendibles.filter((p) => {
-        const q = comboQuery.toLowerCase();
-        return p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-      });
-
-  // ── Selección de un producto desde el combobox ────────────────────────────
-  async function seleccionarProducto(p: Producto) {
-    setLineaProdId(String(p.id));
-    setLineaTipoPrecio("minorista");
-    setLineaPrecio(String(precioPorTipo(p, "minorista")));
-    setLineaCant("1");
-    // IVA real del producto (no forzar 10%: hay productos 5%/exenta).
-    setLineaIva(p.tipo_iva ?? "10%");
-    setComboQuery(`${p.nombre} — ${p.sku}`);
-    setComboOpen(false);
-    setComboHighlight(-1);
-    setErrorLinea(null);
-
-    // Si el cliente tiene categoría configurable y hay un precio cargado para
-    // este producto en esa categoría, sobrescribimos el precio unitario con
-    // ese valor (Peter, reunión 45:00-50:34). Silencioso si no hay match.
-    if (clienteId) {
-      try {
-        const r = await fetch(`/api/productos/${p.id}/precio-para-cliente?cliente_id=${encodeURIComponent(clienteId)}`, {
-          cache: "no-store", credentials: "include",
-        });
-        const j = await r.json();
-        if (r.ok && j.success && j.data?.fuente === "categoria") {
-          const precio = Number(j.data.precio);
-          if (Number.isFinite(precio) && precio > 0) {
-            setLineaPrecio(String(precio));
-          }
-        }
-      } catch { /* silencioso: se queda con el precio del tipo */ }
-    }
-  }
+  // Resultados del autocomplete: vienen del endpoint de búsqueda server-side
+  // (token search sobre TODO el catálogo, no un subconjunto en memoria).
+  const comboResultados = comboHits;
 
   /** Selecciona método de cobro. Efectivo no pide datos; transferencia/tarjeta abren modal. */
   function handleSelectMetodo(m: MetodoPago) {
@@ -856,217 +746,130 @@ export default function NuevaVentaPage() {
     }
   }
 
-  /** Cambia el tipo de precio de la línea en construcción y ajusta el precio unitario. */
-  function handleLineaTipoPrecio(tipo: TipoPrecioVenta) {
-    setLineaTipoPrecio(tipo);
-    if (prodSel) setLineaPrecio(String(precioPorTipo(prodSel, tipo)));
-    setErrorLinea(null);
+  function handleEliminarLinea(index: number) {
+    setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // ── Handlers del combobox ─────────────────────────────────────────────────
-  function handleComboInput(e: React.ChangeEvent<HTMLInputElement>) {
-    setComboQuery(e.target.value);
-    setComboOpen(true);
+  // ── Autocomplete rápido + edición inline ──────────────────────────────────
+  // Recalcula subtotal/IVA/total de una línea (IVA incluido, igual que calcIva).
+  function recomputeLinea(l: LineaVenta): LineaVenta {
+    const total_linea = l.cantidad > 0 && l.precio_venta > 0 ? l.cantidad * l.precio_venta : 0;
+    const monto_iva = calcIva(l.tipo_iva, total_linea);
+    return { ...l, total_linea, monto_iva, subtotal: total_linea - monto_iva };
+  }
+
+  /** Agrega un producto directo desde el autocomplete: si ya está (sin presentación)
+   *  suma +1; si no, crea la línea. Luego limpia el input y devuelve el foco. */
+  function agregarProductoRapido(p: Producto) {
+    const precio = precioPorTipo(p, "minorista");
+    setItems((prev) => {
+      const idx = prev.findIndex((it) => it.producto_id === p.id);
+      if (idx >= 0) {
+        return prev.map((it, i) => (i === idx ? recomputeLinea({ ...it, cantidad: it.cantidad + 1 }) : it));
+      }
+      return [
+        ...prev,
+        recomputeLinea({
+          producto_id: p.id,
+          producto_nombre: p.nombre,
+          sku: p.sku,
+          cantidad: 1,
+          precio_venta_original: precio,
+          precio_venta: precio,
+          tipo_iva: "10%",
+          tipo_precio: "minorista",
+          subtotal: 0,
+          monto_iva: 0,
+          total_linea: 0,
+        }),
+      ];
+    });
+    setComboQuery("");
+    setComboOpen(false);
     setComboHighlight(-1);
-    // Si el usuario borra el texto, limpiar la selección
-    if (e.target.value === "") {
-      setLineaProdId("");
-      setLineaPrecio("");
-      setLineaCant("");
-    }
     setErrorLinea(null);
+    setTimeout(() => comboInputRef.current?.focus(), 0);
   }
 
-  function handleComboKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function updateItemCampo(idx: number, patch: Partial<LineaVenta>) {
+    setItems((prev) => prev.map((it, i) => (i === idx ? recomputeLinea({ ...it, ...patch }) : it)));
+  }
+  function changeCantidadItem(idx: number, delta: number) {
+    setItems((prev) => prev.map((it, i) => (i === idx ? recomputeLinea({ ...it, cantidad: Math.max(1, it.cantidad + delta) }) : it)));
+  }
+  function changeTipoPrecioItem(idx: number, tipo: TipoPrecioVenta) {
+    setItems((prev) =>
+      prev.map((it, i) => {
+        if (i !== idx) return it;
+        const prod = productos.find((p) => p.id === it.producto_id);
+        const precio = prod ? precioPorTipo(prod, tipo) : it.precio_venta;
+        return recomputeLinea({ ...it, tipo_precio: tipo, precio_venta: precio, precio_venta_original: precio });
+      })
+    );
+  }
+
+  /** Teclado del autocomplete: ↑/↓ navega, Enter agrega el resaltado, Esc cierra. */
+  function onComboKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setComboOpen(true);
-      setComboHighlight((h) => Math.min(h + 1, comboFiltrados.length - 1));
+      setComboHighlight((h) => Math.min(h + 1, comboResultados.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setComboHighlight((h) => Math.max(h - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (comboOpen && comboHighlight >= 0 && comboFiltrados[comboHighlight]) {
-        // Seleccionar el ítem destacado del dropdown
-        seleccionarProducto(comboFiltrados[comboHighlight]);
-      } else if (!comboOpen && lineaValida) {
-        // Dropdown cerrado + producto válido → agregar al carrito
-        handleAgregarLinea();
-      }
+      const sel = comboResultados[comboHighlight] ?? comboResultados[0];
+      if (sel) agregarProductoRapido(sel);
     } else if (e.key === "Escape") {
       setComboOpen(false);
       setComboHighlight(-1);
     }
   }
 
-  // Fetch lotes activos de un producto (con caché en memoria). Se llama al
-  // agregar al carrito un producto con controla_lote=true. Autoselecciona el
-  // lote si hay uno solo.
-  async function ensureLotesLoaded(productoId: string, itemIndex: number) {
-    let lista: LoteActivo[] = [];
-    try {
-      const cached = lotesPorProducto[productoId];
-      if (cached !== undefined) {
-        lista = cached;
-      } else {
-        // fetchWithSupabaseSession añade el token de Supabase al Authorization
-        // header — necesario para que getTenantSupabaseFromAuth resuelva la
-        // sesión desde el mismo cliente donde se creó el lote. Con `fetch` raw
-        // solo iban cookies y en algunos flujos volvía [] silenciosamente.
-        const r = await fetchWithSupabaseSession(`/api/productos/${productoId}/lotes`, {
-          cache: "no-store",
-        });
-        const j = await r.json().catch(() => ({}));
-        // Log detallado en consola: si Jaz ve "Sin lotes disponibles" cuando
-        // debería haber, mirando F12 → Console va a ver qué devolvió la API.
-        console.info("[ventas/nueva] /api/productos/%s/lotes →", productoId, {
-          status: r.status,
-          ok: r.ok,
-          success: j?.success,
-          error: j?.error,
-          count: Array.isArray(j?.data?.lotes) ? j.data.lotes.length : "n/a",
-        });
-        lista = (r.ok && j?.success && Array.isArray(j.data?.lotes) ? j.data.lotes : []) as LoteActivo[];
-      }
-    } catch (err) {
-      console.warn("[ventas/nueva] fetch lotes falló", err);
-      lista = [];
-    }
-    // Siempre setear el estado (aunque sea []): así el UI pasa de "Cargando lotes…"
-    // a "Sin lotes disponibles" o al selector, sin quedarse pegado.
-    setLotesPorProducto((prev) => ({ ...prev, [productoId]: lista }));
-    if (lista.length === 1) {
-      setLoteIdPorLinea((prev) => ({ ...prev, [itemIndex]: lista[0].id }));
-    }
-  }
-
-  // ── Agregar línea al carrito ──────────────────────────────────────────────
-  function handleAgregarLinea() {
-    setErrorLinea(null);
-    if (!prodSel)          return setErrorLinea("Seleccioná un producto.");
-    if (cantNum <= 0)      return setErrorLinea("La cantidad debe ser mayor a 0.");
-    // Precio 0 permitido (muestras/regalos): en ese caso la venta NO se factura
-    // electrónicamente, solo genera ticket físico. Se valida en confirmar venta.
-    if (precioGs < 0)      return setErrorLinea("El precio no puede ser negativo.");
-    // Nota: si falta stock NO se bloquea; se confirma al registrar la venta.
-
-    // Si el producto controla lote, disparamos la carga async (no bloquea).
-    // El nuevo item va al final del array — su index será items.length.
-    const nuevoIdx = items.length;
-    // Cargar lotes SIEMPRE: si el producto tiene lotes activos en /api/productos/[id]/lotes,
-    // se muestra el selector; si no, el UI cae solo (return null). Antes solo se cargaban
-    // cuando `controla_lote===true`, pero ese flag no siempre viaja bien al front (productos
-    // creados antes del campo, cache del catálogo, valor NULL en DB). Cargarlos siempre es
-    // idempotente y elimina el bug de "cargué lotes pero no aparece el selector".
-    // Log visible para debug: en F12 → Console debe aparecer.
-    console.log("[ventas/nueva] agregando", { producto_id: prodSel.id, nombre: prodSel.nombre });
-    void ensureLotesLoaded(prodSel.id, nuevoIdx);
-
-    setItems((prev) => [
-      ...prev,
-      {
-        producto_id:           prodSel.id,
-        producto_nombre:       prodSel.nombre,
-        sku:                   prodSel.sku,
-        cantidad:              cantNum,
-        precio_venta_original: precioInput,
-        precio_venta:          precioGs,
-        tipo_iva:              lineaIva,
-        tipo_precio:           lineaTipoPrecio,
-        subtotal:              lineaSubtotal,
-        monto_iva:             lineaMontoIva,
-        total_linea:           lineaTotalLinea,
-      },
-    ]);
-
-    // Limpiar línea y devolver foco al buscador de producto
-    setLineaProdId("");
-    setLineaCant("");
-    setLineaPrecio("");
-    setLineaIva("10%");
-    setLineaTipoPrecio("minorista");
-    setComboQuery("");
-    setComboOpen(false);
-    setTimeout(() => comboInputRef.current?.focus(), 0);
-  }
-
-  /**
-   * Cambia la cantidad de una línea ya cargada al carrito. Recalcula subtotal /
-   * monto_iva / total_linea manteniendo IVA incluido. Rechaza silenciosamente
-   * cantidades inválidas (0, negativas, NaN) — el input las mantiene visualmente
-   * pero no dispara update hasta que el usuario tipee algo válido.
-   */
-  function handleCambiarCantidad(index: number, nuevaCantidad: number) {
-    if (!Number.isFinite(nuevaCantidad) || nuevaCantidad <= 0) return;
-    setItems((prev) =>
-      prev.map((it, i) => {
-        if (i !== index) return it;
-        const totalLinea = nuevaCantidad * it.precio_venta;
-        const montoIva = calcIva(it.tipo_iva, totalLinea);
-        const subtotal = totalLinea - montoIva;
-        return {
-          ...it,
-          cantidad: nuevaCantidad,
-          subtotal,
-          monto_iva: montoIva,
-          total_linea: totalLinea,
-        };
-      })
-    );
-  }
-
-  function handleEliminarLinea(index: number) {
-    setItems((prev) => prev.filter((_, i) => i !== index));
-    // Reindexar loteIdPorLinea: los items > index se corren -1.
-    setLoteIdPorLinea((prev) => {
-      const next: Record<number, string> = {};
-      for (const [k, v] of Object.entries(prev)) {
-        const i = Number(k);
-        if (i === index) continue;
-        next[i > index ? i - 1 : i] = v;
-      }
-      return next;
-    });
-  }
-
-  /** Envía la venta. Con `permitirSinStock=true` autoriza vender aunque falte stock. */
   const cajaActivaFinal = cajaActivaId || (cajasAbiertas.length === 1 ? cajasAbiertas[0].id : "");
 
+  /** Envía la venta. Con `permitirSinStock=true` autoriza vender aunque falte stock. */
   async function enviarVenta(permitirSinStock: boolean) {
+    // Multi-caja: exigir una caja abierta activa antes de registrar la venta.
+    if (cajasAbiertas.length === 0) {
+      setErrorVenta("Debe abrir una caja para registrar la venta. Abrí una caja en la pantalla de Caja.");
+      return;
+    }
+    if (!cajaActivaFinal) {
+      setErrorVenta("Hay varias cajas abiertas: seleccioná la caja activa antes de confirmar.");
+      return;
+    }
     // Guard duro contra doble submit: si ya hay una confirmación en vuelo, cortar
     // inmediatamente. El ref se evalúa de forma síncrona (no espera al re-render de React),
     // así que un segundo click/Enter casi simultáneo no puede disparar otra venta.
     if (isSubmittingRef.current) return;
-    // Sin turno de caja abierto la venta no se puede imputar a ningún arqueo.
-    if (cajasAbiertas.length === 0) {
-      setErrorVenta("Debe abrir una caja para registrar la venta. Abrila desde la pantalla de Caja.");
-      return;
-    }
-    if (!cajaActivaFinal) {
-      setErrorVenta("Hay varias cajas abiertas: elegí en cuál registrar la venta.");
-      return;
-    }
     isSubmittingRef.current = true;
-    // Cliente obligatorio solo en venta a crédito (necesita CxC). La factura
-    // electrónica sin cliente se emite a consumidor final (Innominado).
-    if (clienteObligatorio && !clienteId) {
-      isSubmittingRef.current = false;
-      setErrorVenta("Para venta a crédito tenés que elegir un cliente. Podés cargarlo rápido desde el buscador de arriba.");
-      return;
-    }
     setGuardando(true);
     try {
-      // Enriquecer items con lote_id por línea antes de mandar. El backend de
-      // ventas todavía no descuenta stock por lote (TODO server-side); mandar
-      // el dato ahora deja el contrato listo cuando esa lógica se agregue.
-      const itemsConLote = items.map((it, idx) => {
-        const loteId = loteIdPorLinea[idx];
-        return loteId ? { ...it, lote_id: loteId } : it;
-      }) as typeof items;
+      // El cliente se elige (o se crea con el modal "Crear cliente") antes de
+      // confirmar. Si no hay ninguno, la venta se registra sin cliente.
+      const clienteIdFinal = clienteId;
+
+      // Pago mixto: si esta activo y hay >= 2 lineas con monto, mandamos
+      // el array `pagos` al backend (que ademas marca la venta como 'mixto').
+      const pagosArrayFinal = pagoMixto
+        ? pagosMixto
+            .filter((p) => Number(p.monto) > 0)
+            .map((p) => ({
+              metodo_pago: p.metodo,
+              monto: Number(p.monto),
+              entidad_bancaria_id: p.entidad_id || null,
+              entidad_nombre_snapshot:
+                entidades.find((e) => e.id === p.entidad_id)?.nombre ?? null,
+              referencia: p.referencia.trim() || null,
+              titular: p.metodo === "transferencia" ? p.titular.trim() || null : null,
+            }))
+        : null;
+
       const resultado = await saveVenta(
         {
-          items: itemsConLote,
+          items,
           moneda,
           tipo_cambio:  tipoCambioNum,
           subtotal:     totalSubtotal,
@@ -1074,12 +877,12 @@ export default function NuevaVentaPage() {
           total:        totalGeneral,
           tipo_venta:   tipoVenta,
           plazo_dias:   tipoVenta === "CREDITO" ? plazoDiasNum : undefined,
-          metodo_pago:  metodoPago,
-          cliente_id:   clienteId || null,
-          genera_nota_remision: !!clienteId && generaNotaRemision,
-          caja_id: cajaActivaFinal || null,
-          // Fuerza solo ticket cuando el total es 0 — SIFEN no acepta facturas Gs. 0.
-          emitir_factura: totalGeneral > 0 && tipoDocumento === "factura",
+          metodo_pago:  pagoMixto ? "efectivo" : metodoPago, // el backend lo marca 'mixto' si aplica
+          cliente_id:   clienteIdFinal || null,
+          genera_nota_remision: !!clienteIdFinal && generaNotaRemision,
+          // Puente venta→factura: solo cuando la empresa está en modo 'sifen' y el
+          // cajero eligió "Factura". El backend valida el modo de nuevo.
+          emitir_factura: modoSifen && tipoDocumento === "factura",
         },
         undefined,
         {
@@ -1089,7 +892,12 @@ export default function NuevaVentaPage() {
           titular: metodoPago === "transferencia" ? pagoTitular.trim() || null : null,
           observacion: pagoObservacion.trim() || null,
         },
-        { permitirSinStock, pedidoId }
+        {
+          permitirSinStock,
+          pedidoId,
+          cajaId: cajaActivaFinal,
+          pagos: pagosArrayFinal,
+        }
       );
 
       if (!resultado.success) {
@@ -1103,69 +911,41 @@ export default function NuevaVentaPage() {
         setErrorVenta(resultado.error);
         return;
       }
-      const v = resultado.venta;
-      const generaNota = v.genera_nota_remision === true || !!v.nota_remision_numero;
-
-      // Si esta venta se abrió desde una consignación (?consig_id=), la
-      // marcamos como completada y guardamos el vínculo con la venta creada.
-      // Best-effort: si el PATCH falla, la venta ya está registrada — no
-      // rompemos el flujo, solo lo logueamos.
-      if (consigParams) {
-        try {
-          const patchRes = await fetch(`/api/consignaciones/${consigParams.id}`, {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ estado: "completada", venta_id: v.id }),
-          });
-          if (!patchRes.ok) {
-            console.warn("[consignacion] PATCH falló", patchRes.status);
-          }
-        } catch (err) {
-          console.warn("[consignacion] PATCH error", err);
-        }
-      }
-
-      // Si esta venta se originó desde un presupuesto (?presupuesto_id=),
-      // marcarlo como convertido guardando el venta_id. Best-effort.
-      if (presupuestoId) {
-        try {
-          await fetch(`/api/presupuestos/${presupuestoId}/marcar-convertido`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ venta_id: v.id }),
-          });
-        } catch { /* best-effort */ }
-      }
-
-      // Redirección directa al panel SIFEN con ?auto=1: el panel detecta ese
-      // flag y auto-ejecuta el pipeline (borrador → xml → firmar → enviar)
-      // apenas monta. Al aprobar SET, abre el KUDE en una pestaña nueva para
-      // imprimir. Un solo click del operador dispara toda la cadena legal.
-      //
-      // Solo se dispara si el cajero eligió "Factura" en el toggle. Si eligió
-      // "Ticket", saltamos al fallback (imprime ticket + modal post-venta).
-      if (tipoDocumento === "factura" && resultado.factura?.id) {
+      // Puente venta→factura (SIFEN): si el cajero eligió "Factura" y el backend
+      // creó la factura ERP, saltamos directo al panel /facturas/[id]?auto=1 que
+      // arranca el pipeline SIFEN (borrador → firma → envío → KUDE). Si el puente
+      // no aplicó o falló (resultado.factura null), seguimos el flujo de ticket.
+      if (modoSifen && tipoDocumento === "factura" && resultado.factura?.id) {
         router.push(`/facturas/${resultado.factura.id}?auto=1`);
         return;
       }
 
-      // Fallback: si el puente falló (facturaWarning) o la venta no generó
-      // factura, mantenemos el flujo previo con ticket + nota de remisión.
-      const ticketUrl = `/api/ventas/${v.id}/ticket?mode=comandas&auto=1`;
+      // Documentos de la venta. La nota de remisión se abre además del ticket
+      // SOLO si la venta la genera (cliente con usa_nota_remision o toggle activo).
+      const v = resultado.venta;
+      const generaNota = v.genera_nota_remision === true || !!v.nota_remision_numero;
+      const ticketUrl = `/api/ventas/${v.id}/comprobante-a4`;
       const remisionUrl = `/api/ventas/${v.id}/ticket?tipo=remision&auto=1`;
+
+      // Si esta venta se origino desde un presupuesto, marcar el presupuesto
+      // como convertido (guardando el venta_id como convertido_pedido_id).
+      if (presupuestoId) {
+        try {
+          await fetchWithSupabaseSession(`/api/presupuestos/${presupuestoId}/marcar-convertido`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ venta_id: v.id }),
+          });
+        } catch { /* best-effort: si falla, se puede marcar a mano */ }
+      }
+      // Intento de apertura automática del ticket (popup; el navegador puede
+      // bloquearlo). Si pasa, el cajero puede reimprimirlo desde el listado.
       try { window.open(ticketUrl, "_blank", "noopener"); } catch {}
       if (generaNota) { try { window.open(remisionUrl, "_blank", "noopener"); } catch {} }
-      setPostVenta({
-        id: v.id,
-        numero: v.numero_control,
-        generaNota,
-        credito: tipoVenta === "CREDITO",
-        facturaId: null,
-        numeroFactura: null,
-        facturaWarning: resultado.facturaWarning ?? null,
-      });
+      // Redirige directo al listado de ventas en lugar de mostrar el modal
+      // post-venta. El cajero queda libre para registrar otra venta de
+      // inmediato. El ticket sigue accesible desde el listado.
+      router.push("/ventas");
     } finally {
       // Liberar el guard SIEMPRE: éxito, error o flujo de "confirmar sin stock".
       isSubmittingRef.current = false;
@@ -1173,98 +953,10 @@ export default function NuevaVentaPage() {
     }
   }
 
-  /**
-   * Envía la venta en MODO CONSIGNACIÓN. Independiente de enviarVenta() —
-   * hits /api/ventas/create-consignacion y, si sale bien, PATCHea la
-   * consignación de origen para vincularla con la venta creada.
-   */
-  async function enviarConsignacion(e: React.FormEvent) {
-    e.preventDefault();
-    setConsigError(null);
-    if (!consigParams || !consigForm) return;
-    const monto = Number(consigForm.monto.replace(/\./g, "").replace(",", "."));
-    if (!Number.isFinite(monto) || monto <= 0) {
-      setConsigError("El monto debe ser mayor a 0.");
-      return;
-    }
-    if (!consigForm.descripcion.trim()) {
-      setConsigError("La descripción es obligatoria.");
-      return;
-    }
-    const tipoCambioNum =
-      consigForm.moneda === "USD"
-        ? Number(consigForm.tipoCambio.replace(/\./g, "").replace(",", "."))
-        : 1;
-    if (consigForm.moneda === "USD" && !(tipoCambioNum > 0)) {
-      setConsigError("Ingresá el tipo de cambio (Gs por USD).");
-      return;
-    }
-    if (isSubmittingRef.current) return;
-    isSubmittingRef.current = true;
-    setConsigGuardando(true);
-    try {
-      const res = await fetch("/api/ventas/create-consignacion", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          consig_id: consigParams.id,
-          consig_numero: consigParams.numero,
-          descripcion: consigForm.descripcion.trim(),
-          cliente_id: consigParams.clienteId,
-          cliente_nombre: consigForm.clienteNombre.trim(),
-          cliente_ruc: consigForm.clienteRuc.trim(),
-          total: monto,
-          tipo_iva: consigForm.tipoIva,
-          moneda: consigForm.moneda,
-          tipo_cambio: tipoCambioNum,
-          metodo_pago: "efectivo",
-          tipo_venta: "CONTADO",
-        }),
-      });
-      const j = await res.json();
-      if (!res.ok || !j?.success || !j.data?.venta?.id) {
-        setConsigError(j?.error ?? `No se pudo registrar la venta (${res.status}).`);
-        return;
-      }
-      const ventaId = String(j.data.venta.id);
-      const numeroControl = String(j.data.venta.numero_control ?? "");
-
-      // Best-effort: linkear la consignación con la venta. Si esto falla la
-      // venta ya está creada — se muestra el warning pero no se rompe el flujo.
-      try {
-        const patch = await fetch(`/api/consignaciones/${consigParams.id}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ venta_id: ventaId }),
-        });
-        if (!patch.ok) {
-          console.warn("[consignacion] PATCH falló", patch.status);
-        }
-      } catch (e) {
-        console.warn("[consignacion] PATCH error", e);
-      }
-
-      setConsigDone({ id: ventaId, numero: numeroControl });
-      router.push(`/ventas?created=${ventaId}&numero=${encodeURIComponent(numeroControl)}`);
-    } catch (err) {
-      setConsigError(err instanceof Error ? err.message : "Error de red.");
-    } finally {
-      isSubmittingRef.current = false;
-      setConsigGuardando(false);
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorVenta(null);
     if (!ventaValida) return;
-    if (consigParams) {
-      // Modo consignación: usa endpoint dedicado. No hay stock ni productos.
-      await enviarConsignacion(e);
-      return;
-    }
     await enviarVenta(false);
   }
 
@@ -1276,64 +968,40 @@ export default function NuevaVentaPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  // ── MODO CONSIGNACIÓN ─────────────────────────────────────────────────────
-  // Cuando vino ?consig_id=, se renderiza el POS normal (idéntico) pero con
-  // una card informativa arriba con los datos precargados de la consignación,
-  // y al confirmar la venta se linkea por PATCH. El early-return con el
-  // formulario compacto fue eliminado — el cajero usa el flujo POS completo,
-  // eligiendo cliente/productos/cobro como en cualquier venta.
-
   return (
     <div className="space-y-8">
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-            {consigParams ? "Facturar consignación" : "Nueva venta"}
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Nueva venta</h1>
           <p className="text-gray-600">
-            {consigParams
-              ? "Confirmá el cliente y la condición. La consignación ya trae el concepto y el monto — no requiere productos."
-              : "Agregá productos de reventa o del catálogo. Al confirmar se registra la venta."}
+            Buscá un producto y se agrega al instante. Revisá cantidades y precios en la tabla.
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {cajasAbiertas.length === 0 ? (
-            <a
-              href="/ventas"
-              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-            >
-              ⚠ No hay caja abierta — abrí una caja
-            </a>
-          ) : (
-            <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/[0.06] px-3 py-2">
-              <span className="text-xs font-semibold text-[#3F8E91]">Caja activa</span>
-              {cajasAbiertas.length === 1 ? (
-                <span className="text-sm font-bold text-slate-800">Caja {cajasAbiertas[0].numero_caja}</span>
-              ) : (
-                <select
-                  value={cajaActivaId}
-                  onChange={(e) => setCajaActivaId(e.target.value)}
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
-                >
-                  <option value="">— Elegí caja —</option>
-                  {cajasAbiertas.map((c) => (
-                    <option key={c.id} value={c.id}>Caja {c.numero_caja}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-          {!consigParams && (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0EA5E9] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#0284C7] active:scale-95"
-            >
-              + Agregar producto
-            </button>
-          )}
-        </div>
+        {/* Caja activa (múltiples cajas) */}
+        {cajasAbiertas.length === 0 ? (
+          <a href="/ventas" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">
+            ⚠ No hay caja abierta — abrí una caja
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/[0.06] px-3 py-2">
+            <span className="text-xs font-semibold text-[#3F8E91]">Caja activa</span>
+            {cajasAbiertas.length === 1 ? (
+              <span className="text-sm font-bold text-slate-800">Caja {cajasAbiertas[0].numero_caja}</span>
+            ) : (
+              <select
+                value={cajaActivaId}
+                onChange={(e) => setCajaActivaId(e.target.value)}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
+              >
+                <option value="">— Elegí caja —</option>
+                {cajasAbiertas.map((c) => (
+                  <option key={c.id} value={c.id}>Caja {c.numero_caja}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
       </div>
 
       {pedidoId && (
@@ -1350,68 +1018,26 @@ export default function NuevaVentaPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl">
+      {pedidoCajaId && (
+        <div className="rounded-lg border border-[#4FAEB2]/40 bg-[#4FAEB2]/[0.08] px-4 py-3 text-sm text-slate-700">
+          <span className="font-semibold text-[#3F8E91]">
+            Cobrando pedido de Consulta{pedidoCajaTitulo ? ` (${pedidoCajaTitulo})` : ""}.
+          </span>{" "}
+          Al confirmar, el pedido quedará marcado como facturado. Podés ajustar items, precios y método de pago.
+        </div>
+      )}
 
-        {/* Card informativa de consignación: solo si vino ?consig_id=. Los datos
-            (cliente, monto) ya se precargan abajo; esta card es solo un aviso. */}
-        {consigParams && (
-          <div className="rounded-xl border border-[#4FAEB2]/40 bg-gradient-to-r from-[#4FAEB2]/[0.08] to-amber-50/70 px-4 py-4 sm:px-5 sm:py-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#3F8E91]">
-                  Facturando consignación {consigParams.numero || consigParams.id.slice(0, 8)}
-                </p>
-                {consigParams.descripcion && (
-                  <p className="mt-0.5 text-sm text-slate-700">
-                    {consigParams.descripcion}
-                  </p>
-                )}
-              </div>
-              <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
-                Datos precargados abajo
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-700 sm:grid-cols-2">
-              {consigParams.monto > 0 && (
-                <div>
-                  <span className="text-slate-500">Monto sugerido: </span>
-                  <span className="font-semibold text-slate-800 tabular-nums">
-                    {formatGs(consigParams.monto)}
-                  </span>
-                </div>
-              )}
-              {(consigParams.clienteNombre || consigParams.clienteRuc) && (
-                <div>
-                  <span className="text-slate-500">Cliente sugerido: </span>
-                  <span className="font-medium text-slate-800">
-                    {consigParams.clienteNombre || "—"}
-                    {consigParams.clienteRuc && (
-                      <span className="ml-1 text-slate-500">· RUC {consigParams.clienteRuc}</span>
-                    )}
-                  </span>
-                </div>
-              )}
-            </div>
-            <p className="mt-3 text-[11px] text-slate-500">
-              Cargá los productos y método de cobro como en cualquier venta. Al confirmar,
-              la consignación quedará marcada como completada y vinculada a esta venta.
-            </p>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl">
 
         {/* ── SECCIÓN 0: Datos de la venta (cliente opcional + condición) ────── */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
           <SectionTitle>Datos de la venta</SectionTitle>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-            {/* Cliente — obligatorio si emite factura o si es crédito; opcional para "solo ticket" en efectivo */}
+            {/* Cliente (opcional) */}
             <div ref={clienteContainerRef} className="relative">
               <label className={labelClass}>
-                Cliente {clienteObligatorio ? (
-                  <span className="text-rose-600">*</span>
-                ) : (
-                  <span className="text-slate-400 font-normal">(opcional — sin cliente va a consumidor final)</span>
-                )}
+                Cliente <span className="text-xs font-normal text-gray-400">(opcional)</span>
               </label>
               <div className="flex gap-2">
                 <input
@@ -1432,19 +1058,15 @@ export default function NuevaVentaPage() {
                   </button>
                 )}
               </div>
+              {clienteSel && (clienteSel.ruc || clienteSel.telefono) && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {clienteSel.ruc && <span className="font-medium">RUC {clienteSel.ruc}</span>}
+                  {clienteSel.ruc && clienteSel.telefono && <span className="mx-1.5 text-gray-300">·</span>}
+                  {clienteSel.telefono && <span>Tel {clienteSel.telefono}</span>}
+                </p>
+              )}
               {clienteOpen && !clienteSel && (
                 <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                  {/* Acción al TOPE del dropdown: abre el modal de "nuevo cliente rápido". */}
-                  <button
-                    type="button"
-                    onClick={() => { setClienteOpen(false); setModalNuevoCliente(true); }}
-                    className="flex w-full items-center gap-1.5 border-b border-slate-100 bg-[#4FAEB2]/[0.06] px-3 py-2 text-left text-xs font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/[0.12]"
-                    title="Se abre un mini formulario acá mismo, sin cambiar de página."
-                  >
-                    <span className="text-base leading-none">＋</span>
-                    Cargar nuevo cliente
-                    {clienteQuery.trim() && <span className="ml-1 truncate text-slate-500">«{clienteQuery.trim()}»</span>}
-                  </button>
                   {clientesFiltrados.length === 0 ? (
                     <p className="px-3 py-2 text-xs text-gray-400">Sin clientes que coincidan.</p>
                   ) : (
@@ -1452,56 +1074,20 @@ export default function NuevaVentaPage() {
                       <button
                         key={c.id}
                         type="button"
-                        // Los clientes inactivos se muestran para que se vea que existen,
-                        // pero no se pueden elegir para una venta nueva.
-                        disabled={c.inactivo}
-                        aria-disabled={c.inactivo}
-                        title={c.inactivo ? "Cliente inactivo: no se puede usar en una venta nueva" : undefined}
-                        onClick={() => {
-                          if (c.inactivo) return;
-                          setClienteId(c.id);
-                          setClienteQuery("");
-                          setClienteOpen(false);
-                          setGeneraNotaRemision(c.usa_nota_remision);
-                          // Prefill del método de pago favorito (si el cliente lo tiene).
-                          if (c.metodo_pago_preferido) setMetodoPago(c.metodo_pago_preferido);
-                          // Prefill de condición (Contado/Crédito) y plazo según la
-                          // "Condición de pago" cargada en el cliente.
-                          const cond = condicionPagoAVenta(c.condicion_pago);
-                          if (cond) {
-                            setTipoVenta(cond.tipo);
-                            setPlazoDias(cond.plazo);
-                          }
-                        }}
-                        className={
-                          c.inactivo
-                            ? "block w-full text-left px-3 py-2 text-sm bg-slate-50 cursor-not-allowed opacity-60"
-                            : "block w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
-                        }
+                        onClick={() => { setClienteId(c.id); setClienteQuery(""); setClienteOpen(false); setGeneraNotaRemision(c.usa_nota_remision); }}
+                        className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
                       >
-                        <span className={c.inactivo ? "font-medium text-gray-400" : "font-medium text-gray-800"}>{c.label}</span>
-                        {c.inactivo && <span className="ml-2 text-[10px] rounded-full bg-slate-200 text-slate-500 px-1.5 py-0.5 font-semibold uppercase">Inactivo</span>}
+                        <span className="font-medium text-gray-800">{c.label}</span>
                         {c.ruc && <span className="ml-2 text-xs text-gray-400">RUC {c.ruc}</span>}
-                        {c.usa_nota_remision && !c.inactivo && <span className="ml-2 text-[10px] rounded-full bg-sky-100 text-sky-700 px-1.5 py-0.5 font-semibold">Nota remisión</span>}
-                        {c.nombre_comercial && <span className={c.inactivo ? "block text-xs text-slate-400 mt-0.5" : "block text-xs text-sky-700 font-medium mt-0.5"}>{c.nombre_comercial}</span>}
+                        {c.usa_nota_remision && <span className="ml-2 text-[10px] rounded-full bg-sky-100 text-sky-700 px-1.5 py-0.5 font-semibold">Nota remisión</span>}
                       </button>
                     ))
                   )}
                 </div>
               )}
               <p className="mt-1 text-[11px] text-gray-400">
-                Toda venta emite factura ERP. Si el cliente no existe, cargalo con “＋ Cargar nuevo cliente”.
+                Si no seleccionás cliente, la venta se registra sin cliente.
               </p>
-              {!clienteId && clienteObligatorio && (
-                <p className="mt-1 text-[11px] text-rose-600">
-                  La venta a crédito requiere un cliente seleccionado.
-                </p>
-              )}
-              {!clienteId && !clienteObligatorio && tipoDocumento === "factura" && (
-                <p className="mt-1 text-[11px] text-gray-400">
-                  Sin cliente, la factura se emite a consumidor final (Sin Nombre / Innominado).
-                </p>
-              )}
 
               {/* Nota de remisión: solo con cliente. Si el cliente la usa, viene activada. */}
               {clienteSel && (
@@ -1550,265 +1136,326 @@ export default function NuevaVentaPage() {
                     <p className="mt-1 text-[11px] text-red-600">Ingresá un plazo de al menos 1 día.</p>
                   )}
                   {!clienteId && (
-                    <p className="mt-1 text-[11px] text-red-600">La venta a crédito requiere un cliente seleccionado.</p>
+                    <p className="mt-1 text-[11px] text-red-600">La venta a crédito requiere un cliente: seleccioná uno o creá uno nuevo.</p>
                   )}
                   <p className="mt-1 text-[11px] text-slate-500">Al confirmar se genera una cuenta por cobrar por el total.</p>
                 </div>
               )}
             </div>
 
-            {/* Documento a emitir: Ticket (solo comanda, sin SIFEN) vs Factura (puente a SIFEN).
-                Si el total es 0 (venta de muestras/regalos) se fuerza ticket — SIFEN
-                no acepta facturas con total 0. */}
-            <div>
-              <label className={labelClass}>Documento</label>
-              <SegmentedControl<"ticket" | "factura">
-                value={totalGeneral === 0 ? "ticket" : tipoDocumento}
-                options={[
-                  { value: "factura", label: "Factura electrónica" },
-                  { value: "ticket", label: "Solo ticket" },
-                ]}
-                onChange={(v) => setTipoDocumento(v)}
-                disabled={totalGeneral === 0}
-              />
-              {totalGeneral === 0 ? (
-                <p className="mt-1 text-[11px] text-amber-700">
-                  🎁 Venta con total Gs. 0 (muestra / regalo). Se emite solo ticket, sin factura electrónica.
-                </p>
-              ) : tipoDocumento === "factura" ? (
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Al confirmar, se emite la factura FAC-XXXXXX y arranca el pipeline SIFEN (firma + envío + KUDE).
-                </p>
-              ) : (
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Solo se registra la venta e imprime un ticket comanda. No genera factura ni toca SIFEN. Podés emitir la factura después desde la venta si el cliente la pide.
-                </p>
-              )}
-            </div>
+            {/* Documento a emitir (solo cuando la empresa está en modo SIFEN):
+                Factura electrónica (puente a SIFEN) vs Solo ticket. */}
+            {modoSifen && (
+              <div>
+                <label className={labelClass}>Documento</label>
+                <SegmentedControl<"factura" | "ticket">
+                  value={tipoDocumento}
+                  options={[
+                    { value: "factura", label: "Factura electrónica" },
+                    { value: "ticket", label: "Solo ticket" },
+                  ]}
+                  onChange={(v) => setTipoDocumento(v)}
+                />
+                {tipoDocumento === "factura" ? (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Al confirmar se emite la factura FAC-XXXXXX y arranca el pipeline SIFEN (firma + envío + KUDE).
+                    Requiere un cliente con RUC/razón social.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Solo se registra la venta y se imprime el comprobante. No genera factura electrónica.
+                  </p>
+                )}
+              </div>
+            )}
 
           </div>
+
+          {/* Sin cliente seleccionado: crear uno nuevo (queda en el módulo
+              Clientes y seleccionado en esta venta). */}
+          {!clienteSel && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Cliente</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">
+                  Sin cliente seleccionado. Si es nuevo, creá su ficha (queda en el listado de Clientes).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCrearCliente(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-bold text-white shadow-sm shadow-[#4FAEB2]/30 transition-colors hover:bg-[#3F8E91]"
+              >
+                <Plus className="h-4 w-4" />
+                Crear cliente
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── SECCIÓN 3: Carrito + totales + confirmar ─────────────────────── */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
-          <SectionTitle>
-            {consigParams ? "Concepto a facturar" : "Productos en esta venta"}
-          </SectionTitle>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <SectionTitle>Productos en esta venta</SectionTitle>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#0EA5E9] hover:text-[#0284C7]"
+              title="Buscador avanzado (crear producto)"
+            >
+              Buscador avanzado
+            </button>
+          </div>
 
-          {consigParams ? (
-            <div className="rounded-lg border border-teal-200 bg-teal-50/40 p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-teal-700 mb-1">
-                Consignación {consigParams.numero || consigParams.id.slice(0, 8)}
-              </div>
-              <div className="text-sm text-slate-800 font-medium">
-                {consigParams.descripcion || "(sin descripción)"}
-              </div>
-              <div className="mt-3 border-t border-teal-200 pt-3">
-                {/* Moneda: la consignataria factura en Guaraníes o Dólares. */}
-                <label className="text-xs font-medium text-slate-600 block mb-1">Moneda</label>
-                <div className="inline-flex rounded-lg border border-teal-300 overflow-hidden mb-3">
-                  {(["GS", "USD"] as MonedaVenta[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setConsigForm((f) => (f ? { ...f, moneda: m } : f))}
-                      className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                        consigForm?.moneda === m
-                          ? "bg-teal-600 text-white"
-                          : "bg-white text-slate-600 hover:bg-teal-50"
-                      }`}
-                    >
-                      {m === "GS" ? "Guaraníes" : "Dólares (USD)"}
-                    </button>
-                  ))}
-                </div>
-
-                {consigForm?.moneda === "USD" && (
-                  <div className="mb-3">
-                    <label className="text-xs font-medium text-slate-600 block mb-1">
-                      Tipo de cambio (Gs por 1 USD)
-                    </label>
-                    <MontoInput
-                      value={consigForm?.tipoCambio ?? ""}
-                      onChange={(n) => setConsigForm((f) => (f ? { ...f, tipoCambio: String(n) } : f))}
-                      placeholder="Ej: 7300"
-                      className={inputClass}
-                      decimals={false}
-                    />
-                  </div>
-                )}
-
-                <label className="text-xs font-medium text-slate-600 block mb-1">
-                  Comisión a facturar ({consigForm?.moneda === "USD" ? "USD" : "Gs"}, IVA {consigForm?.tipoIva ?? "10%"} incluido)
-                </label>
-                <MontoInput
-                  value={consigForm?.monto ?? ""}
-                  onChange={(n) => setConsigForm((f) => (f ? { ...f, monto: String(n) } : f))}
-                  placeholder="Monto de la comisión"
-                  className={inputClass}
-                  decimals={false}
+          {/* Autocomplete compacto: al elegir un producto se agrega solo y se limpia. */}
+          <div ref={comboContainerRef} className="relative">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#0EA5E9]" />
+                <input
+                  ref={comboInputRef}
+                  type="text"
+                  value={comboQuery}
+                  onChange={(e) => { setComboQuery(e.target.value); setComboOpen(true); setComboHighlight(-1); }}
+                  onFocus={() => setComboOpen(true)}
+                  onKeyDown={onComboKeyDown}
+                  placeholder="Buscar producto por nombre, SKU o palabras clave…"
+                  className="h-12 w-full rounded-xl border-2 border-[#0EA5E9]/30 bg-white pl-12 pr-4 text-base text-slate-800 outline-none transition-all focus:border-[#0EA5E9] focus:ring-4 focus:ring-[#0EA5E9]/15"
+                  autoComplete="off"
                 />
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Se factura SOLO la comisión de intermediación (sugerida: venta − compra). Editá el monto si hace falta.
-                </p>
               </div>
-              <p className="mt-2 text-[11px] text-slate-500">
-                Esta venta no descuenta inventario. Al confirmar se genera la venta y la consignación queda vinculada.
-              </p>
+              <CategoriaCombo
+                value={comboCategoriaId}
+                options={categorias}
+                onChange={(id) => { setComboCategoriaId(id); setComboOpen(true); setComboHighlight(-1); }}
+              />
             </div>
-          ) : items.length === 0 ? (
-            <div className="py-10 text-center text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-              Todavía no agregaste productos a esta venta.
+            {comboOpen && (comboQuery.trim().length >= 2 || !!comboCategoriaId) && (
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[56vh] overflow-y-auto rounded-xl border-2 border-[#0EA5E9]/20 bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.28)]">
+                {comboBuscando && comboResultados.length === 0 ? (
+                  <div className="px-4 py-5 text-center text-sm text-slate-400">Buscando…</div>
+                ) : comboResultados.length === 0 ? (
+                  <div className="px-4 py-5 text-center text-sm text-slate-400">
+                    {comboQuery
+                      ? `Sin resultados para "${comboQuery}"${comboCategoriaId ? " en esa categoría" : ""}.`
+                      : "No hay productos en esta categoría."}
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {comboResultados.map((p, i) => {
+                      const controla = p.controla_stock !== false;
+                      const sinStock = controla && (p.stock_actual ?? 0) <= 0;
+                      return (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            id={`combo-opt-${i}`}
+                            onMouseEnter={() => setComboHighlight(i)}
+                            onClick={() => agregarProductoRapido(p)}
+                            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${i === comboHighlight ? "bg-[#0EA5E9]/8" : "hover:bg-slate-50"}`}
+                          >
+                            <ProductoThumb url={p.imagen_url} alt={p.nombre} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-800">{p.nombre}</p>
+                              <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                                <span className="font-mono">{p.sku}</span>
+                                <span className="text-slate-300">·</span>
+                                <span className={`font-semibold ${!controla ? "text-slate-400" : sinStock ? "text-red-600" : (p.stock_actual ?? 0) < 5 ? "text-amber-600" : "text-emerald-700"}`}>
+                                  {!controla ? "Sin control" : sinStock ? "Sin stock" : `${p.stock_actual} ${p.unidad_medida ?? ""}`}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="shrink-0 text-sm font-bold tabular-nums text-slate-800">{formatGs(precioPorTipo(p, "minorista"))}</span>
+                            <span className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-[#0EA5E9]/10 px-2.5 py-1 text-xs font-bold text-[#0284C7]">
+                              <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Agregar
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                    {!comboCategoriaId && comboResultados.length >= 20 && (
+                      <li className="px-4 py-2 text-center text-[11px] text-slate-400">
+                        Mostrando los primeros 20. Refiná la búsqueda o elegí una categoría para ver más.
+                      </li>
+                    )}
+                    {comboCategoriaId && comboResultados.length >= 200 && (
+                      <li className="px-4 py-2 text-center text-[11px] text-slate-400">
+                        Mostrando los primeros 200 de la categoría. Escribí para filtrar más.
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {items.length === 0 ? (
+            <div className="mt-4 py-10 text-center text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
+              Buscá un producto arriba y se agrega automáticamente a la venta.
             </div>
           ) : (
             <>
               {/* min-w fuerza scroll horizontal en mobile (9 columnas).
                   Columnas secundarias (SKU, Subtotal, IVA Gs) se ocultan
                   progresivamente: en mobile solo Producto/Cant/Precio/Total/eliminar. */}
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] sm:min-w-0 text-sm text-left">
+              <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full min-w-[900px] text-sm text-left">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-600 text-sm font-semibold">
-                      <th className="py-2.5 pr-3 font-medium">Producto</th>
-                      <th className="hidden py-2.5 pr-3 font-medium lg:table-cell">SKU</th>
-                      <th className="py-2.5 pr-3 font-medium text-right">Cant.</th>
-                      <th className="py-2.5 pr-3 font-medium text-right">Precio unit.</th>
-                      <th className="hidden py-2.5 pr-3 text-center font-medium lg:table-cell">IVA</th>
-                      <th className="py-2.5 pr-3 font-medium text-right hidden lg:table-cell">Subtotal</th>
-                      <th className="py-2.5 pr-3 font-medium text-right hidden lg:table-cell">IVA Gs.</th>
-                      <th className="py-2.5 pr-3 font-medium text-right">Total</th>
-                      <th className="py-2.5 font-medium"></th>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      <th className="px-3 py-3">Producto</th>
+                      <th className="hidden px-3 py-3 md:table-cell">Precio</th>
+                      <th className="hidden px-3 py-3 text-center md:table-cell">IVA</th>
+                      <th className="px-3 py-3 text-center">Cant.</th>
+                      <th className="px-3 py-3 text-right">Precio unit.</th>
+                      <th className="px-3 py-3 text-right">Stock</th>
+                      <th className="px-3 py-3 text-right">Subtotal</th>
+                      <th className="w-10 px-2 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {items.map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
-                        <td className="py-3 pr-3 font-medium text-gray-800">
-                          <span>{item.producto_nombre}</span>
-                          {item.categoria_aplicada ? (
-                            <span
-                              className="ml-2 inline-block rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold align-middle text-teal-700"
-                              title={`Precio de la categoría ${item.categoria_aplicada} del cliente`}
-                            >
-                              {item.categoria_aplicada}
-                            </span>
-                          ) : (
-                            <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold align-middle ${
-                              item.tipo_precio === "mayorista" ? "bg-indigo-100 text-indigo-700"
-                              : item.tipo_precio === "distribuidor" ? "bg-emerald-100 text-emerald-700"
-                              : item.tipo_precio === "costo" ? "bg-amber-100 text-amber-700"
-                              : "bg-slate-100 text-slate-600"
-                            }`}>
-                              {tipoPrecioLabel[item.tipo_precio ?? "minorista"]}
-                            </span>
-                          )}
-                          {/* Dropdown de lote: aparece cuando el producto controla_lote
-                              y tiene lotes activos. Con 1 solo lote se autoselecciona
-                              y no hace falta mostrarlo, pero lo dejamos visible
-                              (disabled) para que el cajero SEPA qué lote va a salir. */}
-                          {(() => {
-                            const lotes = lotesPorProducto[item.producto_id] ?? [];
-                            if (lotes.length === 0) {
-                              return (
-                                <span className="mt-1 inline-flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">
-                                  Sin lotes disponibles
-                                  <button
-                                    type="button"
-                                    onClick={() => void ensureLotesLoaded(item.producto_id, idx)}
-                                    className="text-sky-700 hover:text-sky-900 underline"
-                                    title="Reintentar carga de lotes"
-                                  >
-                                    Reintentar
+                  <tbody className="divide-y divide-slate-100">
+                    {items.map((item, idx) => {
+                      const prod = productos.find((p) => p.id === item.producto_id);
+                      const controla = prod ? prod.controla_stock !== false : true;
+                      const stock = prod?.stock_actual ?? 0;
+                      const stockBajo = controla && item.cantidad > stock;
+                      // Piso del precio de venta = costo de compra del producto. El cajero
+                      // puede bajar el precio, pero nunca por debajo del costo (regla del cliente).
+                      const costoMin = prod?.costo_promedio ?? 0;
+                      return (
+                        <tr key={idx} className="align-middle transition-colors hover:bg-[#0EA5E9]/5">
+                          {/* Producto + SKU */}
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-3">
+                              <ProductoThumb url={prod?.imagen_url} alt={item.producto_nombre} />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-900 leading-snug">{item.producto_nombre}</p>
+                                <p className="font-mono text-[11px] text-slate-500">{item.sku}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {/* Tipo de precio */}
+                          <td className="hidden px-3 py-2.5 md:table-cell">
+                            <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
+                              {(["minorista", "mayorista", "distribuidor"] as const).map((tp) => {
+                                const sel = (item.tipo_precio ?? "minorista") === tp;
+                                return (
+                                  <button key={tp} type="button" onClick={() => changeTipoPrecioItem(idx, tp)}
+                                    className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
+                                    {tp === "minorista" ? "A" : tp === "mayorista" ? "B" : "C"}
                                   </button>
-                                </span>
-                              );
-                            }
-                            return (
-                              <span className="mt-1 block">
-                                <select
-                                  value={loteIdPorLinea[idx] ?? ""}
-                                  onChange={(e) =>
-                                    setLoteIdPorLinea((p) => ({ ...p, [idx]: e.target.value }))
-                                  }
-                                  className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 focus:ring-2 focus:ring-amber-400 outline-none"
-                                  disabled={lotes.length === 1}
-                                  aria-label="Lote"
-                                >
-                                  {lotes.length > 1 && <option value="">— Elegí lote —</option>}
-                                  {lotes.map((lo) => (
-                                    <option key={lo.id} value={lo.id}>
-                                      #{lo.numero_lote} · vence {lo.fecha_vencimiento} · stock {lo.cantidad}
-                                    </option>
-                                  ))}
-                                </select>
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="hidden py-3 pr-3 font-mono text-xs text-gray-500 lg:table-cell">
-                          {item.sku}
-                        </td>
-                        <td className="py-3 pr-3 text-right tabular-nums">
-                          <input
-                            key={`cant-${idx}-${item.cantidad}`}
-                            type="text"
-                            inputMode="decimal"
-                            defaultValue={item.cantidad}
-                            onFocus={(e) => e.target.select()}
-                            onBlur={(e) => {
-                              const raw = e.target.value.replace(",", ".").trim();
-                              const n = Number(raw);
-                              if (Number.isFinite(n) && n > 0) {
-                                handleCambiarCantidad(idx, n);
-                              } else {
-                                e.target.value = String(item.cantidad);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                            }}
-                            className="w-16 rounded border border-slate-200 bg-white px-2 py-1 text-right text-sm tabular-nums text-slate-800 focus:border-[#4FAEB2] focus:outline-none focus:ring-1 focus:ring-[#4FAEB2]"
-                            aria-label={`Cantidad de ${item.producto_nombre}`}
-                          />
-                        </td>
-                        <td className="py-3 pr-3 text-right tabular-nums text-gray-600 text-xs">
-                          {formatGs(item.precio_venta)}
-                        </td>
-                        <td className="hidden py-3 pr-3 text-center lg:table-cell">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-                            {ivaLabel[item.tipo_iva]}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-3 text-right tabular-nums text-gray-600 text-xs hidden lg:table-cell">
-                          {formatGs(item.subtotal)}
-                        </td>
-                        <td className="py-3 pr-3 text-right tabular-nums text-gray-500 text-xs hidden lg:table-cell">
-                          {item.monto_iva > 0 ? formatGs(item.monto_iva) : "—"}
-                        </td>
-                        <td className="py-3 pr-3 text-right tabular-nums font-semibold text-gray-800">
-                          {formatGs(item.total_linea)}
-                        </td>
-                        <td className="py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarLinea(idx)}
-                            className="inline-flex items-center justify-center min-w-[40px] min-h-[40px] text-red-400 hover:text-red-700 transition-colors rounded hover:bg-red-50"
-                            title="Eliminar producto"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                                );
+                              })}
+                            </div>
+                          </td>
+                          {/* IVA */}
+                          <td className="hidden px-3 py-2.5 md:table-cell">
+                            <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
+                              {(["EXENTA", "5%", "10%"] as const).map((iva) => {
+                                const sel = item.tipo_iva === iva;
+                                return (
+                                  <button key={iva} type="button" onClick={() => updateItemCampo(idx, { tipo_iva: iva })}
+                                    className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
+                                    {iva === "EXENTA" ? "Ex" : iva}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          {/* Cantidad */}
+                          <td className="px-3 py-2.5">
+                            <div className="mx-auto flex w-fit items-center rounded-md border border-slate-200 bg-white">
+                              <button type="button" onClick={() => changeCantidadItem(idx, -1)} className="h-8 w-8 rounded-l-md text-slate-500 hover:bg-slate-100"><Minus className="mx-auto h-3.5 w-3.5" /></button>
+                              <input
+                                type="number" min={1} value={item.cantidad}
+                                onChange={(e) => updateItemCampo(idx, { cantidad: Math.max(1, parseInt(e.target.value) || 1) })}
+                                className="h-8 w-12 text-center text-sm tabular-nums outline-none"
+                              />
+                              <button type="button" onClick={() => changeCantidadItem(idx, 1)} className="h-8 w-8 rounded-r-md text-slate-500 hover:bg-slate-100"><Plus className="mx-auto h-3.5 w-3.5" /></button>
+                            </div>
+                          </td>
+                          {/* Precio unitario: editable libremente; el piso es el costo de compra. */}
+                          <td className="px-3 py-2.5 text-right">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={item.precio_venta === 0 ? "" : String(item.precio_venta)}
+                              onChange={(e) => {
+                                // Solo dígitos: se puede editar libremente (subir, bajar, retipear)
+                                // SIN forzar el mínimo en cada tecla.
+                                const soloDigitos = e.target.value.replace(/[^\d]/g, "");
+                                updateItemCampo(idx, { precio_venta: soloDigitos === "" ? 0 : Number(soloDigitos) });
+                              }}
+                              onBlur={() => {
+                                // Al salir del campo se respeta el piso (costo de compra):
+                                // no se puede vender por debajo del costo.
+                                if (costoMin > 0 && item.precio_venta < costoMin) {
+                                  updateItemCampo(idx, { precio_venta: costoMin });
+                                }
+                              }}
+                              className={`h-8 w-28 rounded-md border bg-white px-2 text-right text-sm tabular-nums ${
+                                costoMin > 0 && item.precio_venta < costoMin ? "border-red-300 bg-red-50" : "border-slate-200"
+                              }`}
+                              title={costoMin > 0
+                                ? `Precio mínimo (costo de compra): ${formatGs(costoMin)}. No se puede cobrar por debajo del costo.`
+                                : "Precio unitario"}
+                            />
+                            {costoMin > 0 && item.precio_venta < costoMin && (
+                              <div className="mt-0.5 text-[10px] text-red-600">
+                                Bajo el costo ({formatGs(costoMin)})
+                              </div>
+                            )}
+                            {/* Descuento por línea sobre el precio del nivel elegido (A/B/C) */}
+                            <div className="mt-1 flex justify-end gap-1">
+                              {[0, 3, 5].map((d) => {
+                                const base = item.precio_venta_original || item.precio_venta || 0;
+                                const cur = base > 0 ? Math.round((1 - item.precio_venta / base) * 100) : 0;
+                                const sel = cur === d;
+                                return (
+                                  <button
+                                    key={d}
+                                    type="button"
+                                    onClick={() => updateItemCampo(idx, { precio_venta: Math.round(base * (1 - d / 100)) })}
+                                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                                    title={d === 0 ? "Sin descuento" : `Descuento ${d}%`}
+                                  >
+                                    {d === 0 ? "0%" : `-${d}%`}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          {/* Stock */}
+                          <td className="px-3 py-2.5 text-right">
+                            <span className={`text-xs font-semibold tabular-nums ${!controla ? "text-slate-400" : stockBajo ? "text-red-600" : "text-slate-600"}`}>
+                              {!controla ? "—" : stock}
+                            </span>
+                          </td>
+                          {/* Subtotal (total de línea) */}
+                          <td className="px-3 py-2.5 text-right">
+                            <span className="text-sm font-bold tabular-nums text-slate-900">{formatGs(item.total_linea)}</span>
+                          </td>
+                          {/* Quitar */}
+                          <td className="px-2 py-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarLinea(idx)}
+                              className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                              title="Quitar producto"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
-              {/* Totales + Cobro (vuelto) */}
+              {/* Totales + Cobro (vuelto). Cuando hay pago mixto, ensancha
+                  para dar aire al editor de multiples pagos. */}
               <div className="mt-5 flex justify-end">
-                <div className="w-full space-y-3 lg:w-80">
+                <div className={`w-full space-y-3 ${pagoMixto ? "lg:w-full" : "lg:w-80"}`}>
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-sm text-gray-600">
                       <span>Subtotal</span>
@@ -1828,13 +1475,35 @@ export default function NuevaVentaPage() {
 
                   {tipoVenta === "CONTADO" && (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2.5">
-                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cobro</p>
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cobro</p>
+                        <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={pagoMixto}
+                            onChange={(e) => setPagoMixto(e.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                          />
+                          Pago mixto
+                        </label>
+                      </div>
+
+                      {pagoMixto && (
+                        <PagosMixtoEditor
+                          pagos={pagosMixto}
+                          onChange={setPagosMixto}
+                          total={totalGeneral}
+                          entidades={entidades}
+                          formatGs={formatGs}
+                        />
+                      )}
+
+                      {!pagoMixto && (
+                      <div className="grid grid-cols-3 gap-1.5">
                         {([
                           { v: "efectivo", label: "Efectivo" },
                           { v: "transferencia", label: "Transferencia" },
                           { v: "tarjeta", label: "Tarjeta/Débito" },
-                          { v: "cheque", label: "Cheque" },
                         ] as { v: MetodoPago; label: string }[]).map((m) => (
                           <button
                             key={m.v}
@@ -1850,9 +1519,10 @@ export default function NuevaVentaPage() {
                           </button>
                         ))}
                       </div>
+                      )}
 
                       {/* Efectivo: monto recibido + vuelto, sin datos extra */}
-                      {metodoPago === "efectivo" && (
+                      {!pagoMixto && metodoPago === "efectivo" && (
                         <div className="space-y-1.5">
                           <MontoInput
                             value={montoRecibido}
@@ -1873,7 +1543,7 @@ export default function NuevaVentaPage() {
                       )}
 
                       {/* Transferencia / Tarjeta: resumen compacto + editar */}
-                      {(metodoPago === "transferencia" || metodoPago === "tarjeta") && (
+                      {!pagoMixto && (metodoPago === "transferencia" || metodoPago === "tarjeta") && (
                         <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-slate-700">
@@ -1938,10 +1608,18 @@ export default function NuevaVentaPage() {
         excludeIds={items.map((i) => i.producto_id)}
         moneda={moneda}
         tipoCambio={tipoCambioNum}
-        ivaDefault={lineaIva}
-        tipoPrecioDefault={clienteSel?.nivel_precio ?? "minorista"}
-        clienteId={clienteId ?? null}
+        ivaDefault="10%"
       />
+
+      {showCrearCliente && (
+        <NuevoClienteRapidoModal
+          nombreInicial={clienteQuery.trim() || undefined}
+          onClose={() => setShowCrearCliente(false)}
+          onCreado={(c: NuevoClienteCreado) =>
+            handleClienteCreado({ id: c.id, label: c.nombre, ruc: c.ruc, usa_nota_remision: false })
+          }
+        />
+      )}
 
       {/* Modal de cobro (transferencia / tarjeta-débito) */}
       {cobroModalOpen && (metodoPago === "transferencia" || metodoPago === "tarjeta") && (
@@ -2070,36 +1748,27 @@ export default function NuevaVentaPage() {
               {postVenta.generaNota && (
                 <p className="mt-1 text-sm text-sky-700">Esta venta genera nota de remisión.</p>
               )}
-              {postVenta.numeroFactura && (
-                <p className="mt-1 text-sm font-medium text-emerald-700">
-                  Factura ERP <span className="font-mono">{postVenta.numeroFactura}</span> generada — lista para emitir a SIFEN.
-                </p>
-              )}
-              {postVenta.facturaWarning && (
-                <p className="mt-1 text-xs text-rose-700">{postVenta.facturaWarning}</p>
-              )}
               <p className="mt-1 text-xs text-gray-400">
                 Si tu navegador bloqueó las pestañas, abrí los documentos con estos botones.
               </p>
             </div>
 
             <div className="grid grid-cols-1 gap-2">
-              {postVenta.facturaId && (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/facturas/${postVenta.facturaId}`)}
-                  className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  Emitir factura legal (SIFEN)
-                </button>
-              )}
               <a
-                href={`/api/ventas/${postVenta.id}/ticket?mode=comandas&auto=1`}
+                href={`/api/ventas/${postVenta.id}/comprobante-a4`}
                 target="_blank"
                 rel="noopener"
                 className="rounded-lg bg-[#0EA5E9] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0284C7]"
               >
                 Abrir ticket
+              </a>
+              <a
+                href={`/api/ventas/${postVenta.id}/factura?auto=1`}
+                target="_blank"
+                rel="noopener"
+                className="rounded-lg border border-[#4FAEB2]/40 bg-[#4FAEB2]/[0.08] px-4 py-2.5 text-sm font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/[0.16]"
+              >
+                Imprimir factura
               </a>
               {postVenta.generaNota && (
                 <a
@@ -2138,35 +1807,314 @@ export default function NuevaVentaPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Modal chico para crear un cliente sin salir del flujo de la venta. */}
-      {modalNuevoCliente && (
-        <NuevoClienteRapidoModal
-          nombreInicial={clienteQuery.trim() || undefined}
-          onClose={() => setModalNuevoCliente(false)}
-          onCreado={(c: NuevoClienteCreado) => {
-            // Insertamos el nuevo cliente en la lista local y lo seleccionamos.
-            setClientes((prev) => [
-              ...prev,
-              {
-                id: c.id,
-                label: c.nombre,
-                nombre_comercial: null,
-                ruc: c.ruc,
-                usa_nota_remision: false,
-                nivel_precio: "minorista",
-                metodo_pago_preferido: null,
-                condicion_pago: null,
-                inactivo: false,
-              },
-            ]);
-            setClienteId(c.id);
-            setClienteQuery("");
-            setModalNuevoCliente(false);
-            // Refresco pasivo para pescar campos derivados (empresa, nombre_facturacion, etc.).
-            void fetchClientes();
-          }}
+// ── Combobox categoría con búsqueda (paleta Zentra) ───────────────────────────
+// ── Editor de pago mixto (2+ metodos por venta) ───────────────────────────────
+type PagoMixtoLinea = {
+  metodo: "efectivo" | "transferencia" | "tarjeta";
+  monto: string;
+  entidad_id: string;
+  referencia: string;
+  titular: string;
+};
+
+function PagosMixtoEditor({
+  pagos,
+  onChange,
+  total,
+  entidades,
+  formatGs,
+}: {
+  pagos: PagoMixtoLinea[];
+  onChange: (next: PagoMixtoLinea[]) => void;
+  total: number;
+  entidades: { id: string; codigo: string | null; nombre: string; tipo: string | null }[];
+  formatGs: (n: number) => string;
+}) {
+  const suma = pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0);
+  const restante = total - suma;
+
+  function update(i: number, patch: Partial<PagoMixtoLinea>) {
+    const next = pagos.map((p, idx) => (idx === i ? { ...p, ...patch } : p));
+    onChange(next);
+  }
+  function add() {
+    onChange([
+      ...pagos,
+      { metodo: "efectivo", monto: "", entidad_id: "", referencia: "", titular: "" },
+    ]);
+  }
+  function remove(i: number) {
+    if (pagos.length <= 1) return;
+    onChange(pagos.filter((_, idx) => idx !== i));
+  }
+  function autoCompletar(i: number) {
+    if (restante <= 0) return;
+    const actual = Number(pagos[i].monto) || 0;
+    update(i, { monto: String(Math.round(actual + restante)) });
+  }
+
+  return (
+    <div className="space-y-3">
+      {pagos.map((p, i) => {
+        const needEntidad = p.metodo === "transferencia" || p.metodo === "tarjeta";
+        return (
+        <div key={i} className="rounded-lg border border-slate-200 bg-white p-3">
+          {/* Grid fijo: metodo | monto | entidad | ref | titular | +resto | ×
+              Los slots de entidad/ref/titular quedan vacios en Efectivo para
+              que +resto y × queden alineados verticalmente entre lineas.
+              Se apila con flex en pantallas chicas. */}
+          <div className="hidden md:grid grid-cols-[10rem_11rem_1fr_1fr_1fr_auto_auto] items-center gap-2">
+            <select
+              value={p.metodo}
+              onChange={(e) => update(i, { metodo: e.target.value as PagoMixtoLinea["metodo"] })}
+              className="h-11 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
+            >
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="tarjeta">Tarjeta/Débito</option>
+            </select>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={p.monto}
+              onChange={(e) => update(i, { monto: e.target.value })}
+              placeholder="Monto (Gs.)"
+              className="h-11 rounded-md border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
+            />
+            {needEntidad ? (
+              <select
+                value={p.entidad_id}
+                onChange={(e) => update(i, { entidad_id: e.target.value })}
+                className="h-11 min-w-0 rounded-md border border-slate-200 bg-white px-2.5 text-sm"
+              >
+                <option value="">— Entidad —</option>
+                {entidades.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.codigo ? `${e.codigo} · ` : ""}
+                    {e.nombre}
+                  </option>
+                ))}
+              </select>
+            ) : <div />}
+            {needEntidad ? (
+              <input
+                type="text"
+                value={p.referencia}
+                onChange={(e) => update(i, { referencia: e.target.value })}
+                placeholder="Comprobante / ref."
+                className="h-11 min-w-0 rounded-md border border-slate-200 px-3 text-sm"
+              />
+            ) : <div />}
+            {needEntidad && p.metodo === "transferencia" ? (
+              <input
+                type="text"
+                value={p.titular}
+                onChange={(e) => update(i, { titular: e.target.value })}
+                placeholder="Titular"
+                className="h-11 min-w-0 rounded-md border border-slate-200 px-3 text-sm"
+              />
+            ) : <div />}
+            <button
+              type="button"
+              onClick={() => autoCompletar(i)}
+              disabled={restante <= 0}
+              className="h-11 shrink-0 rounded-md border border-[#0EA5E9]/40 bg-[#0EA5E9]/[0.08] px-3 text-xs font-bold text-[#0284C7] hover:bg-[#0EA5E9]/[0.15] disabled:opacity-40"
+              title="Poner el restante en este pago"
+            >
+              + resto
+            </button>
+            {pagos.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="h-11 w-11 shrink-0 rounded-md border border-slate-200 text-slate-400 text-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                title="Quitar este pago"
+              >
+                ×
+              </button>
+            ) : <div className="w-11" />}
+          </div>
+          {/* Mobile: apilado */}
+          <div className="md:hidden flex flex-wrap items-center gap-2">
+            <select
+              value={p.metodo}
+              onChange={(e) => update(i, { metodo: e.target.value as PagoMixtoLinea["metodo"] })}
+              className="h-11 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
+            >
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="tarjeta">Tarjeta/Débito</option>
+            </select>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={p.monto}
+              onChange={(e) => update(i, { monto: e.target.value })}
+              placeholder="Monto (Gs.)"
+              className="h-11 flex-1 rounded-md border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
+            />
+            <button
+              type="button"
+              onClick={() => autoCompletar(i)}
+              disabled={restante <= 0}
+              className="h-11 rounded-md border border-[#0EA5E9]/40 bg-[#0EA5E9]/[0.08] px-3 text-xs font-bold text-[#0284C7] disabled:opacity-40"
+            >+ resto</button>
+            {pagos.length > 1 && (
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="h-11 w-11 rounded-md border border-slate-200 text-slate-400 text-lg"
+              >×</button>
+            )}
+            {needEntidad && (
+              <div className="w-full grid grid-cols-1 gap-2">
+                <select value={p.entidad_id} onChange={(e) => update(i, { entidad_id: e.target.value })} className="h-10 rounded-md border border-slate-200 bg-white px-2.5 text-sm">
+                  <option value="">— Entidad —</option>
+                  {entidades.map((e) => (
+                    <option key={e.id} value={e.id}>{e.codigo ? `${e.codigo} · ` : ""}{e.nombre}</option>
+                  ))}
+                </select>
+                <input type="text" value={p.referencia} onChange={(e) => update(i, { referencia: e.target.value })} placeholder="Comprobante / ref." className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
+                {p.metodo === "transferencia" && (
+                  <input type="text" value={p.titular} onChange={(e) => update(i, { titular: e.target.value })} placeholder="Titular" className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        );
+      })}
+      <button
+        type="button"
+        onClick={add}
+        className="w-full text-sm py-2.5 rounded-md border border-dashed border-slate-300 text-slate-600 hover:bg-white font-medium"
+      >
+        + Agregar pago
+      </button>
+      <div className="flex items-center justify-between pt-1 text-sm">
+        <span className="text-slate-500">
+          Total cobrado:{" "}
+          <span className={`font-bold tabular-nums ${suma === total ? "text-emerald-600" : "text-slate-800"}`}>
+            {formatGs(suma)}
+          </span>
+        </span>
+        <span
+          className={`font-bold tabular-nums ${
+            restante === 0 ? "text-emerald-600" : restante > 0 ? "text-amber-600" : "text-red-600"
+          }`}
+        >
+          {restante > 0 ? `Falta ${formatGs(restante)}` : restante < 0 ? `Sobra ${formatGs(-restante)}` : "✓ Coincide"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CategoriaCombo({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: { id: string; nombre: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQ("");
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const selected = options.find((o) => o.id === value) ?? null;
+  const nq = q.trim().toLowerCase();
+  const filtered = nq
+    ? options.filter((o) => o.nombre.toLowerCase().includes(nq))
+    : options;
+
+  return (
+    <div ref={wrapRef} className="relative sm:w-56">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-12 w-full items-center justify-between gap-2 rounded-xl border-2 bg-white px-3 text-sm outline-none transition-all ${
+          open || selected
+            ? "border-[#4FAEB2] text-slate-800 ring-4 ring-[#4FAEB2]/15"
+            : "border-[#0EA5E9]/30 text-slate-700 hover:border-[#4FAEB2]/60"
+        }`}
+      >
+        <span className="truncate">
+          {selected ? selected.nombre : "Todas las categorías"}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
         />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-40 mt-2 w-full min-w-[16rem] overflow-hidden rounded-xl border-2 border-[#4FAEB2]/25 bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.28)]">
+          <div className="relative border-b border-slate-100 p-2">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4FAEB2]" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar categoría…"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/15"
+            />
+          </div>
+          <ul className="max-h-72 overflow-y-auto py-1">
+            <li>
+              <button
+                type="button"
+                onClick={() => { onChange(""); setOpen(false); setQ(""); }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  !value ? "bg-[#4FAEB2]/10 font-semibold text-[#3F8E91]" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Todas las categorías
+              </button>
+            </li>
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-center text-xs text-slate-400">Sin resultados.</li>
+            ) : (
+              filtered.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => { onChange(c.id); setOpen(false); setQ(""); }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                      value === c.id
+                        ? "bg-[#4FAEB2]/10 font-semibold text-[#3F8E91]"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="truncate">{c.nombre}</span>
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
       )}
     </div>
   );

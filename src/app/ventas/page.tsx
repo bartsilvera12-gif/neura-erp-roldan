@@ -334,8 +334,12 @@ export default function VentasPage() {
                         </span>
                       </td>
                       <td className="hidden py-4 pr-4 align-middle text-xs text-gray-600 lg:table-cell">
-                        {v.metodo_pago === "cheque" ? (
+                        {v.metodo_pago === "mixto" ? (
                           <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+                            Mixto
+                          </span>
+                        ) : v.metodo_pago === "cheque" ? (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
                             Cheque
                           </span>
                         ) : v.metodo_pago === "tarjeta" ? "Tarjeta"
@@ -583,7 +587,8 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
           <Meta
             label="Pago"
             value={
-              venta.metodo_pago === "cheque" ? "Cheque"
+              venta.metodo_pago === "mixto" ? "Mixto"
+              : venta.metodo_pago === "cheque" ? "Cheque"
               : venta.metodo_pago === "tarjeta" ? "Tarjeta"
               : venta.metodo_pago === "transferencia" ? "Transferencia"
               : venta.metodo_pago === "efectivo" ? "Efectivo"

@@ -5,6 +5,7 @@ import { createVentaTransaccionalPg, StockInsuficienteError } from "@/lib/ventas
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import type { CreateVentaItemInput } from "@/lib/ventas/server/create-venta-pg";
 import { insertVentaPagoDetalle } from "@/lib/ventas/server/pago-detalle-pg";
+import type { MetodoPagoDetalle } from "@/lib/ventas/server/pago-detalle-pg";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import type { Venta, LineaVenta } from "@/lib/ventas/types";
@@ -17,6 +18,17 @@ class PedidoYaFacturadoError extends Error {
     super("Este pedido ya fue facturado.");
     this.name = "PedidoYaFacturadoError";
   }
+}
+
+const METODOS_PAGO_DETALLE = [
+  "efectivo", "transferencia", "tarjeta", "qr", "billetera", "otro", "cheque",
+] as const;
+
+/** Valida el método que manda el cliente; cualquier otra cosa cae a 'efectivo'. */
+function asMetodoPagoDetalle(v: unknown): MetodoPagoDetalle {
+  return (METODOS_PAGO_DETALLE as readonly string[]).includes(String(v))
+    ? (v as MetodoPagoDetalle)
+    : "efectivo";
 }
 
 function asItems(body: unknown): CreateVentaItemInput[] | null {
@@ -316,25 +328,67 @@ export async function POST(request: NextRequest) {
 
     // Detalle de cobro (conciliación) — best-effort, FUERA de la transacción de
     // venta. Si falla, la venta queda igual (no se rompe ni se afectan recetas).
-    // 1 detalle por venta: método = metodoPago; monto = total (suma = total).
+    //
+    // Dos formas:
+    //   · `pagos: [...]`  → pago MIXTO: una fila por método. Si hay más de un
+    //                       método distinto, la venta se marca metodo_pago='mixto'
+    //                       para que el arqueo de caja desglose por `ventas_pagos_detalle`.
+    //   · `pago_detalle`  → un solo cobro: método = metodoPago, monto = total.
     try {
-      const pd = (o.pago_detalle ?? null) as Record<string, unknown> | null;
       const str = (v: unknown, max = 200) =>
         v === null || v === undefined || String(v).trim() === "" ? null : String(v).trim().slice(0, max);
-      const fechaAcred = (() => {
-        const v = pd?.fecha_acreditacion;
-        return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
-      })();
-      await insertVentaPagoDetalle(schema, auth.empresa_id, ventaId, {
-        metodo_pago: metodoPago,
-        entidad_bancaria_id: pd?.entidad_bancaria_id ? String(pd.entidad_bancaria_id) : null,
-        entidad_nombre_snapshot: str(pd?.entidad_nombre_snapshot),
-        monto: totalDeclarado,
-        referencia: str(pd?.referencia),
-        titular: str(pd?.titular),
-        fecha_acreditacion: fechaAcred,
-        observacion: str(pd?.observacion, 500),
-      });
+      const fechaDe = (v: unknown) =>
+        typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+      const pagosArr = Array.isArray(o.pagos) ? (o.pagos as Record<string, unknown>[]) : null;
+
+      if (pagosArr && pagosArr.length > 0) {
+        for (const p of pagosArr) {
+          const monto = Number(p.monto);
+          // Un monto no positivo no es un cobro: se saltea en vez de ensuciar la conciliación.
+          if (!Number.isFinite(monto) || monto <= 0) continue;
+          await insertVentaPagoDetalle(schema, auth.empresa_id, ventaId, {
+            metodo_pago: asMetodoPagoDetalle(p.metodo_pago),
+            entidad_bancaria_id: p.entidad_bancaria_id ? String(p.entidad_bancaria_id) : null,
+            entidad_nombre_snapshot: str(p.entidad_nombre_snapshot),
+            monto,
+            referencia: str(p.referencia),
+            titular: str(p.titular),
+            fecha_acreditacion: fechaDe(p.fecha_acreditacion),
+            observacion: str(p.observacion, 500),
+          });
+        }
+
+        const metodosUnicos = new Set(
+          pagosArr
+            .map((p) => (typeof p.metodo_pago === "string" ? p.metodo_pago : null))
+            .filter(Boolean)
+        );
+        if (metodosUnicos.size > 1) {
+          const upd = await createServiceRoleClientWithDbSchema(schema)
+            .from("ventas")
+            .update({ metodo_pago: "mixto" })
+            .eq("id", ventaId)
+            .eq("empresa_id", auth.empresa_id);
+          if (upd.error) {
+            console.error(
+              "[ventas/create] no se pudo marcar la venta como 'mixto':",
+              upd.error.message
+            );
+          }
+        }
+      } else {
+        const pd = (o.pago_detalle ?? null) as Record<string, unknown> | null;
+        await insertVentaPagoDetalle(schema, auth.empresa_id, ventaId, {
+          metodo_pago: metodoPago,
+          entidad_bancaria_id: pd?.entidad_bancaria_id ? String(pd.entidad_bancaria_id) : null,
+          entidad_nombre_snapshot: str(pd?.entidad_nombre_snapshot),
+          monto: totalDeclarado,
+          referencia: str(pd?.referencia),
+          titular: str(pd?.titular),
+          fecha_acreditacion: fechaDe(pd?.fecha_acreditacion),
+          observacion: str(pd?.observacion, 500),
+        });
+      }
     } catch (e) {
       console.error("[ventas/create] pago_detalle best-effort fallo (venta OK):", e instanceof Error ? e.message : e);
     }
