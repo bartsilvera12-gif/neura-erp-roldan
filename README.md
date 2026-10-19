@@ -74,6 +74,9 @@ Los scripts están en `supabase/roldanerp/` y se pegan en el SQL editor de Supab
 5. `05_modulo_caja.sql` — tablas del módulo Caja (`cajas`, `caja_movimientos`) y la columna
    `ventas.caja_id`. El schema de origen no tiene sistema de caja; sin este script la pantalla
    de Caja no abre turno y las ventas se bloquean.
+6. `06_habilitar_modulo.sql` — habilita un módulo que no vino en el set inicial. Tal como está
+   habilita **Planes** (lo pide el CRM para cargar servicios de interés en un lead); para otro,
+   se cambia `v_slug`. No hace falta tocar código ni redeployar.
 
 Después hay que exponer el schema en Supabase: **Settings → API → Exposed schemas** incluir `roldanerp`.
 
