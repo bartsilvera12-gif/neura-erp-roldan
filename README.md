@@ -68,6 +68,9 @@ Los scripts están en `supabase/roldanerp/` y se pegan en el SQL editor de Supab
 2. `02_seed_empresa_modulos_admin.sql` — empresa Roldán e Hijos (UUID propio), catálogo de módulos,
    `empresa_modulos` acotado a los 12 módulos de arriba y usuario `admin@roldanehijos.com`.
 3. `03_verificacion.sql` — chequeos de aislamiento (nada en `public`, nada de otros tenants, 0 filas).
+4. `04_catalogos.sql` — catálogos que el clon deja vacíos y el ERP necesita con filas
+   desde el arranque: vistas del tablero (`dashboard_views`) y etapas del CRM (`crm_etapas`).
+   Sin esto el Dashboard muestra "Sin vistas asignadas" aunque el usuario sea admin.
 
 Después hay que exponer el schema en Supabase: **Settings → API → Exposed schemas** incluir `roldanerp`.
 
@@ -76,7 +79,10 @@ Después hay que exponer el schema en Supabase: **Settings → API → Exposed s
 1. **Datos de empresa en el membrete** (`src/lib/documentos/membrete.ts`): completar `nombre`,
    `propietario`, `ruc`, `actividad`, `telefono`, `email` y `direccion` con la constancia de la empresa.
 2. **Logos de la marca**: reemplazar `public/brand/roldan-logo.png`, `roldan-doc-logo.png`,
-   `roldan-favicon.png` (hoy son copias del logo genérico de Zentra heredadas del repo de origen).
+   `roldan-favicon.png`. Hoy son el logo genérico de Zentra, puesto como placeholder: los
+   archivos que venían del repo de origen eran el logo registrado de Tortillería La Mexicana
+   y no podían quedar en esta instancia. `roldan-doc-logo.png` es el que sale impreso en
+   presupuestos, comprobantes y el membrete de los documentos.
 3. **SIFEN**: cargar en DB (`empresa_sifen_config`) el timbrado, RUC, certificado + password,
    actividad económica y fecha de inicio de vigencia.
 4. **Auth**: crear el usuario `admin@roldanehijos.com` en Supabase → Authentication → Users y correr el
