@@ -73,6 +73,8 @@ export async function saveVenta(
   datos: Omit<Venta, "id" | "numero_control" | "fecha"> & {
     cliente_id?: string | null;
     genera_nota_remision?: boolean;
+    /** Turno de caja al que se imputa la venta (ver módulo Caja). */
+    caja_id?: string | null;
     /** Si false (elección "solo ticket" en el UI), la venta NO dispara el puente
      *  venta→factura ERP y no se emite factura electrónica. Default true. */
     emitir_factura?: boolean;

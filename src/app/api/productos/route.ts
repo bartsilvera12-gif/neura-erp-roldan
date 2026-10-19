@@ -5,6 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText, normalizeUpperCodigoBarras } from "@/lib/text/normalize";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
+import { applyTokenSearch } from "@/lib/productos/token-search";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 
 /**
@@ -57,21 +58,78 @@ async function existsId(
   return (data ?? []).length > 0;
 }
 
+/**
+ * GET /api/productos
+ *
+ * Productos de la sucursal del usuario. Soporta paginación y filtros server-side:
+ *  - q=<text>          Búsqueda por tokens (cada palabra, en cualquier orden) sobre nombre o sku
+ *  - categoria=<uuid>  Filtra por categoria_principal_id. "__sin__" = sin categoría.
+ *  - limit=<n>         Tamaño de página (max 500). 0 o ausente = sin paginar.
+ *  - offset=<n>        Offset de paginación.
+ *
+ * Respuesta: { productos: [...], total, limit, offset }
+ */
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    const { data, error } = await aplicarFiltroSucursal(
-      ctx.supabase
-        .from("productos")
-        .select(PRODUCTO_COLS)
-        .eq("empresa_id", ctx.auth.empresa_id)
-        .eq("activo", true),
-      exigirSucursal(ctx.auth.sucursal_id)
-    ).order("nombre");
-    if (error) throw new Error(error.message);
-    const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi);
-    return NextResponse.json(successResponse({ productos: rows }));
+    const { searchParams } = new URL(request.url);
+
+    const q = searchParams.get("q")?.trim() ?? "";
+    const categoria = searchParams.get("categoria");
+    // Default sin paginar para no romper a los callers que esperan la lista
+    // completa (ventas, compras, recetas); el listado de inventario pide límite.
+    const limitParam = searchParams.get("limit");
+    const limitRaw = limitParam !== null ? parseInt(limitParam, 10) : 0;
+    const offsetRaw = parseInt(searchParams.get("offset") ?? "0", 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(0, limitRaw), 500) : 0;
+    const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
+
+    /** Se re-arma por cada chunk: los builders de supabase-js no se reutilizan
+     *  una vez ejecutados. El filtro de sucursal va siempre. */
+    const buildBase = () => {
+      let base = aplicarFiltroSucursal(
+        ctx.supabase
+          .from("productos")
+          .select(PRODUCTO_COLS, { count: "planned" })
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("activo", true),
+        exigirSucursal(ctx.auth.sucursal_id)
+      );
+      if (q) base = applyTokenSearch(base, q, ["nombre", "sku"]);
+      if (categoria === "__sin__") base = base.is("categoria_principal_id", null);
+      else if (categoria) base = base.eq("categoria_principal_id", categoria);
+      return base.order("nombre");
+    };
+
+    if (limit > 0) {
+      const { data, error, count } = await buildBase().range(offset, offset + limit - 1);
+      if (error) throw new Error(error.message);
+      const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi);
+      return NextResponse.json(
+        successResponse({ productos: rows, total: count ?? 0, limit, offset })
+      );
+    }
+
+    // Sin paginar: PostgREST corta en 1000 filas aunque se pida un range mayor,
+    // así que se traen lotes hasta agotar.
+    const CHUNK = 1000;
+    const MAX_TOTAL = 100_000;
+    const allRows: Record<string, unknown>[] = [];
+    let totalCount = 0;
+    for (let from = 0; from < MAX_TOTAL; from += CHUNK) {
+      const { data, error, count } = await buildBase().range(from, from + CHUNK - 1);
+      if (error) throw new Error(error.message);
+      const batch = (data ?? []) as unknown as Record<string, unknown>[];
+      if (batch.length === 0) break;
+      allRows.push(...batch);
+      if (count != null) totalCount = count;
+      if (batch.length < CHUNK) break;
+    }
+    const rows = allRows.map(rowToApi);
+    return NextResponse.json(
+      successResponse({ productos: rows, total: totalCount || rows.length, limit, offset })
+    );
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);
     if (rSuc) return rSuc;

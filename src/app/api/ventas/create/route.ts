@@ -84,6 +84,7 @@ function toVentaResponse(
     monto_iva: number;
     total: number;
     genera_nota_remision?: boolean;
+    caja_id?: string | null;
     nota_remision_numero?: string | null;
   }
 ): Venta {
@@ -279,6 +280,7 @@ export async function POST(request: NextRequest) {
       pedidoCocina,
       permitirSinStock,
       generaNotaRemision: o.genera_nota_remision === true,
+      cajaId: o.caja_id != null && String(o.caja_id).trim() !== "" ? String(o.caja_id) : null,
       // Default true (compat) — solo se salta el puente venta→factura si el
       // cajero explícitamente eligió "solo ticket" al confirmar la venta.
       emitirFactura: emitirFacturaFlag,

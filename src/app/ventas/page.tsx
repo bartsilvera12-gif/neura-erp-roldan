@@ -10,6 +10,7 @@ import MobileFab from "@/components/ui/MobileFab";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { getVentas } from "@/lib/ventas/storage";
 import PedidosPendientesCaja from "./PedidosPendientesCaja";
+import CajaControlPanel from "@/components/caja/CajaControlPanel";
 import AnularVentaModal from "./AnularVentaModal";
 import DevolucionWizard from "@/components/devoluciones/DevolucionWizard";
 import { esMismoDiaAsuncion } from "@/lib/fecha/asuncion";
@@ -355,6 +356,8 @@ export default function VentasPage() {
         <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Caja</h1>
         <p className="mt-0.5 text-xs text-slate-500">Cobro, facturación y cierre de pedidos</p>
       </div>
+
+      <CajaControlPanel />
 
       <PedidosPendientesCaja />
 

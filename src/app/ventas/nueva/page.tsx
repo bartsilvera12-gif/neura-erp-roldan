@@ -516,6 +516,38 @@ export default function NuevaVentaPage() {
     return () => { cancelled = true; };
   }, []);
 
+  // ── Caja activa ───────────────────────────────────────────────────────────
+  // La venta se imputa al turno de caja abierto. Si hay varios, el cajero elige.
+  const [cajasAbiertas, setCajasAbiertas] = useState<{ id: string; numero_caja: number }[]>([]);
+  const [cajaActivaId, setCajaActivaId] = useState<string>("");
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const res = await fetchWithSupabaseSession("/api/caja/estado", { cache: "no-store" });
+        const j = await res.json();
+        const list = ((j?.data?.cajas ?? []) as Array<{ caja: { id: string; numero_caja: number; estado: string } }>)
+          .map((r) => r.caja)
+          .filter((c) => c.estado === "abierta")
+          .map((c) => ({ id: String(c.id), numero_caja: Number(c.numero_caja) || 1 }));
+        if (cancel) return;
+        setCajasAbiertas(list);
+        // Preferir la guardada; si no sigue abierta, tomar la única que haya.
+        let activa = "";
+        try { activa = localStorage.getItem("caja_activa_id") ?? ""; } catch { activa = ""; }
+        if (!list.some((c) => c.id === activa)) activa = list.length === 1 ? list[0].id : "";
+        setCajaActivaId(activa);
+      } catch { /* el server valida la caja igual */ }
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  // Recordar la caja elegida por navegador del cajero.
+  useEffect(() => {
+    try { if (cajaActivaId) localStorage.setItem("caja_activa_id", cajaActivaId); } catch { /* noop */ }
+  }, [cajaActivaId]);
+
   // Cargar entidades bancarias (caja/banco/tarjeta/billetera) para el detalle de cobro.
   useEffect(() => {
     let cancelled = false;
@@ -999,11 +1031,22 @@ export default function NuevaVentaPage() {
   }
 
   /** Envía la venta. Con `permitirSinStock=true` autoriza vender aunque falte stock. */
+  const cajaActivaFinal = cajaActivaId || (cajasAbiertas.length === 1 ? cajasAbiertas[0].id : "");
+
   async function enviarVenta(permitirSinStock: boolean) {
     // Guard duro contra doble submit: si ya hay una confirmación en vuelo, cortar
     // inmediatamente. El ref se evalúa de forma síncrona (no espera al re-render de React),
     // así que un segundo click/Enter casi simultáneo no puede disparar otra venta.
     if (isSubmittingRef.current) return;
+    // Sin turno de caja abierto la venta no se puede imputar a ningún arqueo.
+    if (cajasAbiertas.length === 0) {
+      setErrorVenta("Debe abrir una caja para registrar la venta. Abrila desde la pantalla de Caja.");
+      return;
+    }
+    if (!cajaActivaFinal) {
+      setErrorVenta("Hay varias cajas abiertas: elegí en cuál registrar la venta.");
+      return;
+    }
     isSubmittingRef.current = true;
     // Cliente obligatorio solo en venta a crédito (necesita CxC). La factura
     // electrónica sin cliente se emite a consumidor final (Innominado).
@@ -1034,6 +1077,7 @@ export default function NuevaVentaPage() {
           metodo_pago:  metodoPago,
           cliente_id:   clienteId || null,
           genera_nota_remision: !!clienteId && generaNotaRemision,
+          caja_id: cajaActivaFinal || null,
           // Fuerza solo ticket cuando el total es 0 — SIFEN no acepta facturas Gs. 0.
           emitir_factura: totalGeneral > 0 && tipoDocumento === "factura",
         },
@@ -1253,15 +1297,43 @@ export default function NuevaVentaPage() {
               : "Agregá productos de reventa o del catálogo. Al confirmar se registra la venta."}
           </p>
         </div>
-        {!consigParams && (
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#0EA5E9] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#0284C7] active:scale-95"
-          >
-            + Agregar producto
-          </button>
-        )}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {cajasAbiertas.length === 0 ? (
+            <a
+              href="/ventas"
+              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              ⚠ No hay caja abierta — abrí una caja
+            </a>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/[0.06] px-3 py-2">
+              <span className="text-xs font-semibold text-[#3F8E91]">Caja activa</span>
+              {cajasAbiertas.length === 1 ? (
+                <span className="text-sm font-bold text-slate-800">Caja {cajasAbiertas[0].numero_caja}</span>
+              ) : (
+                <select
+                  value={cajaActivaId}
+                  onChange={(e) => setCajaActivaId(e.target.value)}
+                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
+                >
+                  <option value="">— Elegí caja —</option>
+                  {cajasAbiertas.map((c) => (
+                    <option key={c.id} value={c.id}>Caja {c.numero_caja}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+          {!consigParams && (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0EA5E9] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#0284C7] active:scale-95"
+            >
+              + Agregar producto
+            </button>
+          )}
+        </div>
       </div>
 
       {pedidoId && (

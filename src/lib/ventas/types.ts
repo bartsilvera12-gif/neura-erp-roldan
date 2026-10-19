@@ -2,7 +2,17 @@ export type TipoIvaVenta = "EXENTA" | "5%" | "10%";
 export type TipoVenta   = "CONTADO" | "CREDITO";
 export type MonedaVenta = "GS" | "USD";
 export type MetodoPago  = "efectivo" | "tarjeta" | "transferencia" | "cheque";
-export type EstadoVenta = "pendiente" | "completada" | "anulada";
+/**
+ * Estados que `ventas.estado` realmente toma en esta instancia.
+ * `devuelta_total` y `parcialmente_devuelta` los escribe el módulo de
+ * devoluciones (`lib/devoluciones/server/devoluciones-pg.ts`).
+ */
+export type EstadoVenta =
+  | "pendiente"
+  | "completada"
+  | "anulada"
+  | "parcialmente_devuelta"
+  | "devuelta_total";
 /** Nivel de precio elegido para la línea de venta.
  *  'costo' se conserva SOLO como histórico (ventas viejas); ya no se ofrece en la UI. */
 export type TipoPrecioVenta = "minorista" | "mayorista" | "distribuidor" | "costo";
@@ -42,6 +52,8 @@ export interface Venta {
   total:     number;         // Σ total_linea de ítems
 
   tipo_venta: TipoVenta;
+  /** Snapshot del cajero que emitió la venta (ventas.usuario_nombre). */
+  usuario_nombre?: string | null;
   plazo_dias?: number;       // solo si tipo_venta === "CREDITO"
 
   metodo_pago?: MetodoPago;  // Neura ERP Roldán e Hijos: efectivo/tarjeta/transferencia

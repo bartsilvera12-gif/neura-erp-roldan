@@ -79,6 +79,8 @@ export interface CreateVentaPgParams {
   permitirSinStock?: boolean;
   /** Si true y hay cliente, la venta emite nota de remisión (documento NO fiscal) con número NR-XXXXXX. */
   generaNotaRemision?: boolean;
+  /** Turno de caja al que se imputa la venta. Si no viene y hay una sola abierta, se usa esa. */
+  cajaId?: string | null;
   /** Si true (default), la venta activa el puente Venta → Factura ERP: crea
    *  `facturas` FAC-XXXXXX, `factura_items` y linkea `ventas.factura_id`.
    *  Si false, se registra solo la venta (ideal para "solo ticket"), no se
@@ -462,6 +464,38 @@ export async function createVentaTransaccionalPg(
     notaRemisionNumero = `NR-${String(nextNr).padStart(6, "0")}`;
   }
 
+  // 4c) Resolver el turno de caja al que se imputa la venta. Soporta varias
+  //      cajas abiertas en paralelo (Caja 1, Caja 2, …):
+  //        - Si viene cajaId, tiene que estar ABIERTA (no 'en_cierre' ni cerrada).
+  //        - Si no viene y hay una sola abierta, se usa esa.
+  //        - Si no hay ninguna abierta, se bloquea la venta: sin turno el arqueo
+  //          no cierra contra nada.
+  //        - Si hay varias y no se eligió, se pide elegir.
+  const cajasQ = await sb
+    .from("cajas")
+    .select("id, numero_caja")
+    .eq("empresa_id", params.empresaId)
+    .eq("estado", "abierta")
+    .order("numero_caja", { ascending: true });
+  if (cajasQ.error) throw new Error(cajasQ.error.message);
+  const cajasAbiertas = (cajasQ.data ?? []) as Array<{ id: string; numero_caja: number | string }>;
+
+  let cajaIdActual: string;
+  const cajaPedida = params.cajaId ? String(params.cajaId) : null;
+  if (cajaPedida) {
+    const match = cajasAbiertas.find((c) => String(c.id) === cajaPedida);
+    if (!match) {
+      throw new Error("La caja seleccionada no está abierta. Elegí una caja abierta para registrar la venta.");
+    }
+    cajaIdActual = String(match.id);
+  } else if (cajasAbiertas.length === 1) {
+    cajaIdActual = String(cajasAbiertas[0].id);
+  } else if (cajasAbiertas.length === 0) {
+    throw new Error("Debe abrir una caja para registrar ventas.");
+  } else {
+    throw new Error("Hay varias cajas abiertas: seleccioná la caja para registrar la venta.");
+  }
+
   // 5) Insertar venta. Reintenta hasta 3 veces si el numero_control choca con
   // el índice único (carrera con otra venta calculando el mismo próximo número).
   let numeroControl = await calcularNumeroControl();
@@ -489,6 +523,7 @@ export async function createVentaTransaccionalPg(
         nota_remision_numero: notaRemisionNumero,
         fecha: fechaIso,
         observaciones: observacionesFinal,
+        caja_id: cajaIdActual,
         usuario_id: params.createdBy ?? null,
         usuario_nombre: params.usuarioNombre ?? null,
       })

@@ -139,6 +139,52 @@ export async function getProductos(): Promise<Producto[]> {
   }
 }
 
+export interface ProductosPaginadosOpts {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  /** uuid de categoria | "__sin__" para los que no tienen categoria asignada | "" para todas */
+  categoria?: string;
+}
+export interface ProductosPaginadosResult {
+  productos: Producto[];
+  total: number;
+}
+
+/**
+ * Lista paginada de productos con filtros server-side (busqueda y categoria).
+ * Usado por la pantalla principal de inventario.
+ */
+export async function getProductosPaginated(
+  opts: ProductosPaginadosOpts = {}
+): Promise<ProductosPaginadosResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.max(1, Math.min(500, opts.pageSize ?? 25));
+  const offset = (page - 1) * pageSize;
+  const params = new URLSearchParams();
+  params.set("limit", String(pageSize));
+  params.set("offset", String(offset));
+  if (opts.q && opts.q.trim()) params.set("q", opts.q.trim());
+  if (opts.categoria) params.set("categoria", opts.categoria);
+  try {
+    const r = await fetch(`/api/productos?${params.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j?.success) {
+      console.error("[inventario] getProductosPaginated:", (j as { error?: string })?.error ?? r.status);
+      return { productos: [], total: 0 };
+    }
+    const data = j.data as { productos?: ProductoRow[]; total?: number };
+    const list = (data.productos ?? []) as ProductoRow[];
+    return { productos: list.map(rowToProducto), total: Number(data.total) || 0 };
+  } catch (err) {
+    console.error("[inventario] getProductosPaginated:", err instanceof Error ? err.message : err);
+    return { productos: [], total: 0 };
+  }
+}
+
 /** Obtiene un producto por ID via API server-side. */
 export async function getProducto(id: string): Promise<Producto | null> {
   try {
