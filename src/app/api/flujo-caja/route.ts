@@ -188,7 +188,8 @@ export async function GET(request: NextRequest) {
           // VARIOS son los proveedores chicos/locales: van en guaraníes.
           moneda: varios ? "PYG" : (info?.moneda ?? moneda),
           dias: {},
-          total: 0,
+          total_usd: 0,
+          total_gs: 0,
         };
         filas.set(clave, f);
       }
@@ -198,7 +199,11 @@ export async function GET(request: NextRequest) {
     const push = (fila: FilaFlujo, dia: number, e: EntradaFlujo) => {
       if (!fila.dias[dia]) fila.dias[dia] = [];
       fila.dias[dia].push(e);
-      if (e.estado !== "cobrado" && e.estado !== "anulado") fila.total += e.importe;
+      if (e.estado === "cobrado" || e.estado === "anulado") return;
+      // Cada moneda a su total: la fila lleva la moneda habitual del proveedor,
+      // pero una factura suelta puede venir en la otra.
+      if (e.moneda === "USD") fila.total_usd += e.importe;
+      else fila.total_gs += e.importe;
     };
 
     // Cheques primero: mandan sobre las facturas que cubren.

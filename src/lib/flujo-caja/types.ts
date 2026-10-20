@@ -58,8 +58,13 @@ export interface FilaFlujo {
   moneda: MonedaFlujo;
   /** Entradas por día del mes: la clave es el día (1..31). */
   dias: Record<number, EntradaFlujo[]>;
-  /** Total del mes en la moneda de la fila, sin contar cobrados ni anulados. */
-  total: number;
+  /**
+   * Totales del mes, separados por moneda y sin contar cobrados ni anulados.
+   * Van separados porque un proveedor en dólares puede tener alguna factura en
+   * guaraníes: sumarlas juntas daría un número sin sentido.
+   */
+  total_usd: number;
+  total_gs: number;
 }
 
 /** Totales de una columna (un día). */

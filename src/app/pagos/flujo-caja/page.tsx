@@ -431,7 +431,9 @@ export default function FlujoCajaPage() {
                     );
                   })}
                   <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-800">
-                    {fila.moneda === "USD" ? `US$ ${miles(fila.total, 2)}` : miles(fila.total)}
+                    {fila.total_usd > 0 && <div>US$ {miles(fila.total_usd, 2)}</div>}
+                    {fila.total_gs > 0 && <div>{miles(fila.total_gs)}</div>}
+                    {fila.total_usd === 0 && fila.total_gs === 0 && <span className="text-slate-300">—</span>}
                   </td>
                 </tr>
               ))}
