@@ -541,6 +541,14 @@ function PanelCelda({
   const [err, setErr] = useState<string | null>(null);
 
   const fechaPago = `${anio}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+
+  // Fecha a partir de la cual el proveedor puede cobrar el cheque en ventanilla.
+  // Joaquín: "son cheques diferidos, antes de esa fecha el banco no le permite".
+  // Arranca en la fecha de pago, que es el caso más común, y se corre a mano.
+  const [fechaCobro, setFechaCobro] = useState(fechaPago);
+
+  // Cheque pendiente al que se le está cargando el número (uno por vez).
+  const [editando, setEditando] = useState<{ id: string; numero: string; bancoId: string; cobro: string } | null>(null);
   const importeSeleccion = sinCheque
     .filter((e) => e.numero_control && seleccion.includes(e.numero_control))
     .reduce((a, e) => a + e.importe, 0);
@@ -575,12 +583,34 @@ function PanelCelda({
         entidad_bancaria_id: bancoId || null,
         banco_nombre: bancos.find((b) => b.id === bancoId)?.nombre ?? null,
         fecha_pago_prevista: fechaPago,
+        fecha_cobro_prevista: fechaCobro || null,
         facturas: elegidas.map((e) => ({
           numero_control: e.numero_control,
           importe_imputado: e.importe,
         })),
       }),
     }, "No se pudo emitir el cheque.");
+  }
+
+  /**
+   * Carga el número al cheque que estaba pendiente y lo deja emitido de una.
+   * Es el paso que Joaquín hace el día que se sienta a elaborar los cheques.
+   */
+  function guardarNumero() {
+    if (!editando) return;
+    if (!editando.numero.trim()) { setErr("Falta el número del cheque."); return; }
+    void llamar(`/api/cheques/${editando.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        estado: "emitido",
+        numero: editando.numero.trim(),
+        entidad_bancaria_id: editando.bancoId || null,
+        banco_nombre: bancos.find((b) => b.id === editando.bancoId)?.nombre ?? null,
+        fecha_cobro_prevista: editando.cobro || null,
+      }),
+    }, "No se pudo cargar el número del cheque.");
+    setEditando(null);
   }
 
   function cambiarEstado(chequeId: string, estado: string, extra: Record<string, unknown> = {}) {
@@ -623,14 +653,28 @@ function PanelCelda({
             {e.cheque_id && e.estado !== "anulado" && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {e.estado === "pendiente_emision" && (
-                  <button
-                    type="button" disabled={trabajando || !e.numero_cheque}
-                    title={e.numero_cheque ? "" : "Cargale el número al cheque para poder emitirlo"}
-                    onClick={() => cambiarEstado(e.cheque_id!, "emitido")}
-                    className="rounded border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 disabled:opacity-40"
-                  >
-                    Marcar emitido
-                  </button>
+                  e.numero_cheque ? (
+                    <button
+                      type="button" disabled={trabajando}
+                      onClick={() => cambiarEstado(e.cheque_id!, "emitido")}
+                      className="rounded border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 disabled:opacity-40"
+                    >
+                      Marcar emitido
+                    </button>
+                  ) : (
+                    <button
+                      type="button" disabled={trabajando}
+                      onClick={() => setEditando({
+                        id: e.cheque_id!,
+                        numero: "",
+                        bancoId: bancos.find((b) => b.nombre === e.banco_nombre)?.id ?? "",
+                        cobro: e.fecha_cobro ?? fechaPago,
+                      })}
+                      className="rounded border border-violet-300 bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 disabled:opacity-40"
+                    >
+                      Cargar número
+                    </button>
+                  )
                 )}
                 {e.estado === "emitido" && (
                   <button
@@ -649,6 +693,49 @@ function PanelCelda({
                   className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 disabled:opacity-40"
                 >
                   Anular
+                </button>
+              </div>
+            )}
+            {editando?.id === e.cheque_id && (
+              <div className="mt-2 flex flex-wrap items-end gap-2 border-t border-white/60 pt-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase opacity-70">Nº de cheque</span>
+                  <input
+                    autoFocus value={editando.numero}
+                    onChange={(ev) => setEditando((p) => (p ? { ...p, numero: ev.target.value } : p))}
+                    className="w-28 rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase opacity-70">Banco</span>
+                  <select
+                    value={editando.bancoId}
+                    onChange={(ev) => setEditando((p) => (p ? { ...p, bancoId: ev.target.value } : p))}
+                    className="w-36 rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                  >
+                    <option value="">—</option>
+                    {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase opacity-70">Cobrable desde</span>
+                  <input
+                    type="date" value={editando.cobro}
+                    onChange={(ev) => setEditando((p) => (p ? { ...p, cobro: ev.target.value } : p))}
+                    className="w-36 rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                  />
+                </label>
+                <button
+                  type="button" onClick={guardarNumero} disabled={trabajando}
+                  className="rounded bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Emitir
+                </button>
+                <button
+                  type="button" onClick={() => setEditando(null)}
+                  className="rounded px-2 py-1.5 text-[11px] font-medium opacity-70 hover:opacity-100"
+                >
+                  Cancelar
                 </button>
               </div>
             )}
@@ -699,6 +786,13 @@ function PanelCelda({
                   {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
                 </select>
               </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase text-slate-500">Cobrable desde</span>
+                <input
+                  type="date" value={fechaCobro} onChange={(ev) => setFechaCobro(ev.target.value)}
+                  className="w-36 rounded border border-slate-200 px-2 py-1 text-xs"
+                />
+              </label>
               <button
                 type="button" onClick={emitir} disabled={trabajando || seleccion.length === 0}
                 className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
@@ -709,7 +803,9 @@ function PanelCelda({
             <p className="mt-2 text-[10px] leading-snug text-slate-500">
               Sin número el cheque queda <strong>pendiente de emisión</strong> (lila) y se le carga
               después. Con número nace <strong>emitido</strong> (verde). Un cheque cubre varias
-              facturas del mismo proveedor.
+              facturas del mismo proveedor. <strong>Cobrable desde</strong> es la fecha a partir de
+              la cual el proveedor puede cobrarlo en ventanilla: en un cheque diferido va después
+              de la fecha de pago.
             </p>
           </div>
         )}
