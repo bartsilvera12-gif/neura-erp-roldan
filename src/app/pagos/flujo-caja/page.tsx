@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import type { EntradaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
+import type { EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
 
 /**
  * Flujo de caja de proveedores.
@@ -78,6 +78,10 @@ export default function FlujoCajaPage() {
   const [fondos, setFondos] = useState("");
   const [guardando, setGuardando] = useState(false);
 
+  // Panel de la celda: emitir cheques y cambiar su estado.
+  const [celda, setCelda] = useState<{ dia: number; fila: FilaFlujo } | null>(null);
+  const [bancos, setBancos] = useState<{ id: string; nombre: string }[]>([]);
+
   // Posición de liquidez: bancos, efectivo y mercadería. Carga manual.
   const [saldos, setSaldos] = useState<SaldoLiquidez[]>([]);
   const [editandoSaldos, setEditandoSaldos] = useState(false);
@@ -104,6 +108,22 @@ export default function FlujoCajaPage() {
   }, [anio, mes]);
 
   useEffect(() => { void cargar(); }, [cargar]);
+
+  // Bancos para el desplegable al emitir un cheque.
+  useEffect(() => {
+    let cancel = false;
+    fetchWithSupabaseSession("/api/entidades-bancarias", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel || !j?.success) return;
+        setBancos(
+          ((j.data?.entidades ?? []) as Array<{ id: string; nombre: string }>)
+            .map((e) => ({ id: String(e.id), nombre: String(e.nombre ?? "") }))
+        );
+      })
+      .catch(() => undefined);
+    return () => { cancel = true; };
+  }, []);
 
   async function guardarConfig() {
     setGuardando(true);
@@ -393,12 +413,16 @@ export default function FlujoCajaPage() {
                   {dias.map((d) => {
                     const entradas = fila.dias[d] ?? [];
                     return (
-                      <td key={d} className="px-1 py-1 text-right align-top">
+                      <td
+                        key={d}
+                        onClick={() => entradas.length > 0 && setCelda({ dia: d, fila })}
+                        className={`px-1 py-1 text-right align-top ${entradas.length > 0 ? "cursor-pointer hover:bg-slate-50" : ""}`}
+                      >
                         {entradas.map((e, i) => (
                           <span
                             key={`${e.cheque_id ?? e.numero_control}-${i}`}
                             title={tooltipDe(e)}
-                            className={`mb-0.5 block cursor-help rounded px-1.5 py-1 text-right tabular-nums ring-1 ${TONO[e.estado] ?? ""}`}
+                            className={`mb-0.5 block rounded px-1.5 py-1 text-right tabular-nums ring-1 ${TONO[e.estado] ?? ""}`}
                           >
                             {importeDe(e)}
                           </span>
@@ -463,12 +487,239 @@ export default function FlujoCajaPage() {
         </EdgeScrollArea>
       )}
 
+      {celda && (
+        <PanelCelda
+          dia={celda.dia}
+          fila={celda.fila}
+          anio={anio}
+          mes={mes}
+          bancos={bancos}
+          onClose={() => setCelda(null)}
+          onCambio={() => { setCelda(null); void cargar(); }}
+        />
+      )}
+
       <p className="text-[11px] leading-relaxed text-slate-500">
         <strong>Disponible</strong> arranca en los fondos del mes y baja con cada pago
         proyectado. En la planilla este número se llevaba en negativo; acá es positivo
         mientras quede plata, y pasa a rojo si los pagos del mes superan los fondos.
         Los cheques ya cobrados no suman: ya salieron del banco.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Panel de una celda del flujo: las facturas y cheques de ese día para ese
+ * proveedor. Desde acá se emite el cheque y se le cambia el estado.
+ *
+ * Emitir es el único paso que sigue siendo decisión humana: qué se paga, con
+ * qué número y de qué banco. Lo demás ya viene de las compras.
+ */
+function PanelCelda({
+  dia, fila, anio, mes, bancos, onClose, onCambio,
+}: {
+  dia: number;
+  fila: FilaFlujo;
+  anio: number;
+  mes: number;
+  bancos: { id: string; nombre: string }[];
+  onClose: () => void;
+  onCambio: () => void;
+}) {
+  const entradas = fila.dias[dia] ?? [];
+  const sinCheque = entradas.filter((e) => e.tipo === "factura");
+
+  const [seleccion, setSeleccion] = useState<string[]>(
+    sinCheque.map((e) => e.numero_control ?? "").filter(Boolean)
+  );
+  const [numero, setNumero] = useState("");
+  const [bancoId, setBancoId] = useState("");
+  const [trabajando, setTrabajando] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const fechaPago = `${anio}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+  const importeSeleccion = sinCheque
+    .filter((e) => e.numero_control && seleccion.includes(e.numero_control))
+    .reduce((a, e) => a + e.importe, 0);
+
+  async function llamar(url: string, init: RequestInit, alFallar: string) {
+    setTrabajando(true);
+    setErr(null);
+    try {
+      const r = await fetchWithSupabaseSession(url, init);
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
+      onCambio();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : alFallar);
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
+  function emitir() {
+    if (seleccion.length === 0) { setErr("Elegí al menos una factura."); return; }
+    const elegidas = sinCheque.filter((e) => e.numero_control && seleccion.includes(e.numero_control));
+    void llamar("/api/cheques", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        proveedor_id: fila.proveedor_id,
+        proveedor_nombre: fila.nombre,
+        moneda: fila.moneda,
+        importe: importeSeleccion,
+        numero: numero.trim() || null,
+        entidad_bancaria_id: bancoId || null,
+        banco_nombre: bancos.find((b) => b.id === bancoId)?.nombre ?? null,
+        fecha_pago_prevista: fechaPago,
+        facturas: elegidas.map((e) => ({
+          numero_control: e.numero_control,
+          importe_imputado: e.importe,
+        })),
+      }),
+    }, "No se pudo emitir el cheque.");
+  }
+
+  function cambiarEstado(chequeId: string, estado: string, extra: Record<string, unknown> = {}) {
+    void llamar(`/api/cheques/${chequeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado, ...extra }),
+    }, "No se pudo actualizar el cheque.");
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">{fila.nombre}</h3>
+            <p className="text-xs text-slate-500">Pagos del {dia} de {MESES[mes - 1]} {anio}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+
+        {err && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>
+        )}
+
+        {/* Lo que ya tiene cheque */}
+        {entradas.filter((e) => e.tipo === "cheque").map((e) => (
+          <div key={e.cheque_id} className={`mb-2 rounded-lg px-3 py-2 ring-1 ${TONO[e.estado] ?? ""}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold">
+                {e.numero_cheque ? `Cheque Nº ${e.numero_cheque}` : "Cheque sin número"}
+                {e.banco_nombre ? ` — ${e.banco_nombre}` : ""}
+              </span>
+              <span className="text-sm font-bold tabular-nums">{importeDe(e)}</span>
+            </div>
+            <p className="mt-0.5 whitespace-pre-line text-[11px] opacity-80">{tooltipDe(e)}</p>
+            {e.cheque_id && e.estado !== "anulado" && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {e.estado === "pendiente_emision" && (
+                  <button
+                    type="button" disabled={trabajando || !e.numero_cheque}
+                    title={e.numero_cheque ? "" : "Cargale el número al cheque para poder emitirlo"}
+                    onClick={() => cambiarEstado(e.cheque_id!, "emitido")}
+                    className="rounded border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 disabled:opacity-40"
+                  >
+                    Marcar emitido
+                  </button>
+                )}
+                {e.estado === "emitido" && (
+                  <button
+                    type="button" disabled={trabajando}
+                    onClick={() => cambiarEstado(e.cheque_id!, "cobrado", {
+                      fecha_cobro_real: new Date().toISOString().slice(0, 10),
+                    })}
+                    className="rounded border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 disabled:opacity-40"
+                  >
+                    Marcar cobrado hoy
+                  </button>
+                )}
+                <button
+                  type="button" disabled={trabajando}
+                  onClick={() => cambiarEstado(e.cheque_id!, "anulado")}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 disabled:opacity-40"
+                >
+                  Anular
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Facturas sin cheque: se eligen y se emite uno solo para todas */}
+        {sinCheque.length > 0 && fila.proveedor_id && (
+          <div className="mt-3 rounded-lg border border-slate-200 p-3">
+            <p className="mb-2 text-xs font-semibold text-slate-700">Emitir cheque</p>
+            <ul className="mb-3 space-y-1">
+              {sinCheque.map((e) => (
+                <li key={e.numero_control} className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={!!e.numero_control && seleccion.includes(e.numero_control)}
+                    onChange={() => setSeleccion((prev) =>
+                      e.numero_control
+                        ? prev.includes(e.numero_control)
+                          ? prev.filter((x) => x !== e.numero_control)
+                          : [...prev, e.numero_control]
+                        : prev
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-slate-600">
+                    Factura {e.numero_factura ?? "s/nº"} · {e.numero_control}
+                  </span>
+                  <span className="tabular-nums font-medium">{importeDe(e)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase text-slate-500">Nº de cheque</span>
+                <input
+                  value={numero} onChange={(ev) => setNumero(ev.target.value)}
+                  placeholder="opcional"
+                  className="w-32 rounded border border-slate-200 px-2 py-1 text-xs"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase text-slate-500">Banco</span>
+                <select
+                  value={bancoId} onChange={(ev) => setBancoId(ev.target.value)}
+                  className="w-40 rounded border border-slate-200 px-2 py-1 text-xs"
+                >
+                  <option value="">—</option>
+                  {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                </select>
+              </label>
+              <button
+                type="button" onClick={emitir} disabled={trabajando || seleccion.length === 0}
+                className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+              >
+                {trabajando ? "Guardando…" : `Emitir por ${fila.moneda === "USD" ? "US$ " : "Gs. "}${miles(importeSeleccion, fila.moneda === "USD" ? 2 : 0)}`}
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] leading-snug text-slate-500">
+              Sin número el cheque queda <strong>pendiente de emisión</strong> (lila) y se le carga
+              después. Con número nace <strong>emitido</strong> (verde). Un cheque cubre varias
+              facturas del mismo proveedor.
+            </p>
+          </div>
+        )}
+
+        {sinCheque.length > 0 && !fila.proveedor_id && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+            Esta es la fila agrupada VARIOS: junta varios proveedores, así que el cheque no se
+            puede emitir desde acá. Entrá por la fila del proveedor o sacale la marca
+            «agrupa en varios».
+          </p>
+        )}
+      </div>
     </div>
   );
 }
