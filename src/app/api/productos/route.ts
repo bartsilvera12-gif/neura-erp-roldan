@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText, normalizeUpperCodigoBarras } from "@/lib/text/normalize";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
 import { applyTokenSearch } from "@/lib/productos/token-search";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
@@ -307,6 +308,11 @@ export async function POST(request: NextRequest) {
     let movWarning: string | null = null;
     const controlaStockFinal = row.controla_stock !== false;
     if (stockActual > 0 && controlaStockFinal) {
+      // `fecha` y la firma del usuario van explícitas: el listado de movimientos
+      // ordena por `fecha`, así que sin ella la entrada inicial no aparecía
+      // arriba y parecía que el historial no se actualizaba al dar de alta un
+      // producto con stock.
+      const firma = await firmaUsuario(sb, ctx.auth);
       const movIns = await sb.from("movimientos_inventario").insert({
         empresa_id: empresaId,
         sucursal_id: exigirSucursal(ctx.auth.sucursal_id),
@@ -317,7 +323,10 @@ export async function POST(request: NextRequest) {
         cantidad: stockActual,
         costo_unitario: costoPromedio,
         origen: "inventario_inicial",
-        referencia: null,
+        referencia: "Stock inicial del alta del producto",
+        fecha: new Date().toISOString(),
+        created_by: firma.id,
+        usuario_nombre: firma.nombre,
       });
       if (movIns.error) {
         console.error("[/api/productos POST] inventario_inicial", movIns.error.message);

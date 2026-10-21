@@ -169,6 +169,9 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
     // Las pantallas de configuración pertenecen al módulo que las usa: así un tenant
     // puede tener Sucursales o Contabilidad sin abrirle Configuración completa.
     if (p.startsWith("/configuracion/sucursales")) return "sucursales";
+    // Los bancos y cajas se dan de alta acá, pero el módulo dueño es Pagos:
+    // sin esto la pantalla existe y no hay forma de llegar sin Configuración.
+    if (p.startsWith("/configuracion/entidades-bancarias")) return "pagos";
     if (p.startsWith("/configuracion/plan-de-cuentas")) return "contabilidad";
     if (p.startsWith("/configuracion/contable")) return "contabilidad";
     if (p.startsWith("/configuracion/rrhh")) return "rrhh";

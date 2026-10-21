@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { ajustarStockUbicacion } from "@/lib/multideposito/server";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 
 /**
  * GET /api/inventario/movimientos — lista movimientos via PostgREST (compat Hostinger sin pool PG).
@@ -77,6 +78,14 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(cantidad) || cantidad === 0) {
       return NextResponse.json(errorResponse("cantidad debe ser un número distinto de 0."), { status: 400 });
     }
+    // Un ajuste manual cambia el stock sin respaldo de una compra o una venta:
+    // sin motivo escrito no hay forma de auditarlo después.
+    if (tipo === "AJUSTE" && !referencia) {
+      return NextResponse.json(
+        errorResponse("El motivo es obligatorio para un ajuste de inventario."),
+        { status: 400 }
+      );
+    }
 
     // Obtener datos del producto para snapshot y recálculo del stock global.
     const prodQ = await supabase
@@ -97,11 +106,27 @@ export async function POST(request: NextRequest) {
       tipo === "SALIDA" ? -cantAbs :
       cantidad;
 
+    // El stock no puede quedar negativo. Antes el `Math.max(0, ...)` de más
+    // abajo lo tapaba: la salida se registraba igual y el stock caía a cero en
+    // silencio, así que el movimiento y las existencias dejaban de cuadrar.
+    const stockActual = Number(prod.stock_actual) || 0;
+    if (delta < 0 && stockActual + delta < 0) {
+      return NextResponse.json(
+        errorResponse(
+          `Stock insuficiente: "${prod.nombre}" tiene ${stockActual} y se intentan sacar ${Math.abs(delta)}.`
+        ),
+        { status: 400 }
+      );
+    }
+
     // Ajuste del stock por ubicación (solo si se especificó depósito).
     if (ubicacionId) {
       const err = await ajustarStockUbicacion(supabase, empresaId, ubicacionId, producto_id, delta);
       if (err) return NextResponse.json(errorResponse(`No se pudo ajustar el stock del depósito: ${err}`), { status: 400 });
     }
+
+    // Quién lo hizo: un solo criterio para toda la app (ver firmaUsuario).
+    const firma = await firmaUsuario(supabase, ctx.auth);
 
     // Insertar la fila del movimiento.
     const insert = await supabase
@@ -118,6 +143,8 @@ export async function POST(request: NextRequest) {
         origen,
         referencia,
         fecha: new Date().toISOString(),
+        created_by: firma.id,
+        usuario_nombre: firma.nombre,
       })
       .select()
       .single();

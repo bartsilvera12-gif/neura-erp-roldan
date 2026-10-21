@@ -25,7 +25,12 @@ export default function NuevoMovimientoPage() {
     numero_lote: "",
     fecha_vencimiento: "",
     ubicacion_id: "",
+    motivo: "",
   });
+
+  // El desplegable con todos los productos era inusable apenas pasaban las dos
+  // docenas: se escribe acá y la lista se filtra por nombre o SKU.
+  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +111,16 @@ export default function NuevoMovimientoPage() {
       setError("Elegí un depósito.");
       return;
     }
+    if (form.tipo === "AJUSTE" && !form.motivo.trim()) {
+      setError("Escribí el motivo del ajuste: es lo único que explica por qué cambió el stock.");
+      return;
+    }
+    if (form.tipo === "SALIDA" && productoSeleccionado.stock_actual < Math.abs(cantidadNum)) {
+      setError(
+        `Stock insuficiente: "${productoSeleccionado.nombre}" tiene ${productoSeleccionado.stock_actual} y querés sacar ${Math.abs(cantidadNum)}.`
+      );
+      return;
+    }
     setSaving(true);
 
     // Usamos el endpoint server-side que ajusta stock por ubicación + productos.stock_actual
@@ -122,6 +137,7 @@ export default function NuevoMovimientoPage() {
           costo_unitario: parseFloat(form.costo_unitario) || 0,
           origen: form.origen,
           ubicacion_id: form.ubicacion_id || null,
+          referencia: form.motivo.trim() || null,
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -181,6 +197,13 @@ export default function NuevoMovimientoPage() {
     router.push("/inventario/movimientos");
   }
 
+  const termino = busqueda.trim().toLowerCase();
+  const productosFiltrados = termino
+    ? productos.filter((p) =>
+        `${p.nombre} ${p.sku ?? ""}`.toLowerCase().includes(termino)
+      )
+    : productos;
+
   const productoSeleccionado = productos.find((p) => p.id === form.producto_id);
   const requiereLoteUI =
     productoSeleccionado?.controla_lote === true && form.tipo === "ENTRADA";
@@ -203,20 +226,33 @@ export default function NuevoMovimientoPage() {
           {/* Producto */}
           <div>
             <label className={labelClass}>Producto</label>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre o código…"
+              className={`${inputClass} mb-2`}
+            />
             <select
               name="producto_id"
               value={form.producto_id}
               onChange={handleProductoChange}
               className={inputClass}
+              size={productosFiltrados.length > 1 ? Math.min(8, productosFiltrados.length + 1) : undefined}
               required
             >
               <option value="">Seleccionar producto...</option>
-              {productos.map((p) => (
+              {productosFiltrados.map((p) => (
                 <option key={p.id} value={String(p.id)}>
                   {p.nombre} — {p.sku} (stock actual: {p.stock_actual})
                 </option>
               ))}
             </select>
+            {termino && productosFiltrados.length === 0 && (
+              <p className="mt-1 text-xs text-amber-700">
+                Ningún producto coincide con “{busqueda}”.
+              </p>
+            )}
           </div>
 
           {/* Depósito */}
@@ -272,6 +308,31 @@ export default function NuevoMovimientoPage() {
                 <option value="ajuste_manual">Ajuste manual</option>
               </select>
             </div>
+          </div>
+
+          {/* Motivo — obligatorio en los ajustes, porque es lo único que deja
+              rastro de por qué alguien cambió el stock a mano. */}
+          <div>
+            <label className={labelClass}>
+              Motivo{" "}
+              {form.tipo === "AJUSTE"
+                ? <span className="text-red-500">*</span>
+                : <span className="text-gray-400 font-normal">(opcional)</span>}
+            </label>
+            <input
+              type="text"
+              name="motivo"
+              value={form.motivo}
+              onChange={handleChange}
+              placeholder={
+                form.tipo === "AJUSTE"
+                  ? "Ej: conteo físico del 21/10, faltaban 3 unidades"
+                  : "Ej: remito 001-002-0000345"
+              }
+              className={inputClass}
+              maxLength={200}
+              required={form.tipo === "AJUSTE"}
+            />
           </div>
 
           {/* Cantidad + Costo unitario */}

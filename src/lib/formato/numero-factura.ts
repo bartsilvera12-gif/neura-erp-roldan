@@ -20,3 +20,29 @@ export function displayNumeroFactura(v: string | null | undefined): string {
   if (v.includes("-")) return v;
   return formatearNumeroFactura(v);
 }
+
+/** Formato legal paraguayo de un número de comprobante: 001-001-0000001. */
+export const RE_NUMERO_FACTURA = /^\d{3}-\d{3}-\d{7}$/;
+
+/** El timbrado de la DNIT son 8 dígitos. */
+export const RE_TIMBRADO = /^\d{8}$/;
+
+/**
+ * Valida el número de comprobante ya formateado. Devuelve el mensaje de error
+ * o `null` si está bien. Un número vacío se considera válido: hay comprobantes
+ * (tickets internos, notas) que se cargan sin número.
+ */
+export function errorNumeroFactura(v: string | null | undefined): string | null {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  return RE_NUMERO_FACTURA.test(s)
+    ? null
+    : "El N° de factura debe tener el formato 001-001-0000001.";
+}
+
+/** Idem para el timbrado, que sí es obligatorio en una compra con factura. */
+export function errorTimbrado(v: string | null | undefined): string | null {
+  const s = String(v ?? "").replace(/\D+/g, "");
+  if (!s) return "Ingresá el N° de timbrado.";
+  return RE_TIMBRADO.test(s) ? null : "El N° de timbrado son 8 dígitos.";
+}

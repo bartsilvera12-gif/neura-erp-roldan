@@ -10,7 +10,7 @@ import { getProductos, productoExiste, saveProducto } from "@/lib/inventario/sto
 import type { TipoIva, TipoPago, Moneda } from "@/lib/compras/types";
 import type { Proveedor } from "@/lib/proveedores/types";
 import type { MetodoValuacion, Producto } from "@/lib/inventario/types";
-import { formatearNumeroFactura } from "@/lib/formato/numero-factura";
+import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib/formato/numero-factura";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -356,7 +356,10 @@ export default function NuevaCompraPage() {
     e.preventDefault();
     setErrorSubmit(null);
     if (!cab.proveedor_id) return setErrorSubmit("Seleccioná o agregá un proveedor.");
-    if (!cab.nro_timbrado.trim()) return setErrorSubmit("Ingresá el N° de timbrado.");
+    const errTimbrado = errorTimbrado(cab.nro_timbrado);
+    if (errTimbrado) return setErrorSubmit(errTimbrado);
+    const errFactura = errorNumeroFactura(cab.numero_factura);
+    if (errFactura) return setErrorSubmit(errFactura);
     if (lineas.length === 0) return setErrorSubmit("Agregá al menos un producto a la compra.");
     if (cab.moneda === "USD" && tipoCambioNum <= 0)
       return setErrorSubmit("Cargá el tipo de cambio (USD → Gs.).");

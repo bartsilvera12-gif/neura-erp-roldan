@@ -143,18 +143,45 @@ export async function POST(request: NextRequest) {
       ? (body.categoria_ids as unknown[]).map((x) => String(x)).filter(Boolean)
       : [];
 
-    // Duplicado por RUC
+    // Duplicado por RUC.
+    //
+    // Antes, si la consulta fallaba (típico cuando el deploy no tiene pool PG
+    // directo y solo habla PostgREST), el catch la daba por buena y el alta
+    // seguía: se podían crear dos proveedores con el mismo RUC sin aviso.
+    // Ahora hay un segundo intento por PostgREST, y si tampoco se puede
+    // verificar se corta en vez de arriesgar el duplicado.
     if (ruc) {
+      let dup: { id: string; nombre: string } | null = null;
+      let verificado = false;
       try {
-        const dup = await findProveedorByRuc(schema, empresaId, ruc);
-        if (dup) {
-          return NextResponse.json(
-            errorResponse(`Ya existe un proveedor con el mismo RUC ("${dup.nombre}").`),
-            { status: 409 }
-          );
-        }
+        dup = await findProveedorByRuc(schema, empresaId, ruc);
+        verificado = true;
       } catch (e) {
         console.error("[/api/proveedores POST] findProveedorByRuc", { schema, empresaId, msg: e instanceof Error ? e.message : e });
+      }
+      if (!verificado) {
+        try {
+          const alt = await ctx.supabase
+            .from("proveedores").select("id, nombre")
+            .eq("empresa_id", empresaId).eq("ruc", ruc).limit(1);
+          if (alt.error) throw new Error(alt.error.message);
+          dup = ((alt.data ?? [])[0] as { id: string; nombre: string } | undefined) ?? null;
+          verificado = true;
+        } catch (e) {
+          console.error("[/api/proveedores POST] dup RUC PostgREST", e instanceof Error ? e.message : e);
+        }
+      }
+      if (dup) {
+        return NextResponse.json(
+          errorResponse(`Ya existe un proveedor con el mismo RUC ("${dup.nombre}").`),
+          { status: 409 }
+        );
+      }
+      if (!verificado) {
+        return NextResponse.json(
+          errorResponse("No se pudo verificar si el RUC ya existe. Probá de nuevo en un momento."),
+          { status: 503 }
+        );
       }
     }
 
