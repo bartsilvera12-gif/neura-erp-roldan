@@ -193,6 +193,17 @@ export default function FlujoCajaPage() {
   const dias = mesCompleto || diasConPagos.length === 0 ? todosLosDias : diasConPagos;
   const ocultos = todosLosDias.length - dias.length;
 
+  // Pistas visuales para no perderse entre 31 columnas iguales: la inicial del
+  // día de la semana, el fin de semana apagado y la columna de hoy marcada.
+  const LETRAS = ["D", "L", "M", "M", "J", "V", "S"];
+  const diaSemana = (d: number) => new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
+  const letraDia = (d: number) => LETRAS[diaSemana(d)];
+  const esFinde = (d: number) => diaSemana(d) === 0 || diaSemana(d) === 6;
+
+  const hoy = new Date();
+  const esHoy = (d: number) =>
+    d === hoy.getDate() && mes === hoy.getMonth() + 1 && anio === hoy.getFullYear();
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -403,6 +414,13 @@ export default function FlujoCajaPage() {
         </div>
       ) : (
         <>
+        {data.liquidez.total_gs === 0 && (
+          <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+            Este mes no tiene fondos cargados, por eso <strong>Disponible</strong> da cero en todos
+            los días. Escribilos arriba en “Fondos disponibles” y apretá Guardar, o cargá la posición
+            de liquidez.
+          </div>
+        )}
         {(ocultos > 0 || mesCompleto) && (
           <div className="mb-2 flex items-center justify-end gap-2 text-[11px] text-slate-500">
             {!mesCompleto && (
@@ -425,7 +443,17 @@ export default function FlujoCajaPage() {
                   Proveedor
                 </th>
                 {dias.map((d) => (
-                  <th key={d} className="min-w-[86px] px-2 py-2 text-center font-semibold text-slate-500">{d}</th>
+                  <th
+                    key={d}
+                    className={`min-w-[64px] px-1.5 py-1.5 text-center font-semibold ${
+                      esHoy(d) ? "bg-[#4FAEB2]/10 text-[#2F6E71]"
+                      : esFinde(d) ? "text-slate-300"
+                      : "text-slate-500"
+                    }`}
+                  >
+                    <span className="block text-[9px] font-medium uppercase opacity-60">{letraDia(d)}</span>
+                    {d}
+                  </th>
                 ))}
                 <th className="px-3 py-2 text-right font-semibold text-slate-600">Total</th>
               </tr>
@@ -443,7 +471,9 @@ export default function FlujoCajaPage() {
                       <td
                         key={d}
                         onClick={() => entradas.length > 0 && setCelda({ dia: d, fila })}
-                        className={`px-1 py-1 text-right align-top ${entradas.length > 0 ? "cursor-pointer hover:bg-slate-50" : ""}`}
+                        className={`px-1 py-1 text-right align-top ${
+                          entradas.length > 0 ? "cursor-pointer hover:bg-slate-50" : ""
+                        } ${esHoy(d) ? "bg-[#4FAEB2]/5" : esFinde(d) ? "bg-slate-50/60" : ""}`}
                       >
                         {entradas.map((e, i) => (
                           <span
@@ -467,31 +497,43 @@ export default function FlujoCajaPage() {
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-300 bg-slate-50/70">
-                <td className="sticky left-0 z-10 bg-slate-50 px-3 py-2 font-semibold text-slate-600">Subtotal US$</td>
+                <td className="sticky left-0 z-10 whitespace-nowrap bg-slate-50 px-3 py-1.5 font-semibold text-slate-600">Subtotal US$</td>
                 {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
-                  <td key={t.dia} className="px-2 py-2 text-right tabular-nums text-slate-700">
+                  <td
+                    key={t.dia}
+                    className={`px-1.5 py-1.5 text-right tabular-nums text-slate-700 ${
+                      esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""
+                    }`}
+                  >
                     {t.subtotal_usd ? miles(t.subtotal_usd, 2) : ""}
                   </td>
                 ))}
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">{miles(data.resumen.total_usd, 2)}</td>
               </tr>
               <tr className="bg-slate-50/70">
-                <td className="sticky left-0 z-10 bg-slate-50 px-3 py-2 font-semibold text-slate-600">Subtotal Gs.</td>
+                <td className="sticky left-0 z-10 whitespace-nowrap bg-slate-50 px-3 py-1.5 font-semibold text-slate-600">Subtotal Gs.</td>
                 {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
-                  <td key={t.dia} className="px-2 py-2 text-right tabular-nums text-slate-700">
+                  <td
+                    key={t.dia}
+                    className={`px-1.5 py-1.5 text-right tabular-nums text-slate-700 ${
+                      esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""
+                    }`}
+                  >
                     {t.subtotal_gs ? miles(t.subtotal_gs) : ""}
                   </td>
                 ))}
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">{miles(data.resumen.total_gs)}</td>
               </tr>
               <tr className="bg-white">
-                <td className="sticky left-0 z-10 bg-white px-3 py-2 font-semibold text-slate-600">
+                <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-3 py-1.5 font-semibold text-slate-600">
                   Disponible Gs.
                 </td>
                 {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
                   <td
                     key={t.dia}
-                    className={`px-2 py-2 text-right tabular-nums ${t.acumulado_gs < 0 ? "text-red-600" : "text-slate-700"}`}
+                    className={`px-1.5 py-1.5 text-right tabular-nums ${
+                      t.acumulado_gs < 0 ? "text-red-600" : t.egreso_gs > 0 ? "text-slate-700" : "text-slate-300"
+                    } ${esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""}`}
                   >
                     {miles(t.acumulado_gs)}
                   </td>
@@ -501,11 +543,16 @@ export default function FlujoCajaPage() {
                 </td>
               </tr>
               <tr className="bg-white">
-                <td className="sticky left-0 z-10 bg-white px-3 py-2 text-[11px] font-medium text-slate-400">
+                <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-3 py-1.5 text-[11px] font-medium text-slate-400">
                   Disponible US$
                 </td>
                 {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
-                  <td key={t.dia} className="px-2 py-2 text-right text-[11px] tabular-nums text-slate-400">
+                  <td
+                    key={t.dia}
+                    className={`px-1.5 py-1.5 text-right text-[11px] tabular-nums ${
+                      t.egreso_gs > 0 ? "text-slate-400" : "text-slate-300"
+                    } ${esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""}`}
+                  >
                     {miles(t.acumulado_usd, 0)}
                   </td>
                 ))}
