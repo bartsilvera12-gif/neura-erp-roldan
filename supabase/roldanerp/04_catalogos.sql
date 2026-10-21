@@ -46,16 +46,27 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Sin ON CONFLICT a propósito: esa cláusula exige un índice único que
+  -- coincida exactamente con las columnas nombradas, y el clon no garantiza
+  -- tenerlo. Si falta, el statement revienta, se revierte TODA la transacción
+  -- y el catálogo queda vacío: justo el síntoma que este script viene a curar.
   INSERT INTO roldanerp.dashboard_views (slug, nombre, orden, activo)
-  VALUES
-    ('comercial',  'Comercial',  10, true),
-    ('financiero', 'Financiero', 20, true),
-    ('inventario', 'Inventario', 30, true),
-    ('ventas',     'Ventas',     40, true)
-  ON CONFLICT (slug) DO UPDATE SET
-    nombre = EXCLUDED.nombre,
-    orden  = EXCLUDED.orden,
-    activo = EXCLUDED.activo;
+  SELECT v.slug, v.nombre, v.orden, true
+  FROM (VALUES
+    ('comercial',  'Comercial',  10),
+    ('financiero', 'Financiero', 20),
+    ('inventario', 'Inventario', 30),
+    ('ventas',     'Ventas',     40)
+  ) AS v(slug, nombre, orden)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM roldanerp.dashboard_views d WHERE d.slug = v.slug
+  );
+
+  -- Reactivar las que ya existían pero estaban apagadas.
+  UPDATE roldanerp.dashboard_views
+     SET activo = true
+   WHERE slug IN ('comercial', 'financiero', 'inventario', 'ventas')
+     AND activo IS DISTINCT FROM true;
 
   -- Habilitación para la empresa (todas las vistas activas).
   INSERT INTO roldanerp.empresa_dashboard_views (empresa_id, dashboard_view_id, activo)
@@ -63,7 +74,14 @@ BEGIN
   FROM roldanerp.empresas e
   CROSS JOIN roldanerp.dashboard_views dv
   WHERE dv.activo IS TRUE
-  ON CONFLICT (empresa_id, dashboard_view_id) DO UPDATE SET activo = true;
+    AND NOT EXISTS (
+      SELECT 1 FROM roldanerp.empresa_dashboard_views ed
+       WHERE ed.empresa_id = e.id AND ed.dashboard_view_id = dv.id
+    );
+
+  UPDATE roldanerp.empresa_dashboard_views
+     SET activo = true
+   WHERE activo IS DISTINCT FROM true;
 
   SELECT count(*) INTO v_n
   FROM roldanerp.empresa_dashboard_views WHERE activo;
@@ -86,6 +104,7 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Mismo criterio que arriba: sin ON CONFLICT.
   INSERT INTO roldanerp.crm_etapas (empresa_id, codigo, nombre, color, orden, activo)
   SELECT e.id, v.codigo, v.nombre, v.color, v.orden, true
   FROM roldanerp.empresas e
@@ -96,7 +115,10 @@ BEGIN
     ('GANADO',      'Ganado',      'green', 4),
     ('PERDIDO',     'Perdido',     'red',   5)
   ) AS v(codigo, nombre, color, orden)
-  ON CONFLICT (empresa_id, codigo) DO NOTHING;
+  WHERE NOT EXISTS (
+    SELECT 1 FROM roldanerp.crm_etapas c
+     WHERE c.empresa_id = e.id AND c.codigo = v.codigo
+  );
 
   SELECT count(*) INTO v_n FROM roldanerp.crm_etapas WHERE activo;
   RAISE NOTICE 'Etapas de CRM activas: %', v_n;
