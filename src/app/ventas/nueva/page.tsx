@@ -1766,14 +1766,6 @@ export default function NuevaVentaPage() {
               >
                 Abrir ticket
               </a>
-              <a
-                href={`/api/ventas/${postVenta.id}/factura?auto=1`}
-                target="_blank"
-                rel="noopener"
-                className="rounded-lg border border-[#4FAEB2]/40 bg-[#4FAEB2]/[0.08] px-4 py-2.5 text-sm font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/[0.16]"
-              >
-                Imprimir factura
-              </a>
               {postVenta.generaNota && (
                 <a
                   href={`/api/ventas/${postVenta.id}/ticket?tipo=remision&auto=1`}

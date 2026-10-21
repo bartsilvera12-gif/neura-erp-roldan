@@ -28,42 +28,6 @@ const TIPO_LABEL: Record<Ausencia["tipo"], string> = {
   otro: "Otro",
 };
 
-function ImportarEspanaBtn({ onDone, setMsg }: { onDone: () => void; setMsg: (m: string | null) => void }) {
-  const [anio, setAnio] = useState(String(new Date().getFullYear()));
-  const [loading, setLoading] = useState(false);
-  const importar = async () => {
-    setLoading(true);
-    setMsg(null);
-    try {
-      const r = await fetchWithSupabaseSession(`/api/rrhh/feriados/importar-espana?anio=${anio}`, { method: "POST" });
-      const j = await r.json();
-      if (!j.success) { setMsg(j.error ?? "Error al importar"); return; }
-      setMsg(`Importados ${j.data?.importados ?? 0} feriados de España ${anio}.`);
-      onDone();
-    } finally {
-      setLoading(false);
-    }
-  };
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="number"
-        value={anio}
-        onChange={(e) => setAnio(e.target.value)}
-        className="w-20 border border-slate-200 rounded-md px-2 py-1 text-sm bg-white"
-      />
-      <button
-        type="button"
-        onClick={importar}
-        disabled={loading}
-        className="text-xs font-medium bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-3 py-1.5 rounded-md disabled:opacity-50"
-      >
-        {loading ? "Importando…" : "Importar feriados ES"}
-      </button>
-    </div>
-  );
-}
-
 function empleadoNombre(a: Ausencia): string {
   const e = a.empleados;
   if (!e) return "—";
@@ -176,7 +140,6 @@ export default function FeriadosAusenciasPage() {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-slate-800">Feriados</h2>
-          <ImportarEspanaBtn onDone={() => { void cargar(); }} setMsg={setMsg} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_auto] gap-3 mb-4">
           <label className="flex flex-col gap-1">

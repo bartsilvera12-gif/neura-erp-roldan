@@ -96,8 +96,6 @@ export default function ControlHorarioPage() {
 
       <KioscoLinkCard />
 
-      <ReporteMarcacionesCard empleados={empleados} />
-
       {empleados.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
           Cargá primero empleados desde <a href="/rrhh/empleados" className="font-medium text-[#3F8E91] underline">RRHH → Empleados</a>.
@@ -388,56 +386,3 @@ function KioscoLinkCard() {
   );
 }
 
-/**
- * Reporte PDF de marcaciones — Fase F.
- * Filtro opcional por empleado + rango de fechas (por defecto último mes).
- */
-function ReporteMarcacionesCard({ empleados }: { empleados: Empleado[] }) {
-  const hoy = new Date();
-  const mesAtras = new Date(hoy); mesAtras.setDate(hoy.getDate() - 30);
-  const [empleadoId, setEmpleadoId] = useState<string>("");
-  const [desde, setDesde] = useState<string>(mesAtras.toISOString().slice(0, 10));
-  const [hasta, setHasta] = useState<string>(hoy.toISOString().slice(0, 10));
-
-  const url = (() => {
-    const p = new URLSearchParams();
-    if (empleadoId) p.set("empleadoId", empleadoId);
-    p.set("desde", desde);
-    p.set("hasta", hasta);
-    return `/api/rrhh/fichajes/reporte-pdf?${p.toString()}`;
-  })();
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">Reporte PDF de marcaciones</h3>
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-slate-600">Empleado (opcional)</label>
-          <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-            <option value="">Todos</option>
-            {empleados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600">Desde</label>
-          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600">Hasta</label>
-          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-        </div>
-      </div>
-      <div className="mt-3">
-        <a href={url} target="_blank" rel="noreferrer"
-          className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F9EA2]">
-          📄 Descargar PDF
-        </a>
-      </div>
-    </div>
-  );
-}
