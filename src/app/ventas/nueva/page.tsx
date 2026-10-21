@@ -1338,10 +1338,14 @@ export default function NuevaVentaPage() {
                             <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
                               {(["minorista", "mayorista", "distribuidor"] as const).map((tp) => {
                                 const sel = (item.tipo_precio ?? "minorista") === tp;
+                                // Los nombres, no A/B/C: las letras venían del fork de
+                                // ferretería y acá nadie sabe cuál es cuál.
+                                const corto = tp === "minorista" ? "Minor." : tp === "mayorista" ? "Mayor." : "Distrib.";
+                                const largo = tp.charAt(0).toUpperCase() + tp.slice(1);
                                 return (
-                                  <button key={tp} type="button" onClick={() => changeTipoPrecioItem(idx, tp)}
+                                  <button key={tp} type="button" title={largo} onClick={() => changeTipoPrecioItem(idx, tp)}
                                     className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
-                                    {tp === "minorista" ? "A" : tp === "mayorista" ? "B" : "C"}
+                                    {corto}
                                   </button>
                                 );
                               })}
