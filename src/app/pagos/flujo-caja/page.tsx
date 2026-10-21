@@ -173,10 +173,25 @@ export default function FlujoCajaPage() {
     setEditandoSaldos(true);
   }
 
-  const dias = useMemo(
+  /**
+   * Un mes son 31 columnas y casi todas quedan vacías, así que por defecto se
+   * muestran solo los días con pagos. El mes completo sigue a un clic, para
+   * cuando hace falta ver la planilla entera como en el Excel de Joaquín.
+   */
+  const [mesCompleto, setMesCompleto] = useState(false);
+
+  const todosLosDias = useMemo(
     () => Array.from({ length: data?.dias ?? 0 }, (_, i) => i + 1),
     [data?.dias]
   );
+
+  const diasConPagos = useMemo(
+    () => todosLosDias.filter((d) => (data?.filas ?? []).some((f) => (f.dias[d] ?? []).length > 0)),
+    [todosLosDias, data?.filas]
+  );
+
+  const dias = mesCompleto || diasConPagos.length === 0 ? todosLosDias : diasConPagos;
+  const ocultos = todosLosDias.length - dias.length;
 
   return (
     <div className="space-y-6">
@@ -387,6 +402,21 @@ export default function FlujoCajaPage() {
           <VacioExplicado diag={data?.diagnostico} anio={anio} mes={mes} onIr={(a, m) => { setAnio(a); setMes(m); }} />
         </div>
       ) : (
+        <>
+        {(ocultos > 0 || mesCompleto) && (
+          <div className="mb-2 flex items-center justify-end gap-2 text-[11px] text-slate-500">
+            {!mesCompleto && (
+              <span>Se ocultan {ocultos} {ocultos === 1 ? "día sin pagos" : "días sin pagos"}.</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setMesCompleto((v) => !v)}
+              className="rounded-full border border-slate-300 px-3 py-1 font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              {mesCompleto ? "Ver solo días con pagos" : "Ver el mes completo"}
+            </button>
+          </div>
+        )}
         <EdgeScrollArea>
           <table className="w-full border-collapse text-xs">
             <thead>
@@ -438,7 +468,7 @@ export default function FlujoCajaPage() {
             <tfoot>
               <tr className="border-t-2 border-slate-300 bg-slate-50/70">
                 <td className="sticky left-0 z-10 bg-slate-50 px-3 py-2 font-semibold text-slate-600">Subtotal US$</td>
-                {data.totales.map((t) => (
+                {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
                   <td key={t.dia} className="px-2 py-2 text-right tabular-nums text-slate-700">
                     {t.subtotal_usd ? miles(t.subtotal_usd, 2) : ""}
                   </td>
@@ -447,7 +477,7 @@ export default function FlujoCajaPage() {
               </tr>
               <tr className="bg-slate-50/70">
                 <td className="sticky left-0 z-10 bg-slate-50 px-3 py-2 font-semibold text-slate-600">Subtotal Gs.</td>
-                {data.totales.map((t) => (
+                {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
                   <td key={t.dia} className="px-2 py-2 text-right tabular-nums text-slate-700">
                     {t.subtotal_gs ? miles(t.subtotal_gs) : ""}
                   </td>
@@ -458,7 +488,7 @@ export default function FlujoCajaPage() {
                 <td className="sticky left-0 z-10 bg-white px-3 py-2 font-semibold text-slate-600">
                   Disponible Gs.
                 </td>
-                {data.totales.map((t) => (
+                {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
                   <td
                     key={t.dia}
                     className={`px-2 py-2 text-right tabular-nums ${t.acumulado_gs < 0 ? "text-red-600" : "text-slate-700"}`}
@@ -474,7 +504,7 @@ export default function FlujoCajaPage() {
                 <td className="sticky left-0 z-10 bg-white px-3 py-2 text-[11px] font-medium text-slate-400">
                   Disponible US$
                 </td>
-                {data.totales.map((t) => (
+                {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
                   <td key={t.dia} className="px-2 py-2 text-right text-[11px] tabular-nums text-slate-400">
                     {miles(t.acumulado_usd, 0)}
                   </td>
@@ -484,6 +514,7 @@ export default function FlujoCajaPage() {
             </tfoot>
           </table>
         </EdgeScrollArea>
+        </>
       )}
 
       {celda && (

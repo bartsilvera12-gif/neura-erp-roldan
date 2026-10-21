@@ -61,7 +61,25 @@ export async function GET(request: NextRequest) {
       .eq("empresa_id", empresaId).eq("anio", anio).eq("mes", mes)
       .maybeSingle();
     if (cfgQ.error) throw new Error(cfgQ.error.message);
-    const tipoCambio = num(cfgQ.data?.tipo_cambio);
+
+    // Si el mes todavía no tiene config, el tipo de cambio se hereda del último
+    // mes que sí la tenga. Sin esto, abrir un mes nuevo dejaba la grilla entera
+    // en cero hasta que alguien volviera a escribir el cambio a mano.
+    let tipoCambio = num(cfgQ.data?.tipo_cambio);
+    if (tipoCambio <= 0) {
+      const previaQ = await ctx.supabase
+        .from("flujo_caja_config")
+        .select("anio, mes, tipo_cambio")
+        .eq("empresa_id", empresaId)
+        .gt("tipo_cambio", 0)
+        .order("anio", { ascending: false })
+        .order("mes", { ascending: false })
+        .limit(12);
+      if (previaQ.error) throw new Error(previaQ.error.message);
+      const previa = ((previaQ.data ?? []) as Array<Record<string, unknown>>)
+        .find((c) => Number(c.anio) * 12 + Number(c.mes) < anio * 12 + mes);
+      if (previa) tipoCambio = num(previa.tipo_cambio);
+    }
 
     // ── Fondos con los que arranca el mes.
     //    Si hay posición de liquidez cargada, manda ella: bancos + efectivo,
