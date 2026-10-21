@@ -115,6 +115,22 @@ export interface FlujoCajaMes {
     mercaderia_gs: number;
     detalle: SaldoLiquidez[];
   };
+  /**
+   * Para explicar una grilla vacía sin tener que mirar la base: cuántas compras
+   * hay, cuántas quedaron afuera y por qué, y en qué meses sí caen los pagos.
+   */
+  diagnostico: DiagnosticoFlujo;
+}
+
+export interface DiagnosticoFlujo {
+  /** Compras no anuladas de la empresa, contadas por factura. */
+  compras_total: number;
+  /** De esas, cuántas son a crédito (las únicas que se proyectan). */
+  compras_credito: number;
+  /** A crédito pero con fecha de pago fuera del mes que se está mirando. */
+  fuera_del_mes: number;
+  /** Meses donde sí hay pagos a crédito, con cuántos en cada uno. */
+  meses_con_pagos: { anio: number; mes: number; cantidad: number }[];
 }
 
 export type TipoSaldo = "banco" | "efectivo" | "mercaderia";

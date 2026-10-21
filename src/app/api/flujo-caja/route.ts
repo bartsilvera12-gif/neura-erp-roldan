@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { mensajeErrorFlujo } from "@/lib/flujo-caja/errores";
 import type {
-  EntradaFlujo, EstadoCheque, FilaFlujo, FlujoCajaMes, MonedaFlujo, TipoSaldo, TotalesDia,
+  DiagnosticoFlujo, EntradaFlujo, EstadoCheque, FilaFlujo, FlujoCajaMes, MonedaFlujo, TipoSaldo, TotalesDia,
 } from "@/lib/flujo-caja/types";
 
 /**
@@ -105,7 +105,6 @@ export async function GET(request: NextRequest) {
       .from("compras")
       .select("numero_control, numero_factura, proveedor_id, proveedor_nombre, fecha, fecha_factura, plazo_dias, total, moneda, tipo_cambio, estado, tipo_pago")
       .eq("empresa_id", empresaId)
-      .eq("tipo_pago", "credito")
       .not("estado", "in", '("anulada")');
     if (comprasQ.error) throw new Error(comprasQ.error.message);
 
@@ -116,9 +115,13 @@ export async function GET(request: NextRequest) {
       fecha_pago: string; moneda: MonedaFlujo; importe: number; pagada: boolean;
     };
     const facturas = new Map<string, Factura>();
+    /** Toda factura no anulada, a crédito o no. Solo sirve para el diagnóstico. */
+    const todasLasFacturas = new Set<string>();
     for (const r of (comprasQ.data ?? []) as Array<Record<string, unknown>>) {
       const nc = String(r.numero_control ?? "");
       if (!nc) continue;
+      todasLasFacturas.add(nc);
+      if (String(r.tipo_pago ?? "") !== "credito") continue;
       const base = String(r.fecha_factura ?? r.fecha ?? "").slice(0, 10);
       if (!base) continue;
       const totalGs = num(r.total);
@@ -305,6 +308,27 @@ export async function GET(request: NextRequest) {
       return a.nombre.localeCompare(b.nombre, "es");
     });
 
+    // ── Diagnóstico: por qué la grilla puede estar vacía.
+    const porMes = new Map<string, { anio: number; mes: number; cantidad: number }>();
+    let fueraDelMes = 0;
+    for (const f of facturas.values()) {
+      if (f.pagada) continue;
+      const a = Number(f.fecha_pago.slice(0, 4));
+      const m = Number(f.fecha_pago.slice(5, 7));
+      if (!a || !m) continue;
+      if (f.fecha_pago < desde || f.fecha_pago > hasta) fueraDelMes += 1;
+      const k = `${a}-${m}`;
+      const prev = porMes.get(k);
+      if (prev) prev.cantidad += 1;
+      else porMes.set(k, { anio: a, mes: m, cantidad: 1 });
+    }
+    const diagnostico: DiagnosticoFlujo = {
+      compras_total: todasLasFacturas.size,
+      compras_credito: facturas.size,
+      fuera_del_mes: fueraDelMes,
+      meses_con_pagos: [...porMes.values()].sort((x, y) => x.anio - y.anio || x.mes - y.mes),
+    };
+
     const payload: FlujoCajaMes = {
       config: {
         anio, mes, tipo_cambio: tipoCambio, fondos_disponibles: fondos,
@@ -331,6 +355,7 @@ export async function GET(request: NextRequest) {
           importe: num(s.importe),
         })),
       },
+      diagnostico,
     };
     return NextResponse.json(successResponse(payload));
   } catch (err) {

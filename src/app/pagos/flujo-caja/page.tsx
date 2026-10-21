@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import type { EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
+import type { DiagnosticoFlujo, EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
 
 /**
  * Flujo de caja de proveedores.
@@ -384,10 +384,7 @@ export default function FlujoCajaPage() {
       ) : !data || data.filas.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-5 py-12 text-center">
           <p className="font-medium text-slate-700">No hay pagos proyectados en {MESES[mes - 1]} {anio}</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-            Las facturas de compra a crédito caen acá solas, en la fecha de pago
-            (fecha de factura más el plazo). Cargá una compra para verla.
-          </p>
+          <VacioExplicado diag={data?.diagnostico} anio={anio} mes={mes} onIr={(a, m) => { setAnio(a); setMes(m); }} />
         </div>
       ) : (
         <EdgeScrollArea>
@@ -508,6 +505,76 @@ export default function FlujoCajaPage() {
         Los cheques ya cobrados no suman: ya salieron del banco.
       </p>
     </div>
+  );
+}
+
+/**
+/**
+ * Explica una grilla vacía con los números que manda la API, en vez de dejar un
+ * texto genérico. Las causas reales son siempre las mismas tres: no hay compras,
+ * están cargadas como contado, o el pago cae en otro mes.
+ */
+function VacioExplicado({
+  diag, anio, mes, onIr,
+}: {
+  diag?: DiagnosticoFlujo;
+  anio: number;
+  mes: number;
+  onIr: (anio: number, mes: number) => void;
+}) {
+  const clase = "mx-auto mt-2 max-w-md text-sm text-slate-500";
+
+  if (!diag || diag.compras_total === 0) {
+    return (
+      <p className={clase}>
+        Todavía no hay compras cargadas. Las facturas de compra <strong>a crédito</strong> caen
+        acá solas, en la fecha de pago (fecha de factura más el plazo).
+      </p>
+    );
+  }
+
+  if (diag.compras_credito === 0) {
+    return (
+      <p className={clase}>
+        Hay {diag.compras_total} {diag.compras_total === 1 ? "compra cargada" : "compras cargadas"},
+        pero ninguna está a crédito. En Compras → Nueva, el campo <strong>Tipo de pago</strong>{" "}
+        viene en <em>Contado</em>: ponelo en <strong>Crédito</strong> y cargale el plazo en días.
+        Una compra al contado ya está pagada, así que no se proyecta.
+      </p>
+    );
+  }
+
+  const otros = diag.meses_con_pagos.filter((x) => x.anio !== anio || x.mes !== mes);
+  if (otros.length > 0) {
+    return (
+      <div className={clase}>
+        <p>
+          Hay {diag.compras_credito} {diag.compras_credito === 1 ? "factura" : "facturas"} a
+          crédito, pero {diag.compras_credito === 1 ? "su pago cae" : "sus pagos caen"} en otro mes.
+          La fecha de pago es <strong>fecha de factura + plazo</strong>: con 30 días de plazo, una
+          factura de hoy se paga el mes que viene.
+        </p>
+        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+          {otros.map((x) => (
+            <button
+              key={`${x.anio}-${x.mes}`}
+              type="button"
+              onClick={() => onIr(x.anio, x.mes)}
+              className="rounded-full border border-[#4FAEB2] px-3 py-1 text-xs font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/10"
+            >
+              {MESES[x.mes - 1]} {x.anio} ({x.cantidad})
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <p className={clase}>
+      Hay {diag.compras_credito} {diag.compras_credito === 1 ? "factura" : "facturas"} a crédito,
+      pero {diag.compras_credito === 1 ? "ya está paga" : "ya están pagas"}.
+    </p>
   );
 }
 
