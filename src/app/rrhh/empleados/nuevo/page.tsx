@@ -230,7 +230,10 @@ export default function NuevoEmpleadoPage() {
         <Section title="Contacto">
           <Grid cols={3}>
             <TextField label="Teléfono" placeholder="0981 000 000" value={F("telefono")} onChange={(v) => setF("telefono", v)} />
-            <TextField label="E-mail" type="email" value={F("email")} onChange={(v) => setF("email", v)} />
+            {/* Se normaliza en el propio campo, no solo al guardar: así el
+                usuario ve de entrada cómo va a quedar guardado. */}
+            <TextField label="E-mail" type="email" value={F("email")}
+              onChange={(v) => setF("email", v.toLowerCase())} />
             <TextField label="Dirección" value={F("direccion")} onChange={(v) => setF("direccion", v)} />
           </Grid>
         </Section>

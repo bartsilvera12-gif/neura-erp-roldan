@@ -1316,8 +1316,11 @@ const DashFinanciero = memo(function DashFinanciero({
     ? Math.max(...cobradoPorTipoServicio.list.map((r) => r.value), 0)
     : 1;
 
+  // `h-full` + la grilla estirando: sin esto cada tarjeta tomaba su alto
+  // natural y las de una misma fila quedaban desparejas, una más arriba que
+  // la otra. Con esto comparten alto y los bordes se alinean.
   const finCard =
-    "min-w-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm shadow-slate-200/50 transition-shadow hover:shadow-md sm:p-7";
+    "flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm shadow-slate-200/50 transition-shadow hover:shadow-md sm:p-7";
   /** Caja de consulta (inline-size) para `cqi`; alinea al fondo y estira con la card. */
   const finKpiValueWrap =
     "flex min-h-0 w-full min-w-0 flex-1 [container-type:inline-size] items-end";
@@ -1441,7 +1444,7 @@ const DashFinanciero = memo(function DashFinanciero({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
         <div className={finCard}>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Deuda por tipo de cliente</h3>
           <p className="mt-1 text-[11px] text-slate-400">
@@ -1538,7 +1541,7 @@ const DashFinanciero = memo(function DashFinanciero({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:gap-8">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-5 lg:gap-8">
         <motion.div whileHover={{ y: -2 }} className={`${finCard} lg:col-span-3`}>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Progreso de metas</h3>
           <div className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2">

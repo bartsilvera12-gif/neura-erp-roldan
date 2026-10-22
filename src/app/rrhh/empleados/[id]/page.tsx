@@ -184,7 +184,9 @@ export default function EmpleadoDetallePage() {
         <Section title="Contacto">
           <Grid cols={3}>
             <TextField label="Teléfono" placeholder="0981 000 000" value={F("telefono")} onChange={(v) => setF("telefono", v)} />
-            <TextField label="E-mail" type="email" value={F("email")} onChange={(v) => setF("email", v)} />
+            {/* Mismo criterio que en el alta: minúsculas desde el campo. */}
+            <TextField label="E-mail" type="email" value={F("email")}
+              onChange={(v) => setF("email", v.toLowerCase())} />
             <TextField label="Dirección" value={F("direccion")} onChange={(v) => setF("direccion", v)} />
           </Grid>
         </Section>

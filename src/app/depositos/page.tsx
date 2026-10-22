@@ -17,6 +17,42 @@ export default function DepositosPage() {
   const [error, setError] = useState<string | null>(null);
   const [transferir, setTransferir] = useState<StockItem | null>(null);
 
+  /**
+   * Últimos movimientos de transferencia. Sin esto, al entrar al depósito de
+   * destino se veía la unidad sumada pero no de dónde había salido: había que
+   * ir a Inventario → Movimientos a buscarla.
+   */
+  type MovTransfer = {
+    id: string; tipo: string; cantidad: number; fecha: string;
+    producto_nombre: string; referencia: string | null; usuario_nombre: string | null;
+  };
+  const [movs, setMovs] = useState<MovTransfer[]>([]);
+
+  const cargarMovimientos = useCallback(async () => {
+    try {
+      const r = await fetch("/api/inventario/movimientos", { credentials: "include", cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) return;
+      const todos = (j.data?.movimientos ?? []) as Array<Record<string, unknown>>;
+      setMovs(
+        todos
+          .filter((m) => String(m.origen ?? "") === "transferencia")
+          .slice(0, 15)
+          .map((m) => ({
+            id: String(m.id),
+            tipo: String(m.tipo ?? ""),
+            cantidad: Number(m.cantidad) || 0,
+            fecha: String(m.fecha ?? ""),
+            producto_nombre: String(m.producto_nombre ?? ""),
+            referencia: m.referencia == null ? null : String(m.referencia),
+            usuario_nombre: m.usuario_nombre == null ? null : String(m.usuario_nombre),
+          }))
+      );
+    } catch { /* el historial es informativo: si falla, la pantalla sigue */ }
+  }, []);
+
+  useEffect(() => { void cargarMovimientos(); }, [cargarMovimientos]);
+
   useEffect(() => {
     (async () => {
       setCargando(true);
@@ -155,8 +191,39 @@ export default function DepositosPage() {
               </table>
             </div>
             <p className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400 italic">
-              La mercadería ingresa al depósito que se elige al cargar el movimiento. Una transferencia deja dos movimientos en el kardex (salida del origen, entrada al destino) y no cambia el stock total del producto.
+              La mercadería ingresa al depósito que se elige al cargar el movimiento. Una transferencia no cambia el stock total del producto: lo mueve de un depósito a otro.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <h3 className="border-b border-slate-100 px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+              Últimas transferencias
+            </h3>
+            {movs.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm italic text-slate-400">
+                Todavía no se transfirió mercadería entre depósitos.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {movs.map((m) => (
+                  <li key={m.id} className="flex items-start justify-between gap-3 px-5 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-800">{m.producto_nombre}</p>
+                      {/* La referencia ya dice "Transferencia desde X" o "a X". */}
+                      <p className="truncate text-[11px] text-slate-500">{m.referencia ?? "—"}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className={`text-sm font-semibold tabular-nums ${m.tipo === "ENTRADA" ? "text-emerald-700" : "text-slate-600"}`}>
+                        {m.tipo === "ENTRADA" ? "+" : "−"}{fmt(m.cantidad)}
+                      </span>
+                      <p className="text-[10px] text-slate-400">
+                        {m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)} · {m.usuario_nombre ?? "—"}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </>
       )}
@@ -167,7 +234,7 @@ export default function DepositosPage() {
           origenId={ubicacionActiva}
           depositos={depositos}
           onClose={() => setTransferir(null)}
-          onHecho={() => { setTransferir(null); void cargarStock(ubicacionActiva); }}
+          onHecho={() => { setTransferir(null); void cargarStock(ubicacionActiva); void cargarMovimientos(); }}
         />
       )}
     </div>
