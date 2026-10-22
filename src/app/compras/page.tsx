@@ -357,7 +357,10 @@ function VistaNutricion() {
                           {formatFechaDate(g.fecha_factura)}
                         </td>
                         <td className="py-4 text-right whitespace-nowrap">
-                          {isAdmin && (
+                          {/* Una compra anulada ya revirtió su stock: editarla
+                              volvería a aplicar las cantidades sobre un
+                              documento que no existe más. */}
+                          {isAdmin && !g.anulada && (
                             <Link
                               href={`/compras/nueva?numero=${encodeURIComponent(g.numero_control)}`}
                               onClick={(e) => e.stopPropagation()}

@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { requireContabilidadApiAccess } from "@/lib/contabilidad/contabilidad-auth";
-import { listLibroVentas, computeTotals, type LibroVentaFilters } from "@/lib/libro-ventas/libro-ventas-pg";
+import {
+  listLibroVentas,
+  computeTotals,
+  LibroVentasNoDisponibleError,
+  type LibroVentaFilters,
+} from "@/lib/libro-ventas/libro-ventas-pg";
 
 export const runtime = "nodejs";
 
@@ -30,7 +35,35 @@ export async function GET(request: NextRequest) {
     const rows = await listLibroVentas(schema, auth.empresaId, filtersFromUrl(new URL(request.url)));
     return NextResponse.json(successResponse({ rows, totals: computeTotals(rows) }));
   } catch (err) {
-    console.error("[/api/reportes/libro-ventas GET]", err instanceof Error ? err.message : err);
+    // El módulo de facturación electrónica no está instalado en este schema:
+    // no es una falla, es un libro vacío. Devolver 500 acá hacía que la
+    // pantalla mostrara "No se pudo generar el Libro de Ventas" sin decir por qué.
+    if (err instanceof LibroVentasNoDisponibleError) {
+      console.warn("[/api/reportes/libro-ventas GET] modulo_fiscal_ausente", {
+        empresa_id: auth.empresaId,
+        faltantes: err.faltantes,
+      });
+      return NextResponse.json(
+        successResponse({
+          rows: [],
+          totals: computeTotals([]),
+          aviso: err.message,
+        }),
+      );
+    }
+    // Para cualquier otra cosa: al usuario un mensaje genérico, pero al log
+    // el detalle de Postgres (code/table/column/hint), que es lo único que
+    // permite diagnosticar. `err.message` solo perdía toda esa información.
+    const pg = err as { code?: string; table?: string; column?: string; detail?: string; hint?: string };
+    console.error("[/api/reportes/libro-ventas GET]", {
+      empresa_id: auth.empresaId,
+      message: err instanceof Error ? err.message : String(err),
+      code: pg?.code,
+      table: pg?.table,
+      column: pg?.column,
+      detail: pg?.detail,
+      hint: pg?.hint,
+    });
     return NextResponse.json(errorResponse("No se pudo generar el Libro de Ventas."), { status: 500 });
   }
 }

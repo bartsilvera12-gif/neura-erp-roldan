@@ -64,8 +64,9 @@ export async function GET(
       costo_unitario_original_ultimo: number;
       tipo_cambio_ultimo: number;
       costo_minimo: number;
-      costo_promedio: number; // se completa al final
-      _sumaCosto: number;
+      costo_promedio: number; // ponderado por cantidad; se completa al final
+      _sumaCostoPorCantidad: number; // Σ (costo_unitario × cantidad)
+      _sumaCantidad: number;         // Σ cantidad
       cantidad_compras: number;
       historial: Array<{
         compra_id: string;
@@ -99,14 +100,22 @@ export async function GET(
           tipo_cambio_ultimo: Number(r.tipo_cambio) || 1,
           costo_minimo: costo,
           costo_promedio: 0,
-          _sumaCosto: 0,
+          _sumaCostoPorCantidad: 0,
+          _sumaCantidad: 0,
           cantidad_compras: 0,
           historial: [],
         };
         map.set(provKey, g);
       }
+      // Ponderar por cantidad. Un promedio simple de costos unitarios daba un
+      // número que no es el costo de nada: con 100 u. a Gs. 1.000 y 1 u. a
+      // Gs. 12.800 devolvía Gs. 6.900 en vez de Gs. 1.117. Encima se mostraba
+      // como "COSTO PROMEDIO" al lado del CPP real del producto, que sí está
+      // ponderado, así que la misma pantalla daba dos cifras distintas.
       g.costo_minimo = Math.min(g.costo_minimo, costo);
-      g._sumaCosto += costo;
+      const cant = Number(r.cantidad) || 0;
+      g._sumaCostoPorCantidad += costo * cant;
+      g._sumaCantidad += cant;
       g.cantidad_compras += 1;
       g.historial.push({
         compra_id: r.id,
@@ -146,8 +155,11 @@ export async function GET(
 
     const proveedores = [...map.values()]
       .map((g) => {
-        const { _sumaCosto, ...rest } = g;
-        return { ...rest, costo_promedio: g.cantidad_compras > 0 ? _sumaCosto / g.cantidad_compras : 0 };
+        const { _sumaCostoPorCantidad, _sumaCantidad, ...rest } = g;
+        return {
+          ...rest,
+          costo_promedio: _sumaCantidad > 0 ? _sumaCostoPorCantidad / _sumaCantidad : 0,
+        };
       })
       .sort((a, b) => new Date(b.ultima_fecha).getTime() - new Date(a.ultima_fecha).getTime());
 

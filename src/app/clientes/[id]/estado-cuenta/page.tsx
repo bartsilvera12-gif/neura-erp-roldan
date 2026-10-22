@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Banknote, Download } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import { RegistrarCobroModalCxc } from "@/components/cobros/RegistrarCobroModalCxc";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 type Mov = {
   id: string;
@@ -33,14 +34,6 @@ const ESTADO_BADGE: Record<string, string> = {
 
 function fmtGs(n: number) {
   return "Gs. " + Math.round(Number(n) || 0).toLocaleString("es-PY");
-}
-function fmtFecha(iso: string | null) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
-  } catch {
-    return iso;
-  }
 }
 
 export default function EstadoCuentaPage() {

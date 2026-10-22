@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PackageX, ArrowLeft, Plus, Trash2, Loader2, Printer } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 type ProductoLite = { id: string; nombre: string; sku: string; costo: number; stock: number; unidad: string };
 type ProveedorLite = { id: string; nombre: string };
@@ -22,13 +23,6 @@ type DevRow = {
 const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm";
 const labelClass = "block text-xs font-medium text-gray-600 mb-1";
 
-function fmtFecha(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
-  } catch {
-    return iso;
-  }
-}
 
 export default function DevolucionesProveedorPage() {
   const [productos, setProductos] = useState<ProductoLite[]>([]);

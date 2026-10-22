@@ -6,6 +6,7 @@ import { normalizeUpperText, normalizeUpperCodigoBarras } from "@/lib/text/norma
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 
 const PRODUCTO_COLS =
   "id, empresa_id, nombre, sku, costo_promedio, precio_venta, stock_actual, stock_minimo, " +
@@ -107,7 +108,21 @@ export async function PATCH(
     if (body.sku !== undefined) patch.sku = normalizeUpperText(body.sku);
     if (body.costo_promedio !== undefined) patch.costo_promedio = Number(body.costo_promedio) || 0;
     if (body.precio_venta !== undefined) patch.precio_venta = Number(body.precio_venta) || 0;
-    if (body.stock_actual !== undefined) patch.stock_actual = Number(body.stock_actual) || 0;
+    // `stock_actual` NO se escribe acá.
+    //
+    // Antes este PATCH lo pisaba directo y el kardex no se enteraba: un producto
+    // podía quedar con 163 unidades de entradas registradas y stock 1, sin
+    // ninguna fila que explicara la diferencia. El stock solo se mueve con un
+    // movimiento, así que si piden cambiarlo lo convertimos en un AJUSTE
+    // auditable (más abajo, después de guardar el resto de la ficha).
+    const stockSolicitado =
+      body.stock_actual !== undefined && Number.isFinite(Number(body.stock_actual))
+        ? Math.max(0, Number(body.stock_actual))
+        : null;
+    const motivoAjuste =
+      typeof body.motivo_ajuste_stock === "string" && body.motivo_ajuste_stock.trim()
+        ? body.motivo_ajuste_stock.trim()
+        : "Ajuste manual desde la ficha del producto";
     if (body.stock_minimo !== undefined) patch.stock_minimo = Number(body.stock_minimo) || 0;
     if (body.unidad_medida !== undefined) patch.unidad_medida = normalizeUpperText(body.unidad_medida) || "UNIDAD";
     if (body.metodo_valuacion !== undefined) {
@@ -176,6 +191,12 @@ export async function PATCH(
       patch.tipo_iva = body.tipo_iva;
     }
 
+    // Si lo único que mandaron es el stock, igual hay que pasar por el UPDATE
+    // para recuperar la fila (y de paso marcar que la ficha se tocó).
+    if (Object.keys(patch).length === 0 && stockSolicitado !== null) {
+      patch.updated_at = new Date().toISOString();
+    }
+
     if (Object.keys(patch).length === 0) {
       const { data: existing, error: errGet } = await sb
         .from("productos")
@@ -207,6 +228,46 @@ export async function PATCH(
     }
     if (!upd.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
     const updRow = upd.data as unknown as Record<string, unknown>;
+
+    // ── Cambio de stock pedido desde la ficha → movimiento de AJUSTE ─────────
+    // Se registra la diferencia, no el valor absoluto, para que el kardex
+    // siempre explique el saldo. Si falla, el stock no se toca: preferimos un
+    // stock desactualizado a uno que nadie puede justificar.
+    if (stockSolicitado !== null) {
+      const stockPrevio = Number(updRow.stock_actual) || 0;
+      const delta = stockSolicitado - stockPrevio;
+      if (delta !== 0) {
+        const firma = await firmaUsuario(sb, ctx.auth);
+        const mov = await sb.from("movimientos_inventario").insert({
+          empresa_id: empresaId,
+          sucursal_id: exigirSucursal(ctx.auth.sucursal_id),
+          producto_id: id,
+          producto_nombre: String(updRow.nombre ?? ""),
+          producto_sku: String(updRow.sku ?? ""),
+          tipo: "AJUSTE",
+          cantidad: Math.abs(delta),
+          costo_unitario: Number(updRow.costo_promedio) || 0,
+          origen: "ajuste_manual",
+          referencia: `${motivoAjuste} (${stockPrevio} → ${stockSolicitado})`,
+          fecha: new Date().toISOString(),
+          created_by: firma.id,
+          usuario_nombre: firma.nombre,
+        });
+        if (mov.error) {
+          console.error("[/api/productos/[id] PATCH] ajuste_stock", mov.error.message);
+          return NextResponse.json(
+            errorResponse("Se guardaron los datos del producto, pero no se pudo registrar el ajuste de stock. El stock quedó sin cambios."),
+            { status: 409 },
+          );
+        }
+        await sb
+          .from("productos")
+          .update({ stock_actual: stockSolicitado })
+          .eq("empresa_id", empresaId)
+          .eq("id", id);
+        updRow.stock_actual = stockSolicitado;
+      }
+    }
 
     // Sincronizar categoría principal en puente producto_categorias
     if (categoriaCambia) {

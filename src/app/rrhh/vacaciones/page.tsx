@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +47,6 @@ const TIPO_LABEL: Record<Tipo, string> = {
   otro: "Otro",
 };
 
-function fmtFecha(iso: string): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-PY");
-}
 
 function todayIso() {
   const d = new Date();
@@ -289,7 +286,8 @@ function VacacionesInner() {
                   <span className="text-slate-400"> · Compara: {previewDias.laborables} laborables / {previewDias.naturales} naturales</span>
                 </span>
                 <span className="text-[11px] text-slate-400">
-                  Referencia España (convenio general): 22 laborables ≈ 30 naturales al año.
+                  Referencia Paraguay (Código Laboral, art. 218), según antigüedad:
+                  hasta 5 años, 12 días hábiles · de 5 a 10 años, 18 · más de 10 años, 30.
                 </span>
               </div>
             )}

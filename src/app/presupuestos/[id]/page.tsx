@@ -6,6 +6,7 @@ import Link from "next/link";
 import { FileText, ArrowLeft, Loader2, Download, FileCheck2, Pencil, Trash2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 type Presu = {
   id: string;
@@ -59,14 +60,6 @@ const SIGUIENTES: Record<EstadoPresupuesto, EstadoPresupuesto[]> = {
 function fmtGs(n: number | string, moneda: string) {
   const v = Number(n) || 0;
   return (moneda === "USD" ? "USD " : "Gs. ") + v.toLocaleString("es-PY", { maximumFractionDigits: moneda === "USD" ? 2 : 0 });
-}
-function fmtFecha(iso: string | null) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
-  } catch {
-    return iso;
-  }
 }
 
 export default function PresupuestoDetallePage() {

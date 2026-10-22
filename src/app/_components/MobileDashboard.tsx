@@ -36,6 +36,7 @@ import {
 // Resultado: una venta del 25/05 NO matchea el rango "hoy 25/05 00:00 - 23:59 LOCAL".
 // enRangoCalendario compara string vs string YYYY-MM-DD ignorando timezone.
 import { enRangoCalendario } from "@/lib/fechas/calendario";
+import { aFechaCalendario } from "@/lib/fecha/asuncion";
 
 /**
  * MobileDashboard — versión mobile-first del dashboard.
@@ -130,15 +131,15 @@ function formatTime(iso: string): string {
   }
 }
 
+/** `DD/MM` — versión corta para las tarjetas del móvil. */
 function formatFecha(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("es-PY", {
-      day: "2-digit",
-      month: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+  // Vía `aFechaCalendario`: una columna `date` se respeta tal cual y un
+  // instante se baja al día de Paraguay. `new Date(iso)` directo mostraba
+  // el día anterior para las fechas sin hora.
+  const ymd = aFechaCalendario(iso);
+  if (!ymd) return "";
+  const [, m, d] = ymd.split("-");
+  return `${d}/${m}`;
 }
 
 type Props = {

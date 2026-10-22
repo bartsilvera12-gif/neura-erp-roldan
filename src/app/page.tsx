@@ -1051,7 +1051,12 @@ function composicionFacturacionPorModalidad(facturasPeriodo: FacturaRaw[]) {
   let contado = 0;
   let mensual = 0;
   for (const f of facturasPeriodo) {
-    const m = Number(f.saldo);
+    // El criterio es EMISIÓN (`monto`), no cartera viva (`saldo`), que es lo
+    // que decía el texto del widget y lo que usa "Facturado del período".
+    // Con `saldo`, una factura ya cobrada quedaba en 0 y desaparecía: el
+    // dashboard mostraba "Facturado Gs. 100.000" y, al lado,
+    // "Total emitido Gs. 0".
+    const m = Number(f.monto);
     if (!Number.isFinite(m) || m <= 0) continue;
     const t = (f.tipo ?? "").trim().toLowerCase();
     if (t === "contado") contado += m;
@@ -1609,9 +1614,13 @@ const DashInventario = memo(function DashInventario({
   // misma definición que el módulo Inventario. Fuente única en lib/inventario/valorizacion.
   const valorTotal     = productos.reduce((s, p) => tieneStockRealValorizable(p) ? s + p.stock_actual * p.costo_promedio : s, 0);
 
-  const cntSaludable = productosConStock.filter(p => p.stock_actual > p.stock_minimo).length;
-  const cntBajo      = productosConStock.filter(p => p.stock_actual > 0 && p.stock_actual <= p.stock_minimo).length;
-  const cntCritico   = productosConStock.filter(p => p.stock_actual <= 0).length;
+  // Un producto sin stock mínimo definido no tiene política de reposición, así
+  // que no puede estar "bajo el mínimo": antes, con mínimo 0 y stock 0, caía en
+  // Crítico y aparecía en la lista de reposición sin que hubiera nada que pedir.
+  const conMinimo = (p: { stock_minimo: number }) => (p.stock_minimo ?? 0) > 0;
+  const cntSaludable = productosConStock.filter(p => !conMinimo(p) || p.stock_actual > p.stock_minimo).length;
+  const cntBajo      = productosConStock.filter(p => conMinimo(p) && p.stock_actual > 0 && p.stock_actual <= p.stock_minimo).length;
+  const cntCritico   = productosConStock.filter(p => conMinimo(p) && p.stock_actual <= 0).length;
 
   const proveedorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -1632,7 +1641,7 @@ const DashInventario = memo(function DashInventario({
 
   const criticos = useMemo(() =>
     productosConStock
-      .filter(p => p.stock_actual <= p.stock_minimo)
+      .filter(p => conMinimo(p) && p.stock_actual <= p.stock_minimo)
       .sort((a, b) => a.stock_actual - b.stock_actual)
       .slice(0, 10),
     [productosConStock]
@@ -2188,14 +2197,21 @@ export default function DashboardPage() {
   const showTabNav = effectiveTabs.length > 1;
 
   // Si el tab actual no está permitido, redirigir al primero permitido.
+  //
+  // Se espera a que el rol esté cargado. `effectiveTabs` depende de
+  // `puedeVerTabFinanciero(rolErp)`, que mientras el rol no llegó devuelve
+  // false: entrar a `/?tab=financiero` redirigía a Inventario y reescribía la
+  // URL antes de saber que el usuario sí era admin, así que un link al
+  // dashboard financiero nunca abría esa pestaña.
   useEffect(() => {
+    if (!rolLoaded) return;
     if (effectiveTabs.length > 0 && !effectiveTabs.includes(tab)) {
       setTab(effectiveTabs[0]);
       if (typeof window !== "undefined") {
         window.history.replaceState(null, "", `?tab=${effectiveTabs[0]}`);
       }
     }
-  }, [tab, effectiveTabs]);
+  }, [tab, effectiveTabs, rolLoaded]);
 
   const TAB_META: Record<TabDash, { label: string; icon: string }> = {
     comercial: { label: "Comercial", icon: "📊" },

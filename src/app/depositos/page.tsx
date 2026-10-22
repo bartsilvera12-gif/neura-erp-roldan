@@ -147,7 +147,7 @@ export default function DepositosPage() {
               </table>
             </div>
             <p className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400 italic">
-              La clasificación de huevos ingresa siempre a <strong>Casa Central</strong>. Para llevar stock a otro depósito se emite una NR y el destino debe aprobarla.
+              La mercadería ingresa al depósito principal configurado en la ficha de cada producto. Para llevar stock a otro depósito se emite una NR y el destino debe aprobarla.
             </p>
           </div>
         </>

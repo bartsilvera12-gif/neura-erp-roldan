@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, X } from "lucide-react";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 type PedidoPendiente = {
   id: string;
@@ -22,14 +23,6 @@ const ORIGEN_LABEL: Record<string, string> = {
 
 function fmtGs(n: number) {
   return "Gs. " + Math.round(n || 0).toLocaleString("es-PY");
-}
-function fmtFecha(iso: string | null) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
-  } catch {
-    return iso;
-  }
 }
 
 export default function PedidosPendientesCaja() {

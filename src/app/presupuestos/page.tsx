@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FileText, Plus, Loader2, Lock, ChevronDown, Trash2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 /** Estados que el usuario puede elegir manualmente desde el listado (nunca 'convertido'). */
 const ESTADOS_EDITABLES: EstadoPresupuesto[] = ["creado", "enviado", "aprobado", "rechazado"];
@@ -37,13 +38,6 @@ const ESTADO_DOT: Record<EstadoPresupuesto, string> = {
 function fmtGs(n: number | string, moneda: string) {
   const v = Number(n) || 0;
   return (moneda === "USD" ? "USD " : "Gs. ") + v.toLocaleString("es-PY", { maximumFractionDigits: moneda === "USD" ? 2 : 0 });
-}
-function fmtFecha(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
-  } catch {
-    return iso;
-  }
 }
 
 const FILTROS: { id: "todos" | EstadoPresupuesto; label: string }[] = [

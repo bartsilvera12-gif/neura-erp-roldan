@@ -172,9 +172,14 @@ export default function ProveedorCategoriasPage() {
                         c.activo ? "translate-x-5" : "translate-x-0.5"
                       }`}
                     />
-                    <span className="sr-only">{c.activo ? "Sí" : "No"}</span>
+                    {/* El texto visible de al lado ya dice Sí/No; repetirlo acá
+                        en `sr-only` hacía que un lector de pantalla leyera
+                        "Sí Sí". El estado se anuncia por `aria-checked`. */}
+                    <span className="sr-only">
+                      {c.activo ? "Categoría activa" : "Categoría inactiva"}
+                    </span>
                   </button>
-                  <span className={`ml-2 text-xs font-medium ${c.activo ? "text-emerald-700" : "text-slate-500"}`}>
+                  <span aria-hidden="true" className={`ml-2 text-xs font-medium ${c.activo ? "text-emerald-700" : "text-slate-500"}`}>
                     {c.activo ? "Sí" : "No"}
                   </span>
                 </td>

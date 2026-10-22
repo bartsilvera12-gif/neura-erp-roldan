@@ -92,7 +92,11 @@ export async function GET(request: NextRequest) {
       let base = aplicarFiltroSucursal(
         ctx.supabase
           .from("productos")
-          .select(PRODUCTO_COLS, { count: "planned" })
+          // `planned` devuelve la ESTIMACIÓN del planner de Postgres, no el
+          // conteo real: en tablas chicas o recién cargadas (sin ANALYZE) da
+          // cualquier número, y la pantalla mostraba "Mostrando 1-1 de 1"
+          // teniendo 5 productos a la vista. `exact` cuenta de verdad.
+          .select(PRODUCTO_COLS, { count: "exact" })
           .eq("empresa_id", ctx.auth.empresa_id)
           .eq("activo", true),
         exigirSucursal(ctx.auth.sucursal_id)

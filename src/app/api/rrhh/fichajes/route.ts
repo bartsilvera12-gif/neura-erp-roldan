@@ -71,18 +71,55 @@ export async function POST(request: NextRequest) {
 
     const horaEntrada = body.hora_entrada ? String(body.hora_entrada) : null;
     const horaSalida = body.hora_salida ? String(body.hora_salida) : null;
+
+    // Una salida anterior a la entrada no es un turno nocturno: es un error de
+    // carga. Antes se guardaba igual y `calcHoras` devolvía 0, así que el
+    // fichaje quedaba registrado con 0 h y nadie se enteraba.
+    if (horaEntrada && horaSalida && horaSalida <= horaEntrada) {
+      return NextResponse.json(
+        errorResponse(
+          `La salida (${horaSalida}) no puede ser anterior ni igual a la entrada (${horaEntrada}). ` +
+          `Si el turno cruza la medianoche, cargá dos fichajes, uno por día.`,
+        ),
+        { status: 400 },
+      );
+    }
+
     const horas = calcHoras(horaEntrada, horaSalida);
 
     // Upsert por (empleado_id, fecha): primero busco, después actualizo o inserto.
     const existing = await ctx.supabase
       .from("empleado_fichajes")
-      .select("id")
+      .select("id, hora_entrada, hora_salida, horas")
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("empleado_id", empleadoId)
       .eq("fecha", fecha)
       .maybeSingle();
 
     if (existing.error) return NextResponse.json(errorResponse(existing.error.message), { status: 400 });
+
+    // Pisar un fichaje cargado es destructivo y no hay forma de deshacerlo
+    // desde la UI, así que se pide confirmación explícita. Antes el upsert lo
+    // reemplazaba en silencio: alcanzaba con equivocarse de fecha para borrar
+    // las horas de un día real.
+    const previo = existing.data as
+      | { id: string; hora_entrada: string | null; hora_salida: string | null; horas: number | null }
+      | null;
+    const tienteDatos = !!(previo && (previo.hora_entrada || previo.hora_salida));
+    if (tienteDatos && body.reemplazar !== true) {
+      return NextResponse.json(
+        {
+          ...errorResponse(
+            `Ya hay un fichaje de ese empleado para el ${fecha} ` +
+            `(${previo!.hora_entrada ?? "—"} a ${previo!.hora_salida ?? "—"}, ${previo!.horas ?? 0} h). ` +
+            `Confirmá para reemplazarlo.`,
+          ),
+          requiere_confirmacion: true,
+          fichaje_existente: previo,
+        },
+        { status: 409 },
+      );
+    }
 
     if (existing.data?.id) {
       const upd = await ctx.supabase

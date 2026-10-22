@@ -61,6 +61,7 @@ import {
 } from "@/components/clientes/ClientePerfilTributarioForm";
 import { ClienteDatosSifenReceptorForm } from "@/components/clientes/ClienteDatosSifenReceptorForm";
 import { NEURA_CLIENT_SCHEMA } from "@/lib/supabase/schema";
+import { formatFecha, formatFechaHora } from "@/lib/fecha/asuncion";
 
 /** Instancia monocliente Darocha: formulario/detalle de clientes simplificado (sin campos SaaS/Neura). */
 const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
@@ -93,19 +94,11 @@ const TABS: { id: TabId; label: string; showWhen?: (c: Cliente) => boolean }[] =
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatFecha(iso: string) {
-  try {
-    const d = new Date(iso);
-    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-  } catch { return ""; }
-}
-
-function formatFechaHora(iso: string) {
-  try {
-    const d = new Date(iso);
-    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  } catch { return ""; }
-}
+// `formatFecha` / `formatFechaHora` viven en `@/lib/fecha/asuncion`.
+// Antes se definían acá con `new Date(iso).getDate()`, que para una columna
+// `date` ("2026-10-21") devolvía el día anterior: JS la parsea como medianoche
+// UTC y el navegador la baja a UTC-3. Por eso una factura de hoy salía con
+// fecha de ayer.
 
 // ── Placeholder para pestañas futuras ─────────────────────────────────────────
 
@@ -273,6 +266,7 @@ export default function ClienteDetailPage() {
   const [facturaPago, setFacturaPago] = useState<Factura | null>(null);
   const [formPago, setFormPago] = useState({ factura_id: "" as string, monto: "", fecha_pago: "", metodo_pago: "efectivo" as const, referencia: "" });
   const [guardandoPago, setGuardandoPago] = useState(false);
+  const [errorPago, setErrorPago] = useState<string | null>(null);
   const [modalFacturaContado, setModalFacturaContado] = useState(false);
   const [formFacturaContado, setFormFacturaContado] = useState<{
     monto: string;
@@ -881,7 +875,8 @@ export default function ClienteDetailPage() {
       metodo_pago: "efectivo",
       referencia: "",
     });
-    setModalPago(true);
+    setErrorPago(null);
+                              setModalPago(true);
   }
 
   async function emitirFacturaContadoDesdeModal() {
@@ -2137,7 +2132,8 @@ export default function ClienteDetailPage() {
                         metodo_pago: "efectivo",
                         referencia: "",
                       });
-                      setModalPago(true);
+                      setErrorPago(null);
+                              setModalPago(true);
                     }}
                     className="text-sm font-medium text-[#0EA5E9] hover:text-[#0284C7]"
                   >
@@ -2188,7 +2184,8 @@ export default function ClienteDetailPage() {
                             {f.saldo > 0 && (
                               <button
                                 type="button"
-                                onClick={() => { setFacturaPago(f); setFormPago({ factura_id: f.id, monto: String(f.saldo), fecha_pago: new Date().toISOString().slice(0, 10), metodo_pago: "efectivo", referencia: "" }); setModalPago(true); }}
+                                onClick={() => { setFacturaPago(f); setFormPago({ factura_id: f.id, monto: String(f.saldo), fecha_pago: new Date().toISOString().slice(0, 10), metodo_pago: "efectivo", referencia: "" }); setErrorPago(null);
+                              setModalPago(true); }}
                                 className="text-xs font-medium text-[#0EA5E9] hover:underline"
                               >
                                 Registrar pago
@@ -2653,17 +2650,40 @@ export default function ClienteDetailPage() {
               e.preventDefault();
               const fid = facturaPago?.id ?? formPago.factura_id;
               if (!fid) return;
+              setErrorPago(null);
+
+              // Validar antes de pegarle al backend: el servidor igual rechaza
+              // un pago mayor al saldo, pero así el cajero lo ve al instante.
+              const monto = parseFloat(formPago.monto) || 0;
+              const saldo = facturaPago?.saldo ?? facturas.find((f) => f.id === fid)?.saldo ?? 0;
+              if (monto <= 0) {
+                setErrorPago("Ingresá un monto mayor a cero.");
+                return;
+              }
+              if (monto > saldo) {
+                setErrorPago(`El monto no puede superar el saldo pendiente (Gs. ${saldo.toLocaleString("es-PY")}).`);
+                return;
+              }
+
               setGuardandoPago(true);
-              await apiCreatePago({
+              const ok = await apiCreatePago({
                 factura_id: fid,
-                monto: parseFloat(formPago.monto) || 0,
+                monto,
                 fecha_pago: formPago.fecha_pago,
                 metodo_pago: formPago.metodo_pago,
                 referencia: formPago.referencia || undefined,
               });
+              setGuardandoPago(false);
+
+              // Antes el resultado se descartaba y el modal se cerraba igual:
+              // si el backend rechazaba el pago, el cajero se quedaba creyendo
+              // que lo había cobrado. Ahora el modal queda abierto con el motivo.
+              if (!ok) {
+                setErrorPago("No se pudo registrar el pago. Revisá el monto y volvé a intentar.");
+                return;
+              }
               setModalPago(false);
               getFacturas(id).then(setFacturas);
-              setGuardandoPago(false);
             }} className="space-y-4">
               {!facturaPago && facturas.filter((f) => f.saldo > 0).length > 0 && (
                 <div>
@@ -2706,6 +2726,11 @@ export default function ClienteDetailPage() {
                 <label className={labelClass}>Referencia</label>
                 <input type="text" value={formPago.referencia} onChange={(e) => setFormPago((p) => ({ ...p, referencia: e.target.value }))} className={inputClass} placeholder="Nº de comprobante" />
               </div>
+              {errorPago && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {errorPago}
+                </p>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={guardandoPago} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                   Guardar

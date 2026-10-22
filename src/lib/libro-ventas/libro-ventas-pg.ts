@@ -59,6 +59,42 @@ function pool() {
   return p;
 }
 
+/**
+ * Qué tablas fiscales tiene realmente el schema del tenant.
+ *
+ * POR QUÉ
+ *   El schema de cada empresa se clona de una plantilla, y no todas las
+ *   instalaciones tienen el módulo de facturación electrónica. Si
+ *   `factura_electronica`, `nota_credito` o `empresa_sifen_config` no existen,
+ *   la consulta reventaba con un error de Postgres y el endpoint devolvía 500
+ *   ("No se pudo generar el Libro de Ventas."), que es indistinguible de una
+ *   caída real. Lo correcto es que el libro salga vacío: sin DTE aprobado no
+ *   hay comprobante fiscal que listar.
+ */
+async function tablasFiscalesDisponibles(schema: string): Promise<Set<string>> {
+  const nombres = [
+    "facturas", "factura_items", "factura_electronica",
+    "nota_credito", "nota_credito_electronica", "empresa_sifen_config",
+  ];
+  const { rows } = await pool().query<{ table_name: string }>(
+    `SELECT table_name FROM information_schema.tables
+      WHERE table_schema = $1 AND table_type = 'BASE TABLE' AND table_name = ANY($2::text[])`,
+    [schema, nombres],
+  );
+  return new Set(rows.map((r) => r.table_name));
+}
+
+/** Lanzado cuando el schema no tiene con qué armar el libro. El caller responde 200 con aviso. */
+export class LibroVentasNoDisponibleError extends Error {
+  constructor(public readonly faltantes: string[]) {
+    super(
+      `El Libro de Ventas no está disponible en esta instalación: faltan las tablas ${faltantes.join(", ")}. ` +
+      `Correr las migraciones de facturación electrónica.`,
+    );
+    this.name = "LibroVentasNoDisponibleError";
+  }
+}
+
 // Deriva la tasa (exenta/5/10) desde (subtotal, iva). Ratio exacto 0/0.05/0.10 (IVA incluido).
 const RATE_SQL = `
   CASE
@@ -84,6 +120,23 @@ export async function listLibroVentas(schemaRaw: string, empresaId: string, f: L
   const tNCE = quoteSchemaTable(schema, "nota_credito_electronica");
   const tSC = quoteSchemaTable(schema, "empresa_sifen_config");
 
+  // Qué ramas del UNION se pueden armar con lo que el schema tiene.
+  const tablas = await tablasFiscalesDisponibles(schema);
+  const puedeFacturas = ["facturas", "factura_items", "factura_electronica"].every((t) => tablas.has(t));
+  const puedeNotasCredito = puedeFacturas && ["nota_credito", "nota_credito_electronica"].every((t) => tablas.has(t));
+  const hayTimbrado = tablas.has("empresa_sifen_config");
+
+  if (!puedeFacturas) {
+    throw new LibroVentasNoDisponibleError(
+      ["facturas", "factura_items", "factura_electronica"].filter((t) => !tablas.has(t)),
+    );
+  }
+
+  // Sin `empresa_sifen_config` el libro igual sirve: el timbrado va vacío.
+  const timbradoCte = hayTimbrado
+    ? `SELECT timbrado_numero FROM ${tSC} WHERE empresa_id = $1::uuid AND activo = true LIMIT 1`
+    : `SELECT NULL::text AS timbrado_numero WHERE false`;
+
   const params: unknown[] = [empresaId];
   const outer: string[] = [];
   const add = (v: unknown) => { params.push(v); return `$${params.length}`; };
@@ -98,37 +151,8 @@ export async function listLibroVentas(schemaRaw: string, empresaId: string, f: L
   const clienteExpr = "COALESCE(NULLIF(btrim(cl.razon_social),''), NULLIF(btrim(cl.nombre),''), NULLIF(btrim(cl.empresa),''))";
   const rucExpr = "COALESCE(NULLIF(btrim(cl.ruc_factura),''), NULLIF(btrim(cl.ruc),''), NULLIF(btrim(cl.documento),''))";
 
-  const sql = `
-    WITH timb AS (
-      SELECT timbrado_numero FROM ${tSC} WHERE empresa_id = $1::uuid AND activo = true LIMIT 1
-    ),
-    unificado AS (
-      -- ── A) FACTURAS con DTE aprobado ──────────────────────────────────────
-      SELECT 'factura'::text AS origen_tipo,
-             CASE WHEN f.tipo = 'suscripcion' OR f.suscripcion_id IS NOT NULL THEN 'suscripcion' ELSE 'manual' END AS origen,
-             f.fecha::date AS fecha,
-             ${clienteExpr} AS cliente, ${rucExpr} AS ruc,
-             'Factura'::text AS tipo_comprobante,
-             (SELECT timbrado_numero FROM timb) AS timbrado,
-             ${NUM_FISCAL_SQL("fe.cdc", "f.numero_factura")} AS numero,
-             CASE WHEN f.tipo = 'contado' THEN 'contado' ELSE 'credito' END AS condicion,
-             iv.exento, iv.gravado5, iv.iva5, iv.gravado10, iv.iva10,
-             f.monto AS total, f.estado AS estado, f.cliente_id AS cliente_id
-        FROM ${tF} f
-        JOIN ${tFE} fe ON fe.factura_id = f.id AND fe.estado_sifen = 'aprobado'
-        LEFT JOIN ${tCl} cl ON cl.id = f.cliente_id
-        LEFT JOIN LATERAL (
-          SELECT
-            COALESCE(SUM(CASE WHEN r.rate='exenta' THEN i.subtotal END),0) AS exento,
-            COALESCE(SUM(CASE WHEN r.rate='5'      THEN i.subtotal END),0) AS gravado5,
-            COALESCE(SUM(CASE WHEN r.rate='5'      THEN i.iva      END),0) AS iva5,
-            COALESCE(SUM(CASE WHEN r.rate='10'     THEN i.subtotal END),0) AS gravado10,
-            COALESCE(SUM(CASE WHEN r.rate='10'     THEN i.iva      END),0) AS iva10
-          FROM ${tFI} i, LATERAL (SELECT ${RATE_SQL} AS rate) r
-          WHERE i.factura_id = f.id
-        ) iv ON true
-       WHERE f.empresa_id = $1::uuid AND COALESCE(f.estado,'') <> 'Anulado'
-
+  // La rama de notas de crédito solo se arma si el módulo está instalado.
+  const ramaNotasCredito = !puedeNotasCredito ? "" : `
       UNION ALL
 
       -- ── B) NOTAS DE CRÉDITO aprobadas (filas negativas, IVA prorrateado) ───
@@ -161,7 +185,39 @@ export async function listLibroVentas(schemaRaw: string, empresaId: string, f: L
           FROM ${tFI} i, LATERAL (SELECT ${RATE_SQL} AS rate) r
           WHERE i.factura_id = n.factura_id
         ) comp ON true
-       WHERE n.empresa_id = $1::uuid AND n.estado_erp = 'aprobada'
+       WHERE n.empresa_id = $1::uuid AND n.estado_erp = 'aprobada'`;
+  const sql = `
+    WITH timb AS (
+      ${timbradoCte}
+    ),
+    unificado AS (
+      -- ── A) FACTURAS con DTE aprobado ──────────────────────────────────────
+      SELECT 'factura'::text AS origen_tipo,
+             CASE WHEN f.tipo = 'suscripcion' OR f.suscripcion_id IS NOT NULL THEN 'suscripcion' ELSE 'manual' END AS origen,
+             f.fecha::date AS fecha,
+             ${clienteExpr} AS cliente, ${rucExpr} AS ruc,
+             'Factura'::text AS tipo_comprobante,
+             (SELECT timbrado_numero FROM timb) AS timbrado,
+             ${NUM_FISCAL_SQL("fe.cdc", "f.numero_factura")} AS numero,
+             CASE WHEN f.tipo = 'contado' THEN 'contado' ELSE 'credito' END AS condicion,
+             iv.exento, iv.gravado5, iv.iva5, iv.gravado10, iv.iva10,
+             f.monto AS total, f.estado AS estado, f.cliente_id AS cliente_id
+        FROM ${tF} f
+        JOIN ${tFE} fe ON fe.factura_id = f.id AND fe.estado_sifen = 'aprobado'
+        LEFT JOIN ${tCl} cl ON cl.id = f.cliente_id
+        LEFT JOIN LATERAL (
+          SELECT
+            COALESCE(SUM(CASE WHEN r.rate='exenta' THEN i.subtotal END),0) AS exento,
+            COALESCE(SUM(CASE WHEN r.rate='5'      THEN i.subtotal END),0) AS gravado5,
+            COALESCE(SUM(CASE WHEN r.rate='5'      THEN i.iva      END),0) AS iva5,
+            COALESCE(SUM(CASE WHEN r.rate='10'     THEN i.subtotal END),0) AS gravado10,
+            COALESCE(SUM(CASE WHEN r.rate='10'     THEN i.iva      END),0) AS iva10
+          FROM ${tFI} i, LATERAL (SELECT ${RATE_SQL} AS rate) r
+          WHERE i.factura_id = f.id
+        ) iv ON true
+       WHERE f.empresa_id = $1::uuid AND COALESCE(f.estado,'') <> 'Anulado'
+
+${ramaNotasCredito}
     )
     SELECT x.* FROM unificado x
     ${outerWhere}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { formatFecha } from "@/lib/fecha/asuncion";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,11 @@ export default function RecibosPage() {
     if (!nuevoEmpleadoId) return;
     setCreating(true);
     const [y, m] = mes.split("-").map((v) => parseInt(v, 10));
-    const lastDay = new Date(Date.UTC(y, m, 0)).getDate();
+    // `Date.UTC(y, m, 0)` es la medianoche UTC del último día del mes, pero
+    // `.getDate()` lo lee en hora LOCAL: en Paraguay (UTC-3) devolvía el día
+    // anterior, así que octubre terminaba el 30 y la nómina se liquidaba con
+    // un día menos. `getUTCDate()` lee el mismo instante en UTC.
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const body = {
       empleado_id: nuevoEmpleadoId,
       periodo_desde: `${mes}-01`,
@@ -173,7 +178,7 @@ export default function RecibosPage() {
                     {r.empleado_nombre_snapshot ?? "—"}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-gray-600">{r.periodo_desde} → {r.periodo_hasta}</td>
+                <td className="px-4 py-2.5 text-gray-600">{formatFecha(r.periodo_desde)} → {formatFecha(r.periodo_hasta)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{fmt(r.total_devengado)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{fmt(r.total_deducciones)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-bold">{fmt(r.liquido)}</td>

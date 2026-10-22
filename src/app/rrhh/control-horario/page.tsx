@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +25,6 @@ type Fichaje = {
   marcado_kiosco: boolean | null;
 };
 
-function fmtFecha(iso: string): string {
-  try { return new Date(iso).toLocaleDateString("es-PY"); } catch { return iso.slice(0, 10); }
-}
 
 export default function ControlHorarioPage() {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -65,13 +63,30 @@ export default function ControlHorarioPage() {
     if (!form.empleado_id) return;
     setSaving(true);
     try {
-      const r = await fetchWithSupabaseSession("/api/rrhh/fichajes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      const enviar = async (reemplazar: boolean) => {
+        const r = await fetchWithSupabaseSession("/api/rrhh/fichajes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reemplazar ? { ...form, reemplazar: true } : form),
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          success?: boolean; error?: string; requiere_confirmacion?: boolean;
+        };
+        return { r, j };
+      };
+
+      let { r, j } = await enviar(false);
+
+      // El servidor devuelve 409 cuando ese empleado ya tiene un fichaje ese
+      // día: pisarlo borra horas reales, así que se confirma antes.
+      if (r.status === 409 && j.requiere_confirmacion) {
+        const sigue = window.confirm(`${j.error ?? ""}\n\n¿Reemplazarlo?`);
+        if (!sigue) { setErr(null); return; }
+        ({ r, j } = await enviar(true));
+      }
+
       if (r.ok && j.success) {
+        setErr(null);
         setForm({ ...form, empleado_id: "", observacion: "" });
         await load();
       } else {
