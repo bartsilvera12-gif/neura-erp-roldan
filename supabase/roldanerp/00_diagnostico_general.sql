@@ -3,119 +3,138 @@
 -- 00 · Diagnóstico general — qué scripts corrieron y qué datos faltan
 -- ============================================================================
 --
--- Solo LEE. No modifica nada. Correlo entero y pasame la salida.
+-- Solo LEE. No modifica nada. Pegalo entero en el SQL editor y pasame la tabla.
 --
--- Está hecho para contestar, sin adivinar, por qué siguen fallando los puntos
--- del QA que dependen de la base y no del código.
+-- Todo va por SQL dinámico a propósito: Postgres valida las tablas al
+-- planificar la consulta, así que una referencia directa a una tabla que no
+-- existe aborta el script entero antes de medir nada. Acá cada medición se
+-- saltea sola si su tabla falta, que es justamente uno de los datos a reportar.
 -- ============================================================================
 
-\echo '=== 1. Qué scripts corrieron ==='
+DROP TABLE IF EXISTS diag;
+CREATE TEMP TABLE diag (seccion text, dato text, valor text);
 
-SELECT
-  '09_caja_columnas_faltantes' AS script,
-  CASE WHEN EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema='roldanerp' AND table_name='caja_movimientos' AND column_name='anulado_at'
-  ) THEN 'CORRIÓ' ELSE 'FALTA — la caja no abre' END AS estado
+DO $diag$
+DECLARE
+  v_txt text;
+  v_n   bigint;
+  r     record;
 
-UNION ALL SELECT '04_catalogos',
-  CASE WHEN (SELECT count(*) FROM roldanerp.dashboard_views WHERE activo) > 0
-       THEN 'CORRIÓ' ELSE 'FALTA — dashboard en blanco' END
-
-UNION ALL SELECT '10_plan_de_cuentas',
-  CASE WHEN EXISTS (SELECT 1 FROM roldanerp.plan_cuentas)
-       THEN 'CORRIÓ' ELSE 'FALTA — libro diario vacío y config contable sin asignar' END
-
-UNION ALL SELECT '11_llegadas_tarde',
-  CASE WHEN EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema='roldanerp' AND table_name='empleados' AND column_name='hora_entrada_prevista'
-  ) THEN 'CORRIÓ' ELSE 'FALTA — no se miden tardanzas' END;
-
-\echo ''
-\echo '=== 2. Config contable: cuántas cuentas quedaron sin asignar ==='
--- Si da 12, el script 10 no corrió o no encontró las cuentas.
-
-SELECT
-  count(*) FILTER (WHERE cuenta_caja_id IS NULL)              AS caja,
-  count(*) FILTER (WHERE cuenta_banco_id IS NULL)             AS banco,
-  count(*) FILTER (WHERE cuenta_clientes_id IS NULL)          AS clientes,
-  count(*) FILTER (WHERE cuenta_proveedores_id IS NULL)       AS proveedores,
-  count(*) FILTER (WHERE cuenta_ventas_gravadas_id IS NULL)   AS ventas_gravadas,
-  (SELECT count(*) FROM roldanerp.plan_cuentas)               AS cuentas_en_el_plan
-FROM roldanerp.configuracion_contable;
-
-\echo ''
-\echo '=== 3. Sucursales duplicadas y sin timbrado (QA 13) ==='
-
-SELECT id, codigo, nombre, establecimiento, punto_expedicion, activa,
-       CASE WHEN count(*) OVER (PARTITION BY lower(btrim(nombre))) > 1
-            THEN 'DUPLICADA por nombre' ELSE '' END AS aviso
-FROM roldanerp.sucursales
-ORDER BY lower(btrim(nombre)), codigo;
-
-\echo ''
-\echo '=== 4. Correos de empleados en mayúsculas (QA 19) ==='
-
-SELECT count(*) FILTER (WHERE email <> lower(email)) AS en_mayusculas,
-       count(*) FILTER (WHERE email IS NOT NULL)     AS con_correo
-FROM roldanerp.empleados;
-
-\echo ''
-\echo '=== 5. ¿Hay un trigger que pase el correo a mayúsculas? ==='
--- Si aparece algo acá, el trigger le gana a la API y hay que sacarlo:
--- es la explicación de que el correo siga guardándose en mayúsculas.
-
-SELECT t.tgname AS trigger, p.proname AS funcion
-FROM pg_trigger t
-JOIN pg_class c     ON c.oid = t.tgrelid
-JOIN pg_namespace n ON n.oid = c.relnamespace
-JOIN pg_proc p      ON p.oid = t.tgfoid
-WHERE n.nspname = 'roldanerp' AND c.relname = 'empleados' AND NOT t.tgisinternal;
-
-\echo ''
-\echo '=== 6. Productos con imagen cargada (QA 8) ==='
--- Si `con_imagen` da 0, el listado no tiene ninguna imagen que mostrar:
--- no es que no las muestre, es que no hay.
-
-DO $img$
-DECLARE v_t bigint; v_c bigint;
 BEGIN
-  IF to_regclass('roldanerp.productos') IS NULL THEN
-    RAISE NOTICE 'No existe roldanerp.productos.';
-    RETURN;
+  -- ── 1. Qué scripts corrieron ──────────────────────────────────────────────
+  INSERT INTO diag VALUES ('1. Scripts', '09_caja_columnas_faltantes',
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+      WHERE table_schema='roldanerp' AND table_name='caja_movimientos' AND column_name='anulado_at')
+    THEN 'CORRIO' ELSE 'FALTA -> la caja no abre' END);
+
+  INSERT INTO diag VALUES ('1. Scripts', '11_llegadas_tarde',
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+      WHERE table_schema='roldanerp' AND table_name='empleados' AND column_name='hora_entrada_prevista')
+    THEN 'CORRIO' ELSE 'FALTA -> no se miden tardanzas' END);
+
+  IF to_regclass('roldanerp.dashboard_views') IS NULL THEN
+    INSERT INTO diag VALUES ('1. Scripts', '04_catalogos', 'no existe dashboard_views');
+  ELSE
+    EXECUTE 'SELECT count(*) FROM roldanerp.dashboard_views WHERE activo' INTO v_n;
+    INSERT INTO diag VALUES ('1. Scripts', '04_catalogos',
+      CASE WHEN v_n > 0 THEN 'CORRIO (' || v_n || ' vistas)' ELSE 'FALTA -> dashboard en blanco' END);
   END IF;
-  EXECUTE $q$SELECT count(*), count(*) FILTER (WHERE imagen_url IS NOT NULL AND btrim(imagen_url) <> '')
-               FROM roldanerp.productos$q$ INTO v_t, v_c;
-  RAISE NOTICE 'Productos: %  ·  con imagen cargada: %', v_t, v_c;
-END
-$img$;
 
-\echo ''
-\echo '=== 7. Libro de Ventas: qué tablas fiscales existen (QA 16) ==='
--- El endpoint arma el libro con estas tablas. La que falte explica el 500.
+  IF to_regclass('roldanerp.plan_cuentas') IS NULL THEN
+    INSERT INTO diag VALUES ('1. Scripts', '10_plan_de_cuentas', 'no existe plan_cuentas');
+  ELSE
+    EXECUTE 'SELECT count(*) FROM roldanerp.plan_cuentas' INTO v_n;
+    INSERT INTO diag VALUES ('1. Scripts', '10_plan_de_cuentas',
+      CASE WHEN v_n > 0 THEN 'CORRIO (' || v_n || ' cuentas)'
+           ELSE 'FALTA -> libro diario vacio y config contable sin asignar' END);
+  END IF;
 
-SELECT t.tabla,
-       CASE WHEN to_regclass('roldanerp.' || quote_ident(t.tabla)) IS NULL
-            THEN 'NO EXISTE' ELSE 'existe' END AS estado
-FROM unnest(ARRAY['facturas','factura_items','factura_electronica',
-                  'nota_credito','nota_credito_electronica','empresa_sifen_config']) AS t(tabla);
+  -- ── 2. Configuración contable (QA 17 y 18) ────────────────────────────────
+  --    Si da 12, el script 10 no corrió o no encontró las cuentas.
+  IF to_regclass('roldanerp.configuracion_contable') IS NOT NULL THEN
+    EXECUTE $q$
+      SELECT (cuenta_iva_credito_5_id IS NULL)::int + (cuenta_iva_credito_10_id IS NULL)::int +
+             (cuenta_proveedores_id IS NULL)::int   + (cuenta_caja_id IS NULL)::int +
+             (cuenta_banco_id IS NULL)::int         + (cuenta_iva_debito_5_id IS NULL)::int +
+             (cuenta_iva_debito_10_id IS NULL)::int + (cuenta_ventas_gravadas_id IS NULL)::int +
+             (cuenta_ventas_exentas_id IS NULL)::int+ (cuenta_ventas_servicios_id IS NULL)::int +
+             (cuenta_clientes_id IS NULL)::int      + (cuenta_anticipos_clientes_id IS NULL)::int
+        FROM roldanerp.configuracion_contable LIMIT 1
+    $q$ INTO v_n;
+    INSERT INTO diag VALUES ('2. Contabilidad', 'campos de config SIN asignar (de 12)', COALESCE(v_n::text, 'sin fila'));
+  ELSE
+    INSERT INTO diag VALUES ('2. Contabilidad', 'configuracion_contable', 'NO EXISTE la tabla');
+  END IF;
 
-\echo ''
-\echo '=== 8. Asientos contables generados (QA 17) ==='
-
-DO $asi$
-DECLARE v_a bigint := -1; v_c bigint := -1; v_v bigint := -1;
-BEGIN
   IF to_regclass('roldanerp.asientos') IS NOT NULL THEN
-    EXECUTE 'SELECT count(*) FROM roldanerp.asientos' INTO v_a;
+    EXECUTE 'SELECT count(*) FROM roldanerp.asientos' INTO v_n;
+    INSERT INTO diag VALUES ('2. Contabilidad', 'asientos generados', v_n::text);
+  ELSE
+    INSERT INTO diag VALUES ('2. Contabilidad', 'asientos', 'NO EXISTE la tabla');
   END IF;
-  IF to_regclass('roldanerp.compras') IS NOT NULL THEN
-    EXECUTE 'SELECT count(*) FROM roldanerp.compras' INTO v_c;
+
+  -- ── 3. Sucursales (QA 13) ─────────────────────────────────────────────────
+  IF to_regclass('roldanerp.sucursales') IS NOT NULL THEN
+    FOR r IN EXECUTE $q$
+      SELECT codigo, nombre, activa,
+             count(*) OVER (PARTITION BY lower(btrim(nombre))) AS repetidas,
+             (establecimiento IS NULL OR btrim(establecimiento) = ''
+               OR punto_expedicion IS NULL OR btrim(punto_expedicion) = '') AS sin_timbrado
+        FROM roldanerp.sucursales ORDER BY codigo
+    $q$ LOOP
+      INSERT INTO diag VALUES ('3. Sucursales', r.codigo || ' - ' || r.nombre,
+        CASE WHEN r.repetidas > 1 THEN 'DUPLICADA; ' ELSE '' END ||
+        CASE WHEN r.sin_timbrado THEN 'sin establecimiento/punto; ' ELSE '' END ||
+        CASE WHEN r.activa THEN 'activa' ELSE 'inactiva' END);
+    END LOOP;
   END IF;
-  IF to_regclass('roldanerp.ventas') IS NOT NULL THEN
-    EXECUTE 'SELECT count(*) FROM roldanerp.ventas' INTO v_v;
+
+  -- ── 4. Correos de empleados (QA 19) ───────────────────────────────────────
+  IF to_regclass('roldanerp.empleados') IS NOT NULL THEN
+    EXECUTE $q$SELECT count(*) FROM roldanerp.empleados
+                WHERE email IS NOT NULL AND email <> lower(email)$q$ INTO v_n;
+    INSERT INTO diag VALUES ('4. Empleados', 'correos en MAYUSCULAS', v_n::text);
   END IF;
-  RAISE NOTICE 'Asientos: %  ·  líneas de compra: %  ·  ventas: %   (-1 = la tabla no existe)', v_a, v_c, v_v;
+
+  -- ── 5. Triggers sobre empleados (QA 19) ───────────────────────────────────
+  --    Si alguno usa upper(), le gana a la API: esa sería la causa real.
+  FOR r IN
+    SELECT t.tgname, p.proname, pg_get_functiondef(p.oid) AS src
+    FROM pg_trigger t
+    JOIN pg_class c     ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_proc p      ON p.oid = t.tgfoid
+    WHERE n.nspname = 'roldanerp' AND c.relname = 'empleados' AND NOT t.tgisinternal
+  LOOP
+    INSERT INTO diag VALUES ('5. Triggers', r.tgname,
+      r.proname || CASE WHEN r.src ~* 'upper\s*\(' THEN '   [USA upper()]' ELSE '' END);
+  END LOOP;
+  IF NOT FOUND THEN
+    INSERT INTO diag VALUES ('5. Triggers', '(ninguno sobre empleados)', '-');
+  END IF;
+
+  -- ── 6. Imágenes de productos (QA 8) ───────────────────────────────────────
+  --    Si "con imagen" da 0, el listado no tiene nada que mostrar: el problema
+  --    está en la subida, no en el listado.
+  IF to_regclass('roldanerp.productos') IS NOT NULL THEN
+    EXECUTE $q$SELECT count(*)::text || ' productos, ' ||
+                      count(*) FILTER (WHERE imagen_url IS NOT NULL AND btrim(imagen_url) <> '')::text
+                      || ' con imagen'
+                 FROM roldanerp.productos$q$ INTO v_txt;
+    INSERT INTO diag VALUES ('6. Productos', 'imagenes cargadas', v_txt);
+  END IF;
+
+  -- ── 7. Tablas fiscales del Libro de Ventas (QA 16) ────────────────────────
+  --    La que falte explica el 500.
+  FOR r IN
+    SELECT unnest(ARRAY['facturas','factura_items','factura_electronica',
+                        'nota_credito','nota_credito_electronica','empresa_sifen_config']) AS tabla
+  LOOP
+    INSERT INTO diag VALUES ('7. Libro de Ventas', r.tabla,
+      CASE WHEN to_regclass('roldanerp.' || quote_ident(r.tabla)) IS NULL
+           THEN 'NO EXISTE' ELSE 'existe' END);
+  END LOOP;
 END
-$asi$;
+$diag$;
+
+SELECT * FROM diag ORDER BY seccion, dato;
