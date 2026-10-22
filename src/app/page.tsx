@@ -142,7 +142,8 @@ function formatGsM(n: number): string {
     const m = num / 1_000_000;
     return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`;
   }
-  if (num >= 1_000) return `${Math.round(num / 1_000)}K`;
+  // Por debajo del millón se escribe completo: en guaraníes "117K" se lee peor
+  // que "117.400", y abreviar miles no ahorra espacio real.
   return num.toLocaleString("es-PY");
 }
 
@@ -1836,29 +1837,39 @@ const DashVentas = memo(function DashVentas({
     return ventas.filter(v => enRango(v.fecha, d, h));
   }, [ventas]);
 
-  const totalHoy   = ventasHoy.reduce((s, v) => s + v.total, 0);
-  const totalMes   = ventasMes.reduce((s, v) => s + v.total, 0);
-  const ticketProm = ventasFilt.length > 0 ? ventasFilt.reduce((s, v) => s + v.total, 0) / ventasFilt.length : 0;
-  const unidades   = ventasFilt.flatMap(v => v.lineas ?? []).reduce((s, l) => s + (l?.cantidad ?? 0), 0);
+  // Todo lo de esta pestaña sale de `ventasFilt`, que es lo que el filtro de
+  // arriba selecciona. Antes "Ventas del día" y "Ventas del mes" llamaban a
+  // getRango("hoy") y getRango("mes") fijos, así que no se movían al cambiar
+  // el período y parecía que el filtro no andaba.
+  const totalPeriodo = ventasFilt.reduce((s, v) => s + v.total, 0);
+  const ticketProm   = ventasFilt.length > 0 ? totalPeriodo / ventasFilt.length : 0;
+  const unidades     = ventasFilt.flatMap(v => v.lineas ?? []).reduce((s, l) => s + (l?.cantidad ?? 0), 0);
+
+  /** Días que abarca el rango, para el promedio diario. Mínimo 1. */
+  const diasRango = Math.max(
+    1,
+    Math.round((hasta.getTime() - desde.getTime()) / 86_400_000) || 1
+  );
+  const promedioDiario = totalPeriodo / diasRango;
 
   const prodMap = useMemo(() =>
     Object.fromEntries(productos.map(p => [p.id, p])),
     [productos]
   );
 
-  const gananciaHoy = useMemo(() =>
-    ventasHoy.flatMap(v => v.lineas ?? []).reduce((s, l) => {
+  const ganancia = useMemo(() =>
+    ventasFilt.flatMap(v => v.lineas ?? []).reduce((s, l) => {
       if (!l) return s;
       const costo = prodMap[l.producto_id]?.costo_promedio ?? 0;
       return s + (l.precio_venta - costo) * l.cantidad;
     }, 0),
-    [ventasHoy, prodMap]
+    [ventasFilt, prodMap]
   );
 
-  const totalHoyBruto = ventasHoy.flatMap(v => v.lineas ?? [])
+  const brutoPeriodo = ventasFilt.flatMap(v => v.lineas ?? [])
     .reduce((s, l) => s + (l ? l.precio_venta * l.cantidad : 0), 0);
 
-  const margenProm = totalHoyBruto > 0 ? (gananciaHoy / totalHoyBruto) * 100 : 0;
+  const margenProm = brutoPeriodo > 0 ? (ganancia / brutoPeriodo) * 100 : 0;
 
   const topProductos = useMemo(() => {
     const map: Record<string, number> = {};
@@ -1880,9 +1891,22 @@ const DashVentas = memo(function DashVentas({
       const h = new Date(v.fecha).getHours();
       if (h >= 0 && h < 24) horas[h].value += v.total;
     });
+    // Se corta en la hora actual O en la última con ventas, lo que sea mayor.
+    // Antes cortaba solo en la hora actual: si una venta quedaba grabada en una
+    // hora posterior (desfase de zona horaria entre el servidor y el navegador)
+    // se perdía, y el panel decía "sin ventas hoy" teniendo ventas del día.
     const ahora = new Date().getHours();
-    return horas.slice(0, ahora + 1);
+    const ultimaConVentas = horas.reduce((max, h, i) => (h.value > 0 ? i : max), 0);
+    return horas.slice(0, Math.max(ahora, ultimaConVentas) + 1);
   }, [ventasHoy]);
+
+  /** Texto del período, para que cada tarjeta diga a qué rango corresponde. */
+  const etiquetaPeriodo =
+    periodo === "hoy" ? "hoy"
+    : periodo === "7d" ? "últimos 7 días"
+    : periodo === "30d" ? "últimos 30 días"
+    : periodo === "mes" ? "mes actual"
+    : "año";
 
   const desglose = useMemo(() => {
     const tipos = ["CONTADO", "CREDITO"] as const;
@@ -1899,14 +1923,14 @@ const DashVentas = memo(function DashVentas({
 
       {/* KPIs principales */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon="📅" label="Ventas del día"    value={`Gs. ${formatGsFull(totalHoy)}`}
-          sub={`${ventasHoy.length} transacciones`} color="text-blue-600" />
-        <KpiCard icon="📆" label="Ventas del mes"    value={`Gs. ${formatGsFull(totalMes)}`}
-          sub={`${ventasMes.length} transacciones`} color="text-indigo-600" />
-        <KpiCard icon="🎫" label="Ticket promedio"   value={`Gs. ${formatGsFull(ticketProm)}`}
-          sub={`periodo: ${periodo}`} />
-        <KpiCard icon="📦" label="Unidades vendidas" value={formatGs(unidades)}
-          sub={`en el periodo`} />
+        <KpiCard icon="📅" label="Ventas del período"  value={`Gs. ${formatGsFull(totalPeriodo)}`}
+          sub={`${ventasFilt.length} transacciones · ${etiquetaPeriodo}`} color="text-blue-600" />
+        <KpiCard icon="📆" label="Promedio por día"    value={`Gs. ${formatGsFull(promedioDiario)}`}
+          sub={`${diasRango} ${diasRango === 1 ? "día" : "días"}`} color="text-indigo-600" />
+        <KpiCard icon="🎫" label="Ticket promedio"     value={`Gs. ${formatGsFull(ticketProm)}`}
+          sub={etiquetaPeriodo} />
+        <KpiCard icon="📦" label="Unidades vendidas"   value={formatGs(unidades)}
+          sub={etiquetaPeriodo} />
       </div>
 
       {/* KPIs rentabilidad */}
@@ -1914,10 +1938,10 @@ const DashVentas = memo(function DashVentas({
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-3">
           <span className="text-2xl">💰</span>
           <div>
-            <p className={`text-2xl font-bold tabular-nums ${gananciaHoy >= 0 ? "text-green-600" : "text-red-600"}`}>
-              Gs. {formatGsFull(gananciaHoy)}
+            <p className={`text-2xl font-bold tabular-nums ${ganancia >= 0 ? "text-green-600" : "text-red-600"}`}>
+              Gs. {formatGsFull(ganancia)}
             </p>
-            <p className="text-xs font-semibold text-gray-700 mt-0.5">Ganancia del día</p>
+            <p className="text-xs font-semibold text-gray-700 mt-0.5">Ganancia · {etiquetaPeriodo}</p>
             <p className="text-xs text-gray-400">precio venta − costo promedio × cant.</p>
           </div>
         </div>
@@ -1927,7 +1951,7 @@ const DashVentas = memo(function DashVentas({
             <p className={`text-2xl font-bold tabular-nums ${margenProm >= 20 ? "text-green-600" : margenProm >= 10 ? "text-amber-600" : "text-red-600"}`}>
               {margenProm.toFixed(1)}%
             </p>
-            <p className="text-xs font-semibold text-gray-700 mt-0.5">Margen promedio (hoy)</p>
+            <p className="text-xs font-semibold text-gray-700 mt-0.5">Margen promedio · {etiquetaPeriodo}</p>
             <p className="text-xs text-gray-400">ganancia / precio venta</p>
           </div>
         </div>

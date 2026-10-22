@@ -15,6 +15,59 @@ import { productoMatchesQuery } from "@/lib/productos/token-search";
 import type { Producto, MetodoValuacion } from "@/lib/inventario/types";
 
 /** Miniatura de producto con fallback a un placeholder si no hay imagen o falla. */
+/**
+ * Input numérico que se puede borrar.
+ *
+ * Un `<input type="number" value={n}>` controlado con un número no se deja
+ * vaciar: al borrar el último dígito React vuelve a escribir el valor y el "1"
+ * o el "0" quedan pegados adelante. Acá se mantiene el texto mientras el campo
+ * está en edición y recién al salir (o al escribir algo válido) se avisa el
+ * número. Vacío se interpreta como `fallback` al salir del campo.
+ */
+function NumeroEditable({
+  value, onChange, min = 0, max, fallback = min, className, suffixEmpty = "",
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+  fallback?: number;
+  className?: string;
+  suffixEmpty?: string;
+}) {
+  const [texto, setTexto] = useState<string | null>(null);
+  const mostrado = texto ?? (value === 0 && suffixEmpty === "" ? String(value) : String(value));
+
+  function commit(raw: string) {
+    if (raw.trim() === "") return;
+    let n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    if (min != null) n = Math.max(min, n);
+    if (max != null) n = Math.min(max, n);
+    onChange(n);
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={mostrado}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (!/^[0-9]*[.,]?[0-9]*$/.test(v)) return;
+        setTexto(v);
+        commit(v.replace(",", "."));
+      }}
+      onFocus={(e) => { setTexto(e.target.value); e.target.select(); }}
+      onBlur={() => {
+        if (texto != null && texto.trim() === "") onChange(fallback);
+        setTexto(null);
+      }}
+      className={className}
+    />
+  );
+}
+
 function ProductoThumb({ url, alt, size = "h-10 w-10" }: { url?: string | null; alt: string; size?: string }) {
   const [err, setErr] = useState(false);
   if (!url || err) {
@@ -51,7 +104,7 @@ function calcIva(tipo: TipoIvaVenta, total: number) {
  *  mayorista → precio_mayorista (>0) o fallback a precio_venta;
  *  costo     → costo_promedio.
  */
-// HIERROS VH: niveles de precio calculados sobre el precio de lista.
+// Niveles de precio calculados sobre el precio de lista.
 //  A (minorista)    = precio de lista (precio_venta)
 //  B (mayorista)    = lista + 5%
 //  C (distribuidor) = lista + 10%
@@ -1378,9 +1431,11 @@ export default function NuevaVentaPage() {
                           <td className="px-3 py-2.5">
                             <div className="mx-auto flex w-fit items-center rounded-md border border-slate-200 bg-white">
                               <button type="button" onClick={() => changeCantidadItem(idx, -1)} className="h-8 w-8 rounded-l-md text-slate-500 hover:bg-slate-100"><Minus className="mx-auto h-3.5 w-3.5" /></button>
-                              <input
-                                type="number" min={1} value={item.cantidad}
-                                onChange={(e) => updateItemCampo(idx, { cantidad: Math.max(1, parseInt(e.target.value) || 1) })}
+                              <NumeroEditable
+                                value={item.cantidad}
+                                onChange={(n) => updateItemCampo(idx, { cantidad: Math.max(1, Math.round(n)) })}
+                                min={1}
+                                fallback={1}
                                 className="h-8 w-12 text-center text-sm tabular-nums outline-none"
                               />
                               <button type="button" onClick={() => changeCantidadItem(idx, 1)} className="h-8 w-8 rounded-r-md text-slate-500 hover:bg-slate-100"><Plus className="mx-auto h-3.5 w-3.5" /></button>
@@ -1423,17 +1478,15 @@ export default function NuevaVentaPage() {
                                 se escribe el porcentaje que haga falta. */}
                             <div className="mt-1 flex items-center justify-end gap-1">
                               <span className="text-[10px] text-slate-400">Desc.</span>
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={0.5}
+                              <NumeroEditable
                                 value={descuentoPctDe(item)}
-                                onChange={(e) => {
+                                onChange={(d) => {
                                   const base = item.precio_venta_original || item.precio_venta || 0;
-                                  const d = Math.min(100, Math.max(0, Number(e.target.value) || 0));
                                   updateItemCampo(idx, { precio_venta: Math.round(base * (1 - d / 100)) });
                                 }}
+                                min={0}
+                                max={100}
+                                fallback={0}
                                 className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-[11px] tabular-nums"
                               />
                               <span className="text-[10px] text-slate-400">%</span>

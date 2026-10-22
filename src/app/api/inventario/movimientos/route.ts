@@ -27,27 +27,40 @@ export async function GET(request: NextRequest) {
     if (error) throw new Error(error.message);
 
     // La columna "Usuario" mostraba tres cosas distintas según cómo se hubiera
-    // grabado cada fila: el nombre, el correo, o nada. Acá se normaliza contra
-    // `usuarios`, así el listado es consistente aunque las filas viejas tengan
-    // guardado cualquier cosa. Criterio: nombre; si no hay, correo.
+    // grabado cada fila: el nombre, el correo, o nada.
+    //
+    // Resolver solo por `created_by` no alcanzaba: las filas viejas no lo
+    // tienen y caían al texto crudo guardado, que suele ser el correo. Por eso
+    // se arma también un índice por correo, y cualquiera de los dos caminos
+    // termina en el MISMO nombre de `usuarios`. Así todas las filas del mismo
+    // usuario dicen lo mismo, sin importar cómo se grabaron.
     const filas = (data ?? []) as Array<Record<string, unknown>>;
-    const ids = [...new Set(filas.map((m) => String(m.created_by ?? "")).filter(Boolean))];
-    const nombrePorId = new Map<string, string>();
-    if (ids.length > 0) {
+
+    const porId = new Map<string, string>();
+    const porEmail = new Map<string, string>();
+    {
+      // La tabla de usuarios de una empresa es chica: se trae entera y se
+      // indexa, en vez de una consulta por cada forma de resolver.
       const uq = await ctx.supabase
         .from("usuarios").select("id, nombre, email")
-        .eq("empresa_id", empresaId).in("id", ids);
+        .eq("empresa_id", empresaId);
       for (const u of (uq.data ?? []) as Array<Record<string, unknown>>) {
-        const nombre = String(u.nombre ?? "").trim() || String(u.email ?? "").trim();
-        if (nombre) nombrePorId.set(String(u.id), nombre);
+        const email = String(u.email ?? "").trim().toLowerCase();
+        const nombre = String(u.nombre ?? "").trim() || email;
+        if (!nombre) continue;
+        porId.set(String(u.id), nombre);
+        if (email) porEmail.set(email, nombre);
       }
     }
-    const movimientos = filas.map((m) => ({
-      ...m,
-      usuario_nombre:
-        nombrePorId.get(String(m.created_by ?? "")) ??
-        (String(m.usuario_nombre ?? "").trim() || null),
-    }));
+
+    const movimientos = filas.map((m) => {
+      const guardado = String(m.usuario_nombre ?? "").trim();
+      const usuario_nombre =
+        porId.get(String(m.created_by ?? "")) ??
+        porEmail.get(guardado.toLowerCase()) ??
+        (guardado || null);
+      return { ...m, usuario_nombre };
+    });
 
     return NextResponse.json(successResponse({ movimientos }));
   } catch (err) {

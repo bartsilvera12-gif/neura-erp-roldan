@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { EMPRESA_DOC } from "@/lib/documentos/membrete";
 
 function escapeHtml(s: string): string {
   return String(s ?? "")
@@ -240,7 +241,7 @@ export async function GET(
 
     const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8" />
-<title>Comprobante ${escapeHtml(numeroControl)} — HIERROS VH</title>
+<title>Comprobante ${escapeHtml(numeroControl)} — ${escapeHtml(EMPRESA_DOC.nombre)}</title>
 <style>
   * { box-sizing: border-box; }
   @page { size: A4 portrait; margin: 8mm; }
@@ -357,10 +358,10 @@ export async function GET(
   <div class="hoja">
     <div class="header-top">
       <div class="brand">
-        <img src="/brand/hierros-logo-new.png" alt="HIERROS VH" class="logo" onerror="this.style.display='none'" />
+        <img src="${escapeHtml(EMPRESA_DOC.logoUrl)}" alt="${escapeHtml(EMPRESA_DOC.nombre)}" class="logo" onerror="this.style.display='none'" />
         <div class="empresa-datos">
-          <div class="razon">HIERROS VH E.A.S. UNIPERSONAL</div>
-          <div>R.U.C.: 80175853-0</div>
+          <div class="razon">${escapeHtml(EMPRESA_DOC.nombre)}</div>
+          ${EMPRESA_DOC.ruc ? `<div>R.U.C.: ${escapeHtml(EMPRESA_DOC.ruc)}</div>` : ""}
         </div>
       </div>
       <div class="fecha-top">${escapeHtml(fechaLarga(String(v.fecha ?? ""), ciudadEmpresa))}</div>
