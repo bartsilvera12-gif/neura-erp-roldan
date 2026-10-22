@@ -55,13 +55,29 @@ export async function GET(request: NextRequest) {
     const desde = sp.get("desde") ?? desdeDefault.toISOString().slice(0, 10);
     const hasta = sp.get("hasta") ?? hoy.toISOString().slice(0, 10);
 
-    const { data, error } = await ctx.supabase
-      .from("empleado_fichajes")
-      .select("id, empleado_id, fecha, hora_entrada, hora_salida, horas, minutos_tarde, observacion, entrada_lat, entrada_lng, salida_lat, salida_lng, marcado_kiosco, empleados:empleado_id(nombre, cargo)")
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .gte("fecha", desde)
-      .lte("fecha", hasta)
-      .order("fecha", { ascending: false });
+    // `minutos_tarde` existe solo si se corrió 11_llegadas_tarde.sql. Pedirla sin
+    // más dejaba la pantalla entera en error mientras ese script no estuviera
+    // aplicado: una columna opcional no puede tumbar el control horario.
+    const COLS_BASE =
+      "id, empleado_id, fecha, hora_entrada, hora_salida, horas, observacion, " +
+      "entrada_lat, entrada_lng, salida_lat, salida_lng, marcado_kiosco, " +
+      "empleados:empleado_id(nombre, cargo)";
+
+    const consultar = (cols: string) =>
+      ctx.supabase
+        .from("empleado_fichajes")
+        .select(cols)
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .gte("fecha", desde)
+        .lte("fecha", hasta)
+        .order("fecha", { ascending: false });
+
+    let r = await consultar(`${COLS_BASE}, minutos_tarde`);
+    if (r.error && /minutos_tarde/.test(r.error.message)) {
+      r = await consultar(COLS_BASE);
+    }
+    const { error } = r;
+    const data = r.data as unknown as Record<string, unknown>[] | null;
 
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
 
@@ -116,19 +132,27 @@ export async function POST(request: NextRequest) {
     // le cambian el horario, el historial tiene que seguir diciendo lo que
     // pasó aquel día.
     let minutosTarde: number | null = null;
+    let soportaTardanza = true;
     {
       const empQ = await ctx.supabase
         .from("empleados")
         .select("hora_entrada_prevista, tolerancia_minutos")
         .eq("empresa_id", ctx.auth.empresa_id).eq("id", empleadoId)
         .maybeSingle();
-      const emp = empQ.data as { hora_entrada_prevista?: string | null; tolerancia_minutos?: number } | null;
-      minutosTarde = calcMinutosTarde(
-        horaEntrada,
-        emp?.hora_entrada_prevista ?? null,
-        Number(emp?.tolerancia_minutos) || 0
-      );
+      if (empQ.error && /hora_entrada_prevista|tolerancia_minutos/.test(empQ.error.message)) {
+        // Falta 11_llegadas_tarde.sql: se ficha igual, sin medir tardanza.
+        soportaTardanza = false;
+      } else {
+        const emp = empQ.data as { hora_entrada_prevista?: string | null; tolerancia_minutos?: number } | null;
+        minutosTarde = calcMinutosTarde(
+          horaEntrada,
+          emp?.hora_entrada_prevista ?? null,
+          Number(emp?.tolerancia_minutos) || 0
+        );
+      }
     }
+    /** Campos de tardanza, vacíos si el schema todavía no los tiene. */
+    const campoTardanza = soportaTardanza ? { minutos_tarde: minutosTarde } : {};
 
     // Upsert por (empleado_id, fecha): primero busco, después actualizo o inserto.
     const existing = await ctx.supabase
@@ -171,7 +195,7 @@ export async function POST(request: NextRequest) {
           hora_entrada: horaEntrada,
           hora_salida: horaSalida,
           horas,
-          minutos_tarde: minutosTarde,
+          ...campoTardanza,
           observacion: body.observacion ? String(body.observacion).trim() : null,
         })
         .eq("id", existing.data.id)
@@ -187,7 +211,7 @@ export async function POST(request: NextRequest) {
           hora_entrada: horaEntrada,
           hora_salida: horaSalida,
           horas,
-          minutos_tarde: minutosTarde,
+          ...campoTardanza,
           observacion: body.observacion ? String(body.observacion).trim() : null,
         }]);
       if (ins.error) return NextResponse.json(errorResponse(ins.error.message), { status: 400 });

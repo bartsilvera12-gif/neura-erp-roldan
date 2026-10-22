@@ -112,6 +112,15 @@ export default function NuevoProductoPage() {
     return () => { cancel = true; };
   }, []);
 
+  /** Relee los proveedores sin recargar la página. */
+  async function recargarProveedores() {
+    try {
+      const r = await fetch("/api/proveedores", { credentials: "include", cache: "no-store" });
+      const j = await r.json();
+      if (r.ok && j?.success && j.data?.proveedores) setProveedores(j.data.proveedores as ProvRow[]);
+    } catch { /* si falla, queda la lista que ya estaba */ }
+  }
+
   /** Relee las categorías sin recargar la página, para el botón "Recargar". */
   async function recargarCategorias() {
     try {
@@ -867,12 +876,25 @@ export default function NuevoProductoPage() {
                   <span className="text-xs text-gray-400 truncate">
                     {proveedores.length === 0 ? "Todavía no cargaste proveedores." : `${proveedores.length} disponibles`}
                   </span>
-                  <Link
+                  {/* Mismo criterio que el de categorías: en la misma pestaña
+                      se perdía todo lo cargado del producto. */}
+                  <a
                     href="/proveedores/nuevo"
+                    target="_blank"
+                    rel="noopener"
                     className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
+                    title="Se abre en otra pestaña para no perder lo cargado acá"
                   >
                     + Crear
-                  </Link>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void recargarProveedores()}
+                    className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800"
+                    title="Traer los proveedores creados en la otra pestaña"
+                  >
+                    Recargar
+                  </button>
                 </div>
               </div>
 
