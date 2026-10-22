@@ -96,6 +96,15 @@ export default function ReportesPage() {
             href="/reportes/conciliacion"
           />
         </li>
+        <li>
+          <ReportCard
+            title="Cierres de caja"
+            subtitle="Turno por turno"
+            icon={Wallet}
+            description="Qué se vendió en cada turno, cuánto se contó al cerrar y si hubo faltante o sobrante."
+            href="/reportes/cajas"
+          />
+        </li>
       </ul>
     </div>
   );
