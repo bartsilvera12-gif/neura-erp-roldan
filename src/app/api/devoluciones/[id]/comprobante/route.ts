@@ -1,9 +1,10 @@
 /**
- * Comprobante A4 landscape de la devolucion, mismo look que el comprobante de venta de Ferrecolor.
+ * Comprobante A4 landscape de la devolucion, mismo look que el comprobante de venta.
  * GET /api/devoluciones/[id]/comprobante?auto=1
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getUserAndEmpresa } from "@/lib/middleware/auth";
+import { EMPRESA_DOC } from "@/lib/documentos/membrete";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { devolucionesEnabled } from "@/lib/devoluciones/feature-flag";
 import { getDevolucion } from "@/lib/devoluciones/server/devoluciones-pg";
@@ -167,10 +168,10 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   <div class="hoja">
     <div class="header-top">
       <div class="brand">
-        <img src="/brand/roldan-doc-logo.png" alt="Roldán e Hijos" class="logo" />
+        <img src="${escapeHtml(EMPRESA_DOC.logoUrl)}" alt="${escapeHtml(EMPRESA_DOC.nombre)}" class="logo" />
         <div class="empresa-datos">
-          <div class="razon">ROLDÁN E HIJOS</div>
-          <div>R.U.C.: —</div>
+          <div class="razon">${escapeHtml(EMPRESA_DOC.nombre)}</div>
+          ${EMPRESA_DOC.ruc ? `<div>R.U.C.: ${escapeHtml(EMPRESA_DOC.ruc)}</div>` : ""}
         </div>
       </div>
       <div class="fecha-top">${escapeHtml(fechaLarga(String(d.created_at ?? "")))}</div>

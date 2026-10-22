@@ -326,7 +326,7 @@ export default function Header() {
             >
               <Image
                 src="/brand/roldan-logo.png"
-                alt="Roldán e Hijos"
+                alt="Aceros Metal Roldán e Hijos"
                 width={72}
                 height={72}
                 sizes="36px"

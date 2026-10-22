@@ -108,7 +108,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 
   const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8" />
-<title>Remisión de devolución ${escapeHtml(numero)} — Roldán e Hijos</title>
+<title>Remisión de devolución ${escapeHtml(numero)} — ${escapeHtml(EMPRESA_DOC.nombre)}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: ui-sans-serif, system-ui, Arial, sans-serif; color:#111; background:#f1f1f1; margin:0; padding:24px; }

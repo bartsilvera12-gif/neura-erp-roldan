@@ -7,7 +7,7 @@ import { membreteA4 } from "@/lib/documentos/membrete";
  * GET /api/clientes/[id]/estado-cuenta/pdf?auto=1
  * Documento A4 imprimible del estado de cuenta del cliente (CxC + cobros). NO fiscal.
  */
-const NEGOCIO_FALLBACK = "Roldán e Hijos";
+const NEGOCIO_FALLBACK = "ACEROS METAL ROLDÁN E HIJOS";
 function resolveNegocio(nombreEmpresa?: string | null): string {
   const env = (process.env.NEURA_CLIENT_NAME ?? "").trim();
   if (env) return env;

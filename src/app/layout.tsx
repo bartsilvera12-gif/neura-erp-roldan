@@ -26,17 +26,17 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Roldán e Hijos",
-  description: "Sistema de gestión Zentra — Roldán e Hijos",
+  title: "Aceros Metal Roldán e Hijos",
+  description: "Sistema de gestión Zentra — Aceros Metal Roldán e Hijos",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Roldán e Hijos",
+    title: "Aceros Metal Roldán e Hijos",
   },
   icons: {
     icon: "/brand/roldan-favicon.png",
-    apple: "/brand/zentra-icon.png",
+    apple: "/brand/roldan-favicon.png",
   },
 };
 

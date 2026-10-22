@@ -8,7 +8,7 @@
  */
 
 export const EMPRESA_DOC = {
-  nombre: "ROLDÁN E HIJOS",
+  nombre: "ACEROS METAL ROLDÁN E HIJOS",
   propietario: "",
   /** RUC del emisor. Completar con la constancia de la empresa. */
   ruc: "",
