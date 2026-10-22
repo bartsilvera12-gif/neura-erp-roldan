@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     title: "Roldán e Hijos",
   },
   icons: {
-    icon: "/brand/zentra-icon.png",
+    icon: "/brand/roldan-favicon.png",
     apple: "/brand/zentra-icon.png",
   },
 };

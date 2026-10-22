@@ -317,8 +317,11 @@ export default function Header() {
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition-all hover:border-[#4FAEB2]/60"
           >
+            {/* Fondo blanco y object-contain: el logo es un círculo sobre
+                blanco. El negro de antes le dibujaba un aro oscuro alrededor, y
+                el scale-[1.15] le comía el borde del círculo. */}
             <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black"
+              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white"
               style={{ boxShadow: "0 0 0 3px rgba(79, 174, 178, 0.25)" }}
             >
               <Image
@@ -327,7 +330,7 @@ export default function Header() {
                 width={72}
                 height={72}
                 sizes="36px"
-                className="h-full w-full object-cover scale-[1.15]"
+                className="h-full w-full object-contain"
                 priority
               />
             </div>
