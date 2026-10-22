@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { firmarProductoImagenes } from "@/lib/inventario/imagen-storage";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -70,6 +71,31 @@ async function existsId(
  *
  * Respuesta: { productos: [...], total, limit, offset }
  */
+/**
+ * Completa `imagen_url` con una URL firmada a partir de `imagen_path`.
+ *
+ * El bucket de imágenes es privado, así que la columna `imagen_url` queda en
+ * null a propósito y la URL se firma al momento de mostrarla. El listado no lo
+ * hacía: todos los productos salían sin miniatura aunque tuvieran la imagen
+ * subida.
+ */
+async function conImagenesFirmadas(
+  supabase: Parameters<typeof firmarProductoImagenes>[0],
+  rows: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+  const firmas = await firmarProductoImagenes(
+    supabase,
+    rows.map((r) => (typeof r.imagen_path === "string" ? r.imagen_path : null))
+  );
+  if (firmas.size === 0) return rows;
+  return rows.map((r) => {
+    if (r.imagen_url) return r;
+    const path = typeof r.imagen_path === "string" ? r.imagen_path : null;
+    const url = path ? firmas.get(path) : null;
+    return url ? { ...r, imagen_url: url } : r;
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -110,7 +136,10 @@ export async function GET(request: NextRequest) {
     if (limit > 0) {
       const { data, error, count } = await buildBase().range(offset, offset + limit - 1);
       if (error) throw new Error(error.message);
-      const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi);
+      const rows = await conImagenesFirmadas(
+        ctx.supabase,
+        ((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi)
+      );
       return NextResponse.json(
         successResponse({ productos: rows, total: count ?? 0, limit, offset })
       );
@@ -131,7 +160,7 @@ export async function GET(request: NextRequest) {
       if (count != null) totalCount = count;
       if (batch.length < CHUNK) break;
     }
-    const rows = allRows.map(rowToApi);
+    const rows = await conImagenesFirmadas(ctx.supabase, allRows.map(rowToApi));
     return NextResponse.json(
       successResponse({ productos: rows, total: totalCount || rows.length, limit, offset })
     );

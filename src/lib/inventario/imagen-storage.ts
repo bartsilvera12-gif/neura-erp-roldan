@@ -85,3 +85,38 @@ export function pathBelongsToEmpresa(path: string | null | undefined, empresaId:
   const seg = path.split("/")[0];
   return seg === empresaId;
 }
+
+/**
+ * Firma varias imágenes de una, para los listados.
+ *
+ * El bucket es privado: `productos.imagen_url` queda en null a propósito y la
+ * URL se firma al momento de mostrarla. Un listado que no firma muestra todos
+ * los productos sin imagen aunque las tengan subidas, que es lo que pasaba en
+ * /inventario.
+ *
+ * Devuelve un mapa path → URL firmada. Los paths que fallen quedan afuera: una
+ * imagen que no se puede firmar no justifica tumbar el listado entero.
+ */
+export async function firmarProductoImagenes(
+  supabase: AppSupabaseClient,
+  paths: (string | null | undefined)[],
+  ttlSeconds = 3600
+): Promise<Map<string, string>> {
+  const unicos = [...new Set(paths.filter((p): p is string => typeof p === "string" && p.length > 0))];
+  const mapa = new Map<string, string>();
+  if (unicos.length === 0) return mapa;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(PRODUCTOS_IMAGENES_BUCKET)
+      .createSignedUrls(unicos, ttlSeconds);
+    if (error || !data) return mapa;
+    for (const row of data) {
+      const r = row as { path?: string | null; signedUrl?: string | null; error?: string | null };
+      if (r.path && r.signedUrl && !r.error) mapa.set(r.path, r.signedUrl);
+    }
+  } catch {
+    // Sin firmas: el listado sigue andando, solo sin miniaturas.
+  }
+  return mapa;
+}
