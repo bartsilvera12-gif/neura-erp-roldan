@@ -59,7 +59,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     const setBool = (k: string) => { if (body[k] !== undefined) update[k] = Boolean(body[k]); };
 
     [
-      "nombre","tipo_documento","documento","tipo_contrato","jornada_laboral",
+      "nombre","tipo_documento","documento","tipo_contrato","jornada_laboral","hora_entrada_prevista",
       "contacto_emergencia_nombre","contacto_emergencia_telefono","contacto_emergencia_parentesco",
       "observaciones","lugar_nacimiento","nacionalidad","estado_civil","grupo_sanguineo",
       "direccion","email","telefono","cargo","tipo_empleado","tipo_periodo","sucursal_id",
@@ -71,6 +71,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     ["fecha_nacimiento","fecha_ingreso","fecha_baja","chofer_fecha_venc"].forEach(setDate);
     ["salario_base","salario_complementario","costo_hora"].forEach(setNum);
     ["chofer_km"].forEach(setNumNull);
+    ["tolerancia_minutos"].forEach(setNum);
     ["participa_comisiones","cobrar_con_cheque","excluir_liquidaciones","activo"].forEach(setBool);
 
     if (body.estado !== undefined) {

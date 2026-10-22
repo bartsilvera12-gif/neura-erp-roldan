@@ -15,6 +15,8 @@ type Fichaje = {
   empleado_cargo: string | null;
   fecha: string;
   hora_entrada: string | null;
+  /** Minutos de tardanza. null = el empleado no tiene horario cargado. */
+  minutos_tarde?: number | null;
   hora_salida: string | null;
   horas: number;
   observacion: string | null;
@@ -177,6 +179,7 @@ export default function ControlHorarioPage() {
                 <th className="px-4 py-3 font-semibold hidden md:table-cell">Cargo</th>
                 <th className="px-4 py-3 font-semibold">Entrada</th>
                 <th className="px-4 py-3 font-semibold">Salida</th>
+                <th className="px-4 py-3 font-semibold">Tardanza</th>
                 <th className="px-4 py-3 font-semibold text-right">Horas</th>
                 <th className="px-4 py-3 font-semibold hidden md:table-cell">Ubicación</th>
                 <th className="px-4 py-3 font-semibold hidden lg:table-cell">Obs.</th>
@@ -184,9 +187,9 @@ export default function ControlHorarioPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={8} className="py-10 text-center text-gray-400">Cargando…</td></tr>
+                <tr><td colSpan={9} className="py-10 text-center text-gray-400">Cargando…</td></tr>
               ) : fichajes.length === 0 ? (
-                <tr><td colSpan={8} className="py-10 text-center text-gray-400">Sin fichajes registrados</td></tr>
+                <tr><td colSpan={9} className="py-10 text-center text-gray-400">Sin fichajes registrados</td></tr>
               ) : (
                 fichajes.map((f) => (
                   <tr key={f.id} className="hover:bg-[#4FAEB2]/[0.04]">
@@ -195,6 +198,7 @@ export default function ControlHorarioPage() {
                     <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell">{f.empleado_cargo ?? "—"}</td>
                     <td className="px-4 py-2.5 text-gray-700 tabular-nums">{f.hora_entrada ?? "—"}</td>
                     <td className="px-4 py-2.5 text-gray-700 tabular-nums">{f.hora_salida ?? "—"}</td>
+                    <td className="px-4 py-2.5"><Tardanza minutos={f.minutos_tarde} /></td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">{Number(f.horas).toFixed(1)}</td>
                     <td className="px-4 py-2.5 hidden md:table-cell"><UbicacionFichaje f={f} /></td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs hidden lg:table-cell">{f.observacion ?? "—"}</td>
@@ -206,6 +210,27 @@ export default function ControlHorarioPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Tardanza del fichaje. Se distinguen tres casos, porque no significan lo
+ * mismo: sin horario cargado no hay nada que medir, cero es puntual, y
+ * cualquier otro número es una llegada tarde.
+ */
+function Tardanza({ minutos }: { minutos?: number | null }) {
+  if (minutos == null) {
+    return <span className="text-xs text-slate-300" title="El empleado no tiene horario de entrada cargado">—</span>;
+  }
+  if (minutos === 0) {
+    return <span className="text-xs font-medium text-emerald-700">En hora</span>;
+  }
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return (
+    <span className="rounded bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700 tabular-nums ring-1 ring-red-200">
+      {h > 0 ? `${h} h ${m} min` : `${m} min`}
+    </span>
   );
 }
 

@@ -3,6 +3,31 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
+/**
+ * Minutos de tardanza de un fichaje, ya descontada la tolerancia.
+ *
+ * Devuelve `null` cuando no corresponde evaluarlo (el empleado no tiene
+ * horario cargado, o no hay hora de entrada). `null` y `0` son distintos: uno
+ * es "no se mide", el otro es "llegó en hora".
+ */
+function calcMinutosTarde(
+  horaEntrada: string | null,
+  horaPrevista: string | null | undefined,
+  toleranciaMin: number
+): number | null {
+  if (!horaEntrada || !horaPrevista) return null;
+  const aMinutos = (hhmm: string): number | null => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm).trim());
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+  };
+  const real = aMinutos(horaEntrada);
+  const previsto = aMinutos(horaPrevista);
+  if (real == null || previsto == null) return null;
+  const atraso = real - previsto - Math.max(0, toleranciaMin);
+  return atraso > 0 ? atraso : 0;
+}
+
 function calcHoras(entrada: string | null, salida: string | null): number {
   if (!entrada || !salida) return 0;
   const toMin = (hms: string) => {
@@ -32,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await ctx.supabase
       .from("empleado_fichajes")
-      .select("id, empleado_id, fecha, hora_entrada, hora_salida, horas, observacion, entrada_lat, entrada_lng, salida_lat, salida_lng, marcado_kiosco, empleados:empleado_id(nombre, cargo)")
+      .select("id, empleado_id, fecha, hora_entrada, hora_salida, horas, minutos_tarde, observacion, entrada_lat, entrada_lng, salida_lat, salida_lng, marcado_kiosco, empleados:empleado_id(nombre, cargo)")
       .eq("empresa_id", ctx.auth.empresa_id)
       .gte("fecha", desde)
       .lte("fecha", hasta)
@@ -87,6 +112,24 @@ export async function POST(request: NextRequest) {
 
     const horas = calcHoras(horaEntrada, horaSalida);
 
+    // Tardanza contra el horario del empleado. Se guarda calculada: si mañana
+    // le cambian el horario, el historial tiene que seguir diciendo lo que
+    // pasó aquel día.
+    let minutosTarde: number | null = null;
+    {
+      const empQ = await ctx.supabase
+        .from("empleados")
+        .select("hora_entrada_prevista, tolerancia_minutos")
+        .eq("empresa_id", ctx.auth.empresa_id).eq("id", empleadoId)
+        .maybeSingle();
+      const emp = empQ.data as { hora_entrada_prevista?: string | null; tolerancia_minutos?: number } | null;
+      minutosTarde = calcMinutosTarde(
+        horaEntrada,
+        emp?.hora_entrada_prevista ?? null,
+        Number(emp?.tolerancia_minutos) || 0
+      );
+    }
+
     // Upsert por (empleado_id, fecha): primero busco, después actualizo o inserto.
     const existing = await ctx.supabase
       .from("empleado_fichajes")
@@ -128,6 +171,7 @@ export async function POST(request: NextRequest) {
           hora_entrada: horaEntrada,
           hora_salida: horaSalida,
           horas,
+          minutos_tarde: minutosTarde,
           observacion: body.observacion ? String(body.observacion).trim() : null,
         })
         .eq("id", existing.data.id)
@@ -143,6 +187,7 @@ export async function POST(request: NextRequest) {
           hora_entrada: horaEntrada,
           hora_salida: horaSalida,
           horas,
+          minutos_tarde: minutosTarde,
           observacion: body.observacion ? String(body.observacion).trim() : null,
         }]);
       if (ins.error) return NextResponse.json(errorResponse(ins.error.message), { status: 400 });

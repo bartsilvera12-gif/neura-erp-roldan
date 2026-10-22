@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { PackageOpen, Truck, Package } from "lucide-react";
+import { PackageOpen, Package } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, type Deposito, type StockItem } from "@/lib/multideposito/client";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
@@ -16,6 +15,7 @@ export default function DepositosPage() {
   const [cargando, setCargando] = useState(true);
   const [cargandoStock, setCargandoStock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transferir, setTransferir] = useState<StockItem | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -63,15 +63,11 @@ export default function DepositosPage() {
               </span>
               Depósitos
             </h1>
-            <p className="mt-1 text-sm text-slate-500">Stock por ubicación. Las transferencias entre depósitos se hacen con Notas de Remisión.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Stock por ubicación. Para mover mercadería entre depósitos, usá
+              <strong> Transferir</strong> en la fila del producto.
+            </p>
           </div>
-          <Link
-            href="/notas-remision/nueva"
-            className="rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-500/30 hover:shadow-md inline-flex items-center gap-1.5"
-          >
-            <Truck className="h-4 w-4" />
-            Emitir Nota de Remisión
-          </Link>
         </div>
       </div>
 
@@ -124,13 +120,14 @@ export default function DepositosPage() {
                     <th className="px-5 py-3">Producto</th>
                     <th className="px-5 py-3 text-right">Stock</th>
                     <th className="px-5 py-3">Unidad</th>
+                    <th className="px-5 py-3 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cargandoStock ? (
-                    <tr><td colSpan={4} className="px-5 py-10 text-center text-sm text-slate-400">Cargando…</td></tr>
+                    <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-400">Cargando…</td></tr>
                   ) : items.length === 0 ? (
-                    <tr><td colSpan={4} className="px-5 py-10 text-center text-sm text-slate-400 italic">Sin productos configurados.</td></tr>
+                    <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-400 italic">Sin productos configurados.</td></tr>
                   ) : items.map((p) => (
                     <tr key={p.producto_id} className="border-b border-slate-100 last:border-0 hover:bg-emerald-50/40 transition-colors">
                       <td className="px-5 py-3 font-mono text-xs text-slate-500">{p.sku || "—"}</td>
@@ -141,17 +138,159 @@ export default function DepositosPage() {
                         {fmt(p.stock)}
                       </td>
                       <td className="px-5 py-3 text-slate-600 text-xs">{p.unidad || "—"}</td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          disabled={p.stock <= 0 || depositos.length < 2}
+                          onClick={() => setTransferir(p)}
+                          title={depositos.length < 2 ? "Hace falta más de un depósito" : p.stock <= 0 ? "Sin stock para transferir" : ""}
+                          className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900 disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline"
+                        >
+                          Transferir
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <p className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400 italic">
-              La mercadería ingresa al depósito principal configurado en la ficha de cada producto. Para llevar stock a otro depósito se emite una NR y el destino debe aprobarla.
+              La mercadería ingresa al depósito que se elige al cargar el movimiento. Una transferencia deja dos movimientos en el kardex (salida del origen, entrada al destino) y no cambia el stock total del producto.
             </p>
           </div>
         </>
       )}
+
+      {transferir && ubicacionActiva && (
+        <ModalTransferencia
+          item={transferir}
+          origenId={ubicacionActiva}
+          depositos={depositos}
+          onClose={() => setTransferir(null)}
+          onHecho={() => { setTransferir(null); void cargarStock(ubicacionActiva); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Mueve stock de un depósito a otro. El stock total del producto no cambia:
+ * sale de un lado y entra en el otro, y el kardex queda con los dos
+ * movimientos para poder reconstruir a dónde fue la mercadería.
+ */
+function ModalTransferencia({
+  item, origenId, depositos, onClose, onHecho,
+}: {
+  item: StockItem;
+  origenId: string;
+  depositos: Deposito[];
+  onClose: () => void;
+  onHecho: () => void;
+}) {
+  const otros = depositos.filter((d) => d.id !== origenId);
+  const [destinoId, setDestinoId] = useState(otros[0]?.id ?? "");
+  const [cantidad, setCantidad] = useState(String(item.stock));
+  const [motivo, setMotivo] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const nombreOrigen = depositos.find((d) => d.id === origenId)?.nombre ?? "—";
+  const cant = Number(cantidad);
+
+  async function enviar() {
+    if (!destinoId) { setErr("Elegí el depósito de destino."); return; }
+    if (!Number.isFinite(cant) || cant <= 0) { setErr("La cantidad debe ser mayor a cero."); return; }
+    if (cant > item.stock) { setErr(`Solo hay ${fmt(item.stock)} en ${nombreOrigen}.`); return; }
+    setGuardando(true);
+    setErr(null);
+    try {
+      const r = await fetch("/api/inventario/transferencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          producto_id: item.producto_id,
+          origen_id: origenId,
+          destino_id: destinoId,
+          cantidad: cant,
+          motivo: motivo.trim() || null,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.success) { setErr(j?.error ?? "No se pudo transferir."); return; }
+      onHecho();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Transferir stock</h3>
+            <p className="text-xs text-slate-500">{item.nombre}</p>
+          </div>
+          <button onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+
+        {err && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">Desde</label>
+            <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              {nombreOrigen} <span className="text-slate-400">· {fmt(item.stock)} disponibles</span>
+            </p>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">Hacia</label>
+            <select
+              value={destinoId}
+              onChange={(e) => setDestinoId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            >
+              {otros.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">Cantidad</label>
+            <input
+              type="number" min={1} max={item.stock} value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">Motivo (opcional)</label>
+            <input
+              value={motivo} onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ej: reposición de mostrador"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              maxLength={200}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+            Cancelar
+          </button>
+          <button
+            onClick={() => void enviar()}
+            disabled={guardando}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {guardando ? "Transfiriendo…" : "Transferir"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

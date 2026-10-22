@@ -63,6 +63,8 @@ export default function NuevoEmpleadoPage() {
     estado: "activo",
     tipo_contrato: "",
     jornada_laboral: "",
+    hora_entrada_prevista: "",
+    tolerancia_minutos: "0",
     contacto_emergencia_nombre: "",
     contacto_emergencia_telefono: "",
     contacto_emergencia_parentesco: "",
@@ -191,6 +193,12 @@ export default function NuevoEmpleadoPage() {
               options={[["","—"],["indefinido","Indefinido"],["temporal","Temporal"],["prueba","Prueba"],["obra","Obra"]]} />
             <SelectField label="Jornada laboral" value={F("jornada_laboral")} onChange={(v) => setF("jornada_laboral", v)}
               options={[["","—"],["completa","Completa"],["parcial","Parcial"],["turnos","Turnos"]]} />
+            {/* Sin hora de entrada no se pueden medir las tardanzas: el control
+                horario deja la columna en "—" para este empleado. */}
+            <TextField label="Hora de entrada" type="time" value={F("hora_entrada_prevista")}
+              onChange={(v) => setF("hora_entrada_prevista", v)} />
+            <TextField label="Tolerancia (minutos)" type="number" value={F("tolerancia_minutos")}
+              onChange={(v) => setF("tolerancia_minutos", v)} />
           </Grid>
         </Section>
 

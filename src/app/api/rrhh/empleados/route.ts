@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
       estado,
       tipo_contrato: str("tipo_contrato"),
       jornada_laboral: str("jornada_laboral"),
+      // Referencia para medir tardanzas en el control horario.
+      hora_entrada_prevista: str("hora_entrada_prevista"),
+      tolerancia_minutos: Math.max(0, numv("tolerancia_minutos")),
       contacto_emergencia_nombre: str("contacto_emergencia_nombre"),
       contacto_emergencia_telefono: str("contacto_emergencia_telefono"),
       contacto_emergencia_parentesco: str("contacto_emergencia_parentesco"),
