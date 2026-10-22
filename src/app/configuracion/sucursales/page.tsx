@@ -81,9 +81,22 @@ export default function ConfiguracionSucursalesPage() {
   }
 
   async function editar(s: Sucursal) {
+    // Antes solo se podía cambiar el nombre; el resto de los datos de la
+    // sucursal quedaban congelados desde el alta.
     const nombre = window.prompt("Nombre de la sucursal:", s.nombre);
     if (nombre == null || nombre.trim() === "") return;
-    await patch(s.id, { nombre: nombre.trim() });
+    const codigo = window.prompt("Código (ej. ASU):", s.codigo);
+    if (codigo == null || codigo.trim() === "") return;
+    const establecimiento = window.prompt("Establecimiento (ej. 001):", s.establecimiento ?? "");
+    if (establecimiento == null) return;
+    const punto = window.prompt("Punto de expedición (ej. 002):", s.punto_expedicion ?? "");
+    if (punto == null) return;
+    await patch(s.id, {
+      nombre: nombre.trim(),
+      codigo: codigo.trim().toUpperCase(),
+      establecimiento: establecimiento.trim() || null,
+      punto_expedicion: punto.trim() || null,
+    });
   }
 
   async function toggleActiva(s: Sucursal) {

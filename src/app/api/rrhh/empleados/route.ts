@@ -81,7 +81,9 @@ export async function POST(request: NextRequest) {
       estado_civil: str("estado_civil"),
       grupo_sanguineo: str("grupo_sanguineo"),
       direccion: str("direccion"),
-      email: str("email"),
+      // Un correo en mayúsculas sigue siendo el mismo correo, pero se ve mal
+      // y no coincide al buscarlo: se guarda siempre en minúsculas.
+      email: str("email")?.toLowerCase() ?? null,
       telefono: str("telefono"),
       cargo: str("cargo"),
       fecha_ingreso: date("fecha_ingreso"),

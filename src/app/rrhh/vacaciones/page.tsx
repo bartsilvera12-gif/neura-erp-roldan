@@ -176,6 +176,24 @@ function VacacionesInner() {
     await load();
   }
 
+  /** Corrige fechas y tipo de una solicitud ya cargada. */
+  async function editarSolicitud(s: Solicitud) {
+    const desde = window.prompt("Fecha de inicio (AAAA-MM-DD):", String(s.fecha_desde ?? "").slice(0, 10));
+    if (desde == null) return;
+    const hasta = window.prompt("Fecha de fin (AAAA-MM-DD):", String(s.fecha_hasta ?? "").slice(0, 10));
+    if (hasta == null) return;
+    const obs = window.prompt("Observación:", s.observacion ?? "");
+    if (obs == null) return;
+    const r = await fetchWithSupabaseSession(`/api/rrhh/vacaciones/${s.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fecha_desde: desde.trim(), fecha_hasta: hasta.trim(), observacion: obs }),
+    });
+    const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
+    if (!r.ok || !j.success) { setErr(j.error ?? "No se pudo editar la solicitud"); return; }
+    await load();
+  }
+
   const nombreFiltrado = empleadoFiltro ? empleados.find((e) => e.id === empleadoFiltro)?.nombre ?? null : null;
 
   return (
@@ -325,13 +343,16 @@ function VacacionesInner() {
           <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
+                {/* Anchos fijos: sin esto cada columna se estiraba según el
+                    contenido de la fila más larga y el espaciado quedaba
+                    disparejo entre una carga y la siguiente. */}
                 <th className="px-4 py-3 font-semibold">Empleado</th>
-                <th className="px-4 py-3 font-semibold hidden md:table-cell">Tipo</th>
-                <th className="px-4 py-3 font-semibold">Desde</th>
-                <th className="px-4 py-3 font-semibold">Hasta</th>
-                <th className="px-4 py-3 font-semibold text-right">Días</th>
-                <th className="px-4 py-3 font-semibold">Estado</th>
-                <th className="px-4 py-3 font-semibold text-right">Acción</th>
+                <th className="hidden w-28 px-4 py-3 font-semibold md:table-cell">Tipo</th>
+                <th className="w-28 px-4 py-3 font-semibold">Desde</th>
+                <th className="w-28 px-4 py-3 font-semibold">Hasta</th>
+                <th className="w-16 px-4 py-3 text-right font-semibold">Días</th>
+                <th className="w-28 px-4 py-3 font-semibold">Estado</th>
+                <th className="w-32 px-4 py-3 text-right font-semibold">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -357,11 +378,13 @@ function VacacionesInner() {
                     <td className="px-4 py-2.5 text-gray-600 text-xs tabular-nums">{fmtFecha(s.fecha_hasta)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">{s.dias}</td>
                     <td className="px-4 py-2.5"><EstadoBadge estado={s.estado} /></td>
-                    <td className="px-4 py-2.5 text-right">
-                      {s.estado === "aprobada" ? (
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      <button onClick={() => void editarSolicitud(s)}
+                        className="text-xs text-sky-700 hover:underline">editar</button>
+                      {s.estado === "aprobada" && (
                         <button onClick={() => void cambiarEstado(s.id, "cancelada")}
-                          className="text-xs text-red-700 hover:underline">cancelar</button>
-                      ) : <span className="text-xs text-slate-400">—</span>}
+                          className="ml-3 text-xs text-red-700 hover:underline">cancelar</button>
+                      )}
                     </td>
                   </tr>
                 ));

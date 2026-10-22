@@ -159,7 +159,7 @@ export default function NuevoProspectoPage() {
         <p className="text-gray-600 text-sm mt-1">Registrá una nueva oportunidad en el funnel comercial</p>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-2xl">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-5xl">
         <form className="space-y-8" onSubmit={handleSubmit}>
 
           {/* ── Empresa y contacto ───────────────────────────────────────── */}
@@ -181,7 +181,7 @@ export default function NuevoProspectoPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className={labelClass}>
                   Persona de contacto <span className="text-red-500">*</span>
@@ -276,7 +276,7 @@ export default function NuevoProspectoPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Valor estimado (Gs.)</label>
                 <input
@@ -312,7 +312,7 @@ export default function NuevoProspectoPage() {
           <section className="space-y-4">
             <SectionTitle>Seguimiento</SectionTitle>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Próxima acción</label>
                 <input
@@ -336,7 +336,7 @@ export default function NuevoProspectoPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Responsable</label>
                 <input

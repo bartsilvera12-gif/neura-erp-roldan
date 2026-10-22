@@ -79,6 +79,29 @@ interface CategoriaLite {
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 
+/**
+ * Miniatura del producto en el listado. Si no hay imagen cargada deja un
+ * recuadro gris del mismo tamaño, para que las filas no bailen de alto.
+ */
+function MiniatureProducto({ url, alt }: { url?: string | null; alt: string }) {
+  if (!url) {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+        <Package className="h-4 w-4 text-slate-300" />
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      className="h-9 w-9 shrink-0 rounded-md border border-slate-200 object-cover"
+    />
+  );
+}
+
 export default function InventarioPage() {
   const { isAdmin } = useIsAdmin();
 
@@ -395,6 +418,7 @@ export default function InventarioPage() {
                     >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
+                          <MiniatureProducto url={p.imagen_url} alt={p.nombre} />
                           <div className="min-w-0">
                             <p className="truncate font-bold text-slate-900">
                               {p.nombre}

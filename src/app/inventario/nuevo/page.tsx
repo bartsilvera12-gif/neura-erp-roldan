@@ -112,6 +112,15 @@ export default function NuevoProductoPage() {
     return () => { cancel = true; };
   }, []);
 
+  /** Relee las categorías sin recargar la página, para el botón "Recargar". */
+  async function recargarCategorias() {
+    try {
+      const r = await fetch("/api/inventario/categorias", { credentials: "include", cache: "no-store" });
+      const j = await r.json();
+      if (r.ok && j?.success && j.data?.categorias) setCategorias(j.data.categorias as CatRow[]);
+    } catch { /* si falla, queda la lista que ya estaba */ }
+  }
+
   // Imagen pendiente de subir (se sube luego de crear el producto, con su ID).
   const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
@@ -822,12 +831,26 @@ export default function NuevoProductoPage() {
                   <span className="text-xs text-gray-400 truncate">
                     {categorias.length === 0 ? "Todavía no cargaste categorías." : `${categorias.length} disponibles`}
                   </span>
-                  <Link
+                  {/* Pestaña nueva a propósito: navegar en la misma pestaña
+                      descartaba todo lo ya cargado del producto. Al volver,
+                      "Recargar" trae las categorías nuevas sin perder nada. */}
+                  <a
                     href="/inventario/categorias"
+                    target="_blank"
+                    rel="noopener"
                     className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
+                    title="Se abre en otra pestaña para no perder lo cargado acá"
                   >
                     + Crear
-                  </Link>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void recargarCategorias()}
+                    className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800"
+                    title="Traer las categorías creadas en la otra pestaña"
+                  >
+                    Recargar
+                  </button>
                 </div>
               </div>
 

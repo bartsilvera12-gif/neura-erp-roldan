@@ -53,14 +53,14 @@ export default function NuevoMovimientoPage() {
     return () => { cancelled = true; };
   }, []);
 
-  function handleProductoChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const id = e.target.value;
-    const producto = productos.find((p) => p.id === id);
+  function seleccionarProducto(id: string) {
+    const producto = productos.find((p) => String(p.id) === id);
     setForm((prev) => ({
       ...prev,
       producto_id: id,
       costo_unitario: producto ? String(producto.costo_promedio) : "",
     }));
+    setBusqueda("");
   }
 
   function handleChange(
@@ -225,33 +225,60 @@ export default function NuevoMovimientoPage() {
 
           {/* Producto */}
           <div>
-            <label className={labelClass}>Producto</label>
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por nombre o código…"
-              className={`${inputClass} mb-2`}
-            />
-            <select
-              name="producto_id"
-              value={form.producto_id}
-              onChange={handleProductoChange}
-              className={inputClass}
-              size={productosFiltrados.length > 1 ? Math.min(8, productosFiltrados.length + 1) : undefined}
-              required
-            >
-              <option value="">Seleccionar producto...</option>
-              {productosFiltrados.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.nombre} — {p.sku} (stock actual: {p.stock_actual})
-                </option>
-              ))}
-            </select>
-            {termino && productosFiltrados.length === 0 && (
-              <p className="mt-1 text-xs text-amber-700">
-                Ningún producto coincide con “{busqueda}”.
-              </p>
+            <label className={labelClass}>Producto <span className="text-red-500">*</span></label>
+
+            {/* Un solo control. Antes había un buscador arriba y un <select>
+                abajo: eran dos listas, había que elegir dos veces y el clic en
+                la lista desplegada no seleccionaba nada. */}
+            {productoSeleccionado ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-300 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-800">{productoSeleccionado.nombre}</p>
+                  <p className="font-mono text-[11px] text-gray-500">
+                    {productoSeleccionado.sku} · stock actual: {productoSeleccionado.stock_actual}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setForm((prev) => ({ ...prev, producto_id: "", costo_unitario: "" })); setBusqueda(""); }}
+                  className="shrink-0 text-xs font-medium text-sky-700 hover:text-sky-900"
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre o código…"
+                  className={inputClass}
+                  autoComplete="off"
+                />
+                <div className="mt-1 max-h-64 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200">
+                  {productosFiltrados.length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-amber-700">
+                      {termino ? `Ningún producto coincide con “${busqueda}”.` : "No hay productos cargados."}
+                    </p>
+                  ) : (
+                    productosFiltrados.slice(0, 50).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => seleccionarProducto(String(p.id))}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-sky-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-gray-800">{p.nombre}</span>
+                          <span className="block font-mono text-[11px] text-gray-500">{p.sku}</span>
+                        </span>
+                        <span className="shrink-0 text-xs tabular-nums text-gray-500">stock {p.stock_actual}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
             )}
           </div>
 

@@ -51,6 +51,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse("Código y nombre son obligatorios."), { status: 400 });
     }
     const sr = createServiceRoleClient();
+    // Unicidad sin distinguir mayúsculas: se podían crear dos "Ñemby".
+    {
+      const prev = await ctx.supabase
+        .from("sucursales").select("id, codigo, nombre").eq("empresa_id", ctx.auth.empresa_id);
+      const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+      for (const f of (prev.data ?? []) as Array<Record<string, unknown>>) {
+        if (norm(f.codigo) === norm(codigo)) {
+          return NextResponse.json(errorResponse(`Ya existe una sucursal con el código "${f.codigo}".`), { status: 409 });
+        }
+        if (norm(f.nombre) === norm(nombre)) {
+          return NextResponse.json(errorResponse(`Ya existe una sucursal llamada "${f.nombre}".`), { status: 409 });
+        }
+      }
+    }
+
     const { data, error } = await sr
       .from("sucursales")
       .insert({

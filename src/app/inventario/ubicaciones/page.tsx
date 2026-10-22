@@ -104,6 +104,35 @@ export default function UbicacionesPage() {
     else setError(j?.error ?? "No se pudo actualizar.");
   }
 
+  /** Editar nombre y código. Antes solo se podía activar o desactivar. */
+  async function editar(u: Ubicacion) {
+    const nombre = window.prompt("Nombre del depósito:", u.nombre);
+    if (nombre == null || nombre.trim() === "") return;
+    const codigo = window.prompt("Código (opcional):", u.codigo ?? "");
+    if (codigo == null) return;
+    const r = await fetch(`/api/inventario/ubicaciones/${u.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ nombre: nombre.trim(), codigo: codigo.trim() || null }),
+    });
+    const j = await r.json();
+    if (r.ok && j?.success) load();
+    else setError(j?.error ?? "No se pudo actualizar.");
+  }
+
+  /** Borrar de verdad. El backend rechaza si tiene stock, hijas o movimientos. */
+  async function eliminar(u: Ubicacion) {
+    if (!window.confirm(`¿Borrar el depósito "${u.nombre}"? No se puede deshacer.`)) return;
+    const r = await fetch(`/api/inventario/ubicaciones/${u.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j?.success) load();
+    else setError(j?.error ?? "No se pudo borrar.");
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -240,12 +269,24 @@ export default function UbicacionesPage() {
                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Inactivo</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => void editar(u)}
+                        className="text-xs text-sky-700 underline hover:text-sky-900"
+                      >
+                        Editar
+                      </button>
                       <button
                         onClick={() => toggleActivo(u)}
-                        className="text-xs text-sky-700 hover:text-sky-900 underline"
+                        className="ml-3 text-xs text-slate-600 underline hover:text-slate-900"
                       >
                         {u.activo ? "Desactivar" : "Activar"}
+                      </button>
+                      <button
+                        onClick={() => void eliminar(u)}
+                        className="ml-3 text-xs text-red-700 underline hover:text-red-900"
+                      >
+                        Eliminar
                       </button>
                     </td>
                   </tr>

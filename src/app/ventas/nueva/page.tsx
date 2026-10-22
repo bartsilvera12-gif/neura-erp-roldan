@@ -64,6 +64,18 @@ function precioPorTipo(p: Producto, tipo: TipoPrecioVenta): number {
 }
 
 /** Tipos de precio ofrecidos en la UI (sin 'costo', que queda solo como histórico). */
+/**
+ * Descuento vigente de una línea, en porcentaje, deducido del precio de lista.
+ * Se calcula en vez de guardarse para no agregar una columna: el precio final
+ * sigue siendo el dato que manda.
+ */
+function descuentoPctDe(item: { precio_venta: number; precio_venta_original?: number | null }): number {
+  const base = item.precio_venta_original || item.precio_venta || 0;
+  if (base <= 0) return 0;
+  const pct = (1 - item.precio_venta / base) * 100;
+  return Math.max(0, Math.round(pct * 10) / 10);
+}
+
 const TIPOS_PRECIO_UI: TipoPrecioVenta[] = ["minorista", "mayorista", "distribuidor"];
 
 const tipoPrecioLabel: Record<TipoPrecioVenta, string> = {
@@ -1319,7 +1331,6 @@ export default function NuevaVentaPage() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                       <th className="px-3 py-3">Producto</th>
-                      <th className="hidden px-3 py-3 md:table-cell">Precio</th>
                       <th className="hidden px-3 py-3 text-center md:table-cell">IVA</th>
                       <th className="px-3 py-3 text-center">Cant.</th>
                       <th className="px-3 py-3 text-right">Precio unit.</th>
@@ -1347,24 +1358,6 @@ export default function NuevaVentaPage() {
                                 <p className="font-semibold text-slate-900 leading-snug">{item.producto_nombre}</p>
                                 <p className="font-mono text-[11px] text-slate-500">{item.sku}</p>
                               </div>
-                            </div>
-                          </td>
-                          {/* Tipo de precio */}
-                          <td className="hidden px-3 py-2.5 md:table-cell">
-                            <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
-                              {(["minorista", "mayorista", "distribuidor"] as const).map((tp) => {
-                                const sel = (item.tipo_precio ?? "minorista") === tp;
-                                // Los nombres, no A/B/C: las letras venían del fork de
-                                // ferretería y acá nadie sabe cuál es cuál.
-                                const corto = tp === "minorista" ? "Minor." : tp === "mayorista" ? "Mayor." : "Distrib.";
-                                const largo = tp.charAt(0).toUpperCase() + tp.slice(1);
-                                return (
-                                  <button key={tp} type="button" title={largo} onClick={() => changeTipoPrecioItem(idx, tp)}
-                                    className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
-                                    {corto}
-                                  </button>
-                                );
-                              })}
                             </div>
                           </td>
                           {/* IVA */}
@@ -1424,24 +1417,26 @@ export default function NuevaVentaPage() {
                                 Bajo el costo ({formatGs(costoMin)})
                               </div>
                             )}
-                            {/* Descuento por línea sobre el precio del nivel elegido (A/B/C) */}
-                            <div className="mt-1 flex justify-end gap-1">
-                              {[0, 3, 5].map((d) => {
-                                const base = item.precio_venta_original || item.precio_venta || 0;
-                                const cur = base > 0 ? Math.round((1 - item.precio_venta / base) * 100) : 0;
-                                const sel = cur === d;
-                                return (
-                                  <button
-                                    key={d}
-                                    type="button"
-                                    onClick={() => updateItemCampo(idx, { precio_venta: Math.round(base * (1 - d / 100)) })}
-                                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                                    title={d === 0 ? "Sin descuento" : `Descuento ${d}%`}
-                                  >
-                                    {d === 0 ? "0%" : `-${d}%`}
-                                  </button>
-                                );
-                              })}
+                            {/* Descuento de la línea. Antes eran tres botones
+                                fijos (0 / -3 / -5 %) que no se correspondían con
+                                ningún acuerdo comercial de esta empresa: ahora
+                                se escribe el porcentaje que haga falta. */}
+                            <div className="mt-1 flex items-center justify-end gap-1">
+                              <span className="text-[10px] text-slate-400">Desc.</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.5}
+                                value={descuentoPctDe(item)}
+                                onChange={(e) => {
+                                  const base = item.precio_venta_original || item.precio_venta || 0;
+                                  const d = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                  updateItemCampo(idx, { precio_venta: Math.round(base * (1 - d / 100)) });
+                                }}
+                                className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-[11px] tabular-nums"
+                              />
+                              <span className="text-[10px] text-slate-400">%</span>
                             </div>
                           </td>
                           {/* Stock */}

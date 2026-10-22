@@ -66,6 +66,8 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       "chofer_habilitacion","chofer_observacion","comision_politica_id","comision_observacion",
       "departamento","seccion","supervisor","banco","numero_cuenta",
     ].forEach(setStr);
+    // Mismo criterio que en el alta: el correo siempre en minúsculas.
+    if (typeof update.email === "string") update.email = update.email.toLowerCase();
     ["fecha_nacimiento","fecha_ingreso","fecha_baja","chofer_fecha_venc"].forEach(setDate);
     ["salario_base","salario_complementario","costo_hora"].forEach(setNum);
     ["chofer_km"].forEach(setNumNull);

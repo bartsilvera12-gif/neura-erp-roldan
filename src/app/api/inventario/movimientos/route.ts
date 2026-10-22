@@ -26,7 +26,30 @@ export async function GET(request: NextRequest) {
       .limit(500);
     if (error) throw new Error(error.message);
 
-    return NextResponse.json(successResponse({ movimientos: data ?? [] }));
+    // La columna "Usuario" mostraba tres cosas distintas según cómo se hubiera
+    // grabado cada fila: el nombre, el correo, o nada. Acá se normaliza contra
+    // `usuarios`, así el listado es consistente aunque las filas viejas tengan
+    // guardado cualquier cosa. Criterio: nombre; si no hay, correo.
+    const filas = (data ?? []) as Array<Record<string, unknown>>;
+    const ids = [...new Set(filas.map((m) => String(m.created_by ?? "")).filter(Boolean))];
+    const nombrePorId = new Map<string, string>();
+    if (ids.length > 0) {
+      const uq = await ctx.supabase
+        .from("usuarios").select("id, nombre, email")
+        .eq("empresa_id", empresaId).in("id", ids);
+      for (const u of (uq.data ?? []) as Array<Record<string, unknown>>) {
+        const nombre = String(u.nombre ?? "").trim() || String(u.email ?? "").trim();
+        if (nombre) nombrePorId.set(String(u.id), nombre);
+      }
+    }
+    const movimientos = filas.map((m) => ({
+      ...m,
+      usuario_nombre:
+        nombrePorId.get(String(m.created_by ?? "")) ??
+        (String(m.usuario_nombre ?? "").trim() || null),
+    }));
+
+    return NextResponse.json(successResponse({ movimientos }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);
     if (rSuc) return rSuc;

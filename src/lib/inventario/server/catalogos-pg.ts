@@ -285,6 +285,91 @@ export async function setCategoriaPrincipal(
 
 // ─── Stock por ubicacion (inicial al crear producto) ────────────────────
 
+/**
+ * Devuelve el mensaje de error si ya existe otra ubicación con ese código o
+ * nombre. La comparación ignora mayúsculas: "dep-01" y "DEP-01" son el mismo
+ * depósito para quien lo usa, aunque Postgres los vea distintos.
+ */
+export async function ubicacionDuplicada(
+  schemaRaw: string,
+  empresaId: string,
+  campos: { codigo?: string | null; nombre?: string | null },
+  excluirId?: string
+): Promise<string | null> {
+  const schema = assertAllowedChatDataSchema(schemaRaw);
+  const t = quoteSchemaTable(schema, "inventario_ubicaciones");
+  const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+
+  if (campos.codigo && norm(campos.codigo)) {
+    const { rows } = await pool().query<{ codigo: string }>(
+      `SELECT codigo FROM ${t}
+        WHERE empresa_id = $1::uuid AND lower(btrim(codigo)) = $2
+          AND ($3::uuid IS NULL OR id <> $3::uuid) LIMIT 1`,
+      [empresaId, norm(campos.codigo), excluirId ?? null]
+    );
+    if (rows[0]) return `Ya existe un depósito con el código "${rows[0].codigo}".`;
+  }
+  if (campos.nombre && norm(campos.nombre)) {
+    const { rows } = await pool().query<{ nombre: string }>(
+      `SELECT nombre FROM ${t}
+        WHERE empresa_id = $1::uuid AND lower(btrim(nombre)) = $2
+          AND ($3::uuid IS NULL OR id <> $3::uuid) LIMIT 1`,
+      [empresaId, norm(campos.nombre), excluirId ?? null]
+    );
+    if (rows[0]) return `Ya existe un depósito llamado "${rows[0].nombre}".`;
+  }
+  return null;
+}
+
+/**
+ * Borra una ubicación. Solo si no tiene stock ni la referencia ningún
+ * movimiento: un depósito con historial se desactiva, no se borra, porque
+ * borrarlo dejaría movimientos apuntando a la nada.
+ *
+ * Devuelve el motivo del rechazo, o `null` si la borró.
+ */
+export async function deleteUbicacion(
+  schemaRaw: string,
+  empresaId: string,
+  id: string
+): Promise<string | null> {
+  const schema = assertAllowedChatDataSchema(schemaRaw);
+  const tUbi = quoteSchemaTable(schema, "inventario_ubicaciones");
+  const tStock = quoteSchemaTable(schema, "inventario_stock_ubicacion");
+
+  const stock = await pool().query<{ n: string }>(
+    `SELECT count(*) AS n FROM ${tStock}
+      WHERE empresa_id = $1::uuid AND ubicacion_id = $2::uuid AND COALESCE(stock_actual, 0) <> 0`,
+    [empresaId, id]
+  );
+  if (Number(stock.rows[0]?.n ?? 0) > 0) {
+    return "El depósito todavía tiene stock. Transferilo o ajustalo a cero antes de borrarlo.";
+  }
+
+  const hijos = await pool().query<{ n: string }>(
+    `SELECT count(*) AS n FROM ${tUbi} WHERE empresa_id = $1::uuid AND parent_id = $2::uuid`,
+    [empresaId, id]
+  );
+  if (Number(hijos.rows[0]?.n ?? 0) > 0) {
+    return "El depósito tiene ubicaciones adentro. Borralas o movelas primero.";
+  }
+
+  try {
+    await pool().query(
+      `DELETE FROM ${tUbi} WHERE empresa_id = $1::uuid AND id = $2::uuid`,
+      [empresaId, id]
+    );
+  } catch (e) {
+    // Alguna FK que no previmos: se desactiva y se avisa, en vez de romper.
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/foreign key|violates/i.test(msg)) {
+      return "El depósito está referenciado por movimientos ya registrados. Desactivalo en lugar de borrarlo.";
+    }
+    throw e;
+  }
+  return null;
+}
+
 export async function setStockUbicacionInicial(
   schemaRaw: string,
   empresaId: string,

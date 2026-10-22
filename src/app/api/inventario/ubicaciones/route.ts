@@ -3,7 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
-import { listUbicaciones, insertUbicacion } from "@/lib/inventario/server/catalogos-pg";
+import { listUbicaciones, insertUbicacion, ubicacionDuplicada } from "@/lib/inventario/server/catalogos-pg";
 import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize";
 
 export async function GET(request: NextRequest) {
@@ -44,6 +44,13 @@ export async function POST(request: NextRequest) {
       if (!sucursalId) {
         return NextResponse.json(errorResponse("Elegí a qué sucursal pertenece este depósito."), { status: 400 });
       }
+      // "dep-01" se guardaba aunque ya existiera "DEP-01".
+      const dup = await ubicacionDuplicada(schema, ctx.auth.empresa_id, {
+        codigo: typeof body.codigo === "string" ? body.codigo : null,
+        nombre,
+      });
+      if (dup) return NextResponse.json(errorResponse(dup), { status: 409 });
+
       const row = await insertUbicacion(schema, ctx.auth.empresa_id, {
         nombre,
         codigo: normalizeUpperNullable(body.codigo),

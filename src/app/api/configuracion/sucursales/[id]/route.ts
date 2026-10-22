@@ -9,6 +9,34 @@ function esAdmin(rol: string | null | undefined): boolean {
   return r === "admin" || r === "super_admin";
 }
 
+/**
+ * Devuelve el mensaje de error si ya hay otra sucursal con ese código o nombre.
+ * La comparación ignora mayúsculas y espacios de los extremos: para una persona
+ * "Ñemby" y "ñemby " son la misma sucursal, aunque para Postgres no lo sean.
+ */
+async function sucursalDuplicada(
+  sr: ReturnType<typeof createServiceRoleClient>,
+  empresaId: string,
+  campos: { codigo?: string; nombre?: string },
+  excluirId?: string
+): Promise<string | null> {
+  if (!campos.codigo && !campos.nombre) return null;
+  const { data, error } = await sr
+    .from("sucursales").select("id, codigo, nombre").eq("empresa_id", empresaId);
+  if (error) return null;
+  const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+  for (const f of (data ?? []) as Array<Record<string, unknown>>) {
+    if (excluirId && String(f.id) === excluirId) continue;
+    if (campos.codigo && norm(f.codigo) === norm(campos.codigo)) {
+      return `Ya existe una sucursal con el código "${f.codigo}".`;
+    }
+    if (campos.nombre && norm(f.nombre) === norm(campos.nombre)) {
+      return `Ya existe una sucursal llamada "${f.nombre}".`;
+    }
+  }
+  return null;
+}
+
 /** PATCH /api/configuracion/sucursales/[id] — editar nombre, activa, establecimiento, punto_expedicion. */
 export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
   try {
@@ -21,6 +49,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     if (body.nombre !== undefined) patch.nombre = String(body.nombre).trim();
+    if (body.codigo !== undefined) patch.codigo = String(body.codigo).trim().toUpperCase();
     if (body.activa !== undefined) patch.activa = body.activa === true;
     if (body.establecimiento !== undefined) patch.establecimiento = body.establecimiento == null ? null : String(body.establecimiento).trim() || null;
     if (body.punto_expedicion !== undefined) patch.punto_expedicion = body.punto_expedicion == null ? null : String(body.punto_expedicion).trim() || null;
@@ -30,6 +59,15 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     }
 
     const sr = createServiceRoleClient();
+
+    // Unicidad de código y nombre, sin distinguir mayúsculas: se podían crear
+    // dos "Ñemby", y "dep-01" convivía con "DEP-01".
+    const choque = await sucursalDuplicada(sr, ctx.auth.empresa_id, {
+      codigo: patch.codigo as string | undefined,
+      nombre: patch.nombre as string | undefined,
+    }, id);
+    if (choque) return NextResponse.json(errorResponse(choque), { status: 409 });
+
     const { data, error } = await sr
       .from("sucursales")
       .update(patch)
