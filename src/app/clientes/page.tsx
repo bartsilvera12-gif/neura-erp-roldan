@@ -167,6 +167,15 @@ function buildClienteColumns(mapNombreTipo: Record<string, string>): ClienteColu
                   Tributario
                 </span>
               )}
+              {c.origen === "CRM" && (
+                <span
+                  title="Este cliente fue creado desde el módulo CRM"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100"
+                >
+                  <span aria-hidden>🔗</span>
+                  Creado desde CRM
+                </span>
+              )}
             </div>
             {c.tipo_cliente === "empresa" && c.ruc && (
               <p className="text-xs text-gray-400">RUC: {c.ruc}</p>

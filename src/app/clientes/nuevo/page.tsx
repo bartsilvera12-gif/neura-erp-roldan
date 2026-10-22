@@ -374,6 +374,7 @@ function NuevoClienteForm() {
       metodo_pago_preferido: form.metodo_pago_preferido || null,
       moneda_preferida: form.moneda_preferida,
       estado: form.estado,
+      origen: form.origen,
       usa_nota_remision: form.usa_nota_remision,
       plan_comercial_id: formSusc.plan_id.trim() || null,
       vendedor_asignado: form.vendedor_asignado.trim().toUpperCase() || undefined,

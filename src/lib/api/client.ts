@@ -98,6 +98,7 @@ export async function apiCreateCliente(data: {
   metodo_pago_preferido?: "efectivo" | "transferencia" | "tarjeta" | "cheque" | null;
   moneda_preferida?: string;
   estado?: string;
+  origen?: "CRM" | "VENTA" | "MANUAL";
   usa_nota_remision?: boolean;
   plan_comercial_id?: string | null;
   vendedor_asignado?: string;

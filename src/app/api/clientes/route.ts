@@ -249,6 +249,7 @@ export async function POST(request: NextRequest) {
       metodo_pago_preferido,
       moneda_preferida,
       estado,
+      origen,
       tipo_servicio_cliente,
       plan_comercial_id,
       vendedor_asignado,
@@ -365,6 +366,9 @@ export async function POST(request: NextRequest) {
           : null,
       moneda_preferida:     moneda_preferida === "USD" ? "USD" : "GS",
       estado:               estado === "inactivo" ? "inactivo" : "activo",
+      // Origen del alta: CRM (transformado desde un prospecto), VENTA o MANUAL.
+      // Alimenta la etiqueta "Creado desde CRM" en la lista y ficha del cliente.
+      origen:               origen === "CRM" || origen === "VENTA" ? origen : "MANUAL",
       vendedor_asignado:    typeof vendedor_asignado === "string" && vendedor_asignado.trim() ? vendedor_asignado.trim() : null,
       vendedor_usuario_id:  vendedorUsuarioId,
       usa_nota_remision:    usa_nota_remision === true,

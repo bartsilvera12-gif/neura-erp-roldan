@@ -615,6 +615,45 @@ export async function addNotaCliente(clienteId: string, texto: string): Promise<
   return nota;
 }
 
+/** Edita el texto de una nota existente y persiste en Supabase. */
+export async function updateNotaCliente(
+  clienteId: string,
+  notaId: number,
+  texto: string,
+): Promise<NotaCliente[]> {
+  const supabase = await getBrowserSupabaseForEmpresaData();
+  const notas = await getNotasCliente(clienteId);
+  const nuevas = notas.map((n) =>
+    n.id === notaId ? { ...n, texto: texto.trim() } : n,
+  );
+
+  const { error } = await supabase
+    .from("clientes")
+    .update({ notas: nuevas, updated_at: new Date().toISOString() })
+    .eq("id", clienteId);
+
+  if (error) console.error("[clientes] updateNotaCliente:", error.message);
+  return nuevas;
+}
+
+/** Elimina una nota del cliente y persiste en Supabase. */
+export async function deleteNotaCliente(
+  clienteId: string,
+  notaId: number,
+): Promise<NotaCliente[]> {
+  const supabase = await getBrowserSupabaseForEmpresaData();
+  const notas = await getNotasCliente(clienteId);
+  const nuevas = notas.filter((n) => n.id !== notaId);
+
+  const { error } = await supabase
+    .from("clientes")
+    .update({ notas: nuevas, updated_at: new Date().toISOString() })
+    .eq("id", clienteId);
+
+  if (error) console.error("[clientes] deleteNotaCliente:", error.message);
+  return nuevas;
+}
+
 export async function toggleEstado(id: string, estado: EstadoCliente): Promise<void> {
   await updateCliente(id, { estado });
 }
