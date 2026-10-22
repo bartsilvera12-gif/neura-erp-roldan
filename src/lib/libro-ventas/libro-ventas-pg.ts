@@ -84,6 +84,36 @@ async function tablasFiscalesDisponibles(schema: string): Promise<Set<string>> {
   return new Set(rows.map((r) => r.table_name));
 }
 
+/**
+ * Qué columnas tiene realmente una tabla del tenant.
+ *
+ * POR QUÉ
+ *   Lo mismo que con las tablas, un escalón más abajo. `clientes` no tiene las
+ *   mismas columnas en todos los schemas: en este faltan `razon_social` y
+ *   `ruc_factura`, y la consulta las leía igual. Postgres cortaba con
+ *   "column cl.razon_social does not exist" y el endpoint devolvía 500, que
+ *   es lo que se veía como "el Libro de Ventas no se genera".
+ */
+async function columnasDe(schema: string, tabla: string): Promise<Set<string>> {
+  const { rows } = await pool().query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = $2`,
+    [schema, tabla],
+  );
+  return new Set(rows.map((r) => r.column_name));
+}
+
+/**
+ * Arma un COALESCE con las columnas que existan, en el orden de preferencia
+ * dado. Si no existe ninguna devuelve NULL tipado, para que la consulta siga
+ * siendo válida y la columna salga vacía en vez de romper el libro entero.
+ */
+function coalesceColumnas(alias: string, disponibles: Set<string>, preferencia: string[]): string {
+  const usables = preferencia.filter((c) => disponibles.has(c));
+  if (usables.length === 0) return "NULL::text";
+  return `COALESCE(${usables.map((c) => `NULLIF(btrim(${alias}.${c}),'')`).join(", ")})`;
+}
+
 /** Lanzado cuando el schema no tiene con qué armar el libro. El caller responde 200 con aviso. */
 export class LibroVentasNoDisponibleError extends Error {
   constructor(public readonly faltantes: string[]) {
@@ -148,8 +178,11 @@ export async function listLibroVentas(schemaRaw: string, empresaId: string, f: L
   if (f.tipo) outer.push(`x.origen_tipo = ${add(f.tipo)}`);
   const outerWhere = outer.length ? `WHERE ${outer.join(" AND ")}` : "";
 
-  const clienteExpr = "COALESCE(NULLIF(btrim(cl.razon_social),''), NULLIF(btrim(cl.nombre),''), NULLIF(btrim(cl.empresa),''))";
-  const rucExpr = "COALESCE(NULLIF(btrim(cl.ruc_factura),''), NULLIF(btrim(cl.ruc),''), NULLIF(btrim(cl.documento),''))";
+  // `clientes` no trae las mismas columnas en todos los schemas: acá faltan
+  // `razon_social` y `ruc_factura`. Se arma el COALESCE con lo que haya.
+  const colsCliente = await columnasDe(schema, "clientes");
+  const clienteExpr = coalesceColumnas("cl", colsCliente, ["razon_social", "nombre", "empresa", "nombre_contacto"]);
+  const rucExpr = coalesceColumnas("cl", colsCliente, ["ruc_factura", "ruc", "documento"]);
 
   // La rama de notas de crédito solo se arma si el módulo está instalado.
   const ramaNotasCredito = !puedeNotasCredito ? "" : `
