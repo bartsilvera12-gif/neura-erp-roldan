@@ -11,6 +11,16 @@ import { useBoot } from "@/components/BootContext";
 import { diasRestantes, nivelPorDias, type NivelVencimiento } from "@/lib/lotes/nivel";
 import { nombreUsuarioDisplay } from "@/lib/usuarios/hweber";
 import SucursalSwitcher from "@/components/layout/SucursalSwitcher";
+import { getModuleAccessCached } from "@/lib/modulos/module-access-cache";
+import { isModuleSlugGranted } from "@/lib/modulos/route-slug-map";
+
+/**
+ * Slug del único destino al que apunta la campanita ("Productos a vencer").
+ * Si la empresa no tiene este módulo, la campanita se oculta: de lo contrario
+ * el enlace "Ver todos →" llevaba a una ruta bloqueada por AuthGuard con el
+ * cartel "Módulo no habilitado".
+ */
+const NOTIF_MODULO_SLUG = "productos-a-vencer";
 
 const NOTIF_VISTO_KEY = "notif-lotes-visto";
 
@@ -100,9 +110,37 @@ export default function Header() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifLotes, setNotifLotes] = useState<LoteNotif[]>([]);
   const [notifCargando, setNotifCargando] = useState(false);
+  // Solo mostramos la campanita si la empresa tiene el módulo "Productos a
+  // vencer". Para empresas sin ese módulo (ej. Roldán) la campanita se oculta.
+  const [notifHabilitado, setNotifHabilitado] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { ok, data } = await getModuleAccessCached();
+        if (!alive || !ok) return;
+        const esSuperAdmin = data.superAdmin === true;
+        const granted = new Set(data.slugs ?? []);
+        const inactive = new Set(data.inactiveSlugs ?? []);
+        setNotifHabilitado(
+          esSuperAdmin ||
+            isModuleSlugGranted(NOTIF_MODULO_SLUG, granted, inactive, {
+              strict: data.strictAllowlist === true,
+            })
+        );
+      } catch {
+        /* silencioso: si falla, la campanita queda oculta */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!notifHabilitado) return;
     let alive = true;
     async function cargarCount() {
       try {
@@ -122,7 +160,7 @@ export default function Header() {
       alive = false;
       window.clearInterval(id);
     };
-  }, []);
+  }, [notifHabilitado]);
 
   // Cerrar popover al click fuera.
   useEffect(() => {
@@ -232,7 +270,9 @@ export default function Header() {
             payload del header. */}
         <SucursalSwitcher />
 
-        {/* Notificaciones — lotes próximos a vencer (≤15 días) */}
+        {/* Notificaciones — lotes próximos a vencer (≤15 días).
+            Solo visible si la empresa tiene el módulo "Productos a vencer". */}
+        {notifHabilitado && (
         <div className="relative" ref={notifRef}>
           <button
             type="button"
@@ -309,6 +349,7 @@ export default function Header() {
             </div>
           )}
         </div>
+        )}
 
         {/* Avatar + menú usuario */}
         <div className="relative" ref={menuRef}>
