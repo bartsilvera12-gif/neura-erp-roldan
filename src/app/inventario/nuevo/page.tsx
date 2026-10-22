@@ -60,7 +60,10 @@ export default function NuevoProductoPage() {
   const [esInsumo, setEsInsumo] = useState(false);
 
     type TipoGastro = "reventa" | "menu" | "materia";
-  const [tipoGastro, setTipoGastro] = useState<TipoGastro>("reventa");
+  // Roldán e Hijos compra y revende: no fabrica ni maneja insumos, así que el
+  // selector de tipo (reventa / menú / materia prima) no tenía sentido acá y se
+  // quitó. Queda fijo para no tocar las ramas que dependen de él.
+  const tipoGastro: TipoGastro = "reventa";
 
   // Configuración gastronómica
   const [controlaStock, setControlaStock] = useState(true);
@@ -111,6 +114,18 @@ export default function NuevoProductoPage() {
     })();
     return () => { cancel = true; };
   }, []);
+
+  /** Cuál de los tres "+ Crear" está abierto. */
+  const [crear, setCrear] = useState<"categoria" | "proveedor" | "deposito" | null>(null);
+
+  /** Relee los depósitos sin recargar la página. */
+  async function recargarUbicaciones() {
+    try {
+      const r = await fetch("/api/inventario/ubicaciones", { credentials: "include", cache: "no-store" });
+      const j = await r.json();
+      if (r.ok && j?.success && j.data?.ubicaciones) setUbicaciones(j.data.ubicaciones as UbiRow[]);
+    } catch { /* si falla, queda la lista que ya estaba */ }
+  }
 
   /** Relee los proveedores sin recargar la página. */
   async function recargarProveedores() {
@@ -442,10 +457,9 @@ export default function NuevoProductoPage() {
     "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
   const labelClass = "block text-sm font-medium text-slate-700 mb-2";
 
-  // Stock visible en reventa y materia prima (ambos manejan stock real). Menú
-  // se oculta porque por default es "preparado al vender".
-  const showStock = tipoGastro === "reventa" || tipoGastro === "materia";
-  const showPrecioVenta = tipoGastro !== "materia";
+  // Todo producto acá se compra y se revende: maneja stock y tiene precio.
+  const showStock = true;
+  const showPrecioVenta = true;
 
   // Mientras se resuelve el rol, o si no es admin (será redirigido), no se
   // muestra el formulario de alta.
@@ -506,34 +520,6 @@ export default function NuevoProductoPage() {
             </div>
           )}
 
-          {/* Tipo de producto */}
-          <div>
-            <label className={labelClass}>Tipo de producto</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(["reventa", "menu", "materia"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTipoGastro(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                    tipoGastro === t
-                      ? "border-[#4FAEB2] bg-[#4FAEB2]/10 text-[#2F6F72]"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  {t === "reventa" && "Reventa (compra y vende)"}
-                  {t === "menu" && "Menú (fabricado)"}
-                  {t === "materia" && "Materia prima (insumo)"}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              {tipoGastro === "reventa" && "Producto que comprás y revendés tal cual (ej. gaseosa)."}
-              {tipoGastro === "menu" && "Producto que fabricás y vendés al cliente final (ej. tortilla, nacho)."}
-              {tipoGastro === "materia" && "Insumo para producir menú (ej. harina de maíz, aceite)."}
-            </p>
-          </div>
-
           {/* Nombre */}
           <div>
             <label className={labelClass}>Nombre del producto</label>
@@ -550,20 +536,13 @@ export default function NuevoProductoPage() {
 
           {/* Descripción */}
           <div>
-            <label className={labelClass}>
-              Descripción
-              {tipoGastro === "menu" && <span className="text-xs font-normal text-amber-700 ml-2">(visible al cliente)</span>}
-            </label>
+            <label className={labelClass}>Descripción</label>
             <textarea
               name="descripcion"
               value={form.descripcion}
               onChange={handleChange}
-              placeholder={
-                tipoGastro === "menu"
-                  ? "Ej: Pan, carne, huevo, doble queso, lechuga, tomate, mayonesa."
-                  : "Descripción opcional del producto"
-              }
-              rows={tipoGastro === "menu" ? 3 : 2}
+              placeholder="Descripción opcional del producto"
+              rows={2}
               className={inputClass}
             />
           </div>
@@ -607,14 +586,14 @@ export default function NuevoProductoPage() {
               </div>
             </div>
 
-            <div className={tipoGastro === "menu" ? "hidden" : ""}>
+            <div>
               <label className={labelClass}>Unidad de medida</label>
               <select
                 name="unidad_medida"
                 value={form.unidad_medida}
                 onChange={handleChange}
                 className={`${inputClass} uppercase`}
-                required={tipoGastro !== "menu"}
+                required
               >
                 {UNIDADES_OPCIONES.map((u) => (
                   <option key={u} value={u}>{u}</option>
@@ -840,31 +819,18 @@ export default function NuevoProductoPage() {
                   <span className="text-xs text-gray-400 truncate">
                     {categorias.length === 0 ? "Todavía no cargaste categorías." : `${categorias.length} disponibles`}
                   </span>
-                  {/* Pestaña nueva a propósito: navegar en la misma pestaña
-                      descartaba todo lo ya cargado del producto. Al volver,
-                      "Recargar" trae las categorías nuevas sin perder nada. */}
-                  <a
-                    href="/inventario/categorias"
-                    target="_blank"
-                    rel="noopener"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
-                    title="Se abre en otra pestaña para no perder lo cargado acá"
-                  >
-                    + Crear
-                  </a>
                   <button
                     type="button"
-                    onClick={() => void recargarCategorias()}
-                    className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800"
-                    title="Traer las categorías creadas en la otra pestaña"
+                    onClick={() => setCrear("categoria")}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
                   >
-                    Recargar
+                    + Crear
                   </button>
                 </div>
               </div>
 
-              {/* Proveedor — 4 cols. Oculto para Menú (productos preparados no tienen proveedor). */}
-              <div className={`md:col-span-4 min-w-0 ${tipoGastro === "menu" ? "hidden" : ""}`}>
+              {/* Proveedor — 4 cols. */}
+              <div className="md:col-span-4 min-w-0">
                 <label className={labelClass}>Proveedor principal</label>
                 <SelectFromList
                   value={proveedorId}
@@ -876,24 +842,12 @@ export default function NuevoProductoPage() {
                   <span className="text-xs text-gray-400 truncate">
                     {proveedores.length === 0 ? "Todavía no cargaste proveedores." : `${proveedores.length} disponibles`}
                   </span>
-                  {/* Mismo criterio que el de categorías: en la misma pestaña
-                      se perdía todo lo cargado del producto. */}
-                  <a
-                    href="/proveedores/nuevo"
-                    target="_blank"
-                    rel="noopener"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
-                    title="Se abre en otra pestaña para no perder lo cargado acá"
-                  >
-                    + Crear
-                  </a>
                   <button
                     type="button"
-                    onClick={() => void recargarProveedores()}
-                    className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800"
-                    title="Traer los proveedores creados en la otra pestaña"
+                    onClick={() => setCrear("proveedor")}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
                   >
-                    Recargar
+                    + Crear
                   </button>
                 </div>
               </div>
@@ -911,12 +865,13 @@ export default function NuevoProductoPage() {
                   <span className="text-xs text-gray-400 truncate">
                     {ubicaciones.length === 0 ? "Todavía no cargaste ubicaciones." : `${ubicaciones.length} disponibles`}
                   </span>
-                  <Link
-                    href="/inventario/ubicaciones"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => setCrear("deposito")}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
                   >
                     + Crear
-                  </Link>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1121,6 +1076,114 @@ export default function NuevoProductoPage() {
         </form>
       </div>
 
+      {crear && (
+        <ModalCrearRapido
+          tipo={crear}
+          onClose={() => setCrear(null)}
+          onCreado={async (id) => {
+            // Se recarga la lista y se deja elegido lo recién creado, que es
+            // para lo que se abrió el modal.
+            if (crear === "categoria") { await recargarCategorias(); setCategoriaId(id); }
+            if (crear === "proveedor") { await recargarProveedores(); setProveedorId(id); }
+            if (crear === "deposito")  { await recargarUbicaciones(); setUbicacionId(id); }
+            setCrear(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Alta rápida de categoría, proveedor o depósito sin salir del formulario.
+ *
+ * Antes cada "+ Crear" era un link: en la misma pestaña se perdía todo lo
+ * cargado del producto, y en otra pestaña había que volver y recargar a mano.
+ * Acá se crea, se recarga la lista y queda elegido, que es lo único que se
+ * quería hacer.
+ *
+ * Solo pide el nombre. El resto de los campos de cada entidad se completan
+ * después desde su propia pantalla: este atajo existe para no cortar la carga
+ * del producto, no para reemplazar esas pantallas.
+ */
+function ModalCrearRapido({
+  tipo, onClose, onCreado,
+}: {
+  tipo: "categoria" | "proveedor" | "deposito";
+  onClose: () => void;
+  onCreado: (id: string) => void | Promise<void>;
+}) {
+  const CONFIG = {
+    categoria: { titulo: "Nueva categoría", label: "Nombre de la categoría", url: "/api/inventario/categorias", clave: "categoria" },
+    proveedor: { titulo: "Nuevo proveedor", label: "Razón social / nombre",  url: "/api/proveedores",            clave: "proveedor" },
+    deposito:  { titulo: "Nuevo depósito",  label: "Nombre del depósito",    url: "/api/inventario/ubicaciones", clave: "ubicacion" },
+  } as const;
+  const cfg = CONFIG[tipo];
+
+  const [nombre, setNombre] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function guardar() {
+    const n = nombre.trim();
+    if (!n) { setErr("Escribí un nombre."); return; }
+    setGuardando(true);
+    setErr(null);
+    try {
+      const r = await fetch(cfg.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ nombre: n }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.success) { setErr(j?.error ?? "No se pudo crear."); return; }
+      const creado = (j.data?.[cfg.clave] ?? j.data) as { id?: string } | undefined;
+      if (!creado?.id) { setErr("Se creó, pero no se pudo seleccionar. Elegilo de la lista."); return; }
+      await onCreado(String(creado.id));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h3 className="text-sm font-bold text-slate-800">{cfg.titulo}</h3>
+          <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+
+        {err && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>
+        )}
+
+        <label className="text-[11px] font-semibold uppercase text-slate-500">{cfg.label}</label>
+        <input
+          autoFocus
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void guardar(); } }}
+          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          maxLength={120}
+        />
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => void guardar()}
+            disabled={guardando}
+            className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+          >
+            {guardando ? "Creando…" : "Crear"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
