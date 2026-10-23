@@ -76,70 +76,80 @@ function mapCaja(r: CajaRow): Caja {
 /** Devuelve la caja abierta actual de la empresa (o null). */
 export async function getCajaAbierta(
   sb: AppSupabaseClient,
-  empresaId: string
+  empresaId: string,
+  sucursalId: string | null = null
 ): Promise<Caja | null> {
-  const q = await sb
+  let q = sb
     .from("cajas")
     .select(CAJA_COLS)
     .eq("empresa_id", empresaId)
-    .eq("estado", "abierta")
-    .order("fecha_apertura", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (q.error) throw new Error(q.error.message);
-  return q.data ? mapCaja(q.data as unknown as CajaRow) : null;
+    .eq("estado", "abierta");
+  if (sucursalId) q = q.eq("sucursal_id", sucursalId);
+  const r = await q.order("fecha_apertura", { ascending: false }).limit(1).maybeSingle();
+  if (r.error) throw new Error(r.error.message);
+  return r.data ? mapCaja(r.data as unknown as CajaRow) : null;
 }
 
-/** Cajas ACTIVAS (abiertas o en cierre/conteo) de la empresa, por número. */
+/** Cajas ACTIVAS (abiertas o en cierre/conteo) de la sucursal, por número. */
 export async function listarCajasActivas(
   sb: AppSupabaseClient,
-  empresaId: string
+  empresaId: string,
+  sucursalId: string | null = null
 ): Promise<Caja[]> {
-  const q = await sb
+  let q = sb
     .from("cajas")
     .select(CAJA_COLS)
     .eq("empresa_id", empresaId)
-    .in("estado", ["abierta", "en_cierre"])
-    .order("numero_caja", { ascending: true });
-  if (q.error) throw new Error(q.error.message);
-  return ((q.data ?? []) as unknown as CajaRow[]).map(mapCaja);
+    .in("estado", ["abierta", "en_cierre"]);
+  if (sucursalId) q = q.eq("sucursal_id", sucursalId);
+  const r = await q.order("numero_caja", { ascending: true });
+  if (r.error) throw new Error(r.error.message);
+  return ((r.data ?? []) as unknown as CajaRow[]).map(mapCaja);
 }
 
 /** Estado de todas las cajas activas (abiertas/en_cierre) con su resumen/arqueo en vivo. */
 export async function getEstadoCajas(
   sb: AppSupabaseClient,
-  empresaId: string
+  empresaId: string,
+  sucursalId: string | null = null
 ): Promise<CajaResumen[]> {
-  const cajas = await listarCajasActivas(sb, empresaId);
+  const cajas = await listarCajasActivas(sb, empresaId, sucursalId);
   const resumenes = await Promise.all(cajas.map((c) => computeResumen(sb, empresaId, c)));
   return resumenes;
 }
 
-/** Números de caja actualmente activos (para asignar el próximo libre). */
-async function numerosActivos(sb: AppSupabaseClient, empresaId: string): Promise<number[]> {
-  const q = await sb
+/** Números de caja actualmente activos en la sucursal (para asignar el próximo libre). */
+async function numerosActivos(
+  sb: AppSupabaseClient,
+  empresaId: string,
+  sucursalId: string | null = null
+): Promise<number[]> {
+  let q = sb
     .from("cajas")
     .select("numero_caja")
     .eq("empresa_id", empresaId)
     .in("estado", ["abierta", "en_cierre"]);
-  if (q.error) throw new Error(q.error.message);
-  return ((q.data ?? []) as Array<{ numero_caja: number | string }>).map((r) => num(r.numero_caja) || 1);
+  if (sucursalId) q = q.eq("sucursal_id", sucursalId);
+  const r = await q;
+  if (r.error) throw new Error(r.error.message);
+  return ((r.data ?? []) as Array<{ numero_caja: number | string }>).map((x) => num(x.numero_caja) || 1);
 }
 
-/** Historial de cajas (mas reciente primero). */
+/** Historial de cajas de la sucursal (mas reciente primero). */
 export async function listarCajas(
   sb: AppSupabaseClient,
   empresaId: string,
+  sucursalId: string | null = null,
   limit = 50
 ): Promise<Caja[]> {
-  const q = await sb
+  let q = sb
     .from("cajas")
     .select(CAJA_COLS)
-    .eq("empresa_id", empresaId)
-    .order("fecha_apertura", { ascending: false })
-    .limit(limit);
-  if (q.error) throw new Error(q.error.message);
-  return ((q.data ?? []) as unknown as CajaRow[]).map(mapCaja);
+    .eq("empresa_id", empresaId);
+  if (sucursalId) q = q.eq("sucursal_id", sucursalId);
+  const r = await q.order("fecha_apertura", { ascending: false }).limit(limit);
+  if (r.error) throw new Error(r.error.message);
+  return ((r.data ?? []) as unknown as CajaRow[]).map(mapCaja);
 }
 
 /**
@@ -150,16 +160,18 @@ export async function listarCajas(
 export async function getReporteCajas(
   sb: AppSupabaseClient,
   empresaId: string,
-  rango: { start: string; end: string; desde: string; hasta: string }
+  rango: { start: string; end: string; desde: string; hasta: string },
+  sucursalId: string | null = null
 ): Promise<CajasReporte> {
   // 1) Cajas cuyo turno abrio dentro del rango.
-  const cQ = await sb
+  let cQb = sb
     .from("cajas")
     .select(CAJA_COLS)
     .eq("empresa_id", empresaId)
     .gte("fecha_apertura", rango.start)
-    .lte("fecha_apertura", rango.end)
-    .order("fecha_apertura", { ascending: false });
+    .lte("fecha_apertura", rango.end);
+  if (sucursalId) cQb = cQb.eq("sucursal_id", sucursalId);
+  const cQ = await cQb.order("fecha_apertura", { ascending: false });
   if (cQ.error) throw new Error(cQ.error.message);
   const cajas = ((cQ.data ?? []) as unknown as CajaRow[]).map(mapCaja);
 
@@ -407,14 +419,16 @@ export async function getReporteCajas(
 export async function getDetalleCaja(
   sb: AppSupabaseClient,
   empresaId: string,
-  cajaId: string
+  cajaId: string,
+  sucursalId: string | null = null
 ): Promise<CajaDetalle | null> {
-  const cQ = await sb
+  let cQb = sb
     .from("cajas")
     .select(CAJA_COLS)
     .eq("empresa_id", empresaId)
-    .eq("id", cajaId)
-    .maybeSingle();
+    .eq("id", cajaId);
+  if (sucursalId) cQb = cQb.eq("sucursal_id", sucursalId);
+  const cQ = await cQb.maybeSingle();
   if (cQ.error) throw new Error(cQ.error.message);
   if (!cQ.data) return null;
   const caja = mapCaja(cQ.data as unknown as CajaRow);
@@ -623,14 +637,16 @@ export async function getDetalleCaja(
 export async function getResumenCaja(
   sb: AppSupabaseClient,
   empresaId: string,
-  cajaId: string
+  cajaId: string,
+  sucursalId: string | null = null
 ): Promise<CajaResumen | null> {
-  const q = await sb
+  let qb = sb
     .from("cajas")
     .select(CAJA_COLS)
     .eq("empresa_id", empresaId)
-    .eq("id", cajaId)
-    .maybeSingle();
+    .eq("id", cajaId);
+  if (sucursalId) qb = qb.eq("sucursal_id", sucursalId);
+  const q = await qb.maybeSingle();
   if (q.error) throw new Error(q.error.message);
   if (!q.data) return null;
   return await computeResumen(sb, empresaId, mapCaja(q.data as unknown as CajaRow));
@@ -646,6 +662,7 @@ export async function abrirCaja(
   sb: AppSupabaseClient,
   params: {
     empresaId: string;
+    sucursalId?: string | null;
     montoApertura: number;
     observacion: string | null;
     usuarioId: string | null;
@@ -659,7 +676,9 @@ export async function abrirCaja(
     arqueoApertura?: ArqueoItem[] | null;
   }
 ): Promise<Caja> {
-  const activos = await numerosActivos(sb, params.empresaId);
+  const sucursalId = params.sucursalId ?? null;
+  // Números activos acotados a la sucursal: cada sucursal puede tener su Caja 1.
+  const activos = await numerosActivos(sb, params.empresaId, sucursalId);
   let numero = params.numeroCaja ?? null;
   if (numero != null) {
     if (activos.includes(numero)) {
@@ -677,6 +696,7 @@ export async function abrirCaja(
     .from("cajas")
     .insert({
       empresa_id: params.empresaId,
+      sucursal_id: sucursalId,
       numero_caja: numero,
       estado: "abierta",
       abierta_por: params.usuarioId,
@@ -699,16 +719,17 @@ export async function abrirCaja(
 export async function ponerCajaEnCierre(
   sb: AppSupabaseClient,
   empresaId: string,
-  cajaId: string
+  cajaId: string,
+  sucursalId: string | null = null
 ): Promise<Caja> {
-  const upd = await sb
+  let updb = sb
     .from("cajas")
     .update({ estado: "en_cierre", updated_at: new Date().toISOString() })
     .eq("empresa_id", empresaId)
     .eq("id", cajaId)
-    .eq("estado", "abierta")
-    .select(CAJA_COLS)
-    .maybeSingle();
+    .eq("estado", "abierta");
+  if (sucursalId) updb = updb.eq("sucursal_id", sucursalId);
+  const upd = await updb.select(CAJA_COLS).maybeSingle();
   if (upd.error) throw new Error(upd.error.message);
   if (!upd.data) throw new Error("La caja no está abierta.");
   return mapCaja(upd.data as unknown as CajaRow);
@@ -720,6 +741,7 @@ export async function cerrarCaja(
   sb: AppSupabaseClient,
   params: {
     empresaId: string;
+    sucursalId?: string | null;
     cajaId: string;
     montoCierreContado: number;
     observacion: string | null;
@@ -732,7 +754,8 @@ export async function cerrarCaja(
     arqueoCierre?: ArqueoItem[] | null;
   }
 ): Promise<CajaResumen> {
-  const resumen = await getResumenCaja(sb, params.empresaId, params.cajaId);
+  const sucursalId = params.sucursalId ?? null;
+  const resumen = await getResumenCaja(sb, params.empresaId, params.cajaId, sucursalId);
   if (!resumen) throw new Error("Caja no encontrada.");
   if (resumen.caja.estado === "cerrada") {
     throw new Error("La caja ya está cerrada.");
@@ -760,6 +783,7 @@ export async function cerrarCaja(
     .select(CAJA_COLS)
     .single();
   if (upd.error) throw new Error(upd.error.message);
+  // Nota: el turno ya se validó por sucursal en getResumenCaja de arriba.
 
   return {
     ...resumen,
@@ -773,6 +797,7 @@ export async function registrarMovimiento(
   sb: AppSupabaseClient,
   params: {
     empresaId: string;
+    sucursalId?: string | null;
     cajaId: string;
     tipo: TipoMovimientoCaja;
     concepto: string;
@@ -784,22 +809,28 @@ export async function registrarMovimiento(
     usuarioEmail?: string | null;
   }
 ): Promise<CajaMovimiento> {
-  const cQ = await sb
+  const sucursalId = params.sucursalId ?? null;
+  let cQb = sb
     .from("cajas")
-    .select("id, estado")
+    .select("id, estado, sucursal_id")
     .eq("empresa_id", params.empresaId)
-    .eq("id", params.cajaId)
-    .maybeSingle();
+    .eq("id", params.cajaId);
+  if (sucursalId) cQb = cQb.eq("sucursal_id", sucursalId);
+  const cQ = await cQb.maybeSingle();
   if (cQ.error) throw new Error(cQ.error.message);
   if (!cQ.data) throw new Error("Caja no encontrada.");
   if ((cQ.data as { estado: string }).estado !== "abierta") {
     throw new Error("La caja no está abierta; no se pueden registrar movimientos.");
   }
+  // El movimiento hereda la sucursal del turno de caja.
+  const sucursalMovimiento =
+    (cQ.data as { sucursal_id?: string | null }).sucursal_id ?? sucursalId;
 
   const ins = await sb
     .from("caja_movimientos")
     .insert({
       empresa_id: params.empresaId,
+      sucursal_id: sucursalMovimiento,
       caja_id: params.cajaId,
       tipo: params.tipo,
       concepto: params.concepto.trim(),

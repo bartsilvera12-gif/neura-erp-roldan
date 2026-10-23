@@ -475,6 +475,7 @@ export async function createVentaTransaccionalPg(
     .from("cajas")
     .select("id, numero_caja")
     .eq("empresa_id", params.empresaId)
+    .eq("sucursal_id", params.sucursalId)
     .eq("estado", "abierta")
     .order("numero_caja", { ascending: true });
   if (cajasQ.error) throw new Error(cajasQ.error.message);

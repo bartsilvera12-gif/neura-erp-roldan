@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
 
     const caja = await abrirCaja(ctx.supabase, {
       empresaId: ctx.auth.empresa_id,
+      sucursalId: ctx.auth.sucursal_id ?? null,
       montoApertura: Number.isFinite(montoApertura) ? montoApertura : 0,
       observacion,
       usuarioId: ctx.auth.usuarioCatalogId ?? null,

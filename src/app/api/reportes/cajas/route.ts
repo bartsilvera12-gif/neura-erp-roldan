@@ -20,12 +20,17 @@ export async function GET(request: NextRequest) {
     const mes = normalizarMes(new URL(request.url).searchParams.get("mes"));
     const { start, end } = asuncionMesBoundsUtc(mes);
 
-    const data = await getReporteCajas(ctx.supabase, ctx.auth.empresa_id, {
-      start,
-      end,
-      desde: `${mes}-01`,
-      hasta: end.slice(0, 10),
-    });
+    const data = await getReporteCajas(
+      ctx.supabase,
+      ctx.auth.empresa_id,
+      {
+        start,
+        end,
+        desde: `${mes}-01`,
+        hasta: end.slice(0, 10),
+      },
+      ctx.auth.sucursal_id ?? null
+    );
     return NextResponse.json(successResponse({ ...data, mes }));
   } catch (err) {
     console.error("[/api/reportes/cajas]", err instanceof Error ? err.message : err);

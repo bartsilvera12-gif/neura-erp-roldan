@@ -51,9 +51,10 @@ export async function POST(request: NextRequest) {
     const observacion =
       o.observacion == null || o.observacion === "" ? null : String(o.observacion).slice(0, 1000);
 
+    const sucursalId = ctx.auth.sucursal_id ?? null;
     let cajaId = o.caja_id == null || o.caja_id === "" ? null : String(o.caja_id);
     if (!cajaId) {
-      const abierta = await getCajaAbierta(ctx.supabase, ctx.auth.empresa_id);
+      const abierta = await getCajaAbierta(ctx.supabase, ctx.auth.empresa_id, sucursalId);
       if (!abierta) {
         return NextResponse.json(
           errorResponse("No hay ninguna caja abierta."),
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
 
     const movimiento = await registrarMovimiento(ctx.supabase, {
       empresaId: ctx.auth.empresa_id,
+      sucursalId,
       cajaId,
       tipo: tipo as (typeof TIPOS_VALIDOS)[number],
       concepto,

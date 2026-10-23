@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 
-    const cajas = await getEstadoCajas(ctx.supabase, ctx.auth.empresa_id);
+    const cajas = await getEstadoCajas(ctx.supabase, ctx.auth.empresa_id, ctx.auth.sucursal_id ?? null);
     const primera = cajas.find((c) => c.caja.estado === "abierta") ?? cajas[0] ?? null;
     return NextResponse.json(
       successResponse({

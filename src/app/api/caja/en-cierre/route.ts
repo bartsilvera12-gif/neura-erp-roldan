@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const cajaId = body.caja_id != null ? String(body.caja_id) : "";
     if (!cajaId) return NextResponse.json(errorResponse("Falta la caja."), { status: 400 });
 
-    const caja = await ponerCajaEnCierre(ctx.supabase, ctx.auth.empresa_id, cajaId);
+    const caja = await ponerCajaEnCierre(ctx.supabase, ctx.auth.empresa_id, cajaId, ctx.auth.sucursal_id ?? null);
     return NextResponse.json(successResponse({ caja }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo pasar la caja a cierre.";
