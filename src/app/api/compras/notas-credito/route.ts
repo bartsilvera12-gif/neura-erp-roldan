@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { RE_NUMERO_FACTURA, RE_TIMBRADO } from "@/lib/formato/numero-factura";
 
 /**
  * Notas de crédito de COMPRA (recibidas del proveedor).
@@ -64,14 +65,31 @@ export async function POST(request: NextRequest) {
     const compraNC = s(body.compra_numero_control);
     if (!compraNC) return NextResponse.json(errorResponse("Falta la compra a la que se imputa."), { status: 400 });
 
+    // Validación de formato fiscal (si vienen cargados): comprobante
+    // establecimiento-punto-número (000-000-0000000) y timbrado de 8 dígitos.
+    const numeroNc = s(body.numero_nc);
+    if (numeroNc && !RE_NUMERO_FACTURA.test(numeroNc)) {
+      return NextResponse.json(
+        errorResponse("El N° de la nota de crédito debe tener el formato 001-001-0000001."),
+        { status: 400 }
+      );
+    }
+    const nroTimbrado = s(body.nro_timbrado);
+    if (nroTimbrado && !RE_TIMBRADO.test(nroTimbrado)) {
+      return NextResponse.json(
+        errorResponse("El N° de timbrado son 8 dígitos (ej: 12345678)."),
+        { status: 400 }
+      );
+    }
+
     const insert = {
       empresa_id: ctx.auth.empresa_id,
       sucursal_id: ctx.auth.sucursal_id ?? null,
       proveedor_id: s(body.proveedor_id),
       proveedor_nombre: s(body.proveedor_nombre),
       compra_numero_control: compraNC,
-      numero_nc: s(body.numero_nc),
-      nro_timbrado: s(body.nro_timbrado),
+      numero_nc: numeroNc,
+      nro_timbrado: nroTimbrado,
       fecha: s(body.fecha) ?? new Date().toISOString().slice(0, 10),
       monto,
       motivo: s(body.motivo),

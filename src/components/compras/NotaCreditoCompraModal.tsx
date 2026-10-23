@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { formatearNumeroFactura, errorNumeroFactura, RE_TIMBRADO } from "@/lib/formato/numero-factura";
 
 /**
  * Modal para cargar una nota de crédito recibida del proveedor e imputarla a una
@@ -47,6 +48,13 @@ export default function NotaCreditoCompraModal({
   async function guardar() {
     if (saving) return;
     if (!(montoNum > 0)) { setError("Ingresá el monto de la nota de crédito."); return; }
+    const errNc = errorNumeroFactura(numeroNc);
+    if (errNc) { setError(errNc); return; }
+    const tim = timbrado.trim();
+    if (tim && !RE_TIMBRADO.test(tim)) {
+      setError("El N° de timbrado son 8 dígitos (ej: 12345678).");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -95,11 +103,27 @@ export default function NotaCreditoCompraModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={lbCls}>N° de la nota de crédito</label>
-              <input value={numeroNc} onChange={(e) => setNumeroNc(e.target.value)} className={inCls} placeholder="Ej: 001-001-0000123" />
+              <input
+                value={numeroNc}
+                onChange={(e) => setNumeroNc(formatearNumeroFactura(e.target.value))}
+                className={inCls}
+                placeholder="001-001-0000123"
+                inputMode="numeric"
+                maxLength={15}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">Formato: establecimiento-punto-número (000-000-0000000).</p>
             </div>
             <div>
               <label className={lbCls}>Timbrado</label>
-              <input value={timbrado} onChange={(e) => setTimbrado(e.target.value)} className={inCls} />
+              <input
+                value={timbrado}
+                onChange={(e) => setTimbrado(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                className={inCls}
+                placeholder="12345678"
+                inputMode="numeric"
+                maxLength={8}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">8 dígitos.</p>
             </div>
             <div>
               <label className={lbCls}>Fecha</label>
