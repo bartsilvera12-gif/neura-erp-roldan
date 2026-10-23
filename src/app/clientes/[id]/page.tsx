@@ -1615,6 +1615,7 @@ export default function ClienteDetailPage() {
                   </p>
                 </div>
 
+                {!SIMPLE_CLIENTE && (
                 <div>
                   <label className={labelClass}>Categoría de cliente</label>
                   <CategoriaClienteSelect
@@ -1626,6 +1627,7 @@ export default function ClienteDetailPage() {
                     Al facturar, la caja aplica el precio cargado para esta categoría en el producto (si hay).
                   </p>
                 </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -2425,7 +2427,7 @@ export default function ClienteDetailPage() {
                     return (
                       <div
                         key={nota.id}
-                        className="group bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 hover:border-slate-300 hover:shadow-sm transition-all"
+                        className="group bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:border-[#4FAEB2]/50 hover:shadow transition-all"
                       >
                         {enEdicion ? (
                           <div className="space-y-3">
@@ -2466,36 +2468,39 @@ export default function ClienteDetailPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{nota.texto}</p>
-                              <p className="text-xs text-gray-400 mt-2">{formatFechaHora(nota.fecha)}</p>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => iniciarEdicionNota(nota)}
-                                disabled={notaProcesando}
-                                title="Editar nota"
-                                aria-label="Editar nota"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-[#0EA5E9] hover:bg-slate-100 transition-colors disabled:opacity-40"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                  <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793ZM11.379 5.793 3 14.172V17h2.828l8.38-8.379-2.83-2.828Z" />
-                                </svg>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleEliminarNota(nota.id)}
-                                disabled={notaProcesando}
-                                title="Eliminar nota"
-                                aria-label="Eliminar nota"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                  <path fillRule="evenodd" d="M8.75 1a1 1 0 0 0-.98.804L7.566 2.75H4a.75.75 0 0 0 0 1.5h.293l.611 11.002A2.25 2.25 0 0 0 7.152 17.5h5.696a2.25 2.25 0 0 0 2.248-2.248L15.707 4.25H16a.75.75 0 0 0 0-1.5h-3.566l-.204-.946A1 1 0 0 0 11.25 1h-2.5ZM8.5 7.75a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Zm4.5 0a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Z" clipRule="evenodd" />
-                                </svg>
-                              </button>
+                          <div className="space-y-2">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{nota.texto}</p>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs text-gray-400">{formatFechaHora(nota.fecha)}</p>
+                              {/* Acciones siempre visibles (en celular no hay hover). */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => iniciarEdicionNota(nota)}
+                                  disabled={notaProcesando}
+                                  title="Editar nota"
+                                  aria-label="Editar nota"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#0EA5E9]/50 hover:text-[#0284C7] hover:bg-sky-50 transition-colors disabled:opacity-40"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                                    <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793ZM11.379 5.793 3 14.172V17h2.828l8.38-8.379-2.83-2.828Z" />
+                                  </svg>
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleEliminarNota(nota.id)}
+                                  disabled={notaProcesando}
+                                  title="Eliminar nota"
+                                  aria-label="Eliminar nota"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                                    <path fillRule="evenodd" d="M8.75 1a1 1 0 0 0-.98.804L7.566 2.75H4a.75.75 0 0 0 0 1.5h.293l.611 11.002A2.25 2.25 0 0 0 7.152 17.5h5.696a2.25 2.25 0 0 0 2.248-2.248L15.707 4.25H16a.75.75 0 0 0 0-1.5h-3.566l-.204-.946A1 1 0 0 0 11.25 1h-2.5ZM8.5 7.75a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Zm4.5 0a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Z" clipRule="evenodd" />
+                                  </svg>
+                                  Borrar
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}

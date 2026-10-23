@@ -20,6 +20,10 @@ import { useEffect, useState } from "react";
 import { SettingsModuleCard } from "@/components/config/SettingsModuleCard";
 import { getConfig } from "@/lib/config/storage";
 import { getMisModulos } from "@/lib/empresas/actions";
+import { NEURA_CLIENT_SCHEMA } from "@/lib/supabase/schema";
+
+/** Roldán: las "Categorías de cliente" no se usan; se ocultan de Configuración. */
+const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
 
 export default function ConfiguracionPage() {
   const [meta, setMeta] = useState<{ updated_at?: string; updated_by?: string } | null>(null);
@@ -89,6 +93,7 @@ export default function ConfiguracionPage() {
               href="/configuracion/sucursales"
             />
           </li>
+          {!SIMPLE_CLIENTE && (
           <li>
             <SettingsModuleCard
               title="Categorías de cliente"
@@ -99,6 +104,7 @@ export default function ConfiguracionPage() {
               href="/configuracion/categorias-cliente"
             />
           </li>
+          )}
           <li>
             <SettingsModuleCard
               title="Facturación"

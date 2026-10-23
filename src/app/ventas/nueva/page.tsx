@@ -1332,24 +1332,28 @@ export default function NuevaVentaPage() {
                             <ProductoThumb url={p.imagen_url} alt={p.nombre} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-slate-800">{p.nombre}</p>
-                              <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
-                                <span className="font-mono">{p.sku}</span>
-                                <span className="text-slate-300">·</span>
-                                <span className={`font-semibold ${!controla ? "text-slate-400" : sinStock ? "text-red-600" : (p.stock_actual ?? 0) < 5 ? "text-amber-600" : "text-emerald-700"}`}>
+                              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+                                <span className="font-mono truncate">{p.sku}</span>
+                                <span className="text-slate-300 shrink-0">·</span>
+                                <span className={`shrink-0 font-semibold ${!controla ? "text-slate-400" : sinStock ? "text-red-600" : (p.stock_actual ?? 0) < 5 ? "text-amber-600" : "text-emerald-700"}`}>
                                   {!controla ? "Sin control" : sinStock ? "Sin stock" : `${p.stock_actual} ${p.unidad_medida ?? ""}`}
                                 </span>
                               </div>
                             </div>
-                            <span className="shrink-0 text-sm font-bold tabular-nums text-slate-800">{formatGs(precioPorTipo(p, "minorista"))}</span>
-                            {sinStock ? (
-                              <span className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-400">
-                                Sin stock
-                              </span>
-                            ) : (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-[#0EA5E9]/10 px-2.5 py-1 text-xs font-bold text-[#0284C7]">
-                                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Agregar
-                              </span>
-                            )}
+                            {/* Precio + acción apilados a la derecha: en celular evita que
+                                el precio se encime con el stock del nombre. */}
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span className="text-sm font-bold tabular-nums text-slate-800 whitespace-nowrap">{formatGs(precioPorTipo(p, "minorista"))}</span>
+                              {sinStock ? (
+                                <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-400">
+                                  Sin stock
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-[#0EA5E9]/10 px-2.5 py-1 text-xs font-bold text-[#0284C7] whitespace-nowrap">
+                                  <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Agregar
+                                </span>
+                              )}
+                            </div>
                           </button>
                         </li>
                       );

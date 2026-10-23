@@ -565,6 +565,7 @@ function NuevoClienteForm() {
               </p>
             </div>
 
+            {!SIMPLE_CLIENTE && (
             <div>
               <label className={labelClass}>Categoría de cliente</label>
               <CategoriaClienteSelect
@@ -577,6 +578,7 @@ function NuevoClienteForm() {
                 Se administran en <a href="/configuracion/categorias-cliente" className="underline">Configuración → Categorías de cliente</a>.
               </p>
             </div>
+            )}
 
             {!SIMPLE_CLIENTE && (
             <div>

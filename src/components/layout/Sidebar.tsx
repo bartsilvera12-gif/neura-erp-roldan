@@ -163,7 +163,6 @@ const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { label: "Clientes", href: "/clientes", exactMatch: true },
       { label: "Nuevo cliente", href: "/clientes/nuevo" },
-      { label: "Config · Categorías", href: "/configuracion/categorias-cliente" },
     ],
   },
   {
