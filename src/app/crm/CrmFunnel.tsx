@@ -481,7 +481,7 @@ function ProspectoCard({
             <span className={`shrink-0 ${phoneCopied ? "text-emerald-600" : "text-[#4FAEB2]"}`}>
               <IconPhone />
             </span>
-            <span className="min-w-0 flex-1 break-all font-mono font-medium tabular-nums">
+            <span className="min-w-0 flex-1 truncate font-mono font-medium tabular-nums">
               {telefonoDisplay}
             </span>
           </span>
@@ -630,7 +630,7 @@ function Columna({
 
   return (
     <div
-      className={`flex w-64 min-w-64 flex-col rounded-2xl border bg-white/60 backdrop-blur-sm transition-all duration-150 ${
+      className={`flex w-[85vw] min-w-[85vw] snap-start flex-col rounded-2xl border bg-white/60 backdrop-blur-sm transition-all duration-150 sm:w-64 sm:min-w-64 ${
         isDragOver
           ? `border-[#4FAEB2] ring-2 ring-[#4FAEB2]/30 bg-[#4FAEB2]/[0.04]`
           : `${tone.columnHeaderBorder}`
@@ -1050,7 +1050,7 @@ function KanbanScroller({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative -mx-1 min-h-0 flex-1 px-1 pb-2">
-      <div ref={ref} onMouseMove={onMove} onMouseLeave={() => setDir(0)} className="h-full overflow-x-auto">
+      <div ref={ref} onMouseMove={onMove} onMouseLeave={() => setDir(0)} className="h-full overflow-x-auto snap-x snap-mandatory sm:snap-none">
         {children}
       </div>
       <div className={`pointer-events-none absolute inset-y-0 left-0 flex w-16 items-center justify-start pl-1 transition-opacity duration-150 ${hint === -1 ? "opacity-100" : "opacity-0"}`}>
