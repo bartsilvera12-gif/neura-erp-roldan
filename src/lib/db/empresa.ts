@@ -40,8 +40,16 @@ export async function queryEmpresa(tabla: string) {
  */
 export async function getSucursalId(): Promise<string> {
   const usuario = await getCurrentUser();
-  const id = (usuario as { sucursal_predeterminada_id?: string | null } | null)
-    ?.sucursal_predeterminada_id?.trim();
+  // Debe coincidir con la resolución del servidor (middleware auth): primero la
+  // sucursal ACTIVA (la que eligió el usuario en el switcher), y recién después
+  // la predeterminada. Si acá se usara solo la predeterminada, los registros se
+  // guardarían en una sucursal distinta a la que filtran los listados (por API)
+  // y "desaparecerían" (ej.: un gasto creado no aparece en la lista).
+  const u = usuario as {
+    sucursal_activa_id?: string | null;
+    sucursal_predeterminada_id?: string | null;
+  } | null;
+  const id = u?.sucursal_activa_id?.trim() || u?.sucursal_predeterminada_id?.trim();
   if (!id) {
     throw new Error(
       "Tu usuario no tiene una sucursal asignada. Pedile a un administrador que te asigne una desde Usuarios."
