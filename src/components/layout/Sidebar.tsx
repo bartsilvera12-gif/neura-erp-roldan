@@ -129,7 +129,19 @@ const MENU_STRUCTURE: MenuItem[] = [
     href: "/dashboard/monitoreo",
     icon: Activity,
   },
-  { key: "ventas", slug: "ventas", label: "Caja", href: "/ventas", icon: ShoppingCart },
+  {
+    key: "ventas",
+    slug: "ventas",
+    label: "Caja",
+    href: "/ventas",
+    icon: ShoppingCart,
+    children: [
+      { label: "Caja", href: "/ventas", exactMatch: true },
+      { label: "Nueva venta", href: "/ventas/nueva" },
+      { label: "Devoluciones", href: "/ventas/devoluciones" },
+      { label: "Arqueo mensual", href: "/ventas/arqueo-mensual" },
+    ],
+  },
   { key: "presupuestos", slug: "presupuestos", label: "Presupuestos", href: "/presupuestos", icon: FileText },
   {
     key: "proyectos",
