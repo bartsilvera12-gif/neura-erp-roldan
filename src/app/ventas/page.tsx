@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { FancySelect } from "@/components/ui/FancySelect";
 import MobileFab from "@/components/ui/MobileFab";
@@ -94,6 +95,7 @@ export default function VentasPage() {
   const [mostrarAnuladas, setMostrarAnuladas] = useState(true);
   const [detalle,    setDetalle]    = useState<Venta | null>(null);
   const [anularTarget, setAnularTarget] = useState<Venta | null>(null);
+  const [reclasificar, setReclasificar] = useState<Venta | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [devolucionesOn, setDevolucionesOn] = useState(false);
   const [devolverVentaId, setDevolverVentaId] = useState<string | null>(null);
@@ -403,6 +405,16 @@ export default function VentasPage() {
                           {!isAnulada && (
                             <button
                               type="button"
+                              onClick={() => setReclasificar(v)}
+                              className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                              title="El cliente pagó por otro medio del previsto. No toca la factura."
+                            >
+                              Medio de cobro
+                            </button>
+                          )}
+                          {!isAnulada && (
+                            <button
+                              type="button"
                               onClick={() => setAnularTarget(v)}
                               className="inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
                               title={
@@ -440,6 +452,13 @@ export default function VentasPage() {
             try { window.open(`/api/devoluciones/${devId}/comprobante?auto=1`, "_blank", "noopener"); } catch {}
             setReloadKey((k) => k + 1);
           }}
+        />
+      )}
+      {reclasificar && (
+        <ModalMedioCobro
+          venta={reclasificar}
+          onClose={() => setReclasificar(null)}
+          onHecho={() => { setReclasificar(null); setReloadKey((k) => k + 1); }}
         />
       )}
       {anularTarget && (
@@ -658,6 +677,130 @@ function Fila({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between text-slate-600">
       <span>{label}</span>
       <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * CJ-01 · Cambiar el medio real de cobro.
+ *
+ * La factura no se toca: total, ítems y número quedan iguales. Lo único que
+ * cambia es por qué vía entró la plata, para que el arqueo del turno refleje
+ * la realidad del cajón.
+ */
+function ModalMedioCobro({
+  venta, onClose, onHecho,
+}: {
+  venta: Venta;
+  onClose: () => void;
+  onHecho: () => void;
+}) {
+  const actual = String(venta.metodo_pago ?? "efectivo");
+  const OPCIONES = ["efectivo", "transferencia", "tarjeta", "cheque"] as const;
+  const [metodo, setMetodo] = useState<string>(
+    OPCIONES.find((m) => m !== actual) ?? "transferencia"
+  );
+  const [motivo, setMotivo] = useState("");
+  const [referencia, setReferencia] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function guardar() {
+    if (!motivo.trim()) { setErr("Escribí el motivo del cambio."); return; }
+    setGuardando(true);
+    setErr(null);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/ventas/${venta.id}/reclasificar-cobro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metodo_pago: metodo, motivo: motivo.trim(), referencia: referencia.trim() || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.success) { setErr(j?.error ?? "No se pudo cambiar el medio de cobro."); return; }
+      onHecho();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Cambiar medio de cobro</h3>
+            <p className="text-xs text-slate-500">
+              {venta.numero_control ?? ""} · hoy figura como <strong>{actual}</strong>
+            </p>
+          </div>
+          <button onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+
+        {err && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">Cobrado realmente por</label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {OPCIONES.filter((m) => m !== actual).map((m) => (
+                <button
+                  key={m} type="button" onClick={() => setMetodo(m)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                    metodo === m
+                      ? "border-[#4FAEB2] bg-[#4FAEB2]/10 text-[#2F6F72]"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">
+              Motivo <span className="text-red-500">*</span>
+            </label>
+            <input
+              autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ej: el cliente pagó por transferencia al retirar"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              maxLength={200}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase text-slate-500">
+              Comprobante <span className="font-normal normal-case text-slate-400">(opcional)</span>
+            </label>
+            <input
+              value={referencia} onChange={(e) => setReferencia(e.target.value)}
+              placeholder="N° de operación o referencia"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              maxLength={120}
+            />
+          </div>
+        </div>
+
+        <p className="mt-3 text-[11px] leading-snug text-slate-400">
+          La factura no se modifica ni se anula: cambia solo por qué vía entró la plata.
+          Si el turno de caja de esta venta ya cerró, hace falta un administrador.
+        </p>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+            Cancelar
+          </button>
+          <button
+            onClick={() => void guardar()} disabled={guardando}
+            className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+          >
+            {guardando ? "Guardando…" : "Cambiar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
