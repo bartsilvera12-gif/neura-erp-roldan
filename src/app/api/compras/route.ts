@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enlazarConCaja } from "@/lib/caja/enlace-movimientos";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
@@ -415,13 +416,52 @@ export async function PATCH(request: NextRequest) {
     if (Object.keys(patch).length === 0)
       return NextResponse.json(errorResponse("Nada para actualizar."), { status: 400 });
 
+    // Si este PATCH es el que marca la compra como pagada, hay que saber el
+    // total ANTES de escribirlo: después ya no se distingue de una compra que
+    // vino pagada de antes.
+    const marcaPagada = patch.estado === "pagada";
+    let totalCompra = 0;
+    let proveedor = "";
+    if (marcaPagada) {
+      const prev = await ctx.supabase
+        .from("compras")
+        .select("total, estado, proveedor_nombre")
+        .eq("empresa_id", empresaId)
+        .eq("numero_control", numeroControl);
+      const filas = (prev.data ?? []) as Array<Record<string, unknown>>;
+      // Una compra son varias filas (una por ítem): el total es la suma.
+      totalCompra = filas.reduce((a, f) => a + (Number(f.total) || 0), 0);
+      proveedor = String(filas[0]?.proveedor_nombre ?? "");
+      // Si ya estaba pagada, no se vuelve a descontar de la caja.
+      if (filas.some((f) => String(f.estado) === "pagada")) totalCompra = 0;
+    }
+
     const { error } = await ctx.supabase
       .from("compras")
       .update(patch)
       .eq("empresa_id", empresaId)
       .eq("numero_control", numeroControl);
     if (error) return NextResponse.json(errorResponse(error.message), { status: 500 });
-    return NextResponse.json(successResponse({ ok: true }));
+
+    // El pago al proveedor sale de la caja abierta. Antes no salía de ningún
+    // lado: la compra quedaba pagada y el arqueo del turno seguía esperando
+    // una plata que ya no estaba.
+    let cajaMovimientoId: string | null = null;
+    if (marcaPagada && totalCompra > 0) {
+      cajaMovimientoId = await enlazarConCaja(ctx.supabase, {
+        empresaId,
+        sucursalId: ctx.auth.sucursal_id ?? null,
+        tipo: "egreso",
+        concepto: `Pago a proveedor${proveedor ? ` · ${proveedor}` : ""} · compra ${numeroControl}`,
+        monto: totalCompra,
+        medioPago: patch.metodo_pago ?? body.metodo_pago ?? "efectivo",
+        observacion: typeof patch.referencia_pago === "string" ? patch.referencia_pago : null,
+        usuarioId: ctx.auth.user?.id ?? null,
+        usuarioEmail: ctx.auth.user?.email ?? null,
+      });
+    }
+
+    return NextResponse.json(successResponse({ ok: true, caja_movimiento_id: cajaMovimientoId }));
   } catch (err) {
     console.error("[/api/compras PATCH]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudo actualizar la compra."), { status: 500 });

@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
       fecha_pago: typeof body.fecha_pago === "string" ? body.fecha_pago : null,
       usuario_id: usuarioId,
       usuario_nombre: usuarioNombre,
+      // Para atar el cobro al turno de caja abierto de esta sucursal.
+      sucursal_id: ctx.auth.sucursal_id ?? null,
+      usuario_email: ctx.auth.user?.email ?? null,
     });
 
     return NextResponse.json(successResponse(result));

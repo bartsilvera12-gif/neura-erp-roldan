@@ -1,4 +1,5 @@
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
+import { enlazarConCaja } from "@/lib/caja/enlace-movimientos";
 
 export type MetodoPagoCobro = "efectivo" | "transferencia" | "tarjeta" | "otro";
 
@@ -14,6 +15,10 @@ export interface RegistrarCobroInput {
   usuario_id?: string | null;
   usuario_nombre?: string | null;
   entidad_nombre_snapshot?: string | null;
+  /** Sucursal del turno de caja al que atar el cobro. */
+  sucursal_id?: string | null;
+  /** Correo de quien cobra, para el listado de movimientos del turno. */
+  usuario_email?: string | null;
 }
 
 export class CobroError extends Error {
@@ -42,7 +47,7 @@ export async function registrarCobro(
   sb: AppSupabaseClient,
   empresaId: string,
   input: RegistrarCobroInput
-): Promise<{ cobro_id: string; saldo_nuevo: number; estado: string }> {
+): Promise<{ cobro_id: string; saldo_nuevo: number; estado: string; caja_movimiento_id: string | null }> {
   const monto = round2(Number(input.monto) || 0);
   if (!(monto > 0)) throw new CobroError("El monto del cobro debe ser mayor a cero.");
   if (!input.cuenta_por_cobrar_id) throw new CobroError("Falta la cuenta por cobrar.");
@@ -116,7 +121,32 @@ export async function registrarCobro(
     throw new CobroError(upd.error.message, 500);
   }
 
-  return { cobro_id: cobroId, saldo_nuevo: saldoNuevo < 0 ? 0 : saldoNuevo, estado: estadoNuevo };
+  // 3) Espejo en la caja abierta.
+  //
+  //    Hasta acá el cobro quedaba solo en `cobros_clientes` y la caja no se
+  //    enteraba: al cerrar el turno faltaba justamente esa plata y el arqueo
+  //    no cuadraba. `enlazarConCaja` no tumba el cobro si falla ni exige que
+  //    haya un turno abierto; si no lo hay, simplemente no escribe nada.
+  const cajaMovimientoId = await enlazarConCaja(sb, {
+    empresaId,
+    sucursalId: input.sucursal_id ?? null,
+    tipo: "ingreso",
+    concepto: "Cobro a cliente",
+    monto,
+    medioPago: input.metodo_pago,
+    observacion: input.referencia?.trim() || input.observaciones?.trim() || null,
+    usuarioId: input.usuario_id ?? null,
+    usuarioEmail: input.usuario_email ?? null,
+    cobroId,
+    ventaId: cxc.venta_id ?? null,
+  });
+
+  return {
+    cobro_id: cobroId,
+    saldo_nuevo: saldoNuevo < 0 ? 0 : saldoNuevo,
+    estado: estadoNuevo,
+    caja_movimiento_id: cajaMovimientoId,
+  };
 }
 
 /**
