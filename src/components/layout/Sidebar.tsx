@@ -160,6 +160,7 @@ const MENU_STRUCTURE: MenuItem[] = [
     { label: "Categorías", href: "/inventario/categorias" },
     { label: "Ubicaciones", href: "/inventario/ubicaciones" },
     { label: "Depósitos", href: "/depositos" },
+    { label: "Reposición", href: "/inventario/sugerencias" },
   ]},
   // Módulo propio (no hijo de Inventario): un `usuario` puede tener acceso a
   // Reposición sin tener el Inventario completo. Gate por slug 'reposicion'.
