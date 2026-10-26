@@ -95,9 +95,21 @@ export default function LibroVentasPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Libro de Ventas</h1>
           <p className="mt-1 text-sm text-slate-500">Solo comprobantes fiscales válidos (facturas con DTE aprobado) por fecha del comprobante. Las notas de crédito figuran como movimientos negativos. No incluye ventas POS ni documentos no fiscales.</p>
         </div>
-        <button onClick={exportar} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5">
-          Exportar Excel
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={exportar} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5">
+            Exportar Excel
+          </button>
+          {/* Punto 10.4: el libro impreso, con el resumen fiscal en la última
+              página. Se abre en otra pestaña para no perder los filtros. */}
+          <a
+            href={`/api/reportes/libro-ventas/a4?${qs}`}
+            target="_blank"
+            rel="noopener"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Imprimir
+          </a>
+        </div>
       </div>
 
       {totals && (
