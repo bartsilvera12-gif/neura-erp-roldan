@@ -25,15 +25,21 @@ type Fila = {
   sugerido: number;
   costo_sugerido: number;
   estado: Estado;
+  minimo_sugerido: number | null;
+  pico_mes: number | null;
+  meses_con_venta: number | null;
 };
 
 type Respuesta = {
   dias: number;
   cobertura: number;
   filas: Fila[];
+  meses_minimo: number;
+  minimos_disponibles: boolean;
   resumen: {
     productos: number; sin_stock: number; criticos: number;
     bajos: number; a_reponer: number; costo_total: number;
+    minimos_a_actualizar: number;
   };
 };
 
@@ -59,6 +65,8 @@ export default function SugerenciasReposicionPage() {
   const [data, setData] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aplicando, setAplicando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -87,6 +95,43 @@ export default function SugerenciasReposicionPage() {
   }, [dias, cobertura]);
 
   useEffect(() => { void cargar(); }, [cargar]);
+
+  /**
+   * Escribe los mínimos sugeridos en los productos.
+   *
+   * Pregunta antes porque pisa valores cargados a mano, y dice cuántos va a
+   * tocar: "actualizar mínimos" sin número no deja decidir nada.
+   */
+  async function aplicarMinimos(soloVacios: boolean) {
+    const n = data?.resumen.minimos_a_actualizar ?? 0;
+    const texto = soloVacios
+      ? "Se van a cargar los mínimos solo en los productos que hoy no tienen ninguno. No se toca nada cargado a mano.\n\n¿Seguimos?"
+      : `Se van a actualizar los mínimos de ${n} ${n === 1 ? "producto" : "productos"} con la mediana de ventas de los últimos ${data?.meses_minimo ?? 6} meses.\n\nLos mínimos que alguien haya puesto a mano se reemplazan.\n\n¿Seguimos?`;
+    if (!window.confirm(texto)) return;
+
+    setAplicando(true);
+    setAviso(null);
+    try {
+      const r = await fetchWithSupabaseSession("/api/inventario/stock-minimo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ solo_vacios: soloVacios }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudieron actualizar los mínimos.");
+      const d = j.data as { actualizados: number; sin_cambios: number; mensaje?: string };
+      setAviso(
+        d.mensaje ??
+        `${d.actualizados} ${d.actualizados === 1 ? "mínimo actualizado" : "mínimos actualizados"}` +
+        (d.sin_cambios > 0 ? `, ${d.sin_cambios} ya estaban al día.` : ".")
+      );
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setAplicando(false);
+    }
+  }
 
   const filas = (data?.filas ?? []).filter((f) => (soloAReponer ? f.sugerido > 0 : true));
   const r = data?.resumen;
@@ -133,6 +178,63 @@ export default function SugerenciasReposicionPage() {
         </label>
       </div>
 
+      {/* Mínimo automático (punto 1.2). Separado de los parámetros de arriba
+          porque responde otra pregunta: no "cuánto compro ahora" sino "cuánto
+          no debería bajar nunca". */}
+      {data && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-800">Mínimo automático</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+                {data.minimos_disponibles ? (
+                  <>
+                    Calculado con la <b>mediana</b> de lo vendido por mes en los últimos{" "}
+                    {data.meses_minimo} meses cerrados. Se usa la mediana y no el promedio
+                    para que una venta grande de una sola vez no deje un mínimo inflado.
+                    {data.resumen.minimos_a_actualizar > 0 ? (
+                      <> Hoy hay <b>{data.resumen.minimos_a_actualizar}</b>{" "}
+                      {data.resumen.minimos_a_actualizar === 1 ? "producto" : "productos"} con el
+                      mínimo distinto del sugerido.</>
+                    ) : (
+                      <> Los mínimos cargados ya coinciden con el sugerido.</>
+                    )}
+                  </>
+                ) : (
+                  <>No se pudo calcular: no hay ventas en el período o falta la conexión directa a la base.</>
+                )}
+              </p>
+            </div>
+            {data.minimos_disponibles && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void aplicarMinimos(true)}
+                  disabled={aplicando}
+                  className="rounded-lg border-2 border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-all hover:border-[#4FAEB2] hover:text-[#4FAEB2] disabled:opacity-50"
+                  title="Carga el mínimo solo donde hoy no hay ninguno. No pisa nada cargado a mano."
+                >
+                  Solo los vacíos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void aplicarMinimos(false)}
+                  disabled={aplicando || data.resumen.minimos_a_actualizar === 0}
+                  className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/30 transition-all hover:bg-[#3F8E91] disabled:opacity-40"
+                >
+                  {aplicando ? "Actualizando…" : "Actualizar todos"}
+                </button>
+              </div>
+            )}
+          </div>
+          {aviso && (
+            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">
+              {aviso}
+            </p>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
@@ -156,6 +258,7 @@ export default function SugerenciasReposicionPage() {
                 <th className="px-4 py-3">Proveedor</th>
                 <th className="px-4 py-3 text-right">Stock</th>
                 <th className="px-4 py-3 text-right">Mínimo</th>
+                <th className="px-4 py-3 text-right">Sugerido</th>
                 <th className="px-4 py-3 text-right">Consumo/día</th>
                 <th className="px-4 py-3 text-right">Alcanza</th>
                 <th className="px-4 py-3">Estado</th>
@@ -165,10 +268,10 @@ export default function SugerenciasReposicionPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {cargando ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
               ) : filas.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
                     {soloAReponer
                       ? "No hay nada para reponer con estos parámetros."
                       : "No hay productos que controlen stock."}
@@ -187,6 +290,26 @@ export default function SugerenciasReposicionPage() {
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{num(f.stock_actual)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
                         {f.stock_minimo > 0 ? num(f.stock_minimo) : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {f.minimo_sugerido == null ? (
+                          <span className="text-slate-300">—</span>
+                        ) : (
+                          <span
+                            className={
+                              f.minimo_sugerido !== f.stock_minimo
+                                ? "font-semibold text-[#3F8E91]"
+                                : "text-slate-400"
+                            }
+                            title={
+                              f.pico_mes != null
+                                ? `Mejor mes: ${num(f.pico_mes)} · vendió en ${f.meses_con_venta} de ${data?.meses_minimo ?? 6} meses`
+                                : undefined
+                            }
+                          >
+                            {num(f.minimo_sugerido)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
                         {f.consumo_diario > 0 ? num(f.consumo_diario, 2) : "—"}
@@ -224,6 +347,13 @@ export default function SugerenciasReposicionPage() {
         <p>
           Las transferencias entre depósitos no cuentan como consumo: mueven la mercadería de lugar,
           no la gastan. Contarlas haría comprar de más.
+        </p>
+        <p>
+          <strong>Sugerido</strong> es la mediana de lo vendido por mes en los últimos{" "}
+          {data?.meses_minimo ?? 6} meses cerrados. El mes en curso no cuenta porque está
+          incompleto, y los meses sin ventas cuentan como cero: un producto que se vendió
+          fuerte dos meses y nada los otros cuatro no es un producto de stock permanente.
+          Pasá el mouse por el número para ver el mejor mes.
         </p>
         <p>
           <strong>Sin consumo</strong> no es lo mismo que <strong>OK</strong>: significa que el producto no

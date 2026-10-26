@@ -3,6 +3,8 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
+import { minimosSugeridosOVacio, MESES_VENTANA } from "@/lib/inventario/server/stock-minimo-pg";
 
 /**
  * GET /api/inventario/sugerencias?dias=60&cobertura=30
@@ -21,6 +23,16 @@ import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/fi
  *
  *   Las transferencias entre depósitos se excluyen: mueven stock de lugar,
  *   no lo consumen. Contarlas inflaría el consumo y haría comprar de más.
+ *
+ * MÍNIMO SUGERIDO (punto 1.2)
+ *   Aparte del consumo, cada fila trae el mínimo sugerido: la MEDIANA de lo
+ *   vendido por mes en los últimos seis meses cerrados. Es un número distinto
+ *   del consumo diario y responde otra pregunta — no "cuánto compro ahora"
+ *   sino "cuánto no debería bajar nunca".
+ *
+ *   Se calcula con el pool directo. Si no está disponible, las filas salen con
+ *   `minimo_sugerido: null` y la pantalla sigue funcionando: es información
+ *   extra, no la base del resto del cálculo.
  *
  * PARÁMETROS
  *   `dias`      — ventana de análisis del consumo (default 60).
@@ -48,6 +60,12 @@ type Fila = {
   sugerido: number;
   costo_sugerido: number;
   estado: "sin_stock" | "critico" | "bajo" | "ok" | "sin_consumo";
+  /** Mediana de ventas mensuales de los últimos 6 meses. null = no se pudo calcular. */
+  minimo_sugerido: number | null;
+  /** El mejor mes de la ventana. Explica una mediana que parece baja. */
+  pico_mes: number | null;
+  /** Cuántos de los 6 meses tuvieron al menos una venta. */
+  meses_con_venta: number | null;
 };
 
 function entero(v: string | null, def: number, min: number, max: number): number {
@@ -69,6 +87,11 @@ export async function GET(request: NextRequest) {
     const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
 
     // ── Productos que controlan stock ─────────────────────────────────────
+    // Mínimo sugerido por mediana de ventas (punto 1.2). No bloquea: si falla
+    // el pool, el resto de la pantalla igual tiene que abrir.
+    const schema = await fetchDataSchemaForEmpresaId(empresaId);
+    const minimos = await minimosSugeridosOVacio(schema, empresaId, sucursalId);
+
     const prodQ = await ctx.supabase
       .from("productos")
       .select("id, nombre, sku, unidad_medida, stock_actual, stock_minimo, costo_promedio, proveedor_principal_id, controla_stock, activo")
@@ -79,7 +102,10 @@ export async function GET(request: NextRequest) {
     const productos = ((prodQ.data ?? []) as Array<Record<string, unknown>>)
       .filter((p) => p.controla_stock !== false);
     if (productos.length === 0) {
-      return NextResponse.json(successResponse({ dias, cobertura, filas: [], resumen: vacio() }));
+      return NextResponse.json(successResponse({
+        dias, cobertura, filas: [], resumen: vacio(),
+        meses_minimo: MESES_VENTANA, minimos_disponibles: false,
+      }));
     }
 
     // ── Consumo: salidas de la ventana ────────────────────────────────────
@@ -136,6 +162,7 @@ export async function GET(request: NextRequest) {
         : "ok";
 
       const costo = Number(p.costo_promedio) || 0;
+      const m = minimos.get(id);
       return {
         producto_id: id,
         nombre: String(p.nombre ?? ""),
@@ -152,6 +179,9 @@ export async function GET(request: NextRequest) {
         sugerido,
         costo_sugerido: sugerido * costo,
         estado,
+        minimo_sugerido: m ? Math.ceil(m.mediana) : null,
+        pico_mes: m ? m.pico : null,
+        meses_con_venta: m ? m.meses_con_venta : null,
       };
     });
 
@@ -170,9 +200,17 @@ export async function GET(request: NextRequest) {
       bajos: filas.filter((f) => f.estado === "bajo").length,
       a_reponer: filas.filter((f) => f.sugerido > 0).length,
       costo_total: filas.reduce((s, f) => s + f.costo_sugerido, 0),
+      // Cuántos tienen un mínimo sugerido distinto del cargado hoy.
+      minimos_a_actualizar: filas.filter(
+        (f) => f.minimo_sugerido != null && f.minimo_sugerido !== f.stock_minimo
+      ).length,
     };
 
-    return NextResponse.json(successResponse({ dias, cobertura, filas, resumen }));
+    return NextResponse.json(successResponse({
+      dias, cobertura, filas, resumen,
+      meses_minimo: MESES_VENTANA,
+      minimos_disponibles: minimos.size > 0,
+    }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);
     if (rSuc) return rSuc;
@@ -185,5 +223,5 @@ export async function GET(request: NextRequest) {
 }
 
 function vacio() {
-  return { productos: 0, sin_stock: 0, criticos: 0, bajos: 0, a_reponer: 0, costo_total: 0 };
+  return { productos: 0, sin_stock: 0, criticos: 0, bajos: 0, a_reponer: 0, costo_total: 0, minimos_a_actualizar: 0 };
 }
