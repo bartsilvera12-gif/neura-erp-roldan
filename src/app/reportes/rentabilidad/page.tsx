@@ -5,7 +5,8 @@ import { ArrowUpDown } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import PeriodoSelector, { type SeleccionPeriodo } from "@/components/reportes/PeriodoSelector";
-import { getRentabilidadReporte } from "@/lib/reportes/storage";
+import { getRentabilidadReporte, queryPeriodo } from "@/lib/reportes/storage";
+import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import type { RentabilidadReporte, RentabilidadRow, AgruparRentabilidad } from "@/lib/reportes/rentabilidad-types";
 
 function formatGs(v: number) {
@@ -55,6 +56,9 @@ export default function RentabilidadReportePage() {
   }
 
   const esProducto = agrupar === "producto";
+  // Los links de planilla e impresión usan el mismo armado de período que la
+  // pantalla, para que los tres números digan lo mismo.
+  const qs = sel ? queryPeriodo(sel.tipo, { ref: sel.ref, desde: sel.desde, hasta: sel.hasta }) : "";
   const margenTotal = data && data.totalFacturacion > 0 ? (data.totalGanancia / data.totalFacturacion) * 100 : 0;
 
   return (
@@ -72,6 +76,19 @@ export default function RentabilidadReportePage() {
               <button onClick={() => setAgrupar("categoria")} className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${!esProducto ? "bg-[#3F8E91] text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"}`}>Por rubro</button>
             </div>
             <PeriodoSelector onChange={onPeriodo} />
+            {qs && (
+              <>
+                <ExportExcelButton url={`/api/reportes/rentabilidad/export?${qs}&agrupar=${agrupar}`} />
+                <a
+                  href={`/api/reportes/rentabilidad/a4?${qs}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Imprimir
+                </a>
+              </>
+            )}
           </div>
         }
       />
@@ -120,9 +137,11 @@ export default function RentabilidadReportePage() {
           </div>
 
           <p className="text-xs text-slate-400 leading-relaxed max-w-3xl">
-            Facturación sin IVA (subtotal de las líneas vendidas); costo = CMV sin IVA (costo de cada producto al
-            momento de la venta). <strong>Participación</strong> = qué % de la ganancia total aporta cada
-            {esProducto ? " producto" : " rubro"}. Excluye ventas anuladas y de consignación.
+            <strong>Ganancia</strong> está en guaraníes y <strong>Margen</strong> en porcentaje: no son lo mismo.
+            Un {esProducto ? "producto" : "rubro"} con margen alto y poca venta deja menos plata que uno con margen
+            bajo y mucha venta; para eso está <strong>Partic.</strong>, que es qué % de la ganancia total aporta cada
+            {esProducto ? " producto" : " rubro"}. Facturación sin IVA (subtotal de las líneas vendidas); costo = CMV
+            sin IVA (costo de cada producto al momento de la venta). Excluye ventas anuladas y de consignación.
           </p>
         </>
       )}

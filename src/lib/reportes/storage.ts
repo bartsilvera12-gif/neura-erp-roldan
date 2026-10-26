@@ -23,6 +23,21 @@ function periodoParams(
   return p;
 }
 
+/**
+ * Los mismos parámetros, pero como string, para armar los links de exportar e
+ * imprimir (requisito 11.1).
+ *
+ * Tiene que ser el mismo armado que usa la pantalla: si el link de la planilla
+ * construyera el período por su cuenta, un día la planilla y la pantalla
+ * mostrarían meses distintos y nadie sabría cuál creer.
+ */
+export function queryPeriodo(
+  tipo: TipoPeriodo,
+  opts?: { ref?: string; desde?: string; hasta?: string }
+): string {
+  return periodoParams(tipo, opts).toString();
+}
+
 async function getReporte<T>(url: string): Promise<T | null> {
   try {
     // fetchWithSupabaseSession añade el Authorization header con el token de

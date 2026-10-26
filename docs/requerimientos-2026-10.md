@@ -91,7 +91,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 10.1 | Utilidad por período: mensual y por rango, desglosado por rubro y grupo; ventas, utilidad bruta y % de margen. Diferenciar ganancia monetaria del % de margen. | ⬜ |
+| 10.1 | Utilidad por período: mensual y por rango, desglosado por rubro y grupo; ventas, utilidad bruta y % de margen. Diferenciar ganancia monetaria del % de margen. | ✅ |
 | 10.2 | Cobranzas: cliente, cobro, fecha, importe y comprobante; filtros por cliente y fecha. | ⬜ |
 | 10.3 | Cuentas por cobrar: clientes con códigos y saldos, filtros amplios, cancelación o disminución de deuda por recibos, conservando historial. | ⬜ |
 | 10.4 | IVA Compras e IVA Ventas: totales con IVA y, en la última página, resumen de base/importe total e IVA total. | 🟨 existe Libro de Ventas; falta el resumen final y el de compras |
