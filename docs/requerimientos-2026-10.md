@@ -14,7 +14,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | 1.2 | Stock mínimo automático: mediana de los últimos 6 meses de ventas, mostrado en Reposición y actualizado solo. | ✅ |
 | 1.3 | Stock crítico configurable: cobertura en días **por rubro** (ej. 5 o 15 días). | ✅ |
 | 1.4 | Historial de ajustes: listado aparte (no todos los movimientos) con código único, fecha, hora, usuario, producto, cantidad sumada/restada y motivo. Filtro por fecha. | ⬜ |
-| 1.5 | Compras en dólares y costo ponderado: precio en USD, tipo de cambio vigente al cargar la factura, conservado histórico. Costo promedio ponderado por operaciones. | ⬜ |
+| 1.5 | Compras en dólares y costo ponderado: precio en USD, tipo de cambio vigente al cargar la factura, conservado histórico. Costo promedio ponderado por operaciones. | ✅ |
 | 1.6 | Valoración de existencias: inventario y valor del stock a una fecha, por año, rubro o general; cantidades, costos unitarios, valor total, fecha y hora. | ⬜ |
 | 1.7 | Márgenes y remarcación visibles en Inventario y en Caja, según permisos. | ⬜ |
 
@@ -61,7 +61,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 6.1 | Ingreso de precios: tipear el precio de compra y expresarlo en dólares con su tipo de cambio. | ⬜ |
+| 6.1 | Ingreso de precios: tipear el precio de compra y expresarlo en dólares con su tipo de cambio. | ✅ cubierto por 1.5 |
 | 6.2 | Condiciones de pago por proveedor, en días. | ⬜ |
 
 ## 7. Tipos de cambio
@@ -69,7 +69,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | # | Requerimiento | Estado |
 |---|---|---|
 | 7.1 | Indicadores editables: comprador y vendedor en el Dashboard, editables por usuarios autorizados. | ⬜ |
-| 7.2 | Historial por fecha y hora, con usuario responsable y filtros. No sobrescribir cotizaciones ya usadas. | ⬜ |
+| 7.2 | Historial por fecha y hora, con usuario responsable y filtros. No sobrescribir cotizaciones ya usadas. | 🟨 la tabla y la API ya existen (1.5); falta la pantalla |
 
 ## 8. Movimientos y sucursales
 

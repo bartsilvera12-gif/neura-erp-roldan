@@ -93,6 +93,15 @@ function SegmentedControl<T extends string>({
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
+/** Fecha corta en hora de Paraguay (UTC−3), sin depender de la tzdata del server. */
+function fechaCortaPy(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(py.getUTCDate())}/${p(py.getUTCMonth() + 1)} ${p(py.getUTCHours())}:${p(py.getUTCMinutes())}`;
+}
+
 export default function NuevaCompraPage() {
   const router = useRouter();
 
@@ -112,6 +121,41 @@ export default function NuevaCompraPage() {
     metodo_pago: "" as "" | "efectivo" | "transferencia" | "tarjeta",
     ubicacion_id: "",
   });
+
+  /**
+   * Cotización vigente (punto 1.5).
+   *
+   * Se trae una vez al abrir y se usa para pre-cargar el tipo de cambio en
+   * cuanto se elige USD. Antes había que tipearlo de memoria cada vez, y dos
+   * personas cargando compras el mismo día podían usar cotizaciones distintas
+   * sin que nadie se enterara.
+   *
+   * Se pre-carga el tipo VENDEDOR: una compra al exterior se paga comprando
+   * los dólares, y eso se hace al vendedor. Igual queda editable, porque la
+   * cotización real de una factura puede ser la que dio el proveedor.
+   */
+  const [tcVigente, setTcVigente] = useState<{
+    compra: number; venta: number; vigente_desde: string; usuario_nombre: string | null;
+  } | null>(null);
+  const [tcEditado, setTcEditado] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/tipos-cambio?moneda=USD&limit=1", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!vivo || !j?.success || !j.data?.vigente) return;
+        const v = j.data.vigente as { compra: number; venta: number; vigente_desde: string; usuario_nombre: string | null };
+        setTcVigente({
+          compra: Number(v.compra) || 0,
+          venta: Number(v.venta) || 0,
+          vigente_desde: String(v.vigente_desde ?? ""),
+          usuario_nombre: v.usuario_nombre ?? null,
+        });
+      })
+      .catch(() => { /* sin cotización se tipea a mano, como antes */ });
+    return () => { vivo = false; };
+  }, []);
 
   // Depósitos disponibles para elegir destino de la compra.
   const [ubicaciones, setUbicaciones] = useState<{ id: string; nombre: string; codigo: string | null }[]>([]);
@@ -688,7 +732,12 @@ export default function NuevaCompraPage() {
                 <label className={labelClass}>Moneda</label>
                 <SegmentedControl<Moneda> value={cab.moneda}
                   options={[{ value: "PYG", label: "Guaraníes (₲)" }, { value: "USD", label: "Dólares (USD)" }]}
-                  onChange={(v) => setCab((p) => ({ ...p, moneda: v, tipo_cambio: "" }))} />
+                  onChange={(v) => {
+                    // Al pasar a dólares se pre-carga la cotización vigente.
+                    const precarga = v === "USD" && tcVigente ? String(tcVigente.venta) : "";
+                    setTcEditado(false);
+                    setCab((p) => ({ ...p, moneda: v, tipo_cambio: precarga }));
+                  }} />
               </div>
               {cab.tipo_pago === "credito" && (
                 <div>
@@ -700,8 +749,35 @@ export default function NuevaCompraPage() {
               {cab.moneda === "USD" && (
                 <div>
                   <label className={labelClass}>Tipo de cambio (USD → Gs.) <span className="text-red-500">*</span></label>
-                  <MontoInput value={cab.tipo_cambio} onChange={(n) => setCab((p) => ({ ...p, tipo_cambio: String(n) }))}
+                  <MontoInput value={cab.tipo_cambio}
+                    onChange={(n) => { setTcEditado(true); setCab((p) => ({ ...p, tipo_cambio: String(n) })); }}
                     placeholder="Ej: 7500" className={inputClass} decimals={false} />
+                  {tcVigente ? (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                      Cotización vigente: vendedor {tcVigente.venta.toLocaleString("es-PY")} ·
+                      comprador {tcVigente.compra.toLocaleString("es-PY")}
+                      {tcVigente.vigente_desde && <> · cargada el {fechaCortaPy(tcVigente.vigente_desde)}</>}
+                      {tcVigente.usuario_nombre && <> por {tcVigente.usuario_nombre}</>}.
+                      {tcEditado && Number(cab.tipo_cambio) !== tcVigente.venta && (
+                        <>
+                          {" "}
+                          <button type="button"
+                            onClick={() => { setTcEditado(false); setCab((p) => ({ ...p, tipo_cambio: String(tcVigente.venta) })); }}
+                            className="underline underline-offset-2 hover:text-slate-800">
+                            Volver a la vigente
+                          </button>
+                        </>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                      No hay cotización cargada. La que pongas acá queda guardada con esta compra.
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-[11px] leading-snug text-slate-400">
+                    Es el que se usa para convertir el costo a guaraníes, y queda guardado con la
+                    compra: si mañana cambia la cotización, esta factura no se mueve.
+                  </p>
                 </div>
               )}
               <div>

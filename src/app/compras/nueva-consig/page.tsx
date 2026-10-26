@@ -55,6 +55,20 @@ export default function NuevaCompraConsignacionPage() {
   const [numeroEdit, setNumeroEdit] = useState<string | null>(null);
   const editando = numeroEdit !== null;
 
+  // Cotización vigente (punto 1.5). Mismo criterio que en la compra normal:
+  // se pre-carga el tipo vendedor y queda editable.
+  const [tcVenta, setTcVenta] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/tipos-cambio?moneda=USD&limit=1", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (vivo && j?.success && j.data?.vigente) setTcVenta(Number(j.data.vigente.venta) || null);
+      })
+      .catch(() => { /* sin cotización se tipea a mano */ });
+    return () => { vivo = false; };
+  }, []);
+
   const [header, setHeader] = useState({
     proveedor_nombre: "",
     proveedor_ruc: "",
@@ -231,7 +245,13 @@ export default function NuevaCompraConsignacionPage() {
             </div>
             <div>
               <label className="text-xs text-slate-600">Moneda</label>
-              <select value={header.moneda} onChange={(e) => setHeader({ ...header, moneda: e.target.value as Moneda })} className={inp}>
+              <select value={header.moneda} onChange={(e) => {
+                const m = e.target.value as Moneda;
+                setHeader({
+                  ...header, moneda: m,
+                  tipo_cambio: m === "USD" && tcVenta ? String(tcVenta) : header.tipo_cambio,
+                });
+              }} className={inp}>
                 <option value="PYG">Guaraníes</option>
                 <option value="USD">Dólares (USD)</option>
               </select>
@@ -240,6 +260,11 @@ export default function NuevaCompraConsignacionPage() {
               <div>
                 <label className="text-xs text-slate-600">Tipo de cambio (Gs/USD)</label>
                 <input type="number" min="0" step="any" value={header.tipo_cambio} onChange={(e) => setHeader({ ...header, tipo_cambio: e.target.value })} className={inp} placeholder="Ej: 7300" />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {tcVenta
+                    ? `Vigente: ${tcVenta.toLocaleString("es-PY")}. Queda guardado con la compra.`
+                    : "No hay cotización cargada. La que pongas queda guardada con la compra."}
+                </p>
               </div>
             )}
             {editando && (

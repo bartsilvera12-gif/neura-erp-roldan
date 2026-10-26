@@ -73,6 +73,33 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * Costo unitario en guaraníes, recalculado en el servidor (punto 1.5).
+ *
+ * POR QUÉ NO SE CONFÍA EN EL QUE MANDA EL NAVEGADOR
+ *   La pantalla hace la conversión y envía los tres valores por separado:
+ *   el costo en la moneda original, el tipo de cambio y el resultado. Si esos
+ *   tres llegan inconsistentes — un estado viejo de React, una pestaña abierta
+ *   desde ayer, alguien llamando la API a mano — el costo guardado es
+ *   cualquiera, y de ahí sale el costo promedio ponderado del producto.
+ *
+ *   Un costo mal grabado no se nota: no rompe nada, solo deja mal valuado el
+ *   inventario y mal calculada la ganancia de todas las ventas siguientes. Por
+ *   eso la multiplicación se rehace acá y el valor del cliente se descarta.
+ *
+ * En guaraníes el "original" ya es el costo final: el tipo de cambio es 1.
+ */
+function costoEnGuaranies(
+  costoOriginal: number,
+  moneda: "PYG" | "USD",
+  tipoCambio: number
+): number {
+  if (!Number.isFinite(costoOriginal) || costoOriginal <= 0) return 0;
+  if (moneda !== "USD") return costoOriginal;
+  const tc = Number.isFinite(tipoCambio) && tipoCambio > 0 ? tipoCambio : 1;
+  return costoOriginal * tc;
+}
+
+/**
  * PUT /api/compras — EDICIÓN COMPLETA de una compra (cabecera + líneas). Borra las
  * filas del numero_control y reinserta con el MISMO número. NO recalcula costos de
  * productos (edición administrativa; evita drift del costo_promedio).
@@ -123,7 +150,11 @@ export async function PUT(request: NextRequest) {
       moneda,
       tipo_cambio: tipoCambio,
       costo_unitario_original: Number(it.costo_unitario_original) || Number(it.costo_unitario) || 0,
-      costo_unitario: Number(it.costo_unitario) || 0,
+      // Recalculado acá, no el que vino del navegador: ver costoEnGuaranies.
+      costo_unitario: costoEnGuaranies(
+        Number(it.costo_unitario_original) || Number(it.costo_unitario) || 0,
+        moneda, tipoCambio
+      ),
       iva_tipo: ["exenta", "5", "10"].includes(String(it.iva_tipo)) ? String(it.iva_tipo) : "10",
       subtotal: Number(it.subtotal) || 0,
       monto_iva: Number(it.monto_iva) || 0,
@@ -272,7 +303,12 @@ export async function POST(request: NextRequest) {
         producto_nombre: String(it.producto_nombre ?? ""),
         cantidad,
         costo_unitario_original: Number(it.costo_unitario_original) || Number(it.costo_unitario) || 0,
-        costo_unitario: Number(it.costo_unitario) || 0,
+        // Recalculado acá, no el que vino del navegador: ver costoEnGuaranies.
+        costo_unitario: costoEnGuaranies(
+          Number(it.costo_unitario_original) || Number(it.costo_unitario) || 0,
+          body.moneda === "USD" ? "USD" : "PYG",
+          Number(body.tipo_cambio) || 1
+        ),
         iva_tipo: ivaOk(it.iva_tipo),
         subtotal: Number(it.subtotal) || 0,
         monto_iva: Number(it.monto_iva) || 0,
