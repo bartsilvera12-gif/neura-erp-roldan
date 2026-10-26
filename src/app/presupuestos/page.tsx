@@ -57,6 +57,11 @@ export default function PresupuestosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<"todos" | EstadoPresupuesto>("todos");
+  // Requisito 11.2: desde/hasta también acá. Un presupuesto es un documento con
+  // fecha, y sin rango la lista crece hasta volverse inútil.
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [buscar, setBuscar] = useState("");
   const [toast, setToast] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null);
   const [actualizando, setActualizando] = useState<Set<string>>(new Set());
 
@@ -151,10 +156,22 @@ export default function PresupuestosPage() {
     void cargar();
   }, [cargar]);
 
-  const filtradas = useMemo(
-    () => (filtro === "todos" ? rows : rows.filter((r) => r.estado === filtro)),
-    [rows, filtro]
-  );
+  const filtradas = useMemo(() => {
+    const texto = buscar.trim().toLowerCase();
+    return rows
+      .filter((r) => filtro === "todos" || r.estado === filtro)
+      .filter((r) => {
+        const f = String(r.fecha ?? "").slice(0, 10);
+        if (desde && f < desde) return false;
+        if (hasta && f > hasta) return false;
+        return true;
+      })
+      .filter((r) =>
+        !texto ||
+        r.numero_control.toLowerCase().includes(texto) ||
+        r.cliente_nombre.toLowerCase().includes(texto)
+      );
+  }, [rows, filtro, desde, hasta, buscar]);
 
   return (
     <div className="space-y-6">
@@ -203,6 +220,31 @@ export default function PresupuestosPage() {
             <Plus className="h-4 w-4" /> Nuevo presupuesto
           </Link>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-slate-500">Desde</span>
+          <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-slate-500">Hasta</span>
+          <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
+          <input type="text" value={buscar} onChange={(e) => setBuscar(e.target.value)}
+            placeholder="Número o cliente"
+            className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+        </label>
+        {(desde || hasta || buscar) && (
+          <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            Limpiar
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

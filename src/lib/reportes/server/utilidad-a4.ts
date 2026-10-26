@@ -1,4 +1,4 @@
-import { EMPRESA_DOC } from "@/lib/documentos/membrete";
+import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
 import type { RentabilidadRow } from "@/lib/reportes/rentabilidad-types";
 
 /**
@@ -120,7 +120,7 @@ export function htmlUtilidadA4(d: DatosUtilidadA4): string {
 <body>
   <button class="print-btn" onclick="window.print()">Imprimir</button>
 
-  <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
+  ${membreteLinea()}
   <div class="sub">
     <div>
       <h1>Utilidad del período</h1>

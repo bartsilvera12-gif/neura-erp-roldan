@@ -5,7 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { getResumenCaja, getDetalleCaja } from "@/lib/caja/server";
 import { DENOMINACIONES } from "@/lib/caja/denominaciones";
-import { EMPRESA_DOC } from "@/lib/documentos/membrete";
+import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
 
 /**
  * GET /api/cajas/[id]/arqueo-a4 — arqueo formal del turno, para imprimir (5.4).
@@ -147,7 +147,7 @@ export async function GET(
 <body>
   <button class="print-btn" onclick="window.print()">Imprimir</button>
 
-  <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
+  ${membreteLinea()}
   <h1>Arqueo de caja ${esc(String(c.numero_caja))}</h1>
   <div class="sub">
     <div class="meta">

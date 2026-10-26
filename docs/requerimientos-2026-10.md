@@ -102,7 +102,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | # | Requerimiento | Estado |
 |---|---|---|
 | 11.1 | Impresión y Excel en todos los reportes, listados y documentos aplicables. | ✅ |
-| 11.2 | Filtros desde/hasta en todos los módulos e informes, más filtros por cliente, vendedor, rubro u otros datos. | 🟨 |
+| 11.2 | Filtros desde/hasta en todos los módulos e informes, más filtros por cliente, vendedor, rubro u otros datos. | ✅ |
 | 11.3 | Trazabilidad: usuario, fecha, hora y detalle en cambios, anulaciones, ajustes, transferencias y demás operaciones relevantes. | ✅ |
 | 11.4 | Permisos: restringir tareas sensibles a los roles habilitados y controlar accesos administrativos. | 🟨 |
-| 11.5 | Formato institucional uniforme en todos los archivos generados. | 🟨 |
+| 11.5 | Formato institucional uniforme en todos los archivos generados. | 🟨 falta cargar RUC, teléfono y dirección de la empresa |

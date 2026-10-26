@@ -53,6 +53,36 @@ export function membreteA4(origin = ""): string {
 }
 
 /**
+ * Membrete de una línea para los documentos de control internos: planilla de
+ * inventario, arqueo de caja, hoja de comisiones, informes y libros de IVA
+ * (requisito 11.5, "formato institucional uniforme").
+ *
+ * ── POR QUÉ NO EL MEMBRETE GRANDE ─────────────────────────────────────────
+ *   Esos documentos son grillas densas —la planilla de conteo, el libro de IVA
+ *   apaisado con trece columnas— donde un bloque de logo de 92px de alto se
+ *   come un renglón de datos por hoja. El logo chico en línea con el nombre y
+ *   el RUC los deja reconocibles como documentos de la empresa sin pagar ese
+ *   precio, y hace que todos se vean igual entre sí.
+ *
+ * `extra` se imprime a la derecha: sirve para el período o la fecha del corte.
+ */
+export function membreteLinea(extra = "", origin = ""): string {
+  const e = EMPRESA_DOC;
+  const logo = origin ? `${origin}${e.logoUrl}` : e.logoUrl;
+  return `
+  <div style="display:flex;align-items:center;gap:8px;border-bottom:1.5px solid #333;padding-bottom:5px;margin-bottom:8px;">
+    <img src="${esc(logo)}" alt="" style="height:26px;width:auto;object-fit:contain;display:block;" />
+    <div style="flex:1;min-width:0;line-height:1.3;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.04em;color:#222;">${esc(e.nombre)}</div>
+      ${e.ruc || e.telefono ? `<div style="font-size:9px;color:#555;">${
+        [e.ruc ? `RUC ${esc(e.ruc)}` : "", e.telefono ? `Tel. ${esc(e.telefono)}` : ""].filter(Boolean).join(" · ")
+      }</div>` : ""}
+    </div>
+    ${extra ? `<div style="font-size:9px;color:#555;text-align:right;white-space:nowrap;">${esc(extra)}</div>` : ""}
+  </div>`;
+}
+
+/**
  * Membrete compacto para ticket angosto (58/80mm): logo arriba, datos centrados.
  */
 export function membreteTicket(origin = ""): string {

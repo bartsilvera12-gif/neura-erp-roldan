@@ -4,7 +4,7 @@ import { errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { applyTokenSearch } from "@/lib/productos/token-search";
-import { EMPRESA_DOC } from "@/lib/documentos/membrete";
+import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
 
 /**
  * GET /api/inventario/planilla — planilla de conteo físico, lista para imprimir.
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
     const bloquesHtml = bloques.map((b, i) => `
   <section class="hoja${i > 0 ? " salto" : ""}">
     <div class="encabezado">
-      <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
+      ${membreteLinea()}
       <h1>Planilla de Inventario</h1>
       <div class="sub">
         <div class="meta">

@@ -6,7 +6,7 @@ import { isAdmin } from "@/lib/middleware/auth";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { informeComisiones } from "@/lib/comisiones/server/comisiones-pg";
-import { EMPRESA_DOC } from "@/lib/documentos/membrete";
+import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
 
 /**
  * GET /api/comisiones/hoja — hoja de ventas del vendedor, para firmar (4.2).
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
   <button class="print-btn" onclick="window.print()">Imprimir</button>
 
   <div class="encabezado">
-    <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
+    ${membreteLinea()}
     <h1>Liquidación de comisiones</h1>
     <div class="sub">
       <div class="meta">

@@ -1,4 +1,4 @@
-import { EMPRESA_DOC } from "@/lib/documentos/membrete";
+import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
 
 /**
  * Libro de IVA (Compras o Ventas) listo para imprimir (punto 10.4).
@@ -156,7 +156,7 @@ export function htmlLibroIvaA4(d: DatosLibroIvaA4): string {
 <body>
   <button class="print-btn" onclick="window.print()">Imprimir</button>
 
-  <div class="empresa">${esc(EMPRESA_DOC.nombre)}${EMPRESA_DOC.ruc ? ` · RUC ${esc(EMPRESA_DOC.ruc)}` : ""}</div>
+  ${membreteLinea()}
   <h1>Libro de IVA ${esc(d.libro === "COMPRAS" ? "Compras" : "Ventas")}</h1>
   <div class="meta">Período del ${fechaCorta(d.desde)} al ${fechaCorta(d.hasta)} · ${d.totales.cantidad} comprobante(s)</div>
 
