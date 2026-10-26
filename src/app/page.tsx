@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 // que vive en este mismo archivo queda intacto.
 import MobileDashboard from "@/app/_components/MobileDashboard";
 import CobranzasResumenCards from "@/components/cobros/CobranzasResumenCards";
+import TipoCambioCard from "@/components/dashboard/TipoCambioCard";
 import { getConfig } from "@/lib/config/storage";
 import { getUsuarios } from "@/lib/usuarios/storage";
 import type { ConfigGlobal } from "@/lib/config/types";
@@ -2410,6 +2411,10 @@ export default function DashboardPage() {
           })}
         </nav>
       ) : null}
+
+      {/* Indicadores de tipo de cambio (punto 7.1). Van arriba del contenido y
+          fuera de las pestañas: el dólar se mira igual desde cualquier vista. */}
+      <TipoCambioCard />
 
       {/* Contenido */}
       {tab === "comercial" && (

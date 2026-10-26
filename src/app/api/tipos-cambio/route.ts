@@ -25,6 +25,7 @@ import { isAdmin } from "@/lib/middleware/auth";
  */
 
 const MONEDA_DEFAULT = "USD";
+const OFFSET_PY = "-03:00";
 
 /** Mensaje único para cuando falta la migración, en los dos verbos. */
 const FALTA_TABLA = "Falta correr 20_tipos_cambio.sql en la base.";
@@ -37,18 +38,34 @@ export async function GET(request: NextRequest) {
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const sp = new URL(request.url).searchParams;
     const moneda = (sp.get("moneda") ?? MONEDA_DEFAULT).trim().toUpperCase();
-    const limit = Math.min(200, Math.max(1, parseInt(sp.get("limit") ?? "30", 10) || 30));
+    const limit = Math.min(500, Math.max(1, parseInt(sp.get("limit") ?? "30", 10) || 30));
 
-    const r = await ctx.supabase
+    // Filtros del historial (punto 7.2). Paraguay es UTC−3 todo el año; el
+    // offset va escrito porque la tzdata del server puede estar vieja.
+    const reFecha = /^\d{4}-\d{2}-\d{2}$/;
+    const desde = reFecha.test(sp.get("desde") ?? "") ? sp.get("desde")! : null;
+    const hasta = reFecha.test(sp.get("hasta") ?? "") ? sp.get("hasta")! : null;
+    const usuario = (sp.get("usuario") ?? "").trim();
+
+    let qb = ctx.supabase
       .from("tipos_cambio")
       .select("id, moneda, compra, venta, vigente_desde, usuario_nombre, observacion, created_at")
       .eq("empresa_id", ctx.auth.empresa_id)
-      .eq("moneda", moneda)
-      // Una cotización con fecha futura todavía no rige: se guarda pero no se
-      // aplica hasta que llegue su momento.
-      .lte("vigente_desde", new Date().toISOString())
-      .order("vigente_desde", { ascending: false })
-      .limit(limit);
+      .eq("moneda", moneda);
+
+    // Una cotización con fecha futura todavía no rige: se guarda pero no se
+    // aplica hasta que llegue su momento. El historial sí la puede mostrar.
+    if (sp.get("incluir_futuras") !== "1") {
+      qb = qb.lte("vigente_desde", new Date().toISOString());
+    }
+    if (desde) qb = qb.gte("vigente_desde", `${desde}T00:00:00${OFFSET_PY}`);
+    if (hasta) qb = qb.lte("vigente_desde", `${hasta}T23:59:59.999${OFFSET_PY}`);
+    if (usuario) {
+      const t = usuario.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
+      if (t) qb = qb.ilike("usuario_nombre", `%${t}%`);
+    }
+
+    const r = await qb.order("vigente_desde", { ascending: false }).limit(limit);
 
     if (r.error) {
       if (esTablaFaltante(r.error.message ?? "")) {
@@ -60,8 +77,12 @@ export async function GET(request: NextRequest) {
     }
 
     const historial = (r.data ?? []) as Array<Record<string, unknown>>;
+    // Con incluir_futuras la primera fila puede ser una cotización que todavía
+    // no rige: la vigente es siempre la última que ya empezó.
+    const ahora = new Date().toISOString();
+    const vigente = historial.find((h) => String(h.vigente_desde ?? "") <= ahora) ?? null;
     return NextResponse.json(successResponse({
-      vigente: historial[0] ?? null,
+      vigente,
       historial,
       migrado: true,
     }));

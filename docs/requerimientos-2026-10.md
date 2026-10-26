@@ -68,8 +68,8 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 7.1 | Indicadores editables: comprador y vendedor en el Dashboard, editables por usuarios autorizados. | ⬜ |
-| 7.2 | Historial por fecha y hora, con usuario responsable y filtros. No sobrescribir cotizaciones ya usadas. | 🟨 la tabla y la API ya existen (1.5); falta la pantalla |
+| 7.1 | Indicadores editables: comprador y vendedor en el Dashboard, editables por usuarios autorizados. | ✅ |
+| 7.2 | Historial por fecha y hora, con usuario responsable y filtros. No sobrescribir cotizaciones ya usadas. | ✅ |
 
 ## 8. Movimientos y sucursales
 

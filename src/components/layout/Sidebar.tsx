@@ -201,7 +201,19 @@ const MENU_STRUCTURE: MenuItem[] = [
     href: "/configuracion/sucursales",
     icon: Building2,
   },
-  { key: "compras", slug: "compras", label: "Compras", href: "/compras", icon: Package },
+  {
+    key: "compras",
+    slug: "compras",
+    label: "Compras",
+    href: "/compras",
+    icon: Package,
+    children: [
+      { label: "Compras", href: "/compras", exactMatch: true },
+      // Punto 7.2: el historial de cotizaciones. Cargar una nueva se hace desde
+      // el Dashboard (7.1), que es donde se mira el dólar todos los días.
+      { label: "Tipos de cambio", href: "/tipos-cambio" },
+    ],
+  },
   {
     key: "proveedores",
     slug: "proveedores",

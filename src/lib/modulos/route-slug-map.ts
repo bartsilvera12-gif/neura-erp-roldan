@@ -150,6 +150,9 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
   if (p.startsWith("/clientes")) return "clientes";
   if (p.startsWith("/proveedores")) return "proveedores";
   if (p.startsWith("/compras")) return "compras";
+  // El tipo de cambio es lo que convierte una compra en dólares a guaraníes:
+  // su permiso es el de Compras, no un módulo aparte.
+  if (p.startsWith("/tipos-cambio")) return "compras";
   if (p.startsWith("/gastos")) return "gastos";
   // Más específico primero: el reporte de productos a vencer es su propio módulo.
   if (p.startsWith("/reportes/productos-a-vencer")) return "productos-a-vencer";
