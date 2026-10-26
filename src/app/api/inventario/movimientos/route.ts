@@ -5,6 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { ajustarStockUbicacion } from "@/lib/multideposito/server";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { guardarDelta } from "@/lib/inventario/server/movimiento-delta";
 
 /**
  * GET /api/inventario/movimientos — lista movimientos via PostgREST (compat Hostinger sin pool PG).
@@ -191,6 +192,15 @@ export async function POST(request: NextRequest) {
     // Actualizar el stock global del producto (usado por el resto de la app).
     // Para ENTRADA con costo, recalcular CPP.
     const nuevoStock = Math.max(0, Number(prod.stock_actual) + delta);
+
+    // El signo y el stock antes/después, para el historial de ajustes (1.4).
+    // Va aparte del insert a propósito: ver guardarDelta.
+    await guardarDelta(supabase, empresaId, String((insert.data as { id: string }).id), {
+      delta,
+      stockAntes: stockActual,
+      stockDespues: nuevoStock,
+    });
+
     const patch: { stock_actual: number; costo_promedio?: number } = { stock_actual: nuevoStock };
     if (tipo === "ENTRADA" && costo_unitario > 0) {
       const stockPrev = prod.stock_actual > 0 ? prod.stock_actual : 0;

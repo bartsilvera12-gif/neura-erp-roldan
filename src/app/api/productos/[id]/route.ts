@@ -7,6 +7,7 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { guardarDelta } from "@/lib/inventario/server/movimiento-delta";
 
 const PRODUCTO_COLS =
   "id, empresa_id, nombre, sku, costo_promedio, precio_venta, stock_actual, stock_minimo, " +
@@ -252,7 +253,7 @@ export async function PATCH(
           fecha: new Date().toISOString(),
           created_by: firma.id,
           usuario_nombre: firma.nombre,
-        });
+        }).select("id").single();
         if (mov.error) {
           console.error("[/api/productos/[id] PATCH] ajuste_stock", mov.error.message);
           return NextResponse.json(
@@ -260,6 +261,13 @@ export async function PATCH(
             { status: 409 },
           );
         }
+        // El signo, para el historial de ajustes (1.4).
+        await guardarDelta(sb, empresaId, String((mov.data as { id: string }).id), {
+          delta,
+          stockAntes: stockPrevio,
+          stockDespues: stockSolicitado,
+        });
+
         await sb
           .from("productos")
           .update({ stock_actual: stockSolicitado })

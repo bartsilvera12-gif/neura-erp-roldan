@@ -157,6 +157,7 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "inventario", slug: "inventario", label: "Inventario", href: "/inventario", icon: Package, children: [
     { label: "Productos", href: "/inventario" },
     { label: "Movimientos", href: "/inventario/movimientos" },
+    { label: "Ajustes", href: "/inventario/ajustes" },
     { label: "Rubros", href: "/inventario/categorias" },
     { label: "Ubicaciones", href: "/inventario/ubicaciones" },
     { label: "Depósitos", href: "/depositos" },
