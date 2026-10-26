@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
@@ -66,6 +67,12 @@ export default function SugerenciasReposicionPage() {
   const [dias, setDias] = useState(() => leerParam("reposicion:dias", 60));
   const [cobertura, setCobertura] = useState(() => leerParam("reposicion:cobertura", 30));
   const [soloAReponer, setSoloAReponer] = useState(true);
+  // Filtros de trabajo: con cientos de artículos, la lista entera no se
+  // recorre. Se filtra sobre lo ya calculado y no se vuelve a pedir al
+  // servidor: el cálculo depende de los días y la cobertura, no del rubro.
+  const [fRubro, setFRubro] = useState("");
+  const [fBuscar, setFBuscar] = useState("");
+  const [fEstado, setFEstado] = useState("");
   const [data, setData] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +144,26 @@ export default function SugerenciasReposicionPage() {
     }
   }
 
-  const filas = (data?.filas ?? []).filter((f) => (soloAReponer ? f.sugerido > 0 : true));
+  const todas = data?.filas ?? [];
+
+  // Los rubros que de verdad aparecen en el resultado. Listar todo el catálogo
+  // ofrecería rubros que no tienen ni un producto para reponer.
+  const rubrosEnLista = Array.from(
+    new Set(todas.map((f) => (f.rubro_nombre ?? "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, "es"));
+
+  const texto = fBuscar.trim().toLowerCase();
+  const filas = todas
+    .filter((f) => (soloAReponer ? f.sugerido > 0 : true))
+    .filter((f) => !fRubro || (fRubro === "__sin__" ? !f.rubro_nombre : f.rubro_nombre === fRubro))
+    .filter((f) => !fEstado || f.estado === fEstado)
+    .filter(
+      (f) =>
+        !texto ||
+        f.nombre.toLowerCase().includes(texto) ||
+        (f.sku ?? "").toLowerCase().includes(texto) ||
+        (f.proveedor_nombre ?? "").toLowerCase().includes(texto)
+    );
   const r = data?.resumen;
 
   return (
@@ -269,12 +295,88 @@ export default function SugerenciasReposicionPage() {
         </div>
       )}
 
+      {/* Filtros de trabajo. Van aparte de los parámetros de arriba a propósito:
+          aquellos cambian el CÁLCULO (hay que recalcular), estos solo acotan
+          lo que se mira. Mezclados, nadie sabría cuál de los dos hace qué. */}
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
+          <select
+            value={fRubro}
+            onChange={(e) => setFRubro(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {rubrosEnLista.map((r) => <option key={r} value={r}>{r}</option>)}
+            <option value="__sin__">Sin rubro</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase text-slate-500">Estado</span>
+          <select
+            value={fEstado}
+            onChange={(e) => setFEstado(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            <option value="sin_stock">Sin stock</option>
+            <option value="critico">Crítico</option>
+            <option value="bajo">Bajo</option>
+            <option value="ok">OK</option>
+            <option value="sin_consumo">Sin consumo</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>
+          <input
+            type="text"
+            value={fBuscar}
+            onChange={(e) => setFBuscar(e.target.value)}
+            placeholder="Producto, código o proveedor"
+            className="w-64 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </label>
+        {(fRubro || fEstado || fBuscar) && (
+          <button
+            type="button"
+            onClick={() => { setFRubro(""); setFEstado(""); setFBuscar(""); }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Limpiar
+          </button>
+        )}
+        <span className="pb-2 text-xs text-slate-400">
+          {filas.length} de {todas.length} producto(s)
+        </span>
+        <div className="ml-auto pb-1">
+          <ExportarTablaButton
+            titulo="Reposición sugerida"
+            archivo="reposicion"
+            subtitulo={`Consumo de ${dias} días · cobertura de ${cobertura} días`}
+            columnas={["Producto", "SKU", "Rubro", "Proveedor", "Stock", "Mínimo", "Sugerido", "Consumo/día", "Estado", "Costo"]}
+            filas={filas.map((f) => [
+              f.nombre,
+              f.sku ?? "",
+              f.rubro_nombre ?? "",
+              f.proveedor_nombre ?? "",
+              f.stock_actual,
+              f.stock_minimo,
+              f.sugerido,
+              f.consumo_diario,
+              ETIQUETA[f.estado]?.texto ?? f.estado,
+              f.costo_sugerido,
+            ])}
+          />
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">Producto</th>
+                <th className="px-4 py-3">Rubro</th>
                 <th className="px-4 py-3">Proveedor</th>
                 <th className="px-4 py-3 text-right">Stock</th>
                 <th className="px-4 py-3 text-right">Mínimo</th>
@@ -288,11 +390,13 @@ export default function SugerenciasReposicionPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {cargando ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
+                <tr><td colSpan={11} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
               ) : filas.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
-                    {soloAReponer
+                  <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
+                    {fRubro || fEstado || fBuscar
+                      ? "Ningún producto coincide con los filtros."
+                      : soloAReponer
                       ? "No hay nada para reponer con estos parámetros."
                       : "No hay productos que controlen stock."}
                   </td>
@@ -306,6 +410,7 @@ export default function SugerenciasReposicionPage() {
                         <p className="font-medium text-slate-800">{f.nombre}</p>
                         {f.sku && <p className="font-mono text-[11px] text-slate-400">{f.sku}</p>}
                       </td>
+                      <td className="px-4 py-2.5 text-slate-500">{f.rubro_nombre ?? "—"}</td>
                       <td className="px-4 py-2.5 text-slate-500">{f.proveedor_nombre ?? "—"}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{num(f.stock_actual)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
