@@ -142,6 +142,9 @@ export async function POST(request: NextRequest) {
       forma_pago: body.forma_pago ? String(body.forma_pago) : null,
       plazo_entrega: body.plazo_entrega ? String(body.plazo_entrega) : null,
       observaciones: body.observaciones ? String(body.observaciones).slice(0, 4000) : null,
+      condiciones_comerciales: body.condiciones_comerciales
+        ? String(body.condiciones_comerciales).slice(0, 4000)
+        : null,
       usuario_id: ctx.auth.user?.id ?? null,
       usuario_nombre: ctx.auth.user?.email ?? null,
       items,

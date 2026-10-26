@@ -7,6 +7,7 @@ import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
+import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 type ProductoLite = {
   id: string;
@@ -77,6 +78,9 @@ export default function NuevoPresupuestoPage() {
   const [formaPago, setFormaPago] = useState("");
   const [plazoEntrega, setPlazoEntrega] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  // Punto 9.4: el texto que obliga (garantía, flete, validez del precio). Es
+  // otra cosa que las observaciones, que son las notas del producto.
+  const [condiciones, setCondiciones] = useState("");
 
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,6 +214,10 @@ export default function NuevoPresupuestoPage() {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  // La reserva la calcula el servidor desde los presupuestos aprobados
+  // vigentes; acá solo se muestra (puntos 9.1 y 9.2).
+  const existencias = useExistencias(items.map((it) => it.producto_id));
+
   const totales = useMemo(() => {
     let subtotal = 0,
       iva = 0,
@@ -249,6 +257,7 @@ export default function NuevoPresupuestoPage() {
           forma_pago: formaPago.trim() || null,
           plazo_entrega: plazoEntrega.trim() || null,
           observaciones: observaciones.trim() || null,
+          condiciones_comerciales: condiciones.trim() || null,
           items: items.map((it) => ({
             producto_id: it.producto_id,
             producto_nombre: it.producto_nombre.trim(),
@@ -388,6 +397,10 @@ export default function NuevoPresupuestoPage() {
                       </td>
                       <td className="py-2 px-2">
                         <input type="number" min="0" step="0.01" value={it.cantidad || ""} onChange={(e) => updItem(i, { cantidad: Number(e.target.value) })} className={inputClass} />
+                        <ExistenciaLinea
+                          existencia={it.producto_id ? existencias[it.producto_id] : undefined}
+                          cantidad={it.cantidad}
+                        />
                       </td>
                       <td className="py-2 px-2">
                         <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
@@ -439,11 +452,30 @@ export default function NuevoPresupuestoPage() {
             <input value={plazoEntrega} onChange={(e) => setPlazoEntrega(e.target.value)} className={inputClass} placeholder="Ej: 5 días hábiles" />
           </div>
           <div className="sm:col-span-3">
+            <label className={labelClass}>Condiciones comerciales</label>
+            <textarea
+              value={condiciones}
+              onChange={(e) => setCondiciones(e.target.value)}
+              rows={4}
+              className={inputClass}
+              placeholder={"Ej:\n- Precios válidos por la vigencia indicada.\n- Flete y descarga por cuenta del comprador.\n- Garantía de fábrica contra defectos."}
+            />
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              Sale en el presupuesto, bajo el total. Es lo que se discute si
+              después hay un reclamo, así que conviene escribirlo completo.
+            </p>
+          </div>
+          <div className="sm:col-span-3">
             <label className={labelClass}>Observaciones</label>
             <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} className={inputClass} />
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              Notas sobre la mercadería o el pedido, no condiciones.
+            </p>
           </div>
         </div>
       </div>
+
+      <AvisoFaltantes lineas={items} existencias={existencias} />
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
         <Link href="/presupuestos" className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">

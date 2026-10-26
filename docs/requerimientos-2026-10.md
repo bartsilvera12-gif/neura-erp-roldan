@@ -82,10 +82,10 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 9.1 | Cotizar sin restricción de stock: avisar faltante sin bloquear el guardado. | ⬜ |
-| 9.2 | Existencias y reservas: stock físico, reservado y disponible. | ⬜ |
-| 9.3 | Vigencia: fecha de validez o vencimiento. | ⬜ |
-| 9.4 | Presentación: azul, observaciones y condiciones comerciales editables, diseño formal. | ⬜ |
+| 9.1 | Cotizar sin restricción de stock: avisar faltante sin bloquear el guardado. | ✅ |
+| 9.2 | Existencias y reservas: stock físico, reservado y disponible. | ✅ |
+| 9.3 | Vigencia: fecha de validez o vencimiento. | ✅ |
+| 9.4 | Presentación: azul, observaciones y condiciones comerciales editables, diseño formal. | ✅ |
 
 ## 10. Informes y análisis
 

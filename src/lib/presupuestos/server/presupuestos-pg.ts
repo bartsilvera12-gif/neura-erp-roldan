@@ -24,6 +24,8 @@ export interface CrearPresupuestoInput {
   forma_pago: string | null;
   plazo_entrega: string | null;
   observaciones: string | null;
+  /** Punto 9.4. Opcional: en una base sin el script 27 se ignora. */
+  condiciones_comerciales?: string | null;
   /** Emisor: usuario que crea el presupuesto (para "Emitido por" en el PDF). */
   usuario_id?: string | null;
   usuario_nombre?: string | null;
@@ -113,33 +115,38 @@ export async function crearPresupuesto(
     vencimiento = d.toISOString().slice(0, 10);
   }
 
-  const ins = await sb
-    .from("presupuestos")
-    .insert({
-      empresa_id: empresaId,
-      cliente_id: input.cliente_id,
-      cliente_nombre: input.cliente_nombre.trim(),
-      cliente_ruc: input.cliente_ruc?.trim() || null,
-      cliente_telefono: input.cliente_telefono?.trim() || null,
-      cliente_direccion: input.cliente_direccion?.trim() || null,
-      numero_control: numero,
-      estado: "creado",
-      moneda: input.moneda || "PYG",
-      subtotal: round2(subtotal),
-      monto_iva: round2(montoIva),
-      descuento_total: round2(descuentoTotal),
-      total: round2(total),
-      validez_dias: input.validez_dias ?? null,
-      fecha: fechaIso,
-      fecha_vencimiento: vencimiento,
-      forma_pago: input.forma_pago?.trim() || null,
-      plazo_entrega: input.plazo_entrega?.trim() || null,
-      observaciones: input.observaciones?.trim() || null,
-      usuario_id: input.usuario_id ?? null,
-      usuario_nombre: input.usuario_nombre ?? null,
-    })
-    .select("id, numero_control")
-    .single();
+  const cabecera = {
+    empresa_id: empresaId,
+    cliente_id: input.cliente_id,
+    cliente_nombre: input.cliente_nombre.trim(),
+    cliente_ruc: input.cliente_ruc?.trim() || null,
+    cliente_telefono: input.cliente_telefono?.trim() || null,
+    cliente_direccion: input.cliente_direccion?.trim() || null,
+    numero_control: numero,
+    estado: "creado",
+    moneda: input.moneda || "PYG",
+    subtotal: round2(subtotal),
+    monto_iva: round2(montoIva),
+    descuento_total: round2(descuentoTotal),
+    total: round2(total),
+    validez_dias: input.validez_dias ?? null,
+    fecha: fechaIso,
+    fecha_vencimiento: vencimiento,
+    forma_pago: input.forma_pago?.trim() || null,
+    plazo_entrega: input.plazo_entrega?.trim() || null,
+    observaciones: input.observaciones?.trim() || null,
+    condiciones_comerciales: input.condiciones_comerciales?.trim() || null,
+    usuario_id: input.usuario_id ?? null,
+    usuario_nombre: input.usuario_nombre ?? null,
+  };
+
+  let ins = await sb.from("presupuestos").insert(cabecera).select("id, numero_control").single();
+  // Si falta el script 27, se guarda el presupuesto sin las condiciones en vez
+  // de no guardarlo: perder un renglón de texto es mejor que perder la oferta.
+  if (ins.error && /condiciones_comerciales/.test(ins.error.message ?? "")) {
+    const { condiciones_comerciales: _omitido, ...sinCondiciones } = cabecera;
+    ins = await sb.from("presupuestos").insert(sinCondiciones).select("id, numero_control").single();
+  }
   if (ins.error) throw new Error(ins.error.message);
   const presupuestoId = String((ins.data as { id: string }).id);
 

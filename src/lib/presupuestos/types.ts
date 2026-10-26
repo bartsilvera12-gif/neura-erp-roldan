@@ -54,6 +54,8 @@ export interface Presupuesto {
   forma_pago: string | null;
   plazo_entrega: string | null;
   observaciones: string | null;
+  /** Punto 9.4. Opcional: en una base sin el script 27 no viene. */
+  condiciones_comerciales?: string | null;
   convertido_pedido_id: string | null;
   convertido_venta_id: string | null;
   created_at?: string;

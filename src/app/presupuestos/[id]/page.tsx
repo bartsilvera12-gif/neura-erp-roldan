@@ -27,6 +27,7 @@ type Presu = {
   forma_pago: string | null;
   plazo_entrega: string | null;
   observaciones: string | null;
+  condiciones_comerciales?: string | null;
   convertido_pedido_id: string | null;
 };
 type ItemRow = {
@@ -336,6 +337,13 @@ export default function PresupuestoDetallePage() {
           </div>
         </div>
       </div>
+
+      {presu.condiciones_comerciales && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Condiciones comerciales</h3>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{presu.condiciones_comerciales}</p>
+        </div>
+      )}
 
       {presu.observaciones && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">

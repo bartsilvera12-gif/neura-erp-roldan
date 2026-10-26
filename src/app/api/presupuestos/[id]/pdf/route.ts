@@ -13,8 +13,16 @@ import path from "path";
  * Documento comercial NO fiscal — no toca SIFEN ni stock.
  */
 
-const TEAL = rgb(0x4f / 255, 0xae / 255, 0xb2 / 255);
-const GREEN = rgb(0x2e / 255, 0x7d / 255, 0x32 / 255);
+// Punto 9.4: el presupuesto va en azul. Es el único documento del sistema que
+// sale del local y llega a una mesa donde hay tres presupuestos más encima; el
+// azul institucional lo distingue de la factura y del remito, que son del verde
+// de la marca.
+//
+// Dos tonos y no uno: el oscuro para las reglas y la franja de la tabla, donde
+// tiene que haber contraste contra el blanco y contra el texto blanco encima;
+// el medio para el número del presupuesto, que es lo primero que se busca.
+const AZUL = rgb(0x1e / 255, 0x4e / 255, 0x8c / 255);
+const AZUL_MEDIO = rgb(0x25 / 255, 0x63 / 255, 0xeb / 255);
 const DARK = rgb(0x1f / 255, 0x29 / 255, 0x37 / 255);
 const GREY = rgb(0x6b / 255, 0x72 / 255, 0x80 / 255);
 const LIGHT = rgb(0xee / 255, 0xf2 / 255, 0xf4 / 255);
@@ -81,6 +89,27 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
   }
   if (cur) lines.push(cur);
   return lines.length ? lines : [""];
+}
+
+/**
+ * Como wrap, pero respetando los renglones que escribió el usuario.
+ *
+ * `wrap` junta todo con espacios, así que una lista de tres condiciones
+ * escrita en tres renglones salía como un solo párrafo corrido. En un texto
+ * que puede terminar discutiéndose, cada condición tiene que leerse aparte.
+ */
+function wrapParrafos(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  const out: string[] = [];
+  for (const parrafo of String(text ?? "").split(/\r?\n/)) {
+    if (!parrafo.trim()) {
+      // Un renglón en blanco separa bloques: se conserva, pero no se acumulan.
+      if (out.length && out[out.length - 1] !== "") out.push("");
+      continue;
+    }
+    out.push(...wrap(parrafo, font, size, maxWidth));
+  }
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out.length ? out : [""];
 }
 
 export async function GET(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
@@ -178,12 +207,12 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   for (const d of e.direccion) { TR(page, d, RIGHT, ry, 8, font, GREY); ry -= 9.5; }
 
   y = Math.min(headTop - 70, ry) - 6;
-  page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness: 2, color: GREEN });
+  page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness: 2, color: AZUL });
   y -= 24;
 
   // ═══════ Título + número ═══════
   T(page, "PRESUPUESTO", MARGIN, y, 20, bold, DARK);
-  TR(page, String(p.numero_control ?? ""), RIGHT, y + 4, 16, bold, TEAL);
+  TR(page, String(p.numero_control ?? ""), RIGHT, y + 4, 16, bold, AZUL_MEDIO);
   TR(page, `Fecha: ${fmtFecha(p.fecha)}`, RIGHT, y - 12, 9, font, GREY);
   if (p.fecha_vencimiento) TR(page, `Valido hasta: ${fmtFecha(p.fecha_vencimiento)}`, RIGHT, y - 23, 9, font, GREY);
   y -= 40;
@@ -225,7 +254,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 
   // ═══════ Tabla de ítems ═══════
   const drawTableHeader = () => {
-    page.drawRectangle({ x: MARGIN, y: y - 16, width: RIGHT - MARGIN, height: 18, color: TEAL });
+    page.drawRectangle({ x: MARGIN, y: y - 16, width: RIGHT - MARGIN, height: 18, color: AZUL });
     const hb = y - 12;
     TC(page, "CANT.", COL.cantCenter, hb, 8, bold, WHITE);
     T(page, "DESCRIPCION", COL.descLeft, hb, 8, bold, WHITE);
@@ -280,7 +309,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   totRow("Subtotal (sin IVA)", fmtMoneda(p.subtotal, moneda));
   totRow("IVA", fmtMoneda(p.monto_iva, moneda));
   if (Number(p.descuento_total) > 0) totRow("Descuentos", `- ${fmtMoneda(p.descuento_total, moneda)}`);
-  page.drawLine({ start: { x: totLabelX, y: y + 6 }, end: { x: RIGHT, y: y + 6 }, thickness: 1.5, color: TEAL });
+  page.drawLine({ start: { x: totLabelX, y: y + 6 }, end: { x: RIGHT, y: y + 6 }, thickness: 1.5, color: AZUL });
   y -= 6;
   totRow("TOTAL", fmtMoneda(p.total, moneda), true);
 
@@ -305,9 +334,22 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     for (const c of condiciones) { T(page, `- ${c}`, MARGIN + 4, y, 9, font, rgb(0.25, 0.28, 0.32)); y -= 12; }
   }
 
+  // El texto libre de condiciones (punto 9.4). Va junto a las fijas y antes de
+  // las observaciones: es lo que obliga, no una nota sobre la mercadería.
+  if (p.condiciones_comerciales) {
+    const condLines = wrapParrafos(String(p.condiciones_comerciales), font, 9, RIGHT - MARGIN - 4);
+    y -= condiciones.length ? 2 : 10;
+    ensureSpace(20 + condLines.length * 12);
+    if (!condiciones.length) {
+      T(page, "CONDICIONES COMERCIALES", MARGIN, y, 8, bold, GREY);
+      y -= 14;
+    }
+    for (const ln of condLines) { T(page, ln, MARGIN + 4, y, 9, font, rgb(0.25, 0.28, 0.32)); y -= 12; }
+  }
+
   if (p.observaciones) {
     y -= 8;
-    const obsLines = wrap(String(p.observaciones), font, 9, RIGHT - MARGIN - 4);
+    const obsLines = wrapParrafos(String(p.observaciones), font, 9, RIGHT - MARGIN - 4);
     ensureSpace(20 + obsLines.length * 12);
     T(page, "OBSERVACIONES", MARGIN, y, 8, bold, GREY);
     y -= 14;

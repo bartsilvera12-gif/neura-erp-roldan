@@ -18,6 +18,8 @@ type PresupuestoRow = {
   total: number | string;
   estado: EstadoPresupuesto;
   moneda: string;
+  /** Punto 9.3: la vigencia ya se guardaba; faltaba verla sin abrir el presupuesto. */
+  fecha_vencimiento?: string | null;
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
@@ -218,6 +220,7 @@ export default function PresupuestosPage() {
                   <th className="py-3 px-4 font-medium">Número</th>
                   <th className="py-3 px-4 font-medium">Cliente</th>
                   <th className="py-3 px-4 font-medium">Fecha</th>
+                  <th className="py-3 px-4 font-medium">Vence</th>
                   <th className="py-3 px-4 font-medium text-right">Total</th>
                   <th className="py-3 px-4 font-medium w-48">Estado</th>
                   <th className="py-3 px-4 font-medium text-right">Acciones</th>
@@ -229,6 +232,23 @@ export default function PresupuestosPage() {
                     <td className="py-3 px-4 font-mono font-medium text-gray-800">{r.numero_control}</td>
                     <td className="py-3 px-4 text-gray-700">{r.cliente_nombre}</td>
                     <td className="py-3 px-4 text-gray-600">{fmtFecha(r.fecha)}</td>
+                    {/* Un presupuesto vencido sigue valiendo como historia, pero
+                        su precio ya no rige: conviene verlo en la lista y no
+                        enterarse cuando el cliente viene a aceptarlo. */}
+                    <td className="py-3 px-4 text-gray-600">
+                      {(() => {
+                        const v = r.fecha_vencimiento ? String(r.fecha_vencimiento).slice(0, 10) : null;
+                        if (!v) return <span className="text-slate-300">—</span>;
+                        const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                        const vencido = v < hoy;
+                        return (
+                          <span className={vencido ? "font-medium text-amber-600" : ""}>
+                            {fmtFecha(v)}
+                            {vencido && <span className="ml-1 text-[11px]">(vencido)</span>}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="py-3 px-4 text-right tabular-nums font-semibold text-gray-800">{fmtGs(r.total, r.moneda)}</td>
                     <td className="py-3 px-4 align-middle">
                       {r.estado === "convertido" ? (

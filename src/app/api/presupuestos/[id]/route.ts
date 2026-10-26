@@ -37,7 +37,25 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       .order("created_at", { ascending: true });
     if (itq.error) throw new Error(itq.error.message);
 
-    return NextResponse.json(successResponse({ presupuesto: pq.data, items: itq.data ?? [] }));
+    // Las condiciones comerciales (punto 9.4) van en su propia consulta: si se
+    // sumaran a PRESU_COLS, en una base sin el script 27 fallaría la lectura
+    // del presupuesto entero y la pantalla quedaría en blanco.
+    let condiciones: string | null = null;
+    const cq = await ctx.supabase
+      .from("presupuestos")
+      .select("condiciones_comerciales")
+      .eq("empresa_id", ctx.auth.empresa_id)
+      .eq("id", id)
+      .maybeSingle();
+    if (!cq.error && cq.data) {
+      const v = (cq.data as Record<string, unknown>).condiciones_comerciales;
+      condiciones = v == null ? null : String(v);
+    }
+
+    return NextResponse.json(successResponse({
+      presupuesto: { ...(pq.data as unknown as Record<string, unknown>), condiciones_comerciales: condiciones },
+      items: itq.data ?? [],
+    }));
   } catch (err) {
     console.error("[/api/presupuestos/[id] GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudo cargar el presupuesto."), { status: 500 });
@@ -183,7 +201,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         ? null
         : Math.max(0, parseInt(String(validezRaw), 10) || 0) || null;
 
-      const updHead = await ctx.supabase.from("presupuestos").update({
+      const parcheCabecera: Record<string, unknown> = {
         cliente_id: body.cliente_id ? String(body.cliente_id) : null,
         cliente_nombre: clienteNombre,
         cliente_ruc: body.cliente_ruc ? String(body.cliente_ruc) : null,
@@ -198,12 +216,26 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         forma_pago: body.forma_pago ? String(body.forma_pago) : null,
         plazo_entrega: body.plazo_entrega ? String(body.plazo_entrega) : null,
         observaciones: body.observaciones ? String(body.observaciones).slice(0, 4000) : null,
+        condiciones_comerciales: body.condiciones_comerciales
+          ? String(body.condiciones_comerciales).slice(0, 4000)
+          : null,
         updated_at: new Date().toISOString(),
-      })
-        .eq("empresa_id", ctx.auth.empresa_id)
-        .eq("id", id)
-        .select(PRESU_COLS)
-        .maybeSingle();
+      };
+
+      const guardarCabecera = (patch: Record<string, unknown>) =>
+        ctx.supabase.from("presupuestos").update(patch)
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("id", id)
+          .select(PRESU_COLS)
+          .maybeSingle();
+
+      let updHead = await guardarCabecera(parcheCabecera);
+      // Sin el script 27 se guarda el resto de la edición igual que antes, en
+      // vez de rechazarla entera por una columna que todavía no existe.
+      if (updHead.error && /condiciones_comerciales/.test(updHead.error.message ?? "")) {
+        const { condiciones_comerciales: _omitido, ...sinCondiciones } = parcheCabecera;
+        updHead = await guardarCabecera(sinCondiciones);
+      }
       if (updHead.error) throw new Error(updHead.error.message);
       return NextResponse.json(successResponse({ presupuesto: updHead.data }));
     }
