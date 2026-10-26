@@ -158,6 +158,7 @@ const MENU_STRUCTURE: MenuItem[] = [
     { label: "Productos", href: "/inventario" },
     { label: "Movimientos", href: "/inventario/movimientos" },
     { label: "Ajustes", href: "/inventario/ajustes" },
+    { label: "Valoración", href: "/inventario/valoracion" },
     { label: "Rubros", href: "/inventario/categorias" },
     { label: "Ubicaciones", href: "/inventario/ubicaciones" },
     { label: "Depósitos", href: "/depositos" },
