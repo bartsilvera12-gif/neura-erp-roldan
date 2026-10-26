@@ -433,6 +433,32 @@ export async function POST(request: NextRequest) {
       nota_remision_numero: notaRemisionNumero,
     });
 
+    // ── Renovar la cartera del cliente (puntos 4.1 y 4.3) ─────────────────
+    // Una operación reinicia los días que el cliente permanece en la cartera
+    // de su vendedor. NO se cambia a quién pertenece: si la cerró un
+    // reemplazo, la comisión es suya (va en ventas.vendedor_usuario_id) pero
+    // el cliente sigue en la cartera original, que es lo que pide el 4.3.
+    //
+    // Va best-effort y al final: la venta ya está hecha y confirmada, y no
+    // tiene por qué fallar porque no se pudo tocar una fecha.
+    if (clienteId) {
+      try {
+        const sbCartera = await createServiceRoleClientForEmpresa(auth.empresa_id);
+        const upd = await sbCartera
+          .from("clientes")
+          .update({ cartera_desde: new Date().toISOString() })
+          .eq("empresa_id", auth.empresa_id)
+          .eq("id", clienteId)
+          // Solo si tiene vendedor: sin dueño, la cartera no significa nada.
+          .not("vendedor_usuario_id", "is", null);
+        if (upd.error && !/cartera_desde/.test(upd.error.message ?? "")) {
+          console.warn("[ventas/create] cartera_desde:", upd.error.message);
+        }
+      } catch (e) {
+        console.warn("[ventas/create] cartera_desde:", e instanceof Error ? e.message : e);
+      }
+    }
+
     return NextResponse.json(successResponse({
       venta,
       nota_remision_numero: notaRemisionNumero,

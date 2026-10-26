@@ -34,16 +34,16 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | 3.2 | Alta desde Caja: ciudad, profesión, dirección, correo y límite de crédito. | ✅ |
 | 3.3 | Historial comercial: compras históricas del cliente, filtrables desde Caja. | ✅ |
 
-## 4. Vendedores y comisiones
+## 4. Vendedores y comisiones  ·  **completo**
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 4.1 | Cartera por vendedor: vendedor responsable por cliente, 30 días, liberación automática. | ⬜ |
-| 4.2 | Hoja de ventas firmada: imprimible con todas las ventas del vendedor y espacio para firma. | ⬜ |
-| 4.3 | Sustitución temporal: otro vendedor atiende la cartera; la comisión es de quien cierra, el cliente queda en la cartera original. | ⬜ |
-| 4.4 | Comisión según rentabilidad: proporcional a la remarcación o margen; el descuento ajusta la comisión. | ⬜ |
-| 4.5 | Configuración por rubro y tipo de vendedor: porcentajes y descuentos, y alta de nuevos tipos. | ⬜ |
-| 4.6 | Informe de comisiones con filtros por vendedor, rubro y fechas. | ⬜ |
+| 4.1 | Cartera por vendedor: vendedor responsable por cliente, 30 días, liberación automática. | ✅ |
+| 4.2 | Hoja de ventas firmada: imprimible con todas las ventas del vendedor y espacio para firma. | ✅ |
+| 4.3 | Sustitución temporal: otro vendedor atiende la cartera; la comisión es de quien cierra, el cliente queda en la cartera original. | ✅ |
+| 4.4 | Comisión según rentabilidad: proporcional a la remarcación o margen; el descuento ajusta la comisión. | ✅ |
+| 4.5 | Configuración por rubro y tipo de vendedor: porcentajes y descuentos, y alta de nuevos tipos. | ✅ |
+| 4.6 | Informe de comisiones con filtros por vendedor, rubro y fechas. | ✅ |
 
 ## 5. Caja y arqueo
 

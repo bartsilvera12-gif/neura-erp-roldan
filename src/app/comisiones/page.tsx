@@ -1,685 +1,778 @@
 "use client";
 
-import { ChevronDown, RefreshCw } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ConfigMetricCard } from "@/components/config/global-config-primitives";
-import { fetchWithSupabaseSession, isAbortError } from "@/lib/api/fetch-with-supabase-session";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
-const BASE_LABEL: Record<string, string> = {
-  pago_registrado: "Cobros registrados",
-  factura_emitida: "Facturas emitidas",
-  factura_pagada: "Facturas cobradas",
+/**
+ * Vendedores y comisiones (módulo 4).
+ *
+ * Tres solapas porque son tres preguntas distintas:
+ *   Informe (4.6) — cuánto se le debe a cada uno este mes.
+ *   Cartera (4.1) — de quién es cada cliente y a quién se le está por soltar.
+ *   Configuración (4.5) — cuánto paga cada rubro y cada tipo de vendedor.
+ */
+
+const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
+const pct = (n: number) => `${(Number(n) || 0).toFixed(1)}%`;
+
+function hoyPy(): string {
+  const d = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+function inicioMesPy(): string {
+  const d = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-01`;
+}
+function fechaCorta(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(py.getUTCDate())}/${p(py.getUTCMonth() + 1)}/${py.getUTCFullYear()}`;
+}
+
+type Vendedor = {
+  vendedor_id: string | null; vendedor_nombre: string; tipo_vendedor: string | null;
+  operaciones: number; facturado: number; descuento: number; costo: number;
+  ganancia: number; comision: number; margen_pct: number;
+};
+type VentaCom = {
+  venta_id: string; numero_control: string; fecha: string; cliente_nombre: string | null;
+  vendedor_nombre: string; facturado: number; descuento: number; ganancia: number; comision: number;
+};
+type Informe = {
+  ventas: VentaCom[]; vendedores: Vendedor[]; desde: string; hasta: string;
+  base_calculo: "margen" | "facturacion";
+  totales: { operaciones: number; facturado: number; descuento: number; costo: number; ganancia: number; comision: number };
 };
 
-const MOVIMIENTO_LABEL: Record<string, string> = {
-  pago: "Cobro registrado",
-  factura_emitida: "Factura emitida",
-  factura_pagada: "Factura cobrada",
+type Tipo = { id: string; nombre: string; porcentaje_base: number; activo: boolean };
+type Regla = { id: string; tipo_vendedor_id: string | null; categoria_id: string | null; porcentaje: number; activo: boolean };
+type UsuarioLite = { id: string; nombre: string | null; email: string; tipo_vendedor_id: string | null };
+type RubroLite = { id: string; nombre: string };
+type Config = {
+  tipos: Tipo[]; reglas: Regla[]; vendedores: UsuarioLite[]; rubros: RubroLite[];
+  config: { dias_cartera: number; base_calculo: "margen" | "facturacion" };
 };
 
-type Linea = {
-  tipo: string;
-  cliente_label: string;
-  factura_id: string | null;
-  numero_factura?: string | null;
-  pago_id: string | null;
-  fecha: string | null;
-  monto_base: number;
-  comision_estimada_linea: number;
-  cobrado_periodo: number;
-  saldo_pendiente: number;
-  pendiente_por_comisionar: number;
+type ClienteCartera = {
+  id: string; nombre: string; vendedor_id: string | null; vendedor_nombre: string | null;
+  cartera_desde: string | null; en_cartera: boolean; dias_restantes: number;
+};
+type Cartera = {
+  clientes: ClienteCartera[]; dias_cartera: number;
+  resumen: { total: number; en_cartera: number; libres: number; sin_vendedor: number };
 };
 
-type VendedorRow = {
-  vendedor_usuario_id: string;
-  vendedor_nombre: string;
-  cantidad_movimientos: number;
-  revenue_base: number;
-  cobrado_periodo_total: number;
-  saldo_pendiente_total: number;
-  pendiente_por_comisionar_total: number;
-  escala_aplicada: string;
-  porcentaje_tramo: number;
-  premio_fijo_tramo: number;
-  escala_actual_desde: number | null;
-  escala_actual_hasta: number | null;
-  escala_actual_porcentaje: number | null;
-  escala_actual_premio_fijo: number | null;
-  siguiente_escala_desde: number | null;
-  siguiente_escala_porcentaje: number | null;
-  falta_para_siguiente_escala: number | null;
-  progreso_hacia_siguiente_pct: number | null;
-  max_escala_alcanzada: boolean;
-  comision_estimada: number;
-  lineas: Linea[];
-};
-
-type PreviewMeta = {
-  preview?: boolean;
-  periodo?: string;
-  timezone?: string;
-  modo_periodo?: string;
-  fecha_inicio_local?: string;
-  fecha_fin_local?: string;
-  periodo_mes?: string;
-  politica_nombre?: string;
-  base_calculo?: string;
-  sin_escalas?: boolean;
-  alcance?: string;
-  viewer_role?: string | null;
-  viewer_scope?: "admin" | "vendedor";
-  viewer_usuario_id?: string;
-  is_vendedor_view?: boolean;
-  vendedor_detectado_por?: string;
-  vendedor_clientes_asignados?: number;
-  supervisor_equipos_pendiente?: boolean;
-  /** Si no se pudieron cargar NC, el neto va sin descontar aprobadas. */
-  alerta_neto_sin_nc?: string | null;
-  documentacion_base?: Record<string, string>;
-};
-
-type PreviewKpis = {
-  revenue_base_total: number;
-  comision_estimada_total: number;
-  cobrado_periodo_total: number;
-  saldo_pendiente_total: number;
-  pendiente_por_comisionar_total: number;
-  vendedores_con_comision: number;
-  fuentes_sin_vendedor: number;
-  alertas_sin_vendedor_pagos: number;
-  alertas_sin_vendedor_facturas: number;
-};
-
-type PreviewPayload = {
-  estado: string;
-  mensaje?: string;
-  meta: PreviewMeta | null;
-  kpis: PreviewKpis | null;
-  por_vendedor: VendedorRow[];
-};
-
-function fmtMoney(n: number): string {
-  return new Intl.NumberFormat("es-PY", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
-}
-
-function fmtPct(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return `${new Intl.NumberFormat("es-PY", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}%`;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const ymd = iso.slice(0, 10);
-  const [y, m, d] = ymd.split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
-}
-
-function currentMonthInputValue(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function escalaActualLabel(r: VendedorRow): string {
-  if (r.escala_actual_porcentaje == null) {
-    return r.siguiente_escala_desde == null ? "Sin escalas configuradas" : "Sin escala alcanzada todavía";
-  }
-  return `Escala actual: ${fmtPct(r.escala_actual_porcentaje)}`;
-}
-
-function siguienteEscalaLabel(r: VendedorRow): string {
-  if (r.escala_actual_porcentaje == null && r.siguiente_escala_desde == null) return "Configurá escalas para medir el progreso.";
-  if (r.max_escala_alcanzada) return "Máxima escala alcanzada";
-  if (r.siguiente_escala_desde == null) return "Sin siguiente escala";
-  return `Siguiente escala: ${fmtPct(r.siguiente_escala_porcentaje)} desde ${fmtMoney(r.siguiente_escala_desde)}`;
-}
-
-function faltaEscalaLabel(r: VendedorRow): string {
-  if (r.max_escala_alcanzada) return "Ya estás en el tramo más alto.";
-  if (r.falta_para_siguiente_escala == null) return "Sin escala siguiente configurada.";
-  if (r.falta_para_siguiente_escala <= 0) return "Ya alcanzaste la siguiente escala.";
-  return `Te faltan ₲ ${fmtMoney(r.falta_para_siguiente_escala)} para llegar a la siguiente escala.`;
-}
-
-/** Texto claro para KPIs de movimientos sin vendedor (sin exponer nombres de columnas técnicas). */
-function mensajeFuentesSinVendedor(k: PreviewKpis): string {
-  const total = k.fuentes_sin_vendedor;
-  return `Hay ${total} ${total === 1 ? "movimiento" : "movimientos"} de clientes sin vendedor asignado. Asigná un vendedor responsable en la ficha del cliente para incluirlos en el cálculo.`;
-}
-
-function ScaleProgress({ row, compact = false }: { row: VendedorRow; compact?: boolean }) {
-  const progress = row.max_escala_alcanzada ? 100 : row.progreso_hacia_siguiente_pct ?? 0;
-
-  if (row.escala_actual_porcentaje == null && row.siguiente_escala_desde == null) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-        Sin escalas configuradas para esta política.
-      </div>
-    );
-  }
-
-  return (
-    <div className={compact ? "space-y-2" : "rounded-xl border border-slate-100 bg-slate-50 p-4"}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{escalaActualLabel(row)}</p>
-          <p className="text-xs text-slate-500">{siguienteEscalaLabel(row)}</p>
-        </div>
-        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-          row.max_escala_alcanzada ? "bg-emerald-100 text-emerald-800" : "bg-sky-100 text-sky-800"
-        }`}>
-          {row.max_escala_alcanzada ? "Máxima escala" : `${progress}%`}
-        </span>
-      </div>
-      <div className="h-2 rounded-full bg-white ring-1 ring-slate-200">
-        <div
-          className="h-2 rounded-full bg-sky-500 transition-all"
-          style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
-        />
-      </div>
-      <p className="text-xs text-slate-600">{faltaEscalaLabel(row)}</p>
-    </div>
-  );
-}
-
-function MiniScaleSummary({ row }: { row: VendedorRow }) {
-  const progress = row.max_escala_alcanzada ? 100 : row.progreso_hacia_siguiente_pct ?? 0;
-  return (
-    <div className="min-w-[180px] text-left sm:text-right">
-      <p className="text-[10px] font-semibold uppercase text-slate-400">Progreso de escala</p>
-      <p className="text-xs font-semibold text-slate-700">{row.max_escala_alcanzada ? "Máxima escala alcanzada" : faltaEscalaLabel(row)}</p>
-      <div className="mt-1 h-1.5 rounded-full bg-slate-100">
-        <div
-          className="h-1.5 rounded-full bg-sky-500"
-          style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function TotalsStrip({ row }: { row: VendedorRow }) {
-  return (
-    <div className="grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-5">
-      <ConfigMetricCard label="Base comisionable" value={fmtMoney(row.revenue_base)} />
-      <ConfigMetricCard label="Comisión estimada" value={fmtMoney(row.comision_estimada)} />
-      <ConfigMetricCard label="Cobrado" value={fmtMoney(row.cobrado_periodo_total ?? 0)} />
-      <ConfigMetricCard label="Pendiente de cobro" value={fmtMoney(row.saldo_pendiente_total ?? 0)} />
-      <ConfigMetricCard label="Pendiente por comisionar" value={fmtMoney(row.pendiente_por_comisionar_total ?? 0)} />
-    </div>
-  );
-}
-
-function SellerTotalsSummary({ row }: { row: VendedorRow }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sumatoria del período</p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div>
-          <p className="text-xs text-slate-500">Base comisionable</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">₲ {fmtMoney(row.revenue_base)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Comisión estimada</p>
-          <p className="text-base font-bold tabular-nums text-emerald-800">₲ {fmtMoney(row.comision_estimada)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Cobrado</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">₲ {fmtMoney(row.cobrado_periodo_total ?? 0)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Pendiente de cobro</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">₲ {fmtMoney(row.saldo_pendiente_total ?? 0)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Pendiente por comisionar</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">
-            ₲ {fmtMoney(row.pendiente_por_comisionar_total ?? 0)}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SellerMovimientosList({ row }: { row: VendedorRow }) {
-  return (
-    <div className="mt-3 grid gap-3">
-      {row.lineas.map((ln, i) => (
-        <article
-          key={`${ln.pago_id ?? ""}-${ln.factura_id ?? ""}-${i}`}
-          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">{ln.cliente_label}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                {MOVIMIENTO_LABEL[ln.tipo] ?? "Movimiento"} · {ln.numero_factura ?? "Sin comprobante"} · {formatDate(ln.fecha)}
-              </p>
-            </div>
-            <div className="text-left sm:text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Comisión estimada</p>
-              <p className="text-sm font-bold tabular-nums text-emerald-800">₲ {fmtMoney(ln.comision_estimada_linea)}</p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="text-xs text-slate-500">Base comisionable</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">₲ {fmtMoney(ln.monto_base)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Cobrado</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">₲ {fmtMoney(ln.cobrado_periodo ?? 0)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Pendiente</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">₲ {fmtMoney(ln.saldo_pendiente ?? 0)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Pendiente por comisionar</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">
-                ₲ {fmtMoney(ln.pendiente_por_comisionar ?? 0)}
-              </p>
-            </div>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function MovimientosTable({ row }: { row: VendedorRow }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="mt-3 w-full min-w-[980px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
-            <th className="py-2 pr-2">Cliente</th>
-            <th className="py-2 pr-2">Movimiento</th>
-            <th className="py-2 pr-2">Comprobante</th>
-            <th className="py-2 pr-2">Fecha</th>
-            <th className="py-2 pr-2 text-right">Base comisionable</th>
-            <th className="py-2 pr-2 text-right">Comisión estimada</th>
-            <th className="py-2 pr-2 text-right">Cobrado</th>
-            <th className="py-2 pr-2 text-right">Pendiente</th>
-            <th className="py-2 text-right">Pendiente por comisionar</th>
-          </tr>
-        </thead>
-        <tbody>
-          {row.lineas.map((ln, i) => (
-            <tr key={`${ln.pago_id ?? ""}-${ln.factura_id ?? ""}-${i}`} className="border-b border-slate-50">
-              <td className="py-2 pr-2 text-slate-800">{ln.cliente_label}</td>
-              <td className="py-2 pr-2 text-xs text-slate-600">{MOVIMIENTO_LABEL[ln.tipo] ?? "Movimiento"}</td>
-              <td className="py-2 pr-2 text-xs text-slate-700">{ln.numero_factura ?? "—"}</td>
-              <td className="py-2 pr-2 text-xs text-slate-600">{formatDate(ln.fecha)}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{fmtMoney(ln.monto_base)}</td>
-              <td className="py-2 pr-2 text-right tabular-nums text-emerald-800">
-                {fmtMoney(ln.comision_estimada_linea)}
-              </td>
-              <td className="py-2 pr-2 text-right tabular-nums">{fmtMoney(ln.cobrado_periodo ?? 0)}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{fmtMoney(ln.saldo_pendiente ?? 0)}</td>
-              <td className="py-2 text-right tabular-nums">{fmtMoney(ln.pendiente_por_comisionar ?? 0)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function renderVendedorView({
-  meta,
-  sellerRow,
-  selectedSellerMonth,
-  onMonthChange,
-}: {
-  meta: PreviewMeta | null | undefined;
-  sellerRow: VendedorRow | null;
-  selectedSellerMonth: string;
-  onMonthChange: (mes: string) => void;
-}) {
-  return (
-    <div className="mx-auto max-w-5xl space-y-6 overflow-hidden px-4 py-10">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Mi comisión del mes</h1>
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Período</p>
-            <p className="mt-1 text-lg font-semibold capitalize text-slate-900">{meta?.periodo ?? "—"}</p>
-            <p className="text-xs text-slate-500">
-              {meta?.fecha_inicio_local} → {meta?.fecha_fin_local}
-            </p>
-          </div>
-          <label className="block text-left">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mes a consultar</span>
-            <input
-              type="month"
-              value={selectedSellerMonth}
-              onChange={(e) => onMonthChange(e.target.value)}
-              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            />
-          </label>
-        </div>
-      </section>
-
-      {!sellerRow ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center shadow-sm">
-          <p className="text-sm font-semibold text-slate-800">Todavía no tenés movimientos comisionables en este período.</p>
-          <p className="mt-1 text-sm text-slate-500">Cuando tus clientes registren movimientos dentro del período, vas a verlos acá.</p>
-        </div>
-      ) : (
-        <>
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Mini dashboard</p>
-                <h2 className="mt-1 text-xl font-bold text-slate-900">Mi comisión del mes</h2>
-              </div>
-              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-900">
-                {sellerRow.max_escala_alcanzada ? "Máxima escala alcanzada" : "En progreso"}
-              </span>
-            </div>
-
-            <ScaleProgress row={sellerRow} />
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <ConfigMetricCard label="Base comisionable" value={fmtMoney(sellerRow.revenue_base)} />
-              <ConfigMetricCard label="Comisión estimada" value={fmtMoney(sellerRow.comision_estimada)} />
-              <ConfigMetricCard label="Cobrado" value={fmtMoney(sellerRow.cobrado_periodo_total ?? 0)} />
-              <ConfigMetricCard label="Pendiente de cobro" value={fmtMoney(sellerRow.saldo_pendiente_total ?? 0)} />
-              <ConfigMetricCard
-                label="Pendiente por comisionar"
-                value={fmtMoney(sellerRow.pendiente_por_comisionar_total ?? 0)}
-              />
-            </div>
-          </section>
-
-          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm open:shadow-md">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 pr-3 [&::-webkit-details-marker]:hidden">
-              <div>
-                <p className="font-semibold text-slate-900">Mis clientes y movimientos</p>
-                <p className="text-xs text-slate-500">
-                  {sellerRow.cantidad_movimientos} movimientos · Pendiente de cobro ₲ {fmtMoney(sellerRow.saldo_pendiente_total ?? 0)}
-                </p>
-              </div>
-              <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="space-y-4 border-t border-slate-100 px-4 pb-4">
-              <SellerMovimientosList row={sellerRow} />
-              <SellerTotalsSummary row={sellerRow} />
-            </div>
-          </details>
-        </>
-      )}
-    </div>
-  );
-}
-
-function renderAdminView({
-  meta,
-  kpis,
-  rows,
-  baseLabel,
-  onReload,
-}: {
-  meta: PreviewMeta | null | undefined;
-  kpis: PreviewKpis | null | undefined;
-  rows: VendedorRow[];
-  baseLabel: string;
-  onReload: () => void;
-}) {
-  return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Comisiones</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Seguimiento mensual de comisiones según la política activa.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onReload}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Recalcular
-          </button>
-          <Link
-            href="/configuracion/comisiones"
-            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-          >
-            Configuración
-          </Link>
-        </div>
-      </div>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Período actual</p>
-            <p className="mt-1 text-lg font-semibold capitalize text-slate-900">{meta?.periodo ?? "—"}</p>
-            <p className="text-xs text-slate-500">
-              {meta?.fecha_inicio_local} → {meta?.fecha_fin_local} · {meta?.timezone}
-            </p>
-          </div>
-          <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-sky-900">
-            En seguimiento
-          </span>
-        </div>
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-          <ConfigMetricCard label="Estado" value="Período actual" />
-          <ConfigMetricCard label="Política activa" value={meta?.politica_nombre ?? "—"} />
-          <ConfigMetricCard label="Base de cálculo" value={baseLabel} />
-          <ConfigMetricCard
-            label="Escalas"
-            value={meta?.sin_escalas ? "Sin escalas" : "Configuradas"}
-          />
-        </div>
-      </section>
-
-      {kpis && (
-        <section>
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Resumen</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <ConfigMetricCard label="Base comisionable total" value={fmtMoney(kpis.revenue_base_total)} />
-            <ConfigMetricCard label="Comisión estimada total" value={fmtMoney(kpis.comision_estimada_total)} />
-            <ConfigMetricCard label="Total cobrado" value={fmtMoney(kpis.cobrado_periodo_total ?? 0)} />
-            <ConfigMetricCard label="Total pendiente de cobro" value={fmtMoney(kpis.saldo_pendiente_total ?? 0)} />
-            <ConfigMetricCard
-              label="Pendiente por comisionar"
-              value={fmtMoney(kpis.pendiente_por_comisionar_total ?? 0)}
-            />
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <ConfigMetricCard label="Vendedores con comisión" value={kpis.vendedores_con_comision} />
-            <ConfigMetricCard
-              label="Movimientos sin vendedor"
-              value={kpis.fuentes_sin_vendedor}
-              sub={kpis.fuentes_sin_vendedor > 0 ? "Se incluirán al asignar vendedor responsable" : undefined}
-            />
-          </div>
-          {kpis.fuentes_sin_vendedor > 0 && (
-            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              <p>{mensajeFuentesSinVendedor(kpis)}</p>
-              <div className="mt-3">
-                <Link
-                  href="/clientes"
-                  className="inline-flex rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-950"
-                >
-                  Ir a Clientes
-                </Link>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      <section>
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Por vendedor</h2>
-        {rows.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
-            No hay movimientos con vendedor asignado en este período para la base seleccionada.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {rows.map((r) => (
-              <details
-                key={r.vendedor_usuario_id}
-                className="group rounded-2xl border border-slate-200 bg-white shadow-sm open:shadow-md"
-              >
-                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 pr-3 [&::-webkit-details-marker]:hidden">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-900">{r.vendedor_nombre}</p>
-                    <p className="text-xs text-slate-500">
-                      {r.cantidad_movimientos} movimientos · {escalaActualLabel(r)} · {r.max_escala_alcanzada ? "Máxima escala" : faltaEscalaLabel(r)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-right">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase text-slate-400">Base comisionable</p>
-                      <p className="text-sm font-bold tabular-nums text-slate-800">{fmtMoney(r.revenue_base)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase text-slate-400">Comisión estimada</p>
-                      <p className="text-sm font-bold tabular-nums text-emerald-800">{fmtMoney(r.comision_estimada)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase text-slate-400">Pendiente</p>
-                      <p className="text-sm font-bold tabular-nums text-slate-800">{fmtMoney(r.saldo_pendiente_total ?? 0)}</p>
-                    </div>
-                    <MiniScaleSummary row={r} />
-                    <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
-                  </div>
-                </summary>
-                <div className="border-t border-slate-100 px-4 pb-4">
-                  <div className="mt-4">
-                    <TotalsStrip row={r} />
-                  </div>
-                  <MovimientosTable row={r} />
-                </div>
-              </details>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
+type Solapa = "informe" | "cartera" | "config";
 
 export default function ComisionesPage() {
-  const [loading, setLoading] = useState(true);
+  const [solapa, setSolapa] = useState<Solapa>("informe");
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<PreviewPayload | null>(null);
-  const [sellerMonth, setSellerMonth] = useState("");
 
-  const load = useCallback(async (opts?: { mes?: string; signal?: AbortSignal }) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const qs = opts?.mes ? `?mes=${encodeURIComponent(opts.mes)}` : "";
-      const res = await fetchWithSupabaseSession(`/api/comisiones/preview${qs}`, {
-        cache: "no-store",
-        signal: opts?.signal,
-      });
-      if (opts?.signal?.aborted) return;
-      const json = (await res.json()) as { success?: boolean; data?: PreviewPayload; error?: string };
-      if (opts?.signal?.aborted) return;
-      if (!res.ok || json.success !== true || !json.data) {
-        throw new Error(json.error ?? `Error ${res.status}`);
-      }
-      setData(json.data);
-      if (!opts?.mes && json.data.meta?.alcance === "solo_vendedor_autenticado") {
-        setSellerMonth(json.data.meta.periodo_mes ?? currentMonthInputValue());
-      }
-    } catch (e) {
-      if (isAbortError(e)) return;
-      setError(e instanceof Error ? e.message : "Error");
-    } finally {
-      if (!opts?.signal?.aborted) setLoading(false);
-    }
-  }, []);
+  return (
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Vendedores y comisiones</h1>
+        <p className="text-sm text-slate-500">
+          Cuánto vendió cada uno, cuánto le corresponde y de quién es cada cliente.
+        </p>
+      </div>
+
+      <div className="flex gap-1 border-b border-slate-200">
+        {([["informe", "Informe"], ["cartera", "Cartera"], ["config", "Configuración"]] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => { setSolapa(k); setError(null); }}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              solapa === k
+                ? "border-[#4FAEB2] text-[#3F8E91]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {solapa === "informe" && <TabInforme onError={setError} />}
+      {solapa === "cartera" && <TabCartera onError={setError} />}
+      {solapa === "config" && <TabConfig onError={setError} />}
+    </div>
+  );
+}
+
+/* ─────────────────────────────── Informe (4.6 y 4.2) ──────────────────── */
+
+function TabInforme({ onError }: { onError: (e: string | null) => void }) {
+  const [desde, setDesde] = useState(inicioMesPy);
+  const [hasta, setHasta] = useState(hoyPy);
+  const [vendedor, setVendedor] = useState("");
+  const [rubro, setRubro] = useState("");
+  const [data, setData] = useState<Informe | null>(null);
+  const [cfg, setCfg] = useState<Config | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [verDetalle, setVerDetalle] = useState(false);
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    void load({ signal: ctrl.signal });
-    return () => ctrl.abort();
-  }, [load]);
+    fetchWithSupabaseSession("/api/comisiones/config", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (j?.success) setCfg(j.data as Config); })
+      .catch(() => { /* los filtros quedan vacíos; el informe anda igual */ });
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-16 text-center text-sm text-slate-500">
-        Cargando seguimiento de comisiones…
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    onError(null);
+    try {
+      const sp = new URLSearchParams({ desde, hasta });
+      if (vendedor) sp.set("vendedor", vendedor);
+      if (rubro) sp.set("rubro", rubro);
+      const r = await fetchWithSupabaseSession(`/api/comisiones/informe?${sp}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo calcular el informe.");
+      setData(j.data as Informe);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error de red.");
+      setData(null);
+    } finally {
+      setCargando(false);
+    }
+  }, [desde, hasta, vendedor, rubro, onError]);
+
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  const t = data?.totales;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <Campo label="Desde">
+          <input type="date" value={desde} max={hasta} onChange={(e) => setDesde(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+        </Campo>
+        <Campo label="Hasta">
+          <input type="date" value={hasta} min={desde} onChange={(e) => setHasta(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+        </Campo>
+        <Campo label="Vendedor">
+          <select value={vendedor} onChange={(e) => setVendedor(e.target.value)}
+            className="min-w-[170px] rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="">Todos</option>
+            {(cfg?.vendedores ?? []).map((u) => (
+              <option key={u.id} value={u.id}>{u.nombre || u.email}</option>
+            ))}
+          </select>
+        </Campo>
+        <Campo label="Rubro">
+          <select value={rubro} onChange={(e) => setRubro(e.target.value)}
+            className="min-w-[170px] rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="">Todos</option>
+            {(cfg?.rubros ?? []).map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+          </select>
+        </Campo>
+        <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
+          <input type="checkbox" checked={verDetalle} onChange={(e) => setVerDetalle(e.target.checked)} />
+          Ver venta por venta
+        </label>
       </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-16">
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:underline"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Reintentar
-        </button>
-      </div>
-    );
-  }
-
-  const estado = data?.estado ?? "";
-  const meta = data?.meta;
-  const kpis = data?.kpis;
-  const rows = data?.por_vendedor ?? [];
-
-  if (estado === "sin_politica" || estado === "politica_inactiva") {
-    return (
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Comisiones</h1>
-          <p className="mt-1 text-sm text-slate-600">{data?.mensaje}</p>
+      {t && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <Tarjeta label="Operaciones" valor={String(t.operaciones)} />
+          <Tarjeta label="Vendido (sin IVA)" valor={gs(t.facturado)} />
+          <Tarjeta label="Descuentos" valor={gs(t.descuento)} tono="ambar" />
+          <Tarjeta label="Ganancia" valor={gs(t.ganancia)} />
+          <Tarjeta label="Comisiones" valor={gs(t.comision)} destacado />
         </div>
-        <Link
-          href="/configuracion/comisiones"
-          className="inline-flex rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-900 hover:bg-sky-100"
-        >
-          Ir a Configuración → Comisiones
-        </Link>
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[920px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-3">Vendedor</th>
+                <th className="px-4 py-3">Tipo</th>
+                <th className="px-4 py-3 text-right">Oper.</th>
+                <th className="px-4 py-3 text-right">Vendido</th>
+                <th className="px-4 py-3 text-right">Descuentos</th>
+                <th className="px-4 py-3 text-right">Ganancia</th>
+                <th className="px-4 py-3 text-right">Margen</th>
+                <th className="px-4 py-3 text-right">Comisión</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {cargando ? (
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
+              ) : (data?.vendedores.length ?? 0) === 0 ? (
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Sin ventas en el período.</td></tr>
+              ) : data!.vendedores.map((v) => (
+                <tr key={v.vendedor_id ?? "sin"} className="hover:bg-slate-50/60">
+                  <td className="px-4 py-2.5 font-medium text-slate-800">{v.vendedor_nombre}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{v.tipo_vendedor ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{v.operaciones}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{gs(v.facturado)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">
+                    {v.descuento > 0 ? gs(v.descuento) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{gs(v.ganancia)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">{pct(v.margen_pct)}</td>
+                  <td className="px-4 py-2.5 text-right font-bold tabular-nums text-[#3F8E91]">{gs(v.comision)}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    {v.vendedor_id && (
+                      <a
+                        href={`/api/comisiones/hoja?vendedor=${v.vendedor_id}&desde=${desde}&hasta=${hasta}&auto=1`}
+                        target="_blank" rel="noopener"
+                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+                        title="Hoja imprimible con el detalle y espacio para firma"
+                      >
+                        Hoja para firmar
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    );
+
+      {verDetalle && data && (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-3">Comprobante</th>
+                  <th className="px-4 py-3">Fecha</th>
+                  <th className="px-4 py-3">Cliente</th>
+                  <th className="px-4 py-3">Vendedor</th>
+                  <th className="px-4 py-3 text-right">Vendido</th>
+                  <th className="px-4 py-3 text-right">Desc.</th>
+                  <th className="px-4 py-3 text-right">Ganancia</th>
+                  <th className="px-4 py-3 text-right">Comisión</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.ventas.map((v) => (
+                  <tr key={v.venta_id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{v.numero_control}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-slate-600">{fechaCorta(v.fecha)}</td>
+                    <td className="px-4 py-2 text-slate-700">{v.cliente_nombre ?? "Consumidor final"}</td>
+                    <td className="px-4 py-2 text-slate-500">{v.vendedor_nombre}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-slate-700">{gs(v.facturado)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-amber-700">{v.descuento > 0 ? gs(v.descuento) : "—"}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-slate-600">{gs(v.ganancia)}</td>
+                    <td className="px-4 py-2 text-right font-semibold tabular-nums text-[#3F8E91]">{gs(v.comision)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <p className="text-[11px] leading-snug text-slate-400">
+        {data?.base_calculo === "facturacion" ? (
+          <>La comisión se calcula sobre el importe vendido sin IVA.</>
+        ) : (
+          <>
+            La comisión se calcula <strong>sobre la ganancia</strong> de cada venta (precio sin IVA
+            menos costo). Por eso un descuento la baja sola, en la misma proporción en que baja la
+            rentabilidad: no hace falta ninguna regla aparte. El costo es el del momento de la
+            venta, no el de hoy, así una liquidación cerrada no cambia de número.
+          </>
+        )}{" "}
+        Las ventas anuladas no entran. Una venta a pérdida da comisión cero, nunca negativa.
+      </p>
+    </div>
+  );
+}
+
+/* ─────────────────────────────── Cartera (4.1 y 4.3) ──────────────────── */
+
+function TabCartera({ onError }: { onError: (e: string | null) => void }) {
+  const [data, setData] = useState<Cartera | null>(null);
+  const [cfg, setCfg] = useState<Config | null>(null);
+  const [soloLibres, setSoloLibres] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/comisiones/config", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (j?.success) setCfg(j.data as Config); })
+      .catch(() => { /* el selector de vendedor queda vacío */ });
+  }, []);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    onError(null);
+    try {
+      const r = await fetchWithSupabaseSession(
+        `/api/comisiones/cartera${soloLibres ? "?libres=1" : ""}`, { cache: "no-store" }
+      );
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo cargar la cartera.");
+      setData(j.data as Cartera);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setCargando(false);
+    }
+  }, [soloLibres, onError]);
+
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  async function guardar(clienteId: string, body: Record<string, unknown>) {
+    setGuardando(clienteId);
+    onError(null);
+    try {
+      const r = await fetchWithSupabaseSession("/api/comisiones/cartera", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cliente_id: clienteId, ...body }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo guardar.");
+      await cargar();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(null);
+    }
   }
 
-  const baseLabel = BASE_LABEL[meta?.base_calculo ?? ""] ?? meta?.base_calculo ?? "—";
-  const isSellerView =
-    meta?.is_vendedor_view === true ||
-    meta?.viewer_scope === "vendedor" ||
-    meta?.alcance === "solo_vendedor_autenticado";
-  const sellerRow = rows[0] ?? null;
-  const selectedSellerMonth = sellerMonth || meta?.periodo_mes || currentMonthInputValue();
+  const r = data?.resumen;
 
-  if (isSellerView) {
-    return renderVendedorView({
-      meta,
-      sellerRow,
-      selectedSellerMonth,
-      onMonthChange: (mes) => {
-        setSellerMonth(mes);
-        if (mes) void load({ mes });
-      },
-    });
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-sm text-slate-600">
+          Un cliente queda en la cartera de su vendedor por{" "}
+          <b>{data?.dias_cartera ?? 30} días</b> desde su última operación. Pasado ese plazo queda
+          libre solo, sin borrar quién lo atendía.
+        </p>
+        <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={soloLibres} onChange={(e) => setSoloLibres(e.target.checked)} />
+          Ver solo los libres
+        </label>
+      </div>
+
+      {r && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Tarjeta label="Clientes" valor={String(r.total)} />
+          <Tarjeta label="En cartera" valor={String(r.en_cartera)} destacado />
+          <Tarjeta label="Libres" valor={String(r.libres)} tono="ambar" />
+          <Tarjeta label="Sin vendedor" valor={String(r.sin_vendedor)} />
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Vendedor</th>
+                <th className="px-4 py-3">Última operación</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {cargando ? (
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-400">Cargando…</td></tr>
+              ) : (data?.clientes.length ?? 0) === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-400">
+                  {soloLibres ? "No hay clientes libres." : "No hay clientes."}
+                </td></tr>
+              ) : data!.clientes.map((c) => (
+                <tr key={c.id} className="hover:bg-slate-50/60">
+                  <td className="px-4 py-2.5 font-medium text-slate-800">{c.nombre}</td>
+                  <td className="px-4 py-2.5">
+                    <select
+                      value={c.vendedor_id ?? ""}
+                      disabled={guardando === c.id}
+                      onChange={(e) => guardar(c.id, { vendedor_id: e.target.value || null })}
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    >
+                      <option value="">— Sin vendedor —</option>
+                      {(cfg?.vendedores ?? []).map((u) => (
+                        <option key={u.id} value={u.id}>{u.nombre || u.email}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-500">
+                    {c.cartera_desde ? fechaCorta(c.cartera_desde) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {!c.vendedor_id ? (
+                      <span className="text-slate-400">—</span>
+                    ) : c.en_cartera ? (
+                      <span className="rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                        En cartera · {c.dias_restantes} día{c.dias_restantes === 1 ? "" : "s"}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                        Libre
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {c.en_cartera && (
+                      <button
+                        type="button"
+                        disabled={guardando === c.id}
+                        onClick={() => {
+                          if (window.confirm(`¿Liberar a ${c.nombre} de la cartera de ${c.vendedor_nombre}?\n\nSigue constando quién lo atendía; solo deja de contar para la cartera.`)) {
+                            void guardar(c.id, { accion: "liberar" });
+                          }
+                        }}
+                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-amber-300 hover:text-amber-700"
+                      >
+                        Liberar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p className="text-[11px] leading-snug text-slate-400">
+        Si un vendedor está ausente y otro le vende a un cliente de su cartera, la comisión es de
+        quien cerró la operación, pero <strong>el cliente queda en la cartera original</strong> y
+        se le renuevan los días. De lo contrario, el titular perdería su cartera por estar enfermo.
+      </p>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Configuración (4.5) ──────────────────────── */
+
+function TabConfig({ onError }: { onError: (e: string | null) => void }) {
+  const [cfg, setCfg] = useState<Config | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    onError(null);
+    try {
+      const r = await fetchWithSupabaseSession("/api/comisiones/config", { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo cargar la configuración.");
+      setCfg(j.data as Config);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setCargando(false);
+    }
+  }, [onError]);
+
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  async function enviar(body: Record<string, unknown>) {
+    setGuardando(true);
+    onError(null);
+    try {
+      const r = await fetchWithSupabaseSession("/api/comisiones/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo guardar.");
+      await cargar();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(false);
+    }
   }
 
-  return renderAdminView({
-    meta,
-    kpis,
-    rows,
-    baseLabel,
-    onReload: () => void load(),
-  });
+  async function borrar(tipo: "tipo" | "regla", id: string) {
+    if (!window.confirm("¿Borrar?")) return;
+    setGuardando(true);
+    onError(null);
+    try {
+      const r = await fetchWithSupabaseSession(
+        `/api/comisiones/config?tipo=${tipo}&id=${id}`, { method: "DELETE" }
+      );
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo borrar.");
+      await cargar();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (cargando) return <p className="py-10 text-center text-sm text-slate-400">Cargando…</p>;
+  if (!cfg) return null;
+
+  const nombreTipo = (id: string | null) =>
+    id ? cfg.tipos.find((t) => t.id === id)?.nombre ?? "—" : "Cualquier tipo";
+  const nombreRubro = (id: string | null) =>
+    id ? cfg.rubros.find((r) => r.id === id)?.nombre ?? "—" : "Cualquier rubro";
+
+  return (
+    <div className="space-y-6">
+      {/* General */}
+      <Caja titulo="General">
+        <div className="flex flex-wrap items-end gap-4">
+          <Campo label="Días de cartera">
+            <input
+              type="number" min={1} max={365} defaultValue={cfg.config.dias_cartera}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (v !== cfg.config.dias_cartera) {
+                  void enviar({ accion: "config", dias_cartera: v, base_calculo: cfg.config.base_calculo });
+                }
+              }}
+              className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums"
+            />
+          </Campo>
+          <Campo label="Calcular la comisión sobre">
+            <select
+              value={cfg.config.base_calculo}
+              onChange={(e) => void enviar({
+                accion: "config", dias_cartera: cfg.config.dias_cartera, base_calculo: e.target.value,
+              })}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            >
+              <option value="margen">La ganancia (recomendado)</option>
+              <option value="facturacion">El importe vendido</option>
+            </select>
+          </Campo>
+          <p className="max-w-md pb-1 text-[11px] leading-snug text-slate-400">
+            Sobre la ganancia, un descuento baja la comisión en la misma proporción en que baja la
+            rentabilidad. Sobre el importe vendido, casi no la afecta: se termina premiando vender
+            barato.
+          </p>
+        </div>
+      </Caja>
+
+      {/* Tipos de vendedor */}
+      <Caja titulo="Tipos de vendedor"
+        ayuda="El porcentaje base se usa cuando ninguna regla por rubro aplica.">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
+              <th className="py-2">Nombre</th>
+              <th className="py-2 text-right">% base</th>
+              <th className="py-2 text-center">Activo</th>
+              <th className="py-2"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {cfg.tipos.map((t) => (
+              <tr key={t.id}>
+                <td className="py-2 font-medium text-slate-800">{t.nombre}</td>
+                <td className="py-2 text-right tabular-nums">{pct(t.porcentaje_base)}</td>
+                <td className="py-2 text-center">{t.activo ? "Sí" : "No"}</td>
+                <td className="py-2 text-right">
+                  <button onClick={() => borrar("tipo", t.id)} disabled={guardando}
+                    className="text-xs text-rose-600 underline-offset-2 hover:underline">Borrar</button>
+                </td>
+              </tr>
+            ))}
+            {cfg.tipos.length === 0 && (
+              <tr><td colSpan={4} className="py-4 text-center text-slate-400">
+                Todavía no hay tipos. Cargá al menos uno para poder comisionar.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+
+        <FormaInline
+          campos={[
+            { name: "nombre", placeholder: "Ej: EXTERNO", tipo: "text" },
+            { name: "porcentaje_base", placeholder: "% base", tipo: "number" },
+          ]}
+          textoBoton="Agregar tipo"
+          disabled={guardando}
+          onEnviar={(v) => void enviar({
+            accion: "tipo", nombre: v.nombre, porcentaje_base: Number(v.porcentaje_base) || 0,
+          })}
+        />
+      </Caja>
+
+      {/* Reglas */}
+      <Caja titulo="Porcentajes por rubro y tipo"
+        ayuda="Gana siempre la regla más específica: tipo + rubro, después solo rubro, después solo tipo, y al final el porcentaje base del tipo.">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
+              <th className="py-2">Tipo de vendedor</th>
+              <th className="py-2">Rubro</th>
+              <th className="py-2 text-right">%</th>
+              <th className="py-2"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {cfg.reglas.map((r) => (
+              <tr key={r.id}>
+                <td className="py-2 text-slate-700">{nombreTipo(r.tipo_vendedor_id)}</td>
+                <td className="py-2 text-slate-700">{nombreRubro(r.categoria_id)}</td>
+                <td className="py-2 text-right font-semibold tabular-nums">{pct(r.porcentaje)}</td>
+                <td className="py-2 text-right">
+                  <button onClick={() => borrar("regla", r.id)} disabled={guardando}
+                    className="text-xs text-rose-600 underline-offset-2 hover:underline">Borrar</button>
+                </td>
+              </tr>
+            ))}
+            {cfg.reglas.length === 0 && (
+              <tr><td colSpan={4} className="py-4 text-center text-slate-400">
+                Sin reglas: se usa el porcentaje base de cada tipo.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+
+        <ReglaNueva cfg={cfg} disabled={guardando}
+          onEnviar={(b) => void enviar({ accion: "regla", ...b })} />
+      </Caja>
+
+      {/* Tipo de cada usuario */}
+      <Caja titulo="Tipo de cada vendedor">
+        <table className="w-full text-sm">
+          <tbody className="divide-y divide-slate-100">
+            {cfg.vendedores.map((u) => (
+              <tr key={u.id}>
+                <td className="py-2 text-slate-800">{u.nombre || u.email}</td>
+                <td className="py-2 text-right">
+                  <select
+                    value={u.tipo_vendedor_id ?? ""}
+                    disabled={guardando}
+                    onChange={(e) => void enviar({
+                      accion: "asignar_tipo", usuario_id: u.id, tipo_vendedor_id: e.target.value || null,
+                    })}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                  >
+                    <option value="">— Sin tipo —</option>
+                    {cfg.tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Caja>
+    </div>
+  );
+}
+
+/* ─────────────────────────────── Piezas ───────────────────────────────── */
+
+function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase text-slate-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Caja({ titulo, ayuda, children }: { titulo: string; ayuda?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>
+      {ayuda && <p className="mt-0.5 mb-2 text-[11px] leading-snug text-slate-400">{ayuda}</p>}
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
+function Tarjeta({ label, valor, sub, tono, destacado = false }: {
+  label: string; valor: string; sub?: string; tono?: "ambar"; destacado?: boolean;
+}) {
+  const color = destacado ? "text-[#3F8E91]" : tono === "ambar" ? "text-amber-600" : "text-slate-900";
+  return (
+    <div className={`rounded-xl border bg-white p-4 shadow-sm ${destacado ? "border-[#4FAEB2]/40" : "border-slate-200"}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
+    </div>
+  );
+}
+
+function FormaInline({ campos, textoBoton, disabled, onEnviar }: {
+  campos: { name: string; placeholder: string; tipo: string }[];
+  textoBoton: string;
+  disabled?: boolean;
+  onEnviar: (v: Record<string, string>) => void;
+}) {
+  const [v, setV] = useState<Record<string, string>>({});
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+      {campos.map((c) => (
+        <input
+          key={c.name} type={c.tipo} placeholder={c.placeholder}
+          value={v[c.name] ?? ""}
+          onChange={(e) => setV((p) => ({ ...p, [c.name]: e.target.value }))}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+        />
+      ))}
+      <button
+        type="button" disabled={disabled}
+        onClick={() => { onEnviar(v); setV({}); }}
+        className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+      >
+        {textoBoton}
+      </button>
+    </div>
+  );
+}
+
+function ReglaNueva({ cfg, disabled, onEnviar }: {
+  cfg: Config; disabled?: boolean;
+  onEnviar: (b: Record<string, unknown>) => void;
+}) {
+  const [tipo, setTipo] = useState("");
+  const [rubro, setRubro] = useState("");
+  const [porcentaje, setPorcentaje] = useState("");
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+      <select value={tipo} onChange={(e) => setTipo(e.target.value)}
+        className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+        <option value="">Cualquier tipo</option>
+        {cfg.tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+      </select>
+      <select value={rubro} onChange={(e) => setRubro(e.target.value)}
+        className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+        <option value="">Cualquier rubro</option>
+        {cfg.rubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+      </select>
+      <input type="number" placeholder="%" value={porcentaje}
+        onChange={(e) => setPorcentaje(e.target.value)}
+        className="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-sm tabular-nums" />
+      <button
+        type="button" disabled={disabled}
+        onClick={() => {
+          onEnviar({
+            tipo_vendedor_id: tipo || null,
+            categoria_id: rubro || null,
+            porcentaje: Number(porcentaje) || 0,
+          });
+          setPorcentaje("");
+        }}
+        className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+      >
+        Agregar regla
+      </button>
+    </div>
+  );
 }

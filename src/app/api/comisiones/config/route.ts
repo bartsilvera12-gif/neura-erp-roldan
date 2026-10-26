@@ -1,0 +1,242 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { API_ERRORS } from "@/lib/api/errors";
+import { isAdmin } from "@/lib/middleware/auth";
+
+/**
+ * Configuración de comisiones (punto 4.5).
+ *
+ * GET   → tipos de vendedor, reglas por rubro y tipo, y la config general.
+ * POST  → crea o actualiza un tipo, una regla, o la config general.
+ * DELETE → borra un tipo o una regla.
+ *
+ * Todo solo admin: de acá sale lo que cobra cada vendedor.
+ *
+ * El POST hace de alta y de edición según venga `id`. Son la misma operación
+ * desde el punto de vista de quien configura —"que este rubro pague 6%"— y
+ * separarlas obligaría a la pantalla a saber si la regla ya existía.
+ */
+
+const FALTA_TABLA = "Falta correr 24_comisiones_cartera.sql en la base.";
+const esTablaFaltante = (m: string) =>
+  /tipos_vendedor|comisiones_reglas|comisiones_config/.test(m) &&
+  /(does not exist|schema cache|PGRST205)/i.test(m);
+
+type Ctx = NonNullable<Awaited<ReturnType<typeof getTenantSupabaseFromAuthWithRol>>>;
+
+async function guard(request: NextRequest): Promise<Ctx | NextResponse> {
+  const ctx = await getTenantSupabaseFromAuthWithRol(request);
+  if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+  if (!isAdmin(ctx.auth)) {
+    return NextResponse.json(
+      errorResponse("Solo un administrador puede configurar las comisiones."),
+      { status: 403 }
+    );
+  }
+  return ctx;
+}
+
+export async function GET(request: NextRequest) {
+  const g = await guard(request);
+  if (g instanceof NextResponse) return g;
+  const { auth, supabase } = g;
+
+  try {
+    const [tipos, reglas, config, vendedores, rubros] = await Promise.all([
+      supabase.from("tipos_vendedor")
+        .select("id, nombre, porcentaje_base, activo")
+        .eq("empresa_id", auth.empresa_id).order("nombre"),
+      supabase.from("comisiones_reglas")
+        .select("id, tipo_vendedor_id, categoria_id, porcentaje, activo")
+        .eq("empresa_id", auth.empresa_id),
+      supabase.from("comisiones_config")
+        .select("dias_cartera, base_calculo")
+        .eq("empresa_id", auth.empresa_id).maybeSingle(),
+      supabase.from("usuarios")
+        .select("id, nombre, email, tipo_vendedor_id")
+        .eq("empresa_id", auth.empresa_id).order("nombre"),
+      supabase.from("categorias_productos")
+        .select("id, nombre").eq("empresa_id", auth.empresa_id)
+        .eq("activo", true).order("nombre"),
+    ]);
+
+    const primerError = [tipos, reglas, config, vendedores, rubros].find((r) => r.error)?.error;
+    if (primerError && esTablaFaltante(primerError.message ?? "")) {
+      return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+    }
+    if (primerError) throw new Error(primerError.message);
+
+    return NextResponse.json(successResponse({
+      tipos: tipos.data ?? [],
+      reglas: reglas.data ?? [],
+      // Si la fila de config no existe todavía, los valores que pide el pedido.
+      config: config.data ?? { dias_cartera: 30, base_calculo: "margen" },
+      vendedores: vendedores.data ?? [],
+      rubros: rubros.data ?? [],
+    }));
+  } catch (err) {
+    console.error("[/api/comisiones/config GET]", err instanceof Error ? err.message : err);
+    return NextResponse.json(errorResponse("No se pudo cargar la configuración."), { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const g = await guard(request);
+  if (g instanceof NextResponse) return g;
+  const { auth, supabase } = g;
+
+  try {
+    const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const accion = String(b.accion ?? "");
+
+    // ── Tipo de vendedor ──────────────────────────────────────────────────
+    if (accion === "tipo") {
+      const nombre = String(b.nombre ?? "").trim().toUpperCase();
+      if (!nombre) return NextResponse.json(errorResponse("Poné un nombre para el tipo."), { status: 400 });
+      const pct = Number(b.porcentaje_base);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        return NextResponse.json(
+          errorResponse("El porcentaje base tiene que estar entre 0 y 100."),
+          { status: 400 }
+        );
+      }
+      const fila = {
+        empresa_id: auth.empresa_id,
+        nombre,
+        porcentaje_base: pct,
+        activo: b.activo !== false,
+        updated_at: new Date().toISOString(),
+      };
+      const r = b.id
+        ? await supabase.from("tipos_vendedor").update(fila)
+            .eq("empresa_id", auth.empresa_id).eq("id", String(b.id)).select("id").single()
+        : await supabase.from("tipos_vendedor").insert(fila).select("id").single();
+      if (r.error) {
+        if (/duplicate|unique|23505/i.test(r.error.message)) {
+          return NextResponse.json(errorResponse("Ya existe un tipo con ese nombre."), { status: 409 });
+        }
+        if (esTablaFaltante(r.error.message)) {
+          return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+        }
+        throw new Error(r.error.message);
+      }
+      return NextResponse.json(successResponse({ id: (r.data as { id: string }).id }));
+    }
+
+    // ── Regla por rubro y tipo ────────────────────────────────────────────
+    if (accion === "regla") {
+      const pct = Number(b.porcentaje);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        return NextResponse.json(
+          errorResponse("El porcentaje tiene que estar entre 0 y 100."),
+          { status: 400 }
+        );
+      }
+      // Vacío es "cualquiera", que es lo que hace a la regla general.
+      const fila = {
+        empresa_id: auth.empresa_id,
+        tipo_vendedor_id: b.tipo_vendedor_id ? String(b.tipo_vendedor_id) : null,
+        categoria_id: b.categoria_id ? String(b.categoria_id) : null,
+        porcentaje: pct,
+        activo: b.activo !== false,
+        updated_at: new Date().toISOString(),
+      };
+      const r = b.id
+        ? await supabase.from("comisiones_reglas").update(fila)
+            .eq("empresa_id", auth.empresa_id).eq("id", String(b.id)).select("id").single()
+        : await supabase.from("comisiones_reglas").insert(fila).select("id").single();
+      if (r.error) {
+        if (/duplicate|unique|23505/i.test(r.error.message)) {
+          return NextResponse.json(
+            errorResponse("Ya hay una regla para esa combinación de tipo y rubro. Editá la que existe."),
+            { status: 409 }
+          );
+        }
+        if (esTablaFaltante(r.error.message)) {
+          return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+        }
+        throw new Error(r.error.message);
+      }
+      return NextResponse.json(successResponse({ id: (r.data as { id: string }).id }));
+    }
+
+    // ── Tipo de vendedor de un usuario ────────────────────────────────────
+    if (accion === "asignar_tipo") {
+      const usuarioId = String(b.usuario_id ?? "");
+      if (!usuarioId) return NextResponse.json(errorResponse("Falta el usuario."), { status: 400 });
+      const r = await supabase.from("usuarios")
+        .update({ tipo_vendedor_id: b.tipo_vendedor_id ? String(b.tipo_vendedor_id) : null })
+        .eq("empresa_id", auth.empresa_id).eq("id", usuarioId);
+      if (r.error) {
+        if (esTablaFaltante(r.error.message) || /tipo_vendedor_id/.test(r.error.message)) {
+          return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+        }
+        throw new Error(r.error.message);
+      }
+      return NextResponse.json(successResponse({ ok: true }));
+    }
+
+    // ── Config general ────────────────────────────────────────────────────
+    if (accion === "config") {
+      const dias = Number(b.dias_cartera);
+      if (!Number.isFinite(dias) || dias < 1 || dias > 365) {
+        return NextResponse.json(
+          errorResponse("Los días de cartera tienen que estar entre 1 y 365."),
+          { status: 400 }
+        );
+      }
+      const base = b.base_calculo === "facturacion" ? "facturacion" : "margen";
+      const r = await supabase.from("comisiones_config")
+        .upsert({
+          empresa_id: auth.empresa_id,
+          dias_cartera: Math.trunc(dias),
+          base_calculo: base,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "empresa_id" });
+      if (r.error) {
+        if (esTablaFaltante(r.error.message)) {
+          return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+        }
+        throw new Error(r.error.message);
+      }
+      return NextResponse.json(successResponse({ ok: true }));
+    }
+
+    return NextResponse.json(errorResponse("Acción desconocida."), { status: 400 });
+  } catch (err) {
+    console.error("[/api/comisiones/config POST]", err instanceof Error ? err.message : err);
+    return NextResponse.json(errorResponse("No se pudo guardar la configuración."), { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const g = await guard(request);
+  if (g instanceof NextResponse) return g;
+  const { auth, supabase } = g;
+
+  try {
+    const sp = new URL(request.url).searchParams;
+    const tabla = sp.get("tipo") === "regla" ? "comisiones_reglas" : "tipos_vendedor";
+    const id = (sp.get("id") ?? "").trim();
+    if (!id) return NextResponse.json(errorResponse("Falta el id."), { status: 400 });
+
+    const r = await supabase.from(tabla).delete()
+      .eq("empresa_id", auth.empresa_id).eq("id", id);
+    if (r.error) {
+      // Un tipo en uso por un usuario no se borra: dejaría al vendedor sin
+      // porcentaje y su comisión caería a cero sin que nadie lo decida.
+      if (/foreign key|23503/i.test(r.error.message)) {
+        return NextResponse.json(
+          errorResponse("No se puede borrar: hay vendedores con ese tipo asignado. Desactivalo o cambiales el tipo primero."),
+          { status: 409 }
+        );
+      }
+      throw new Error(r.error.message);
+    }
+    return NextResponse.json(successResponse({ ok: true }));
+  } catch (err) {
+    console.error("[/api/comisiones/config DELETE]", err instanceof Error ? err.message : err);
+    return NextResponse.json(errorResponse("No se pudo borrar."), { status: 500 });
+  }
+}
