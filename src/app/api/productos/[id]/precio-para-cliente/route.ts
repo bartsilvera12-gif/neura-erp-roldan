@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     let fuente: "categoria" | "producto_default" = "producto_default";
     let categoria_id: string | null = null;
 
-    // 1) Categoría del cliente
+    // 1) Rubro del cliente
     if (clienteId) {
       const cQ = await ctx.supabase
         .from("clientes")

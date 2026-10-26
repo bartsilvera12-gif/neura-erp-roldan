@@ -17,13 +17,13 @@ export async function GET(request: NextRequest) {
       { header: "NOMBRE", value: (r) => r.nombre, width: 28 },
       { header: "CODIGO", value: (r) => r.codigo ?? "", width: 14 },
       { header: "DESCRIPCION", value: (r) => r.descripcion ?? "", width: 32 },
-      { header: "CATEGORIA_PADRE", value: (r) => r.parent_id ? (byId.get(r.parent_id) ?? "") : "", width: 24 },
+      { header: "RUBRO_PADRE", value: (r) => r.parent_id ? (byId.get(r.parent_id) ?? "") : "", width: 24 },
       { header: "ACTIVO", value: (r) => r.activo ? "SI" : "NO", width: 8 },
-    ], { sheetName: "Categorias" });
+    ], { sheetName: "Rubros" });
 
     return new Response(new Uint8Array(buf), {
       status: 200,
-      headers: xlsxResponseHeaders(`categorias-productos-${nowStamp()}`),
+      headers: xlsxResponseHeaders(`rubros-productos-${nowStamp()}`),
     });
   } catch (err) {
     console.error("[/api/inventario/categorias/export]", err instanceof Error ? err.message : err);

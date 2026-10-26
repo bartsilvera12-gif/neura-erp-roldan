@@ -6,7 +6,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 type PrecioRow = { categoria_id: string; nombre: string; precio: number };
 
 /**
- * Editor de precios por categoría de cliente para un producto.
+ * Editor de precios por rubro de cliente para un producto.
  * Se guarda con PUT /api/productos/[id]/precios-categoria — no depende
  * del guardado principal del producto (es un panel autónomo).
  */
@@ -58,11 +58,11 @@ export default function PreciosCategoriaEditor({ productoId }: { productoId: str
     }
   }
 
-  if (cargando) return <p className="text-xs text-slate-400">Cargando categorías…</p>;
+  if (cargando) return <p className="text-xs text-slate-400">Cargando rubros…</p>;
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-        No hay categorías de cliente activas.{" "}
+        No hay rubros de cliente activos.{" "}
         <a href="/configuracion/categorias-cliente" className="underline font-medium">Crearlas en Configuración</a>.
       </div>
     );
@@ -72,9 +72,9 @@ export default function PreciosCategoriaEditor({ productoId }: { productoId: str
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Precios por categoría de cliente</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Precios por rubro de cliente</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Al facturar, si el cliente tiene una categoría asignada y hay un precio cargado acá para ese cruce, la caja aplica ese precio automáticamente.
+            Al facturar, si el cliente tiene un rubro asignado y hay un precio cargado acá para ese cruce, la caja aplica ese precio automáticamente.
           </p>
         </div>
         <button onClick={guardar} disabled={guardando}
@@ -87,7 +87,7 @@ export default function PreciosCategoriaEditor({ productoId }: { productoId: str
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
           <tr>
-            <th className="text-left px-3 py-2">Categoría</th>
+            <th className="text-left px-3 py-2">Rubro</th>
             <th className="text-right px-3 py-2 w-40">Precio (Gs.)</th>
           </tr>
         </thead>

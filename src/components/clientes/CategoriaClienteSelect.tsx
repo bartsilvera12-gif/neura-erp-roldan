@@ -6,8 +6,8 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 type Categoria = { id: string; nombre: string };
 
 /**
- * Dropdown de categoría de cliente. Emite `null` cuando el usuario elige
- * "Sin categoría". Usado en el form de alta y edición de cliente.
+ * Dropdown de rubro de cliente. Emite `null` cuando el usuario elige
+ * "Sin rubro". Usado en el form de alta y edición de cliente.
  */
 export default function CategoriaClienteSelect({
   value, onChange, className,
@@ -35,7 +35,7 @@ export default function CategoriaClienteSelect({
       onChange={(e) => onChange(e.target.value || null)}
       className={className}
     >
-      <option value="">— Sin categoría —</option>
+      <option value="">— Sin rubro —</option>
       {items.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
     </select>
   );

@@ -1611,20 +1611,20 @@ export default function ClienteDetailPage() {
                     <option value="distribuidor">Distribuidor</option>
                   </select>
                   <p className="mt-1.5 text-xs text-gray-400">
-                    Fallback si no hay categoría configurable con precio para este producto.
+                    Fallback si no hay rubro configurable con precio para este producto.
                   </p>
                 </div>
 
                 {!SIMPLE_CLIENTE && (
                 <div>
-                  <label className={labelClass}>Categoría de cliente</label>
+                  <label className={labelClass}>Rubro de cliente</label>
                   <CategoriaClienteSelect
                     value={form.categoria_cliente_id}
                     onChange={(id) => setForm((prev) => ({ ...prev, categoria_cliente_id: id }))}
                     className={inputClass}
                   />
                   <p className="mt-1.5 text-xs text-gray-400">
-                    Al facturar, la caja aplica el precio cargado para esta categoría en el producto (si hay).
+                    Al facturar, la caja aplica el precio cargado para este rubro en el producto (si hay).
                   </p>
                 </div>
                 )}

@@ -65,7 +65,7 @@ async function existsId(
  *
  * Productos de la sucursal del usuario. Soporta paginación y filtros server-side:
  *  - q=<text>          Búsqueda por tokens (cada palabra, en cualquier orden) sobre nombre o sku
- *  - categoria=<uuid>  Filtra por categoria_principal_id. "__sin__" = sin categoría.
+ *  - categoria=<uuid>  Filtra por categoria_principal_id. "__sin__" = sin rubro.
  *  - limit=<n>         Tamaño de página (max 500). 0 o ausente = sin paginar.
  *  - offset=<n>        Offset de paginación.
  *
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
 
     // Validar ownership de relaciones opcionales
     if (categoriaPrincipalId && !(await existsId(sb, "categorias_productos", empresaId, categoriaPrincipalId))) {
-      return NextResponse.json(errorResponse("La categoría seleccionada no existe."), { status: 400 });
+      return NextResponse.json(errorResponse("El rubro seleccionado no existe."), { status: 400 });
     }
     if (ubicacionPrincipalId && !(await existsId(sb, "inventario_ubicaciones", empresaId, ubicacionPrincipalId))) {
       return NextResponse.json(errorResponse("La ubicación seleccionada no existe."), { status: 400 });
@@ -367,7 +367,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Categoría principal: insertar en puente producto_categorias
+    // Rubro principal: insertar en puente producto_categorias
     if (categoriaPrincipalId) {
       const pc = await sb.from("producto_categorias").insert({
         empresa_id: empresaId,

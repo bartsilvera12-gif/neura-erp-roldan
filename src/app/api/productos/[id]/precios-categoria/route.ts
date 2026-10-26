@@ -5,7 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 
 /**
  * GET /api/productos/[id]/precios-categoria
- * Devuelve las categorías activas de la empresa + el precio cargado (0 si no hay).
+ * Devuelve los rubros activos de la empresa + el precio cargado (0 si no hay).
  * PUT: guarda el mapa completo { categoria_id → precio }.
  */
 export async function GET(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {

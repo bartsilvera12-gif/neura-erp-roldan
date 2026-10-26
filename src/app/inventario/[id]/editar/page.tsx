@@ -645,16 +645,16 @@ export default function EditarProductoPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
               <div className="md:col-span-4 min-w-0">
-                <label className={labelClass}>Categoría principal</label>
+                <label className={labelClass}>Rubro principal</label>
                 <SelectFromList
                   value={categoriaId}
                   onChange={setCategoriaId}
                   options={categorias.map((c) => ({ id: c.id, label: c.nombre }))}
-                  emptyShort="Sin categorías"
+                  emptyShort="Sin rubros"
                 />
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-400 truncate">
-                    {categorias.length === 0 ? "Todavía no cargaste categorías." : `${categorias.length} disponibles`}
+                    {categorias.length === 0 ? "Todavía no cargaste rubros." : `${categorias.length} disponibles`}
                   </span>
                   <Link
                     href="/inventario/categorias"
@@ -979,7 +979,7 @@ export default function EditarProductoPage() {
             </select>
           </div>
 
-          {/* Precios por categoría de cliente — panel autónomo, se guarda con su propio botón. */}
+          {/* Precios por rubro de cliente — panel autónomo, se guarda con su propio botón. */}
           {id && <PreciosCategoriaEditor productoId={id} />}
 
           <div className="flex gap-4 pt-2">

@@ -43,18 +43,18 @@ export async function PATCH(
     if (upd.error) {
       const msg = upd.error.message ?? "";
       if (/duplicate|unique|23505/i.test(msg)) {
-        return NextResponse.json(errorResponse("Ya existe una categoría con ese nombre o código."), {
+        return NextResponse.json(errorResponse("Ya existe un rubro con ese nombre o código."), {
           status: 409,
         });
       }
       console.error("[/api/inventario/categorias/[id] PATCH]", msg);
-      return NextResponse.json(errorResponse("No se pudo actualizar la categoría."), { status: 500 });
+      return NextResponse.json(errorResponse("No se pudo actualizar el rubro."), { status: 500 });
     }
     if (!upd.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
     return NextResponse.json(successResponse({ categoria: upd.data }));
   } catch (err) {
     console.error("[/api/inventario/categorias/[id] PATCH] outer", err);
-    return NextResponse.json(errorResponse("No se pudo actualizar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo actualizar el rubro."), { status: 500 });
   }
 }
 
@@ -77,20 +77,20 @@ export async function DELETE(
 
     if (del.error) {
       const msg = del.error.message ?? "";
-      // FK: categoría en uso por algún producto
+      // FK: rubro en uso por algún producto
       if (/23503|foreign key|violates/i.test(msg)) {
         return NextResponse.json(
-          errorResponse("No se puede borrar: la categoría está asignada a productos. Desactivala en su lugar."),
+          errorResponse("No se puede borrar: el rubro está asignado a productos. Desactivalo en su lugar."),
           { status: 409 }
         );
       }
       console.error("[/api/inventario/categorias/[id] DELETE]", msg);
-      return NextResponse.json(errorResponse("No se pudo borrar la categoría."), { status: 500 });
+      return NextResponse.json(errorResponse("No se pudo borrar el rubro."), { status: 500 });
     }
     if (!del.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
     return NextResponse.json(successResponse({ ok: true }));
   } catch (err) {
     console.error("[/api/inventario/categorias/[id] DELETE] outer", err);
-    return NextResponse.json(errorResponse("No se pudo borrar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo borrar el rubro."), { status: 500 });
   }
 }

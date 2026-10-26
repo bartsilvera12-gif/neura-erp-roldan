@@ -4,12 +4,12 @@ import type { TipoPeriodo } from "./periodos";
 export type AgruparRentabilidad = "producto" | "categoria";
 
 export interface RentabilidadRow {
-  /** id del producto o de la categoría (o "sin-categoria"). */
+  /** id del producto o del rubro (o "sin-categoria"). */
   id: string;
   nombre: string;
   /** SKU (solo cuando se agrupa por producto). */
   sku?: string | null;
-  /** Categoría del producto (solo cuando se agrupa por producto). */
+  /** Rubro del producto (solo cuando se agrupa por producto). */
   categoria?: string | null;
   unidades: number;
   /** Facturación sin IVA (subtotal de las líneas vendidas). */

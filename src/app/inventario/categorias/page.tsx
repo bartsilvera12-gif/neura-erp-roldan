@@ -86,7 +86,7 @@ export default function CategoriasProductosPage() {
   }
 
   async function eliminar(cat: Categoria) {
-    if (!window.confirm(`¿Borrar la categoría "${cat.nombre}"? Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(`¿Borrar el rubro "${cat.nombre}"? Esta acción no se puede deshacer.`)) return;
     const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
       method: "DELETE",
       credentials: "include",
@@ -97,7 +97,7 @@ export default function CategoriasProductosPage() {
   }
 
   async function startEdit(cat: Categoria) {
-    const nuevoNombre = window.prompt("Nuevo nombre de la categoría:", cat.nombre);
+    const nuevoNombre = window.prompt("Nuevo nombre del rubro:", cat.nombre);
     if (nuevoNombre == null || nuevoNombre.trim() === "" || nuevoNombre === cat.nombre) return;
     const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
       method: "PATCH",
@@ -114,10 +114,10 @@ export default function CategoriasProductosPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Categorías de productos</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Rubros de productos</h1>
           <p className="text-gray-600">Clasificá tus productos para reportes y búsqueda.</p>
           <div className="mt-3 max-w-2xl rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
-            Estas categorías aparecen en el selector <strong>Categoría principal</strong> de Nuevo producto.
+            Estos rubros aparecen en el selector <strong>Rubro principal</strong> de Nuevo producto.
             Los <Link href="/proveedores/categorias" className="underline font-medium">rubros de proveedor</Link>{" "}
             también se importan automáticamente acá, así no tenés que cargarlos dos veces.
           </div>
@@ -125,7 +125,7 @@ export default function CategoriasProductosPage() {
         <div className="flex items-center gap-3">
           <ExportExcelButton url="/api/inventario/categorias/export" />
           <ImportExcelButton
-            entidad="Categorías"
+            entidad="Rubros"
             previewUrl="/api/inventario/categorias/import/preview"
             commitUrl="/api/inventario/categorias/import/commit"
             templateUrl="/api/inventario/categorias/import/template"
@@ -142,7 +142,7 @@ export default function CategoriasProductosPage() {
       {/* Alta */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
         <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
-          Nueva categoría
+          Nuevo rubro
         </p>
         <form onSubmit={handleCrear} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div>
@@ -165,7 +165,7 @@ export default function CategoriasProductosPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-600 mb-1">Categoría padre (opcional)</label>
+            <label className="block text-xs text-gray-600 mb-1">Rubro padre (opcional)</label>
             <select
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
@@ -183,7 +183,7 @@ export default function CategoriasProductosPage() {
               disabled={creating || !nombre.trim()}
               className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
             >
-              {creating ? "Creando..." : "Crear categoría"}
+              {creating ? "Creando..." : "Crear rubro"}
             </button>
           </div>
         </form>
@@ -197,7 +197,7 @@ export default function CategoriasProductosPage() {
         {loading ? (
           <p className="p-6 text-sm text-gray-400">Cargando...</p>
         ) : items.length === 0 ? (
-          <p className="p-6 text-sm text-gray-400">Todavía no cargaste categorías.</p>
+          <p className="p-6 text-sm text-gray-400">Todavía no cargaste rubros.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">

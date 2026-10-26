@@ -66,7 +66,7 @@ export default function ProveedoresPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Proveedores</h1>
           <p className="text-gray-600">
-            Maestro de abastecimiento: categorías, condiciones de pago y vínculo futuro con compras.
+            Maestro de abastecimiento: rubros, condiciones de pago y vínculo futuro con compras.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -84,7 +84,7 @@ export default function ProveedoresPage() {
             href="/proveedores/categorias"
             className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
-            Categorías
+            Rubros
           </Link>
           <Link
             href="/proveedores/nuevo"
@@ -99,7 +99,7 @@ export default function ProveedoresPage() {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <input
             type="search"
-            placeholder="Buscar por nombre, RUC, email o categoría…"
+            placeholder="Buscar por nombre, RUC, email o rubro…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0EA5E9]"
@@ -116,7 +116,7 @@ export default function ProveedoresPage() {
                 <th className="py-3 pr-4 font-semibold">Proveedor</th>
                 <th className="py-3 pr-4 font-semibold">RUC</th>
                 <th className="py-3 pr-4 font-semibold">Contacto</th>
-                <th className="py-3 pr-4 font-semibold">Categorías</th>
+                <th className="py-3 pr-4 font-semibold">Rubros</th>
                 <th className="py-3 pr-4 font-semibold">Estado</th>
                 <th className="py-3 font-semibold w-24" />
               </tr>

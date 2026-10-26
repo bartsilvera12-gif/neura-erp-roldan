@@ -36,7 +36,7 @@ export interface LineaVenta {
   subtotal:              number;  // precio_venta × cantidad
   monto_iva:             number;
   total_linea:           number;  // subtotal + monto_iva
-  /** Nombre de la categoría de cliente cuyo precio se está aplicando en esta
+  /** Nombre del rubro de cliente cuyo precio se está aplicando en esta
    *  línea (C1, C2, C3, C4). null cuando el precio es el base del producto. */
   categoria_aplicada?:   string | null;
 }

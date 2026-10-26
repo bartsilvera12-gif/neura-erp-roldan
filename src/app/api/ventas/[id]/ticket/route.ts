@@ -9,7 +9,7 @@ import { membreteA4, membreteTicket } from "@/lib/documentos/membrete";
  *
  * - Default (sin `mode`): una sola copia tipo CLIENTE.
  * - `mode=comandas`: genera múltiples copias en una sola página HTML separadas por
- *   page-break-after, calculadas automáticamente según las categorías/SKUs de los
+ *   page-break-after, calculadas automáticamente según los rubros/SKUs de los
  *   productos de la venta:
  *     · Siempre: copia CLIENTE (con precios, total, método de pago, leyenda no fiscal).
  *     · Si hay pizzas/lompizzas: copia COMANDA PIZZERÍA (sin precios).
@@ -48,7 +48,7 @@ function observacionImprimible(raw?: string | null): string {
 }
 
 // ── Clasificación PIZZERÍA / PLANCHA ───────────────────────────────────────
-// Primary: categoría hija del producto. Fallback: prefijo de SKU.
+// Primary: rubro hijo del producto. Fallback: prefijo de SKU.
 
 const CAT_SLUGS_PIZZERIA = new Set(["pizzas", "lompizzas"]);
 const CAT_SLUGS_PLANCHA = new Set([
@@ -524,7 +524,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     brief = null;
   }
 
-  // Clasificación por categoría (primary) + SKU (fallback)
+  // Clasificación por rubro (primary) + SKU (fallback)
   const productoIds = [...new Set(itemsRaw.map((i) => i.producto_id))];
   const sectorByProd = new Map<string, Sector>();
   if (productoIds.length > 0) {
@@ -552,7 +552,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
           catMap.set(c.id, { slug: c.slug ?? null, nombre: c.nombre ?? null });
         }
       }
-      // Priorizamos la categoría es_principal=true; si no, la primera que matchee.
+      // Priorizamos el rubro es_principal=true; si no, la primera que matchee.
       for (const pid of productoIds) {
         const myCats = pcRows.filter((r) => r.producto_id === pid);
         const order = [...myCats].sort((a, b) => (a.es_principal ? -1 : 1) - (b.es_principal ? -1 : 1));
@@ -565,7 +565,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
         sectorByProd.set(pid, s);
       }
     } catch {
-      // ignoramos errores de categorías; cae al fallback por SKU.
+      // ignoramos errores de rubros; cae al fallback por SKU.
     }
   }
 

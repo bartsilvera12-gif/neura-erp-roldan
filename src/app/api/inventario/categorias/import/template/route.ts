@@ -7,6 +7,6 @@ export async function GET() {
     value: (r: typeof CATEGORIAS_TEMPLATE_ROW) => r[k as keyof typeof CATEGORIAS_TEMPLATE_ROW],
     width: 18,
   }));
-  const buf = buildXlsxBuffer([CATEGORIAS_TEMPLATE_ROW], cols, { sheetName: "Categorias" });
+  const buf = buildXlsxBuffer([CATEGORIAS_TEMPLATE_ROW], cols, { sheetName: "Rubros" });
   return new Response(new Uint8Array(buf), { status: 200, headers: xlsxResponseHeaders("plantilla-categorias") });
 }

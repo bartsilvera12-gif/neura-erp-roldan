@@ -3,7 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
-/** GET /api/categorias-cliente — todas las categorías (activas + inactivas) de la empresa. */
+/** GET /api/categorias-cliente — todos los rubros (activos + inactivos) de la empresa. */
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(successResponse({ categorias: data ?? [] }));
   } catch (err) {
     console.error("[/api/categorias-cliente GET]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudieron cargar las categorías."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudieron cargar los rubros."), { status: 500 });
   }
 }
 
@@ -41,13 +41,13 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (error) {
       if (/23505|duplicate|unique/i.test(error.message)) {
-        return NextResponse.json(errorResponse("Ya existe una categoría con ese nombre."), { status: 409 });
+        return NextResponse.json(errorResponse("Ya existe un rubro con ese nombre."), { status: 409 });
       }
       throw new Error(error.message);
     }
     return NextResponse.json(successResponse({ categoria: data }));
   } catch (err) {
     console.error("[/api/categorias-cliente POST]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo crear la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo crear el rubro."), { status: 500 });
   }
 }

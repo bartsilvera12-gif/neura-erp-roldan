@@ -328,10 +328,10 @@ export default function InventarioPage() {
                 value={categoriaId}
                 onChange={(e) => { setCategoriaId(e.target.value); setPage(1); }}
                 className="h-10 w-full rounded-lg border-2 border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 lg:w-[190px]"
-                aria-label="Filtrar por categoría"
+                aria-label="Filtrar por rubro"
               >
-                <option value="">Todas las categorías</option>
-                <option value="__sin__">— Sin categoría —</option>
+                <option value="">Todos los rubros</option>
+                <option value="__sin__">— Sin rubro —</option>
                 {categorias.map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
@@ -361,8 +361,8 @@ export default function InventarioPage() {
               {categoriaId && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#4FAEB2]/10 px-2 py-0.5 font-medium text-[#4FAEB2]">
                   {categoriaId === "__sin__"
-                    ? "Sin categoría"
-                    : categoriaById.get(categoriaId) ?? "Categoría"}
+                    ? "Sin rubro"
+                    : categoriaById.get(categoriaId) ?? "Rubro"}
                 </span>
               )}
               <button
@@ -383,7 +383,7 @@ export default function InventarioPage() {
               <tr className="border-b-2 border-[#4FAEB2]/15 bg-[#4FAEB2]/5 text-[11px] font-bold uppercase tracking-wider text-[#3F8E91]">
                 <th className="px-5 py-3">Producto</th>
                 <th className="hidden px-3 py-3 lg:table-cell">SKU</th>
-                <th className="hidden px-3 py-3 md:table-cell">Categoría</th>
+                <th className="hidden px-3 py-3 md:table-cell">Rubro</th>
                 <th className="px-3 py-3 text-right">Costo</th>
                 <th className="px-3 py-3 text-right">Precio</th>
                 <th className="px-3 py-3 text-center">Stock</th>
@@ -445,7 +445,7 @@ export default function InventarioPage() {
                       </td>
                       <td className="hidden px-3 py-3.5 text-xs text-slate-600 md:table-cell">
                         {catNombre === "—" ? (
-                          <span className="text-slate-400">— Sin categoría</span>
+                          <span className="text-slate-400">— Sin rubro</span>
                         ) : (
                           (() => {
                             const c = categoryColor(catNombre);
@@ -729,7 +729,7 @@ function PagBtn({
  * Opciones para imprimir la planilla de conteo físico.
  *
  * Arranca con los filtros que ya están puestos en la pantalla: si el encargado
- * filtró una categoría es porque va a contar ese grupo, no todo el depósito.
+ * filtró un rubro es porque va a contar ese grupo, no todo el depósito.
  *
  * El conteo ciego está marcado por defecto a propósito. Si el papel lleva el
  * stock del sistema impreso al lado, lo que se anota termina siendo ese número
@@ -842,8 +842,8 @@ function ModalPlanilla({
                   {[
                     categoriaId
                       ? categoriaId === "__sin__"
-                        ? "Sin categoría"
-                        : categoriaNombre || "Categoría elegida"
+                        ? "Sin rubro"
+                        : categoriaNombre || "Rubro elegido"
                       : null,
                     busqueda ? `Búsqueda: "${busqueda}"` : null,
                   ]

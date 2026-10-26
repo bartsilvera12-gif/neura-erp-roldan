@@ -635,7 +635,7 @@ export default function NuevaVentaPage() {
     return () => clearTimeout(t);
   }, []);
 
-  // Cargar catálogo de categorías una vez (para el dropdown del buscador).
+  // Cargar catálogo de rubros una vez (para el dropdown del buscador).
   useEffect(() => {
     let cancel = false;
     fetchWithSupabaseSession("/api/inventario/categorias", { cache: "no-store" })
@@ -653,7 +653,7 @@ export default function NuevaVentaPage() {
   }, []);
 
   // Autocomplete: búsqueda server-side por tokens (todo el catálogo), con debounce.
-  // Si hay categoría seleccionada, permite listado sin necesitar 2 chars.
+  // Si hay rubro seleccionado, permite listado sin necesitar 2 chars.
   useEffect(() => {
     const q = comboQuery.trim();
     if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
@@ -1302,8 +1302,8 @@ export default function NuevaVentaPage() {
                 ) : comboResultados.length === 0 ? (
                   <div className="px-4 py-5 text-center text-sm text-slate-400">
                     {comboQuery
-                      ? `Sin resultados para "${comboQuery}"${comboCategoriaId ? " en esa categoría" : ""}.`
-                      : "No hay productos en esta categoría."}
+                      ? `Sin resultados para "${comboQuery}"${comboCategoriaId ? " en ese rubro" : ""}.`
+                      : "No hay productos en este rubro."}
                   </div>
                 ) : (
                   <ul className="divide-y divide-slate-100">
@@ -1360,12 +1360,12 @@ export default function NuevaVentaPage() {
                     })}
                     {!comboCategoriaId && comboResultados.length >= 20 && (
                       <li className="px-4 py-2 text-center text-[11px] text-slate-400">
-                        Mostrando los primeros 20. Refiná la búsqueda o elegí una categoría para ver más.
+                        Mostrando los primeros 20. Refiná la búsqueda o elegí un rubro para ver más.
                       </li>
                     )}
                     {comboCategoriaId && comboResultados.length >= 200 && (
                       <li className="px-4 py-2 text-center text-[11px] text-slate-400">
-                        Mostrando los primeros 200 de la categoría. Escribí para filtrar más.
+                        Mostrando los primeros 200 del rubro. Escribí para filtrar más.
                       </li>
                     )}
                   </ul>
@@ -1875,7 +1875,7 @@ export default function NuevaVentaPage() {
   );
 }
 
-// ── Combobox categoría con búsqueda (paleta Zentra) ───────────────────────────
+// ── Combobox rubro con búsqueda (paleta Zentra) ───────────────────────────
 // ── Editor de pago mixto (2+ metodos por venta) ───────────────────────────────
 type PagoMixtoLinea = {
   metodo: "efectivo" | "transferencia" | "tarjeta";
@@ -2127,7 +2127,7 @@ function CategoriaCombo({
         }`}
       >
         <span className="truncate">
-          {selected ? selected.nombre : "Todas las categorías"}
+          {selected ? selected.nombre : "Todos los rubros"}
         </span>
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
@@ -2142,7 +2142,7 @@ function CategoriaCombo({
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar categoría…"
+              placeholder="Buscar rubro…"
               className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/15"
             />
           </div>
@@ -2155,7 +2155,7 @@ function CategoriaCombo({
                   !value ? "bg-[#4FAEB2]/10 font-semibold text-[#3F8E91]" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                Todas las categorías
+                Todos los rubros
               </button>
             </li>
             {filtered.length === 0 ? (

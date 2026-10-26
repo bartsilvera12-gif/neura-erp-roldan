@@ -18,7 +18,7 @@ export default function CategoriasClientePage() {
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Edición inline: id de la categoría que se está editando + valores en curso.
+  // Edición inline: id del rubro que se está editando + valores en curso.
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editNombre, setEditNombre] = useState("");
   const [editOrden, setEditOrden] = useState("");
@@ -85,7 +85,7 @@ export default function CategoriasClientePage() {
 
   async function toggleActiva(c: Categoria) { await patch(c.id, { activa: !c.activa }); }
   async function eliminar(c: Categoria) {
-    if (!window.confirm(`¿Borrar la categoría "${c.nombre}"?`)) return;
+    if (!window.confirm(`¿Borrar el rubro "${c.nombre}"?`)) return;
     try {
       const r = await fetchWithSupabaseSession(`/api/categorias-cliente/${c.id}`, { method: "DELETE" });
       const j = await r.json();
@@ -114,29 +114,29 @@ export default function CategoriasClientePage() {
     <div className="space-y-8 max-w-4xl">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Categorías de cliente</h1>
-        <p className="text-slate-600">Grupos configurables (ej. Supermercado grande, Restaurante, Mayorista). Al asignar una categoría al cliente y cargar precios por categoría en el producto, la caja aplica el precio correcto automáticamente.</p>
+        <h1 className="mt-2 text-3xl font-bold text-slate-800">Rubros de cliente</h1>
+        <p className="text-slate-600">Rubros configurables (ej. Supermercado grande, Restaurante, Mayorista). Al asignar un rubro al cliente y cargar precios por rubro en el producto, la caja aplica el precio correcto automáticamente.</p>
       </div>
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
       <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
-        <h2 className="text-sm font-semibold text-slate-800">Nueva categoría</h2>
+        <h2 className="text-sm font-semibold text-slate-800">Nuevo rubro</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input className={`${inputClass} sm:col-span-2`} placeholder="Nombre (ej. Supermercado grande)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
           <input type="number" className={inputClass} placeholder={`Orden (auto: ${proximoOrden})`} value={orden} onChange={(e) => setOrden(e.target.value)} />
         </div>
         <p className="text-xs text-slate-500">Dejá el orden vacío para que se ubique al final ({proximoOrden}).</p>
         <button disabled={creando} className="rounded-lg bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 text-sm font-medium disabled:opacity-60">
-          {creando ? "Creando…" : "Crear categoría"}
+          {creando ? "Creando…" : "Crear rubro"}
         </button>
       </form>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-3">
-          <h2 className="text-sm font-semibold text-slate-800">Categorías cargadas</h2>
+          <h2 className="text-sm font-semibold text-slate-800">Rubros cargados</h2>
         </div>
         {items.length === 0 ? (
-          <p className="p-6 text-sm text-slate-400">Todavía no hay categorías.</p>
+          <p className="p-6 text-sm text-slate-400">Todavía no hay rubros.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">

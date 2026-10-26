@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
 
     query = aplicarFiltroSucursal(query, exigirSucursal(auth.sucursal_id));
 
-    // Filtro por categoría (la pantalla de venta manda ?categoria_id=…). Antes
-    // se ignoraba, así que elegir una categoría no filtraba nada.
+    // Filtro por rubro (la pantalla de venta manda ?categoria_id=…). Antes
+    // se ignoraba, así que elegir un rubro no filtraba nada.
     const categoriaId = (url.searchParams.get("categoria_id") ?? "").trim();
     if (categoriaId) {
       query = query.eq("categoria_principal_id", categoriaId);

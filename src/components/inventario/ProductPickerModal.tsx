@@ -83,7 +83,7 @@ interface Props {
   /** Nivel de precio por defecto (viene del cliente seleccionado). */
   tipoPrecioDefault?: "minorista" | "mayorista" | "distribuidor";
   /** Cliente seleccionado en la venta. Si viene, al elegir un producto
-   *  se busca su precio por categoría en /api/productos/[id]/precio-para-cliente
+   *  se busca su precio por rubro en /api/productos/[id]/precio-para-cliente
    *  y sobrescribe el precio inicial (silencioso si no hay match). */
   clienteId?: string | null;
 }
@@ -168,7 +168,7 @@ export default function ProductPickerModal({
     setFeedback(null);
 
     // Si el cliente tiene categoria_cliente_id y hay precio cargado para este
-    // producto en esa categoría, sobrescribimos el precio con ese valor.
+    // producto en ese rubro, sobrescribimos el precio con ese valor.
     if (clienteId) {
       try {
         const r = await fetch(`/api/productos/${p.id}/precio-para-cliente?cliente_id=${encodeURIComponent(clienteId)}`, {
@@ -235,7 +235,7 @@ export default function ProductPickerModal({
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nombre, SKU, código, categoría o ubicación..."
+              placeholder="Buscar por nombre, SKU, código, rubro o ubicación..."
               className="flex-1 bg-transparent outline-none text-base text-slate-800 placeholder:text-slate-400"
               autoComplete="off"
             />

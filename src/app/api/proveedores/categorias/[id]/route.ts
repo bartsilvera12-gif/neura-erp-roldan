@@ -37,19 +37,19 @@ export async function PATCH(
       const code = (e as { code?: string })?.code;
       if (code === "23505" || /unique|duplicate/i.test(msg)) {
         return NextResponse.json(
-          errorResponse("Ya existe una categoría con ese nombre."),
+          errorResponse("Ya existe un rubro con ese nombre."),
           { status: 409 }
         );
       }
       console.error("[/api/proveedores/categorias/[id] PATCH]", { schema, id, msg, code });
       return NextResponse.json(
-        errorResponse("No se pudo actualizar la categoría."),
+        errorResponse("No se pudo actualizar el rubro."),
         { status: 500 }
       );
     }
   } catch (err) {
     console.error("[/api/proveedores/categorias/[id] PATCH] outer", err);
-    return NextResponse.json(errorResponse("No se pudo actualizar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo actualizar el rubro."), { status: 500 });
   }
 }
 
@@ -68,18 +68,18 @@ export async function DELETE(
       return NextResponse.json(successResponse({ ok: true }));
     } catch (e) {
       const code = (e as { code?: string })?.code;
-      // FK violation: categoría en uso por algún proveedor
+      // FK violation: rubro en uso por algún proveedor
       if (code === "23503") {
         return NextResponse.json(
-          errorResponse("No se puede borrar: la categoría está asignada a proveedores. Desactivala en su lugar."),
+          errorResponse("No se puede borrar: el rubro está asignado a proveedores. Desactivalo en su lugar."),
           { status: 409 }
         );
       }
       console.error("[/api/proveedores/categorias/[id] DELETE]", { schema, id, code });
-      return NextResponse.json(errorResponse("No se pudo borrar la categoría."), { status: 500 });
+      return NextResponse.json(errorResponse("No se pudo borrar el rubro."), { status: 500 });
     }
   } catch (err) {
     console.error("[/api/proveedores/categorias/[id] DELETE] outer", err);
-    return NextResponse.json(errorResponse("No se pudo borrar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo borrar el rubro."), { status: 500 });
   }
 }

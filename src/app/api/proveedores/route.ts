@@ -42,7 +42,7 @@ function mapProveedorRow(r: ProveedorRow): Proveedor {
 }
 
 /**
- * GET /api/proveedores — lista con categorías resueltas (PG directo).
+ * GET /api/proveedores — lista con rubros resueltos (PG directo).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/proveedores — alta con categorías opcionales (PG directo).
+ * POST /api/proveedores — alta con rubros opcionales (PG directo).
  *
  * Normalizacion: nombre/razon_social/RUC/direccion/contacto/observaciones se
  * guardan en mayusculas. Email queda tal cual (lowercased).

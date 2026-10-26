@@ -140,7 +140,7 @@ export default function NuevoPresupuestoPage() {
   }
 
   /** Consulta al backend el precio a aplicar para este producto según la
-   *  categoría del cliente (si tiene) y el precio configurado en
+   *  rubro del cliente (si tiene) y el precio configurado en
    *  precios_por_categoria. Si no hay match, cae al precio_venta. */
   async function resolverPrecioPorCategoria(productoId: string): Promise<number | null> {
     if (!clienteId) return null;
@@ -163,7 +163,7 @@ export default function NuevoPresupuestoPage() {
     if (items.some((it) => it.producto_id === p.id)) return;
     const usaMay = usarMayorista && p.precio_mayorista > 0;
 
-    // Prioridad: precio por categoría del cliente → mayorista → precio_venta.
+    // Prioridad: precio por rubro del cliente → mayorista → precio_venta.
     const precioCategoria = await resolverPrecioPorCategoria(p.id);
     const precio = precioCategoria ?? precioParaProducto(p);
     const tipo_precio: "minorista" | "mayorista" | "distribuidor" =

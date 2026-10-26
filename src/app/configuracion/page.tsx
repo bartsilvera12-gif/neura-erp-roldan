@@ -22,7 +22,7 @@ import { getConfig } from "@/lib/config/storage";
 import { getMisModulos } from "@/lib/empresas/actions";
 import { NEURA_CLIENT_SCHEMA } from "@/lib/supabase/schema";
 
-/** Roldán: las "Categorías de cliente" no se usan; se ocultan de Configuración. */
+/** Roldán: las "Rubros de cliente" no se usan; se ocultan de Configuración. */
 const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
 
 export default function ConfiguracionPage() {
@@ -96,9 +96,9 @@ export default function ConfiguracionPage() {
           {!SIMPLE_CLIENTE && (
           <li>
             <SettingsModuleCard
-              title="Categorías de cliente"
+              title="Rubros de cliente"
               subtitle="GLOBAL · COMERCIAL"
-              description="Grupos configurables (Supermercado, Restaurante, Mayorista, Minorista, etc.) para aplicar precios diferenciados por producto en la caja."
+              description="Rubros configurables (Supermercado, Restaurante, Mayorista, Minorista, etc.) para aplicar precios diferenciados por producto en la caja."
               icon={UsersRound}
               badge={editorBadge}
               href="/configuracion/categorias-cliente"

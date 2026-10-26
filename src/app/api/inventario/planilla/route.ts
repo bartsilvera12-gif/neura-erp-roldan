@@ -14,8 +14,8 @@ import { EMPRESA_DOC } from "@/lib/documentos/membrete";
  * Después esa diferencia se carga como ajuste.
  *
  * Parámetros, todos opcionales:
- *   categoria — id de categoría, para contar un grupo por vez.
- *   sin_categoria — "1" trae solo los que no tienen categoría.
+ *   categoria — id de rubro, para contar un rubro por vez.
+ *   sin_categoria — "1" trae solo los que no tienen rubro.
  *   q         — filtra por nombre, SKU o código de barras.
  *   stock     — "con" deja solo los que tienen stock; "todos" (default) trae todo.
  *   oculto    — "1" oculta la columna Stock Act.
@@ -89,8 +89,8 @@ export async function GET(request: NextRequest) {
     let filas = crudas.filter((p) => p.controla_stock !== false);
     if (soloConStock) filas = filas.filter((p) => (Number(p.stock_actual) || 0) > 0);
 
-    // Nombre de la categoría, para el encabezado "Grupo:".
-    let grupo = sinCategoria ? "Sin categoría" : "";
+    // Nombre del rubro, para el encabezado "Rubro:".
+    let grupo = sinCategoria ? "Sin rubro" : "";
     if (categoriaId && !sinCategoria) {
       const c = await ctx.supabase
         .from("categorias_productos").select("nombre")
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
     <h1>Planilla de Inventario</h1>
     <div class="sub">
       <div class="meta">
-        <div><b>Grupo:</b> ${grupo ? esc(grupo) : '<span class="linea"></span>'}</div>
+        <div><b>Rubro:</b> ${grupo ? esc(grupo) : '<span class="linea"></span>'}</div>
         <div><b>Marca:</b> <span class="linea"></span></div>
       </div>
       <div class="fecha">${esc(ahoraPy())}</div>

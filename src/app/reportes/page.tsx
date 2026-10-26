@@ -27,7 +27,7 @@ export default function ReportesPage() {
         <li>
           <ReportCard
             title="Rentabilidad"
-            subtitle="Ganancia y margen por producto/categoría"
+            subtitle="Ganancia y margen por producto/rubro"
             icon={Target}
             description="Qué producto y qué línea dejan más ganancia (no solo cuál factura más): unidades, costo, margen y participación en la utilidad."
             href="/reportes/rentabilidad"

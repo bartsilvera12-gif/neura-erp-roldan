@@ -204,12 +204,12 @@ export default function ProveedorForm({
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Categorías</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Rubros</p>
         {categorias.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No hay categorías aún.{" "}
+            No hay rubros aún.{" "}
             <a href="/proveedores/categorias" className="text-sky-600 underline">
-              Crear en gestión de categorías
+              Crear en gestión de rubros
             </a>
             .
           </p>

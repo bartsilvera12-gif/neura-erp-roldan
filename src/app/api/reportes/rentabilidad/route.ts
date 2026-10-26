@@ -15,7 +15,7 @@ import type { RentabilidadReporte, AgruparRentabilidad } from "@/lib/reportes/re
  *   ?agrupar=producto|categoria
  *
  * Rentabilidad de ventas propias (Nutrición): facturación, costo, ganancia,
- * margen y participación en la utilidad, por producto o por categoría.
+ * margen y participación en la utilidad, por producto o por rubro.
  */
 export const dynamic = "force-dynamic";
 

@@ -125,7 +125,7 @@ export default function ExcelImportWizard({
               {permiteCrearFaltantes && (
                 <label className="flex items-center gap-2 text-sm text-slate-700 select-none">
                   <input type="checkbox" checked={crearFaltantes} onChange={(e) => setCrearFaltantes(e.target.checked)} />
-                  Crear categorías, proveedores o ubicaciones faltantes durante la importación
+                  Crear rubros, proveedores o ubicaciones faltantes durante la importación
                 </label>
               )}
               <PreviewTable rows={preview.rows} />
@@ -194,7 +194,7 @@ function FaltantesBox({ f }: { f: { categorias: string[]; proveedores: string[];
   return (
     <div className="text-xs bg-amber-50 border border-amber-200 rounded p-2 space-y-1">
       <p className="font-semibold text-amber-800">Referencias faltantes:</p>
-      {f.categorias.length > 0 && <p>Categorías: {f.categorias.slice(0, 8).join(", ")}{f.categorias.length > 8 ? "…" : ""}</p>}
+      {f.categorias.length > 0 && <p>Rubros: {f.categorias.slice(0, 8).join(", ")}{f.categorias.length > 8 ? "…" : ""}</p>}
       {f.proveedores.length > 0 && <p>Proveedores: {f.proveedores.slice(0, 8).join(", ")}{f.proveedores.length > 8 ? "…" : ""}</p>}
       {f.ubicaciones.length > 0 && <p>Ubicaciones: {f.ubicaciones.slice(0, 8).join(", ")}{f.ubicaciones.length > 8 ? "…" : ""}</p>}
     </div>

@@ -747,7 +747,7 @@ export async function getGananciasConsignataria(
   };
 }
 
-// ── Rentabilidad por producto / categoría ────────────────────────────────────
+// ── Rentabilidad por producto / rubro ────────────────────────────────────
 
 export interface RentabilidadResultado {
   filas: RentabilidadRow[];
@@ -758,7 +758,7 @@ export interface RentabilidadResultado {
 
 /**
  * Rentabilidad de ventas propias (Nutrición; excluye consignación) agrupada por
- * producto o por categoría. Facturación = subtotal (sin IVA) de las líneas;
+ * producto o por rubro. Facturación = subtotal (sin IVA) de las líneas;
  * costo = CMV sin IVA (movimientos SALIDA origen='venta', quitando IVA por la
  * tasa de cada producto). Margen y participación se calculan sobre esos totales.
  */
@@ -814,7 +814,7 @@ export async function getRentabilidad(
     const q = await p.query(
       `${ctes}
        SELECT COALESCE(cat.id::text,'sin-categoria') AS id,
-              COALESCE(cat.nombre,'Sin categoría') AS nombre,
+              COALESCE(cat.nombre,'Sin rubro') AS nombre,
               SUM(f.unidades)::float8 AS unidades,
               SUM(f.facturacion)::float8 AS facturacion,
               SUM(COALESCE(c.costo,0))::float8 AS costo

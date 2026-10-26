@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[/api/proveedores/categorias GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(
-      errorResponse("No se pudieron cargar las categorías."),
+      errorResponse("No se pudieron cargar los rubros."),
       { status: 500 }
     );
   }
@@ -52,18 +52,18 @@ export async function POST(request: NextRequest) {
       const code = (e as { code?: string })?.code;
       if (code === "23505" || /unique|duplicate/i.test(msg)) {
         return NextResponse.json(
-          errorResponse("Ya existe una categoría con ese nombre."),
+          errorResponse("Ya existe un rubro con ese nombre."),
           { status: 409 }
         );
       }
       console.error("[/api/proveedores/categorias POST]", { schema, msg, code });
       return NextResponse.json(
-        errorResponse("No se pudo guardar la categoría. Revisá los datos e intentá nuevamente."),
+        errorResponse("No se pudo guardar el rubro. Revisá los datos e intentá nuevamente."),
         { status: 500 }
       );
     }
   } catch (err) {
     console.error("[/api/proveedores/categorias POST] outer", err);
-    return NextResponse.json(errorResponse("No se pudo guardar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo guardar el rubro."), { status: 500 });
   }
 }

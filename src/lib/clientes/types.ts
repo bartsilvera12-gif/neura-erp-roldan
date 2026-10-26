@@ -39,8 +39,8 @@ export interface Cliente {
   /** Nivel de precio comercial. Default 'minorista'. Se usa como pre-carga al agregar
    *  productos en Presupuestos, Pedidos y Ventas. */
   nivel_precio?: NivelPrecio;
-  /** Categoría configurable del cliente (Supermercado, Restaurante, Mayorista, etc.).
-   *  Si está seteada y el producto tiene un precio cargado para esa categoría,
+  /** Rubro configurable del cliente (Supermercado, Restaurante, Mayorista, etc.).
+   *  Si está seteada y el producto tiene un precio cargado para ese rubro,
    *  la caja aplica ese precio en vez del nivel_precio. Ver /api/productos/[id]/precio-para-cliente. */
   categoria_cliente_id?: string | null;
 

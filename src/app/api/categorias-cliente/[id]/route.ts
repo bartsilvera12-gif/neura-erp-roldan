@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       .maybeSingle();
     if (error) {
       if (/23505|duplicate|unique/i.test(error.message)) {
-        return NextResponse.json(errorResponse("Ya existe una categoría con ese nombre."), { status: 409 });
+        return NextResponse.json(errorResponse("Ya existe un rubro con ese nombre."), { status: 409 });
       }
       throw new Error(error.message);
     }
@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     return NextResponse.json(successResponse({ categoria: data }));
   } catch (err) {
     console.error("[/api/categorias-cliente/[id] PATCH]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo actualizar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo actualizar el rubro."), { status: 500 });
   }
 }
 
@@ -47,7 +47,7 @@ export async function DELETE(request: NextRequest, ctxParams: { params: Promise<
     if (error) {
       if (/23503|foreign key/i.test(error.message)) {
         return NextResponse.json(
-          errorResponse("La categoría está asignada a clientes o tiene precios cargados. Desactivala en su lugar."),
+          errorResponse("El rubro está asignado a clientes o tiene precios cargados. Desactivalo en su lugar."),
           { status: 409 }
         );
       }
@@ -56,6 +56,6 @@ export async function DELETE(request: NextRequest, ctxParams: { params: Promise<
     return NextResponse.json(successResponse({ ok: true }));
   } catch (err) {
     console.error("[/api/categorias-cliente/[id] DELETE]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo borrar la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo borrar el rubro."), { status: 500 });
   }
 }

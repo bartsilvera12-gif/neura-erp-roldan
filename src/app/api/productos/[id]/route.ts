@@ -145,7 +145,7 @@ export async function PATCH(
     if (body.categoria_principal_id !== undefined) {
       const v = body.categoria_principal_id == null ? null : String(body.categoria_principal_id);
       if (v && !(await existsId(sb, "categorias_productos", empresaId, v))) {
-        return NextResponse.json(errorResponse("La categoría seleccionada no existe."), { status: 400 });
+        return NextResponse.json(errorResponse("El rubro seleccionado no existe."), { status: 400 });
       }
       patch.categoria_principal_id = v;
       categoriaCambia = true;
@@ -269,7 +269,7 @@ export async function PATCH(
       }
     }
 
-    // Sincronizar categoría principal en puente producto_categorias
+    // Sincronizar rubro principal en puente producto_categorias
     if (categoriaCambia) {
       try {
         // Limpiar es_principal anterior

@@ -157,7 +157,7 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "inventario", slug: "inventario", label: "Inventario", href: "/inventario", icon: Package, children: [
     { label: "Productos", href: "/inventario" },
     { label: "Movimientos", href: "/inventario/movimientos" },
-    { label: "Categorías", href: "/inventario/categorias" },
+    { label: "Rubros", href: "/inventario/categorias" },
     { label: "Ubicaciones", href: "/inventario/ubicaciones" },
     { label: "Depósitos", href: "/depositos" },
     { label: "Reposición", href: "/inventario/sugerencias" },
@@ -207,7 +207,7 @@ const MENU_STRUCTURE: MenuItem[] = [
     icon: Truck,
     children: [
       { label: "Proveedores", href: "/proveedores", exactMatch: true },
-      { label: "Categorías", href: "/proveedores/categorias" },
+      { label: "Rubros", href: "/proveedores/categorias" },
     ],
   },
   { key: "gastos", slug: "gastos", label: "Gastos", href: "/gastos", icon: Receipt },

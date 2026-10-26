@@ -55,7 +55,7 @@ export function parseProductosRows(rows: Record<string, string>[]): ProductoPars
       nombre,
       sku,
       codigo_barras: codigo_barras_raw,
-      categoria_nombre: normalizeUpperText(pick(r, "CATEGORIA", "CATEGORIA_PRINCIPAL")),
+      categoria_nombre: normalizeUpperText(pick(r, "RUBRO", "RUBRO_PRINCIPAL", "CATEGORIA", "CATEGORIA_PRINCIPAL")),
       proveedor_nombre: normalizeUpperText(pick(r, "PROVEEDOR_PRINCIPAL", "PROVEEDOR")),
       ubicacion_nombre: normalizeUpperText(pick(r, "UBICACION_PRINCIPAL", "UBICACION")),
       unidad_medida: normalizeUpperText(pick(r, "UNIDAD_MEDIDA", "UNIDADMEDIDA")) || "UNIDAD",
@@ -158,7 +158,7 @@ export function buildPreview(parsed: ProductoParsed[], maps: ResolverMaps): Prev
 
     // Faltantes
     if (p.categoria_nombre && !maps.categoriasByName.has(p.categoria_nombre)) {
-      p.warnings.push(`Categoría "${p.categoria_nombre}" no existe.`);
+      p.warnings.push(`Rubro "${p.categoria_nombre}" no existe.`);
       catsFaltantes.add(p.categoria_nombre);
     }
     if (p.proveedor_nombre && !maps.proveedoresByName.has(p.proveedor_nombre)) {
@@ -204,7 +204,7 @@ export function buildPreview(parsed: ProductoParsed[], maps: ResolverMaps): Prev
       errors: p.errors,
       data: {
         NOMBRE: p.nombre, SKU: p.sku, CODIGO_BARRAS: p.codigo_barras || "(auto)",
-        CATEGORIA: p.categoria_nombre, PROVEEDOR: p.proveedor_nombre, UBICACION: p.ubicacion_nombre,
+        RUBRO: p.categoria_nombre, PROVEEDOR: p.proveedor_nombre, UBICACION: p.ubicacion_nombre,
         COSTO: p.costo_promedio ?? "", PRECIO: p.precio_venta ?? "", STOCK: p.stock_actual ?? "",
         STOCK_ANTERIOR: stockAnterior ?? "",
         MOVIMIENTO: stockMov,
@@ -226,7 +226,7 @@ export function buildPreview(parsed: ProductoParsed[], maps: ResolverMaps): Prev
       unidades_salida: totalSalida,
     },
     rows,
-    headers: ["NOMBRE","SKU","CODIGO_BARRAS","CATEGORIA","PROVEEDOR_PRINCIPAL","UBICACION_PRINCIPAL","UNIDAD_MEDIDA","COSTO_PROMEDIO","PRECIO_VENTA","STOCK_ACTUAL","STOCK_MINIMO","METODO_VALUACION","ACTIVO"],
+    headers: ["NOMBRE","SKU","CODIGO_BARRAS","RUBRO","PROVEEDOR_PRINCIPAL","UBICACION_PRINCIPAL","UNIDAD_MEDIDA","COSTO_PROMEDIO","PRECIO_VENTA","STOCK_ACTUAL","STOCK_MINIMO","METODO_VALUACION","ACTIVO"],
   };
 }
 
@@ -319,8 +319,8 @@ export async function commitProductos(
       try {
         const r = await pool.query<{ id: string }>(`INSERT INTO ${tC} (empresa_id, nombre, activo) VALUES ($1::uuid,$2,true) RETURNING id`, [empresaId, nombre]);
         maps.categoriasByName.set(nombre, r.rows[0].id);
-        out.warningMessages.push(`Categoría creada: ${nombre}`);
-      } catch (e) { out.errorMessages.push(`No se pudo crear categoría ${nombre}: ${(e as Error).message}`); }
+        out.warningMessages.push(`Rubro creado: ${nombre}`);
+      } catch (e) { out.errorMessages.push(`No se pudo crear rubro ${nombre}: ${(e as Error).message}`); }
     }
     for (const nombre of provs) {
       try {
@@ -451,7 +451,7 @@ export const PRODUCTOS_TEMPLATE_ROW = {
   NOMBRE: "EJEMPLO PRODUCTO",
   SKU: "EJ-001",
   CODIGO_BARRAS: "",
-  CATEGORIA: "ELECTRICIDAD",
+  RUBRO: "ELECTRICIDAD",
   PROVEEDOR_PRINCIPAL: "DON HERRAMIENTAS SA",
   UBICACION_PRINCIPAL: "DEPOSITO CENTRAL",
   UNIDAD_MEDIDA: "UNIDAD",

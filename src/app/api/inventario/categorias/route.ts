@@ -6,7 +6,7 @@ import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 
 /**
- * GET/POST de categorías de productos vía PostgREST (cliente Supabase).
+ * GET/POST de rubros de productos vía PostgREST (cliente Supabase).
  * Reescrito desde pool PG directo porque Hostinger no expone DATABASE_URL.
  */
 export async function GET(request: NextRequest) {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const rSuc = respuestaSucursalNoAsignada(err);
     if (rSuc) return rSuc;
     console.error("[/api/inventario/categorias GET]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudieron cargar las categorías."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudieron cargar los rubros."), { status: 500 });
   }
 }
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Pre-check duplicado por nombre (case-insensitive vía ilike).
     // El único de nombre ahora incluye la sucursal, así que el pre-check también:
-    // dos sucursales SÍ pueden tener una categoría con el mismo nombre.
+    // dos sucursales SÍ pueden tener un rubro con el mismo nombre.
     const dup = await aplicarFiltroSucursal(
       ctx.supabase
         .from("categorias_productos")
@@ -67,11 +67,11 @@ export async function POST(request: NextRequest) {
     ).limit(1);
     if (dup.error) {
       console.error("[/api/inventario/categorias POST] pre-check", dup.error.message);
-      return NextResponse.json(errorResponse("No se pudo crear la categoría."), { status: 500 });
+      return NextResponse.json(errorResponse("No se pudo crear el rubro."), { status: 500 });
     }
     if ((dup.data ?? []).length > 0) {
       return NextResponse.json(
-        errorResponse("Ya existe una categoría con ese nombre."),
+        errorResponse("Ya existe un rubro con ese nombre."),
         { status: 409 }
       );
     }
@@ -96,18 +96,18 @@ export async function POST(request: NextRequest) {
       const msg = ins.error.message ?? "";
       if (/uq_categorias_productos_empresa_nombre|duplicate|unique/i.test(msg)) {
         return NextResponse.json(
-          errorResponse("Ya existe una categoría con ese nombre o código."),
+          errorResponse("Ya existe un rubro con ese nombre o código."),
           { status: 409 }
         );
       }
       console.error("[/api/inventario/categorias POST] insert", msg);
-      return NextResponse.json(errorResponse("No se pudo crear la categoría."), { status: 500 });
+      return NextResponse.json(errorResponse("No se pudo crear el rubro."), { status: 500 });
     }
     return NextResponse.json(successResponse({ categoria: ins.data }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);
     if (rSuc) return rSuc;
     console.error("[/api/inventario/categorias POST] outer", err);
-    return NextResponse.json(errorResponse("No se pudo crear la categoría."), { status: 500 });
+    return NextResponse.json(errorResponse("No se pudo crear el rubro."), { status: 500 });
   }
 }

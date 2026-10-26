@@ -136,7 +136,7 @@ export default function NuevoProductoPage() {
     } catch { /* si falla, queda la lista que ya estaba */ }
   }
 
-  /** Relee las categorías sin recargar la página, para el botón "Recargar". */
+  /** Relee los rubros sin recargar la página, para el botón "Recargar". */
   async function recargarCategorias() {
     try {
       const r = await fetch("/api/inventario/categorias", { credentials: "include", cache: "no-store" });
@@ -806,18 +806,18 @@ export default function NuevoProductoPage() {
               <span className="text-xs text-gray-400">Opcional</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-              {/* Categoría — 4 cols */}
+              {/* Rubro — 4 cols */}
               <div className="md:col-span-4 min-w-0">
-                <label className={labelClass}>Categoría principal</label>
+                <label className={labelClass}>Rubro principal</label>
                 <SelectFromList
                   value={categoriaId}
                   onChange={setCategoriaId}
                   options={categorias.map((c) => ({ id: c.id, label: c.nombre }))}
-                  emptyShort="Sin categorías"
+                  emptyShort="Sin rubros"
                 />
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-400 truncate">
-                    {categorias.length === 0 ? "Todavía no cargaste categorías." : `${categorias.length} disponibles`}
+                    {categorias.length === 0 ? "Todavía no cargaste rubros." : `${categorias.length} disponibles`}
                   </span>
                   <button
                     type="button"
@@ -1095,7 +1095,7 @@ export default function NuevoProductoPage() {
 }
 
 /**
- * Alta rápida de categoría, proveedor o depósito sin salir del formulario.
+ * Alta rápida de rubro, proveedor o depósito sin salir del formulario.
  *
  * Antes cada "+ Crear" era un link: en la misma pestaña se perdía todo lo
  * cargado del producto, y en otra pestaña había que volver y recargar a mano.
@@ -1114,7 +1114,7 @@ function ModalCrearRapido({
   onCreado: (id: string) => void | Promise<void>;
 }) {
   const CONFIG = {
-    categoria: { titulo: "Nueva categoría", label: "Nombre de la categoría", url: "/api/inventario/categorias", clave: "categoria" },
+    categoria: { titulo: "Nuevo rubro", label: "Nombre del rubro", url: "/api/inventario/categorias", clave: "categoria" },
     proveedor: { titulo: "Nuevo proveedor", label: "Razón social / nombre",  url: "/api/proveedores",            clave: "proveedor" },
     deposito:  { titulo: "Nuevo depósito",  label: "Nombre del depósito",    url: "/api/inventario/ubicaciones", clave: "ubicacion" },
   } as const;

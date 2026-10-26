@@ -198,7 +198,7 @@ export default function DetalleProductoPage() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Clasificación y ubicación</h2>
-            <DatoFila label="Categoría principal">{nombreCategoria || "—"}</DatoFila>
+            <DatoFila label="Rubro principal">{nombreCategoria || "—"}</DatoFila>
             {!esInsumo && <DatoFila label="Proveedor principal">{nombreProveedor || "—"}</DatoFila>}
             <DatoFila label="Depósito principal">{nombreUbicacion || "—"}</DatoFila>
           </div>

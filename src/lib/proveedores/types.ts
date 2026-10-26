@@ -2,7 +2,7 @@ export type EstadoProveedor = "activo" | "inactivo";
 
 export type CondicionPagoProveedor = "contado" | "credito" | "mixto";
 
-/** Categoría maestra (tenant). */
+/** Rubro maestro (tenant). */
 export interface ProveedorCategoria {
   id: string;
   empresa_id?: string;
@@ -13,7 +13,7 @@ export interface ProveedorCategoria {
   updated_at?: string;
 }
 
-/** Proveedor persistido en DB (cabecera + categorías resueltas en GET). */
+/** Proveedor persistido en DB (cabecera + rubros resueltos en GET). */
 export interface Proveedor {
   id: string;
   empresa_id?: string;
@@ -32,7 +32,7 @@ export interface Proveedor {
   observaciones: string | null;
   created_at: string;
   updated_at: string;
-  /** Solo en lecturas que join-ean categorías */
+  /** Solo en lecturas que join-ean rubros */
   categorias?: Pick<ProveedorCategoria, "id" | "nombre" | "activo">[];
 }
 

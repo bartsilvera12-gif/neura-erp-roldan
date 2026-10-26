@@ -77,7 +77,7 @@ export default function ProveedorCategoriasPage() {
   }
 
   async function eliminar(c: ProveedorCategoria) {
-    if (!window.confirm(`¿Borrar la categoría "${c.nombre}"? Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(`¿Borrar el rubro "${c.nombre}"? Esta acción no se puede deshacer.`)) return;
     const res = await deleteCategoriaProveedor(c.id);
     if (!res.ok) setError(res.error);
     else await reload();
@@ -94,9 +94,9 @@ export default function ProveedorCategoriasPage() {
           <p className="text-gray-600">Etiquetas para clasificar proveedores (textil, importación, etc.).</p>
           <div className="mt-3 max-w-2xl rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
             Los rubros que cargues acá <strong>se importan automáticamente</strong> como
-            categorías en{" "}
+            rubros en{" "}
             <Link href="/inventario/categorias" className="underline font-medium">
-              Inventario / Categorías
+              Inventario / Rubros
             </Link>{" "}
             y aparecen disponibles al crear o editar productos.
           </div>
@@ -107,7 +107,7 @@ export default function ProveedorCategoriasPage() {
         onSubmit={handleCrear}
         className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3 max-w-xl"
       >
-        <h2 className="text-sm font-semibold text-slate-800">Nueva categoría</h2>
+        <h2 className="text-sm font-semibold text-slate-800">Nuevo rubro</h2>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Nombre *</label>
           <input className={inputClass} value={nombre} onChange={(e) => setNombre(e.target.value)} required />
@@ -176,7 +176,7 @@ export default function ProveedorCategoriasPage() {
                         en `sr-only` hacía que un lector de pantalla leyera
                         "Sí Sí". El estado se anuncia por `aria-checked`. */}
                     <span className="sr-only">
-                      {c.activo ? "Categoría activa" : "Categoría inactiva"}
+                      {c.activo ? "Rubro activo" : "Rubro inactivo"}
                     </span>
                   </button>
                   <span aria-hidden="true" className={`ml-2 text-xs font-medium ${c.activo ? "text-emerald-700" : "text-slate-500"}`}>
@@ -224,7 +224,7 @@ export default function ProveedorCategoriasPage() {
             ))}
           </tbody>
         </table>
-        {lista.length === 0 && <p className="py-8 text-center text-slate-400">Sin categorías.</p>}
+        {lista.length === 0 && <p className="py-8 text-center text-slate-400">Sin rubros.</p>}
       </div>
     </div>
   );

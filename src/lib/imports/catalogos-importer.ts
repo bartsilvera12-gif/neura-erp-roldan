@@ -29,7 +29,7 @@ export function parseCategoriasRows(rows: Record<string, string>[]): CategoriaPa
       nombre,
       codigo: normalizeUpperNullable(pick(r, "CODIGO")),
       descripcion: normalizeUpperNullable(pick(r, "DESCRIPCION")),
-      parent_nombre: normalizeUpperText(pick(r, "CATEGORIA_PADRE")),
+      parent_nombre: normalizeUpperText(pick(r, "RUBRO_PADRE", "CATEGORIA_PADRE")),
       activo: pickBool(r, "ACTIVO"),
       errors, warnings: [],
     };
@@ -58,7 +58,7 @@ export function buildCatPreview(parsed: CategoriaParsed[], byName: Map<string, s
     if (p.nombre) vistos.add(p.nombre);
     p.match_id = p.nombre ? (byName.get(p.nombre) ?? null) : null;
     if (p.parent_nombre && !byName.has(p.parent_nombre)) {
-      p.warnings.push(`Categoría padre "${p.parent_nombre}" no existe.`);
+      p.warnings.push(`Rubro padre "${p.parent_nombre}" no existe.`);
       faltantesParent.add(p.parent_nombre);
     }
     const hasErr = p.errors.length > 0;
@@ -76,7 +76,7 @@ export function buildCatPreview(parsed: CategoriaParsed[], byName: Map<string, s
     summary: { total: parsed.length, insertar, actualizar, omitir: 0, errores, warnings,
       faltantes: { categorias: [...faltantesParent], proveedores: [], ubicaciones: [] } },
     rows,
-    headers: ["NOMBRE","CODIGO","DESCRIPCION","CATEGORIA_PADRE","ACTIVO"],
+    headers: ["NOMBRE","CODIGO","DESCRIPCION","RUBRO_PADRE","ACTIVO"],
   };
 }
 
@@ -95,7 +95,7 @@ export async function commitCategorias(schemaRaw: string, empresaId: string, par
       try {
         const r = await pool.query<{ id: string }>(`INSERT INTO ${t} (empresa_id, nombre, activo) VALUES ($1::uuid,$2,true) RETURNING id`, [empresaId, n]);
         byName.set(n, r.rows[0].id);
-        out.warningMessages.push(`Categoría padre creada: ${n}`);
+        out.warningMessages.push(`Rubro padre creado: ${n}`);
       } catch (e) { out.errorMessages.push(`No se pudo crear padre ${n}: ${(e as Error).message}`); }
     }
   }
@@ -130,7 +130,7 @@ export async function commitCategorias(schemaRaw: string, empresaId: string, par
   return out;
 }
 
-export const CATEGORIAS_TEMPLATE_ROW = { NOMBRE: "ELECTRICIDAD", CODIGO: "ELE", DESCRIPCION: "PRODUCTOS ELECTRICOS", CATEGORIA_PADRE: "", ACTIVO: "SI" };
+export const CATEGORIAS_TEMPLATE_ROW = { NOMBRE: "ELECTRICIDAD", CODIGO: "ELE", DESCRIPCION: "PRODUCTOS ELECTRICOS", RUBRO_PADRE: "", ACTIVO: "SI" };
 
 // ── UBICACIONES ───────────────────────────────────────────────────────────
 

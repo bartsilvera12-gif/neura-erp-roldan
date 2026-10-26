@@ -122,7 +122,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
         </div>
         <div className="space-y-4">
           <div>
-            <label className={fLabel}>Categoría</label>
+            <label className={fLabel}>Rubro</label>
             <input
               type="text"
               name="categoria"

@@ -3,7 +3,7 @@
  *
  * Match: por RUC (case-insensitive) si viene, si no por NOMBRE_CONTACTO
  * (case-insensitive). Match → UPDATE; sin match → INSERT.
- * Categorías (CATEGORIA_CLIENTE) se resuelven contra `categorias_cliente`;
+ * Rubros (CATEGORIA_CLIENTE) se resuelven contra `categorias_cliente`;
  * si `crear_faltantes=1` las crea sobre la marcha.
  */
 import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-pool";
@@ -78,7 +78,7 @@ export function parseClientesRows(rows: Record<string, string>[]): ClienteParsed
       razon_social: razonSocial,
       nombre_facturacion: normalizeUpperNullable(pick(r, "NOMBRE_FACTURACION")),
       nivel_precio: nivelPrecio,
-      categoria_cliente_nombre: normalizeUpperNullable(pick(r, "CATEGORIA_CLIENTE", "CATEGORIA")),
+      categoria_cliente_nombre: normalizeUpperNullable(pick(r, "RUBRO_CLIENTE", "RUBRO", "CATEGORIA_CLIENTE", "CATEGORIA")),
       ruc: (() => {
         const raw = normalizeUpperNullable(pick(r, "RUC"));
         if (raw && !/^\d{1,10}-\d$/.test(raw)) {
@@ -157,7 +157,7 @@ export function buildClientesPreview(parsed: ClienteParsed[], maps: ClienteResol
     p.match_id = matchId;
 
     if (p.categoria_cliente_nombre && !maps.categoriasByName.has(p.categoria_cliente_nombre)) {
-      p.warnings.push(`Categoría "${p.categoria_cliente_nombre}" no existe. Se creará si tildaste "Crear faltantes", si no se ignora.`);
+      p.warnings.push(`Rubro "${p.categoria_cliente_nombre}" no existe. Se creará si tildaste "Crear faltantes", si no se ignora.`);
       catsFaltantes.add(p.categoria_cliente_nombre);
     }
 
@@ -180,7 +180,7 @@ export function buildClientesPreview(parsed: ClienteParsed[], maps: ClienteResol
         RUC: p.ruc ?? "",
         EMAIL: p.email ?? "",
         CIUDAD: p.ciudad ?? "",
-        CATEGORIA_CLIENTE: p.categoria_cliente_nombre ?? "",
+        RUBRO_CLIENTE: p.categoria_cliente_nombre ?? "",
       },
     };
   });
@@ -193,7 +193,7 @@ export function buildClientesPreview(parsed: ClienteParsed[], maps: ClienteResol
     rows,
     headers: [
       "TIPO_CLIENTE", "RAZON_SOCIAL", "PERSONA_CONTACTO", "NOMBRE_COMPLETO",
-      "NOMBRE_FACTURACION", "NIVEL_PRECIO", "CATEGORIA_CLIENTE",
+      "NOMBRE_FACTURACION", "NIVEL_PRECIO", "RUBRO_CLIENTE",
       "RUC", "DOCUMENTO", "ES_CONTRIBUYENTE",
       "TELEFONO", "TELEFONO_SECUNDARIO", "EMAIL", "EMAIL_SECUNDARIO",
       "DIRECCION", "USA_NOTA_REMISION", "CIUDAD", "PAIS",
@@ -232,9 +232,9 @@ export async function commitClientes(
           [empresaId, nombre]
         );
         maps.categoriasByName.set(nombre, r.rows[0].id);
-        out.warningMessages.push(`Categoría creada: ${nombre}`);
+        out.warningMessages.push(`Rubro creado: ${nombre}`);
       } catch (e) {
-        out.errorMessages.push(`No se pudo crear categoría ${nombre}: ${(e as Error).message}`);
+        out.errorMessages.push(`No se pudo crear rubro ${nombre}: ${(e as Error).message}`);
       }
     }
   }
@@ -329,7 +329,7 @@ export const CLIENTES_TEMPLATE_ROW = {
   NOMBRE_COMPLETO: "",
   NOMBRE_FACTURACION: "",
   NIVEL_PRECIO: "minorista",
-  CATEGORIA_CLIENTE: "MAYORISTA CENTRO",
+  RUBRO_CLIENTE: "MAYORISTA CENTRO",
   RUC: "80006886-8",
   DOCUMENTO: "",
   ES_CONTRIBUYENTE: "SI",

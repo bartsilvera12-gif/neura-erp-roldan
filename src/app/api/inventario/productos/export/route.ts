@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       { header: "SKU", value: (r) => r.sku, width: 18 },
       { header: "CODIGO_BARRAS", value: (r) => r.codigo_barras ?? "", width: 24 },
       { header: "CODIGO_INTERNO", value: (r) => (r.codigo_barras_interno && r.codigo_barras) ? r.codigo_barras : "", width: 24 },
-      { header: "CATEGORIA", value: (r) => r.categoria_nombre ?? "", width: 22 },
+      { header: "RUBRO", value: (r) => r.categoria_nombre ?? "", width: 22 },
       { header: "PROVEEDOR_PRINCIPAL", value: (r) => r.proveedor_nombre ?? "", width: 28 },
       { header: "UBICACION_PRINCIPAL", value: (r) => r.ubicacion_nombre ? `${r.ubicacion_nombre}${r.ubicacion_tipo ? ` (${r.ubicacion_tipo})` : ""}` : "", width: 28 },
       { header: "UNIDAD_MEDIDA", value: (r) => r.unidad_medida, width: 12 },

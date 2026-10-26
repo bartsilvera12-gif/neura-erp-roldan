@@ -62,14 +62,14 @@ export default function RentabilidadReportePage() {
       <PageHeader
         eyebrow="Zentra · Reportes"
         title="Rentabilidad"
-        description="Ganancia y margen por producto y por categoría"
+        description="Ganancia y margen por producto y por rubro"
         backHref="/reportes"
         backLabel="Reportes"
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
               <button onClick={() => setAgrupar("producto")} className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${esProducto ? "bg-[#3F8E91] text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"}`}>Por producto</button>
-              <button onClick={() => setAgrupar("categoria")} className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${!esProducto ? "bg-[#3F8E91] text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"}`}>Por categoría</button>
+              <button onClick={() => setAgrupar("categoria")} className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${!esProducto ? "bg-[#3F8E91] text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"}`}>Por rubro</button>
             </div>
             <PeriodoSelector onChange={onPeriodo} />
           </div>
@@ -86,7 +86,7 @@ export default function RentabilidadReportePage() {
         <>
           <div className="text-sm text-slate-500">
             <span className="font-medium text-slate-700">{data.periodoLabel}</span>
-            {" · "}{esProducto ? "por producto" : "por categoría"}
+            {" · "}{esProducto ? "por producto" : "por rubro"}
           </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -101,7 +101,7 @@ export default function RentabilidadReportePage() {
               <table className="w-full text-sm min-w-[820px]">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-400 border-b border-slate-100">
-                    <Th label={esProducto ? "Producto" : "Categoría"} onClick={() => toggleSort("nombre")} active={sortKey === "nombre"} />
+                    <Th label={esProducto ? "Producto" : "Rubro"} onClick={() => toggleSort("nombre")} active={sortKey === "nombre"} />
                     <Th label="Unidades" right onClick={() => toggleSort("unidades")} active={sortKey === "unidades"} />
                     <Th label="Facturación" right onClick={() => toggleSort("facturacion")} active={sortKey === "facturacion"} />
                     <Th label="Costo" right onClick={() => toggleSort("costo")} active={sortKey === "costo"} />
@@ -122,7 +122,7 @@ export default function RentabilidadReportePage() {
           <p className="text-xs text-slate-400 leading-relaxed max-w-3xl">
             Facturación sin IVA (subtotal de las líneas vendidas); costo = CMV sin IVA (costo de cada producto al
             momento de la venta). <strong>Participación</strong> = qué % de la ganancia total aporta cada
-            {esProducto ? " producto" : " categoría"}. Excluye ventas anuladas y de consignación.
+            {esProducto ? " producto" : " rubro"}. Excluye ventas anuladas y de consignación.
           </p>
         </>
       )}
