@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-/** Hook simple: devuelve true si el usuario actual tiene rol admin. */
-export function useIsAdmin(): { isAdmin: boolean; loaded: boolean } {
+/**
+ * Hook simple: rol admin y tope de descuento del usuario.
+ *
+ * `descuentoMaximo` (punto 2.3): null = sin tope. Es para avisar en pantalla;
+ * el límite de verdad lo aplica el servidor al crear la venta.
+ */
+export function useIsAdmin(): { isAdmin: boolean; loaded: boolean; descuentoMaximo: number | null } {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [descuentoMaximo, setDescuentoMaximo] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let cancel = false;
@@ -13,10 +19,12 @@ export function useIsAdmin(): { isAdmin: boolean; loaded: boolean } {
       .then((j) => {
         if (cancel) return;
         setIsAdmin(j?.success && j.data?.isAdmin === true);
+        const d = j?.data?.descuentoMaximo;
+        setDescuentoMaximo(typeof d === "number" && Number.isFinite(d) ? d : null);
         setLoaded(true);
       })
       .catch(() => { if (!cancel) setLoaded(true); });
     return () => { cancel = true; };
   }, []);
-  return { isAdmin, loaded };
+  return { isAdmin, loaded, descuentoMaximo };
 }

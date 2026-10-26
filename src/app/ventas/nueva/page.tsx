@@ -769,7 +769,7 @@ export default function NuevaVentaPage() {
    * Sirve para decidir un descuento sabiendo cuánto hay para ceder, en vez de
    * bajar el precio a ojo y enterarse al cierre del mes.
    */
-  const { isAdmin: verMargenes } = useIsAdmin();
+  const { isAdmin: verMargenes, descuentoMaximo } = useIsAdmin();
 
   const resumenMargen = useMemo(() => {
     let costo = 0;
@@ -1530,15 +1530,31 @@ export default function NuevaVentaPage() {
                                 ningún acuerdo comercial de esta empresa: ahora
                                 se escribe el porcentaje que haga falta. */}
                             <div className="mt-1 flex items-center justify-end gap-1">
-                              <span className="text-[10px] text-slate-400">Desc.</span>
+                              <span
+                                className="text-[10px] text-slate-400"
+                                title={descuentoMaximo == null
+                                  ? "Tu usuario no tiene tope de descuento."
+                                  : descuentoMaximo === 0
+                                    ? "Tu usuario no puede aplicar descuentos."
+                                    : `Tu tope de descuento es ${descuentoMaximo}%.`}
+                              >
+                                Desc.{descuentoMaximo != null && (
+                                  <span className="ml-0.5 text-slate-300">máx {descuentoMaximo}%</span>
+                                )}
+                              </span>
                               <NumeroEditable
                                 value={descuentoPctDe(item)}
                                 onChange={(d) => {
+                                  // El tope del usuario (punto 2.3). Se corta acá
+                                  // para avisar en el momento; el límite de verdad
+                                  // lo aplica el servidor al confirmar la venta.
+                                  const tope = descuentoMaximo ?? 100;
+                                  const dOk = Math.min(Math.max(0, d), tope);
                                   const base = item.precio_venta_original || item.precio_venta || 0;
-                                  updateItemCampo(idx, { precio_venta: Math.round(base * (1 - d / 100)) });
+                                  updateItemCampo(idx, { precio_venta: Math.round(base * (1 - dOk / 100)) });
                                 }}
                                 min={0}
-                                max={100}
+                                max={descuentoMaximo ?? 100}
                                 fallback={0}
                                 className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-[11px] tabular-nums"
                               />

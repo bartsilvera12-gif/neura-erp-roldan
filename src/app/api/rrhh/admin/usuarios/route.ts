@@ -24,6 +24,23 @@ export async function GET(request: NextRequest) {
   const g = await esAdmin(request);
   if ("err" in g) return g.err;
 
+  // `descuento_maximo_pct` llega con el script 21. Si todavía no se corrió, se
+  // reintenta sin esa columna: la pantalla de usuarios no puede quedar rota
+  // esperando una migración.
+  const conTope = await g.ctx.supabase
+    .from("usuarios")
+    .select("id, nombre, email, rol, rol_rrhh, estado, auth_user_id, descuento_maximo_pct")
+    .eq("empresa_id", g.ctx.auth.empresa_id)
+    .order("nombre", { ascending: true })
+    .order("email", { ascending: true });
+
+  if (!conTope.error) {
+    return NextResponse.json(successResponse({ usuarios: conTope.data ?? [] }));
+  }
+  if (!/descuento_maximo_pct/.test(conTope.error.message ?? "")) {
+    return NextResponse.json(errorResponse(conTope.error.message), { status: 400 });
+  }
+
   const { data, error } = await g.ctx.supabase
     .from("usuarios")
     .select("id, nombre, email, rol, rol_rrhh, estado, auth_user_id")

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserAndEmpresa } from "@/lib/middleware/auth";
+import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
+import { descuentoMaximoDe, validarTopeDescuento } from "@/lib/ventas/server/descuento-maximo";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { createVentaTransaccionalPg, StockInsuficienteError } from "@/lib/ventas/server/create-venta-pg";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
@@ -251,6 +253,19 @@ export async function POST(request: NextRequest) {
 
     if (moneda === "USD" && tipoCambio <= 0) {
       return NextResponse.json(errorResponse("Tipo de cambio inválido para USD."), { status: 400 });
+    }
+
+    // ── Tope de descuento del usuario (punto 2.3) ─────────────────────────
+    // Va acá, antes de tocar stock o numeración: una venta rechazada no tiene
+    // que dejar nada a medio hacer. Esconder el campo en Caja no alcanza —
+    // el precio igual se puede mandar por fuera de la pantalla.
+    {
+      const sbTope = await createServiceRoleClientForEmpresa(auth.empresa_id);
+      const tope = await descuentoMaximoDe(sbTope, auth.empresa_id, auth.usuarioCatalogId);
+      const problema = validarTopeDescuento(items, tope);
+      if (problema) {
+        return NextResponse.json(errorResponse(problema), { status: 403 });
+      }
     }
 
     const schema = await fetchDataSchemaForEmpresaId(auth.empresa_id);

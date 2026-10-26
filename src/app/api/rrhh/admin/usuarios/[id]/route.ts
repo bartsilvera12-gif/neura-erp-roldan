@@ -8,9 +8,13 @@ const ROLES_RRHH = ["admin","gestor","rrhh","encargado_obra","empleado"] as cons
 
 /**
  * PATCH /api/rrhh/admin/usuarios/[id]
- * Body: { rol_rrhh: "admin" | "gestor" | "rrhh" | "encargado_obra" | "empleado" | null }
+ * Body: { rol_rrhh?: "admin" | "gestor" | "rrhh" | "encargado_obra" | "empleado" | null,
+ *         descuento_maximo_pct?: number | null }
  * Sólo admin puede modificar. No toca la columna legacy `rol` (super_admin, admin,
  * usuario) para no romper otras RLS.
+ *
+ * `descuento_maximo_pct` (punto 2.3) es el tope de descuento del usuario en
+ * Caja. null = sin tope; 0 = no puede descontar nada, que es distinto.
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getTenantSupabaseFromAuth(request);
@@ -33,11 +37,42 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     rol_rrhh = v;
   }
 
+  // Se arma el patch con lo que vino: mandar solo el tope no tiene que pisar
+  // el rol, ni al revés.
+  const patch: Record<string, unknown> = {};
+  if ("rol_rrhh" in body) patch.rol_rrhh = rol_rrhh;
+  if ("descuento_maximo_pct" in body) {
+    const raw = body.descuento_maximo_pct;
+    if (raw === null || raw === "") {
+      patch.descuento_maximo_pct = null;
+    } else {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        return NextResponse.json(
+          errorResponse("El descuento máximo tiene que ser un número entre 0 y 100, o vacío para sin tope."),
+          { status: 400 }
+        );
+      }
+      patch.descuento_maximo_pct = n;
+    }
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json(errorResponse("No hay nada para cambiar."), { status: 400 });
+  }
+
   const { error } = await ctx.supabase
     .from("usuarios")
-    .update({ rol_rrhh })
+    .update(patch)
     .eq("id", id)
     .eq("empresa_id", ctx.auth.empresa_id);
-  if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
+  if (error) {
+    if (/descuento_maximo_pct/.test(error.message ?? "")) {
+      return NextResponse.json(
+        errorResponse("Falta correr 21_descuento_maximo_usuario.sql en la base."),
+        { status: 500 }
+      );
+    }
+    return NextResponse.json(errorResponse(error.message), { status: 400 });
+  }
   return NextResponse.json(successResponse({ ok: true }));
 }
