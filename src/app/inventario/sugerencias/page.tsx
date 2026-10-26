@@ -28,6 +28,9 @@ type Fila = {
   minimo_sugerido: number | null;
   pico_mes: number | null;
   meses_con_venta: number | null;
+  rubro_nombre: string | null;
+  dias_critico: number;
+  critico_del_rubro: boolean;
 };
 
 type Respuesta = {
@@ -36,6 +39,7 @@ type Respuesta = {
   filas: Fila[];
   meses_minimo: number;
   minimos_disponibles: boolean;
+  rubros_con_umbral: number;
   resumen: {
     productos: number; sin_stock: number; criticos: number;
     bajos: number; a_reponer: number; costo_total: number;
@@ -176,6 +180,22 @@ export default function SugerenciasReposicionPage() {
           <input type="checkbox" checked={soloAReponer} onChange={(e) => setSoloAReponer(e.target.checked)} />
           Mostrar solo lo que hay que reponer
         </label>
+        {data && (
+          <p className="pb-2 text-[11px] leading-snug text-slate-400">
+            {data.rubros_con_umbral > 0 ? (
+              <>
+                <b>{data.rubros_con_umbral}</b>{" "}
+                {data.rubros_con_umbral === 1 ? "rubro tiene" : "rubros tienen"} su propio
+                umbral crítico.{" "}
+              </>
+            ) : null}
+            El resto usa {Math.round((data.cobertura / 3) * 10) / 10} días (un tercio de la
+            cobertura).{" "}
+            <Link href="/inventario/categorias" className="underline hover:text-slate-600">
+              Configurar por rubro
+            </Link>
+          </p>
+        )}
       </div>
 
       {/* Mínimo automático (punto 1.2). Separado de los parámetros de arriba
@@ -314,8 +334,14 @@ export default function SugerenciasReposicionPage() {
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
                         {f.consumo_diario > 0 ? num(f.consumo_diario, 2) : "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
+                      <td
+                        className="px-4 py-2.5 text-right tabular-nums text-slate-600"
+                        title={`Crítico por debajo de ${num(f.dias_critico)} días${f.critico_del_rubro ? ` (umbral del rubro ${f.rubro_nombre ?? ""})` : " (umbral general)"}`}
+                      >
                         {f.dias_cobertura == null ? "—" : `${num(f.dias_cobertura)} d`}
+                        {f.critico_del_rubro && (
+                          <span className="ml-1 text-[10px] text-slate-300">·{num(f.dias_critico)}</span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ring-1 ${et.clase}`}>
@@ -343,6 +369,13 @@ export default function SugerenciasReposicionPage() {
           divididas por esos días. <strong>Alcanza</strong> = cuántos días aguanta el stock a ese ritmo.
           <strong> Comprar</strong> = lo que falta para llegar a {data?.cobertura ?? cobertura} días de stock,
           nunca por debajo del mínimo del producto.
+        </p>
+        <p>
+          <strong>Crítico</strong> se decide con los días que tenga configurado el rubro
+          (Inventario → Rubros → columna &quot;Crítico bajo&quot;). Es lo que tarda reponerlo:
+          la chapa quince días, el tornillo cinco. El rubro que no lo tenga configurado usa
+          un tercio de la cobertura pedida acá arriba. El numerito gris al lado de
+          &quot;Alcanza&quot; es el umbral propio del rubro.
         </p>
         <p>
           Las transferencias entre depósitos no cuentan como consumo: mueven la mercadería de lugar,

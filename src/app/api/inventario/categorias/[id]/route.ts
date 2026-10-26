@@ -20,11 +20,20 @@ export async function PATCH(
     if (body.descripcion !== undefined) patch.descripcion = normalizeUpperNullable(body.descripcion);
     if (body.parent_id !== undefined) patch.parent_id = body.parent_id == null ? null : String(body.parent_id);
     if (body.activo !== undefined) patch.activo = body.activo === true;
+    // Punto 1.3: días de cobertura por debajo de los cuales el rubro es
+    // crítico. Vacío vuelve a NULL = "usa el umbral general".
+    if (body.dias_critico !== undefined) {
+      const n = Number(body.dias_critico);
+      patch.dias_critico =
+        body.dias_critico === null || body.dias_critico === "" || !Number.isFinite(n)
+          ? null
+          : Math.min(365, Math.max(1, Math.trunc(n)));
+    }
 
     if (Object.keys(patch).length === 0) {
       const { data, error } = await ctx.supabase
         .from("categorias_productos")
-        .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at")
+        .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, created_at, updated_at")
         .eq("empresa_id", ctx.auth.empresa_id)
         .eq("id", id)
         .maybeSingle();
@@ -38,7 +47,7 @@ export async function PATCH(
       .update(patch)
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("id", id)
-      .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at")
+      .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, created_at, updated_at")
       .maybeSingle();
     if (upd.error) {
       const msg = upd.error.message ?? "";
@@ -46,6 +55,12 @@ export async function PATCH(
         return NextResponse.json(errorResponse("Ya existe un rubro con ese nombre o código."), {
           status: 409,
         });
+      }
+      if (/dias_critico/.test(msg)) {
+        return NextResponse.json(
+          errorResponse("Falta correr 18_dias_critico_rubro.sql en la base."),
+          { status: 500 }
+        );
       }
       console.error("[/api/inventario/categorias/[id] PATCH]", msg);
       return NextResponse.json(errorResponse("No se pudo actualizar el rubro."), { status: 500 });

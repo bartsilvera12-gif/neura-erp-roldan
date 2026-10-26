@@ -13,6 +13,8 @@ interface Categoria {
   descripcion: string | null;
   parent_id: string | null;
   activo: boolean;
+  /** Punto 1.3: días bajo los cuales el rubro es crítico. null = umbral general. */
+  dias_critico?: number | null;
 }
 
 export default function CategoriasProductosPage() {
@@ -94,6 +96,42 @@ export default function CategoriasProductosPage() {
     const j = await r.json().catch(() => ({}));
     if (r.ok && j?.success) load();
     else setError(j?.error ?? "No se pudo borrar.");
+  }
+
+  /**
+   * Días de cobertura crítica del rubro (punto 1.3).
+   *
+   * Se pide con un prompt igual que el nombre: es un número suelto y abrir un
+   * formulario entero para un campo sería peor. Vacío lo deja sin configurar,
+   * que es distinto de cero: significa "usá el umbral general".
+   */
+  async function editarDiasCritico(cat: Categoria) {
+    const actual = cat.dias_critico == null ? "" : String(cat.dias_critico);
+    const v = window.prompt(
+      `Días de stock por debajo de los cuales "${cat.nombre}" se marca CRÍTICO.\n\n` +
+      "En la práctica es lo que tarda reponerlo: si la chapa tarda 15 días, poné 15.\n" +
+      "Dejalo vacío para que use el umbral general de Reposición.",
+      actual
+    );
+    if (v == null) return;
+    const limpio = v.trim();
+    if (limpio === actual) return;
+    if (limpio !== "") {
+      const n = Number(limpio);
+      if (!Number.isFinite(n) || n < 1 || n > 365) {
+        setError("Los días tienen que ser un número entre 1 y 365.");
+        return;
+      }
+    }
+    const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ dias_critico: limpio === "" ? null : Number(limpio) }),
+    });
+    const j = await r.json();
+    if (r.ok && j?.success) load();
+    else setError(j?.error ?? "No se pudo guardar.");
   }
 
   async function startEdit(cat: Categoria) {
@@ -205,6 +243,9 @@ export default function CategoriasProductosPage() {
                 <th className="text-left px-4 py-2">Nombre</th>
                 <th className="text-left px-4 py-2">Código</th>
                 <th className="text-left px-4 py-2">Padre</th>
+                <th className="text-left px-4 py-2" title="Días de stock por debajo de los cuales el rubro se marca crítico en Reposición">
+                  Crítico bajo
+                </th>
                 <th className="text-left px-4 py-2">Estado</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -217,6 +258,21 @@ export default function CategoriasProductosPage() {
                     <td className="px-4 py-2 font-medium">{c.nombre}</td>
                     <td className="px-4 py-2 text-gray-500">{c.codigo ?? "—"}</td>
                     <td className="px-4 py-2 text-gray-500">{parent?.nombre ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <button
+                        onClick={() => editarDiasCritico(c)}
+                        className="rounded px-1.5 py-0.5 text-xs underline-offset-2 hover:bg-slate-100 hover:underline"
+                        title="Cambiar los días de cobertura crítica de este rubro"
+                      >
+                        {c.dias_critico == null ? (
+                          <span className="text-slate-400">general</span>
+                        ) : (
+                          <span className="font-semibold text-slate-700 tabular-nums">
+                            {c.dias_critico} d
+                          </span>
+                        )}
+                      </button>
+                    </td>
                     <td className="px-4 py-2">
                       {c.activo ? (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Activo</span>

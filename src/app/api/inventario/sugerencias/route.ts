@@ -24,6 +24,16 @@ import { minimosSugeridosOVacio, MESES_VENTANA } from "@/lib/inventario/server/s
  *   Las transferencias entre depósitos se excluyen: mueven stock de lugar,
  *   no lo consumen. Contarlas inflaría el consumo y haría comprar de más.
  *
+ * UMBRAL CRÍTICO POR RUBRO (punto 1.3)
+ *   Cada rubro puede tener su propio `dias_critico`: los días de stock por
+ *   debajo de los cuales se marca crítico. En la práctica es lo que tarda
+ *   reponerlo — la chapa quince días, el tornillo cinco — así que un umbral
+ *   único para toda la empresa deja sobrando de lo que llega rápido y
+ *   faltando de lo que tarda.
+ *
+ *   El rubro que no lo tenga configurado usa el umbral general: un tercio de
+ *   la cobertura pedida, que es lo que hacía antes para todos.
+ *
  * MÍNIMO SUGERIDO (punto 1.2)
  *   Aparte del consumo, cada fila trae el mínimo sugerido: la MEDIANA de lo
  *   vendido por mes en los últimos seis meses cerrados. Es un número distinto
@@ -66,6 +76,11 @@ type Fila = {
   pico_mes: number | null;
   /** Cuántos de los 6 meses tuvieron al menos una venta. */
   meses_con_venta: number | null;
+  rubro_nombre: string | null;
+  /** Días bajo los cuales este producto es crítico. */
+  dias_critico: number;
+  /** true si ese umbral vino del rubro; false si es el general. */
+  critico_del_rubro: boolean;
 };
 
 function entero(v: string | null, def: number, min: number, max: number): number {
@@ -104,8 +119,40 @@ export async function GET(request: NextRequest) {
     if (productos.length === 0) {
       return NextResponse.json(successResponse({
         dias, cobertura, filas: [], resumen: vacio(),
-        meses_minimo: MESES_VENTANA, minimos_disponibles: false,
+        meses_minimo: MESES_VENTANA, minimos_disponibles: false, rubros_con_umbral: 0,
       }));
+    }
+
+    // ── Umbral crítico por rubro (punto 1.3) ──────────────────────────────
+    // Si el script 18 todavía no corrió, la consulta falla por la columna que
+    // falta: se reintenta sin ella y todos los rubros caen al umbral general.
+    const rubros = new Map<string, { nombre: string; dias_critico: number | null }>();
+    {
+      // El `select` de supabase-js se tipa desde el literal, así que no puede
+      // salir de un ternario: van dos llamadas separadas.
+      const conDias = await ctx.supabase
+        .from("categorias_productos")
+        .select("id, nombre, dias_critico")
+        .eq("empresa_id", empresaId);
+      let data: unknown[] = conDias.data ?? [];
+      if (conDias.error) {
+        if (!/dias_critico/.test(conDias.error.message ?? "")) {
+          throw new Error(conDias.error.message);
+        }
+        const sinDias = await ctx.supabase
+          .from("categorias_productos")
+          .select("id, nombre")
+          .eq("empresa_id", empresaId);
+        if (sinDias.error) throw new Error(sinDias.error.message);
+        data = sinDias.data ?? [];
+      }
+      for (const c of data as Array<Record<string, unknown>>) {
+        const d = Number(c.dias_critico);
+        rubros.set(String(c.id), {
+          nombre: String(c.nombre ?? ""),
+          dias_critico: Number.isFinite(d) && d > 0 ? d : null,
+        });
+      }
     }
 
     // ── Consumo: salidas de la ventana ────────────────────────────────────
@@ -154,10 +201,15 @@ export async function GET(request: NextRequest) {
       const objetivo = Math.max(consumoDiario * cobertura, minimo);
       const sugerido = Math.max(0, Math.ceil(objetivo - stock));
 
+      const rubro = rubros.get(String(p.categoria_principal_id ?? ""));
+      // El umbral del rubro manda; si no tiene, el general de siempre.
+      const criticoDelRubro = rubro?.dias_critico != null;
+      const diasCritico = rubro?.dias_critico ?? cobertura / 3;
+
       const estado: Fila["estado"] =
         stock <= 0 ? "sin_stock"
         : consumoDiario <= 0 ? "sin_consumo"
-        : diasCobertura != null && diasCobertura < cobertura / 3 ? "critico"
+        : diasCobertura != null && diasCobertura < diasCritico ? "critico"
         : (minimo > 0 && stock <= minimo) || (diasCobertura != null && diasCobertura < cobertura) ? "bajo"
         : "ok";
 
@@ -182,6 +234,9 @@ export async function GET(request: NextRequest) {
         minimo_sugerido: m ? Math.ceil(m.mediana) : null,
         pico_mes: m ? m.pico : null,
         meses_con_venta: m ? m.meses_con_venta : null,
+        rubro_nombre: rubro?.nombre ?? null,
+        dias_critico: diasCritico,
+        critico_del_rubro: criticoDelRubro,
       };
     });
 
@@ -210,6 +265,7 @@ export async function GET(request: NextRequest) {
       dias, cobertura, filas, resumen,
       meses_minimo: MESES_VENTANA,
       minimos_disponibles: minimos.size > 0,
+      rubros_con_umbral: [...rubros.values()].filter((r) => r.dias_critico != null).length,
     }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);

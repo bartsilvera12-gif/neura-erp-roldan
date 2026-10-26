@@ -12,7 +12,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 |---|---|---|
 | 1.1 | Planilla de inventario: elegir rubros, imprimir con fecha, hora, código, cód. ref., artículo y **dos** columnas de control. General o por rubro. | ✅ |
 | 1.2 | Stock mínimo automático: mediana de los últimos 6 meses de ventas, mostrado en Reposición y actualizado solo. | ✅ |
-| 1.3 | Stock crítico configurable: cobertura en días **por rubro** (ej. 5 o 15 días). | ⬜ hoy la cobertura es un solo número global |
+| 1.3 | Stock crítico configurable: cobertura en días **por rubro** (ej. 5 o 15 días). | ✅ |
 | 1.4 | Historial de ajustes: listado aparte (no todos los movimientos) con código único, fecha, hora, usuario, producto, cantidad sumada/restada y motivo. Filtro por fecha. | ⬜ |
 | 1.5 | Compras en dólares y costo ponderado: precio en USD, tipo de cambio vigente al cargar la factura, conservado histórico. Costo promedio ponderado por operaciones. | ⬜ |
 | 1.6 | Valoración de existencias: inventario y valor del stock a una fecha, por año, rubro o general; cantidades, costos unitarios, valor total, fecha y hora. | ⬜ |
