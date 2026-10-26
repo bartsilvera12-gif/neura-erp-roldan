@@ -47,9 +47,18 @@ export type PagoDetalleInput = {
 /**
  * Lista ventas del tenant (misma fuente que el dashboard: tablas `ventas` / `ventas_items`).
  */
-export async function getVentas(): Promise<Venta[]> {
+export async function getVentas(
+  rango?: { desde?: string | null; hasta?: string | null }
+): Promise<Venta[]> {
   try {
-    const res = await fetchWithSupabaseSession("/api/ventas", { cache: "no-store" });
+    // Sin rango, el listado de siempre. Con rango, el filtro va en el servidor:
+    // buscar una venta vieja filtrando en el navegador no la encuentra nunca,
+    // porque nunca llegó al navegador (ver GET /api/ventas).
+    const sp = new URLSearchParams();
+    if (rango?.desde) sp.set("desde", rango.desde);
+    if (rango?.hasta) sp.set("hasta", rango.hasta);
+    const url = sp.toString() ? `/api/ventas?${sp}` : "/api/ventas";
+    const res = await fetchWithSupabaseSession(url, { cache: "no-store" });
     const json = (await res.json()) as {
       success?: boolean;
       data?: { ventas?: Venta[] };

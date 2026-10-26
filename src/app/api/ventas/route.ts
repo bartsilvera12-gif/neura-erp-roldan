@@ -54,22 +54,48 @@ function mapItems(rows: VentaItemRow[]): LineaVenta[] {
   }));
 }
 
-/** GET /api/ventas — listado vía PostgREST (compatible Hostinger sin pool). */
+/** Paraguay es UTC−3 todo el año; la tzdata del servidor puede estar vieja. */
+const OFFSET_PY = "-03:00";
+
+/**
+ * GET /api/ventas — listado vía PostgREST (compatible Hostinger sin pool).
+ *
+ * Parámetros opcionales (punto 2.1):
+ *   desde, hasta — fechas YYYY-MM-DD en hora de Paraguay, ambas inclusive.
+ *   limite       — cuántas traer (máx. 2000). Por defecto 500.
+ *
+ * POR QUÉ EL FILTRO DE FECHA VA EN EL SERVIDOR
+ *   El listado trae las últimas 500 ventas y filtra en el navegador. Buscar una
+ *   venta de hace tres meses con ese esquema no la encuentra nunca: nunca llegó
+ *   al navegador. Con el rango aplicado en la consulta, las 500 son las de ESE
+ *   período y la venta vieja aparece.
+ */
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const empresaId = ctx.auth.empresa_id;
+    const sp = new URL(request.url).searchParams;
 
-    const ventasQ = await ctx.supabase
+    const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+    const desde = RE_FECHA.test(sp.get("desde") ?? "") ? sp.get("desde")! : null;
+    const hasta = RE_FECHA.test(sp.get("hasta") ?? "") ? sp.get("hasta")! : null;
+    const limite = Math.min(2000, Math.max(1, parseInt(sp.get("limite") ?? "500", 10) || 500));
+
+    let q = ctx.supabase
       .from("ventas")
       .select(
-        "id, empresa_id, numero_control, moneda, tipo_cambio, subtotal, monto_iva, total, tipo_venta, plazo_dias, metodo_pago, fecha, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, factura_id, cliente_id, origen"
+        "id, empresa_id, numero_control, moneda, tipo_cambio, subtotal, monto_iva, total, tipo_venta, plazo_dias, metodo_pago, fecha, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, factura_id, cliente_id, origen, usuario_nombre, vendedor_nombre"
       )
       .eq("empresa_id", empresaId)
-      .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
-      .order("fecha", { ascending: false })
-      .limit(500);
+      .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id));
+
+    // El día "hasta" entra entero: quien filtra del 1 al 31 espera que el 31
+    // esté incluido, no que corte a la medianoche del 30.
+    if (desde) q = q.gte("fecha", `${desde}T00:00:00${OFFSET_PY}`);
+    if (hasta) q = q.lte("fecha", `${hasta}T23:59:59.999${OFFSET_PY}`);
+
+    const ventasQ = await q.order("fecha", { ascending: false }).limit(limite);
     if (ventasQ.error) throw new Error(ventasQ.error.message);
 
     // Cargar nombre del cliente para las ventas asociadas a un cliente.

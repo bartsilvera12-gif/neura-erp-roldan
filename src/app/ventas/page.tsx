@@ -92,6 +92,11 @@ export default function VentasPage() {
   const [busqueda,   setBusqueda]   = useState("");
   const [filtroTipo, setFiltroTipo] = useState<TipoVenta | "">("");
   const [filtroIva,  setFiltroIva]  = useState<TipoIvaVenta | "">("");
+  // Rango de fechas (punto 2.1). Vacío = las últimas ventas, como antes.
+  // Cuando se completa, el filtro lo aplica el SERVIDOR: una venta de hace tres
+  // meses no está en el navegador, así que filtrarla acá no la encontraría.
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
   const [mostrarAnuladas, setMostrarAnuladas] = useState(true);
   const [detalle,    setDetalle]    = useState<Venta | null>(null);
   const [anularTarget, setAnularTarget] = useState<Venta | null>(null);
@@ -111,7 +116,7 @@ export default function VentasPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getVentas().then((data) => {
+    getVentas({ desde: desde || null, hasta: hasta || null }).then((data) => {
       if (cancelled) return;
       const ordenadas = [...data].sort((a, b) => {
         const ta = new Date(a.fecha).getTime();
@@ -123,15 +128,23 @@ export default function VentasPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, desde, hasta]);
 
   const filtradas = todas.filter((v) => {
     // Anuladas ocultas por defecto (toggle "Ver anuladas" las muestra).
     if (!mostrarAnuladas && v.estado === "anulada") return false;
-    // Búsqueda por tokens: número de control, nombre o SKU de cualquier ítem.
+    // Búsqueda por tokens. El punto 2.1 pide poder buscar por número de
+    // factura y por cliente, no solo por el número de control interno: el que
+    // atiende el mostrador tiene en la mano la factura o el nombre, no el
+    // VTA-000123.
     if (busqueda.trim() !== "" && !productoMatchesQuery(
       busqueda,
       v.numero_control,
+      v.numero_factura ?? "",
+      v.cliente_nombre ?? "",
+      v.cliente_sucursal ?? "",
+      v.vendedor_nombre ?? "",
+      v.usuario_nombre ?? "",
       ...v.items.map((i) => i.producto_nombre),
       ...v.items.map((i) => i.sku),
     )) return false;
@@ -143,7 +156,7 @@ export default function VentasPage() {
     return true;
   });
 
-  const hayFiltros = busqueda || filtroTipo || filtroIva || mostrarAnuladas;
+  const hayFiltros = busqueda || filtroTipo || filtroIva || mostrarAnuladas || desde || hasta;
 
   return (
     <div className="space-y-8">
@@ -197,7 +210,7 @@ export default function VentasPage() {
         <div className="flex flex-wrap items-center gap-3 mb-5 pb-5 border-b border-gray-100">
           <input
             type="text"
-            placeholder="Buscar por número, producto o SKU..."
+            placeholder="Nº de factura, cliente, producto, SKU o vendedor…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className={`${inputFilterClass} min-w-0 flex-1 sm:min-w-64`}
@@ -227,6 +240,26 @@ export default function VentasPage() {
               { value: "10%", label: "IVA 10%" },
             ]}
           />
+          <div className="inline-flex items-center gap-1.5 text-sm text-slate-600">
+            <span className="text-xs text-slate-400">Del</span>
+            <input
+              type="date"
+              value={desde}
+              max={hasta || undefined}
+              onChange={(e) => setDesde(e.target.value)}
+              aria-label="Ventas desde"
+              className={`${inputFilterClass} w-[150px]`}
+            />
+            <span className="text-xs text-slate-400">al</span>
+            <input
+              type="date"
+              value={hasta}
+              min={desde || undefined}
+              onChange={(e) => setHasta(e.target.value)}
+              aria-label="Ventas hasta"
+              className={`${inputFilterClass} w-[150px]`}
+            />
+          </div>
           <label className="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -238,7 +271,7 @@ export default function VentasPage() {
           </label>
           {hayFiltros && (
             <button
-              onClick={() => { setBusqueda(""); setFiltroTipo(""); setFiltroIva(""); setMostrarAnuladas(false); }}
+              onClick={() => { setBusqueda(""); setFiltroTipo(""); setFiltroIva(""); setMostrarAnuladas(false); setDesde(""); setHasta(""); }}
               className="text-sm text-gray-400 hover:text-gray-600 transition-colors px-2"
             >
               Limpiar filtros
@@ -246,6 +279,7 @@ export default function VentasPage() {
           )}
           <span className="ml-auto text-sm text-gray-400">
             {filtradas.length} de {todas.length} ventas
+            {(desde || hasta) && <span className="ml-1 text-slate-300">en el período</span>}
           </span>
         </div>
 

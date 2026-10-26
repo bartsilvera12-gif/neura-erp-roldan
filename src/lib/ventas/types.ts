@@ -59,6 +59,9 @@ export interface Venta {
   tipo_venta: TipoVenta;
   /** Snapshot del cajero que emitió la venta (ventas.usuario_nombre). */
   usuario_nombre?: string | null;
+  /** Snapshot del vendedor asignado, cuando lo hay. Distinto del cajero:
+   *  el que cierra la operación no siempre es el que la vendió. */
+  vendedor_nombre?: string | null;
   plazo_dias?: number;       // solo si tipo_venta === "CREDITO"
 
   metodo_pago?: MetodoPago;  // Neura ERP Roldán e Hijos: efectivo/tarjeta/transferencia

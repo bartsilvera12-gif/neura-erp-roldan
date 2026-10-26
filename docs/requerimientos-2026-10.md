@@ -22,7 +22,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 2.1 | Buscar ventas por número de factura, cliente y fecha; ver historial y detalle. | ⬜ |
+| 2.1 | Buscar ventas por número de factura, cliente y fecha; ver historial y detalle. | ✅ |
 | 2.2 | Edición controlada: solo administradores, registrando quién, cuándo y qué cambió. | ⬜ |
 | 2.3 | Descuentos por usuario: máximo configurable por usuario o vendedor. | ⬜ |
 
