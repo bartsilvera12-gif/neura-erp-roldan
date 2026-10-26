@@ -12,6 +12,7 @@ import {
   type ReglaPrecio,
 } from "@/lib/precios/estudio";
 import { margenSobreVenta, remarcacionSobreCosto } from "@/lib/precios/margen";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 
 /**
  * Estudio de precios (punto 10.5).
@@ -216,6 +217,7 @@ export async function POST(request: NextRequest) {
     const aEscribir = cambios.filter((c) => !c.bloqueo && c.precio_nuevo !== c.precio_actual);
     let escritos = 0;
     const fallidos: string[] = [];
+    const aplicados: typeof aEscribir = [];
     for (const c of aEscribir) {
       const up = await ctx.supabase
         .from("productos")
@@ -223,13 +225,52 @@ export async function POST(request: NextRequest) {
         .eq("empresa_id", empresaId)
         .eq("id", c.id);
       if (up.error) fallidos.push(c.nombre || c.sku || c.id);
-      else escritos += 1;
+      else { escritos += 1; aplicados.push(c); }
+    }
+
+    // ── El rastro (requisito 11.3) ────────────────────────────────────────
+    //   Antes, el precio anterior desaparecía al escribirse encima. Con un
+    //   cambio masivo eso deja sin respuesta la pregunta "¿por qué este caño
+    //   salía 80.000 el mes pasado?", ni siquiera para saber si fue un error.
+    //
+    //   El `lote` agrupa las filas de este cambio: sin él, trescientas filas
+    //   con la misma hora serían trescientos eventos sueltos en vez de uno.
+    //
+    //   Se escribe DESPUÉS de los precios y no antes: si fallara el registro,
+    //   es peor no cambiar los precios que cambiarlos sin historial. Por eso
+    //   tampoco tumba la operación.
+    let historial = false;
+    if (aplicados.length > 0) {
+      const lote = globalThis.crypto.randomUUID();
+      const firma = await firmaUsuario(ctx.supabase, ctx.auth);
+      const filas = aplicados.map((c) => ({
+        empresa_id: empresaId,
+        sucursal_id: sucursalId,
+        producto_id: c.id,
+        producto_nombre: c.nombre,
+        producto_sku: c.sku,
+        precio_anterior: c.precio_actual,
+        precio_nuevo: c.precio_nuevo,
+        modo: regla.modo,
+        valor: regla.valor,
+        redondeo: regla.redondeo ?? 0,
+        lote,
+        usuario_id: firma.id,
+        usuario_nombre: firma.nombre,
+      }));
+      const ins = await ctx.supabase.from("precios_historial").insert(filas);
+      if (ins.error) {
+        console.error("[/api/precios/estudio] historial:", ins.error.message);
+      } else {
+        historial = true;
+      }
     }
 
     return NextResponse.json(successResponse({
       aplicado: true,
       escritos,
       fallidos,
+      historial,
       resumen,
     }));
   } catch (err) {

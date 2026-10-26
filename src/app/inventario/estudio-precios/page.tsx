@@ -72,7 +72,34 @@ type Resumen = {
   margen_promedio_nuevo: number;
 };
 
+type Lote = {
+  lote: string | null;
+  creado_at: string;
+  usuario_nombre: string | null;
+  modo: string | null;
+  valor: number | null;
+  productos: number;
+  suben: number;
+  bajan: number;
+};
+
 const gs = (n: number) => Math.round(Number(n) || 0).toLocaleString("es-PY");
+
+/** Fecha y hora de Paraguay (UTC−3), sin depender de la tzdata del server. */
+function fechaHoraPy(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(py.getUTCDate())}/${p(py.getUTCMonth() + 1)} ${p(py.getUTCHours())}:${p(py.getUTCMinutes())}`;
+}
+
+const MODO_LABEL: Record<string, string> = {
+  remarcacion: "remarcación",
+  margen: "margen objetivo",
+  ajuste: "ajuste",
+  manual: "manual",
+};
 const inputCls = "rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none";
 
 export default function EstudioPreciosPage() {
@@ -94,6 +121,11 @@ export default function EstudioPreciosPage() {
   const [valor, setValor] = useState("");
   const [redondeo, setRedondeo] = useState("500");
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
+
+  // Últimos cambios de precio (requisito 11.3). Agrupados por lote: un cambio
+  // masivo es un evento, no trescientas líneas iguales.
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [verHistorial, setVerHistorial] = useState(false);
 
   const [previa, setPrevia] = useState<{ cambios: Cambio[]; resumen: Resumen } | null>(null);
   const [trabajando, setTrabajando] = useState(false);
@@ -130,6 +162,16 @@ export default function EstudioPreciosPage() {
     const t = setTimeout(() => { cargar(); }, 400);
     return () => clearTimeout(t);
   }, [cargar]);
+
+  const cargarHistorial = useCallback(async () => {
+    try {
+      const r = await fetchWithSupabaseSession("/api/precios/historial", { cache: "no-store" });
+      const j = await r.json();
+      if (j?.success) setLotes((j.data?.lotes ?? []) as Lote[]);
+    } catch { /* el historial es informativo: su ausencia no rompe nada */ }
+  }, []);
+
+  useEffect(() => { if (verHistorial) cargarHistorial(); }, [verHistorial, cargarHistorial]);
 
   // Cambiar la selección invalida la previa: mostrar una calculada sobre otra
   // lista sería lo más parecido a aplicar a ciegas.
@@ -175,6 +217,7 @@ export default function EstudioPreciosPage() {
           (fall.length ? ` No se pudo con ${fall.length}: ${fall.slice(0, 5).join(", ")}.` : "")
         );
         await cargar();
+        if (verHistorial) await cargarHistorial();
       } else {
         setPrevia({ cambios: (j.data?.cambios ?? []) as Cambio[], resumen: j.data?.resumen as Resumen });
       }
@@ -345,6 +388,44 @@ export default function EstudioPreciosPage() {
           </p>
         </div>
       )}
+
+      {/* Historial de cambios (requisito 11.3). Colapsado: es para cuando se
+          pregunta "¿quién tocó esto?", no para el uso de todos los días. */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setVerHistorial((v) => !v)}
+          className="text-sm font-semibold text-slate-700 hover:text-[#4FAEB2]"
+        >
+          {verHistorial ? "▾" : "▸"} Últimos cambios de precio
+        </button>
+        {verHistorial && (
+          lotes.length === 0 ? (
+            <p className="mt-2 text-xs text-slate-400">
+              Todavía no hay cambios registrados. Los que se hagan desde acá quedan
+              con su fecha, su autor y la regla que se usó.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-xs">
+              {lotes.slice(0, 20).map((l, i) => (
+                <li key={l.lote ?? i} className="flex flex-wrap gap-x-2 text-slate-600">
+                  <span className="tabular-nums text-slate-400">{fechaHoraPy(l.creado_at)}</span>
+                  <span className="font-medium text-slate-700">{l.productos} producto(s)</span>
+                  {l.modo && (
+                    <span>
+                      · {MODO_LABEL[l.modo] ?? l.modo}
+                      {l.valor != null && ` ${l.valor}%`}
+                    </span>
+                  )}
+                  {l.suben > 0 && <span className="text-emerald-600">· {l.suben} suben</span>}
+                  {l.bajan > 0 && <span className="text-rose-600">· {l.bajan} bajan</span>}
+                  {l.usuario_nombre && <span className="text-slate-400">· {l.usuario_nombre}</span>}
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+      </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       {aviso && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{aviso}</div>}
