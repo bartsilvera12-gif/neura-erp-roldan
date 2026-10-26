@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { Banknote, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
@@ -106,6 +107,8 @@ export default function PagosPage() {
   const [buscar, setBuscar] = useState("");
   const [situacion, setSituacion] = useState<Situacion>("todas");
   const [toast, setToast] = useState<string | null>(null);
+  // Requisito 11.4: el botón de anular un cobro solo para administradores.
+  const { isAdmin: esAdmin } = useIsAdmin();
 
   const [cobrando, setCobrando] = useState<Cuenta | null>(null);
   const [reciboBusy, setReciboBusy] = useState<string | null>(null);
@@ -475,6 +478,10 @@ export default function PagosPage() {
                         >
                           {reciboBusy === c.id ? <><Loader2 className="h-3 w-3 animate-spin" /> Abriendo…</> : "Recibo"}
                         </button>
+                        {/* Requisito 11.4: anular un cobro mueve la deuda del
+                            cliente y la plata del turno. Solo admin; el
+                            servidor lo verifica igual. */}
+                        {esAdmin && (
                         <button
                           disabled={reversarBusy === c.id}
                           onClick={async () => {
@@ -516,6 +523,7 @@ export default function PagosPage() {
                         >
                           {reversarBusy === c.id ? <><Loader2 className="h-3 w-3 animate-spin" /> …</> : "Anular"}
                         </button>
+                        )}
                         </>
                         )}
                       </td>

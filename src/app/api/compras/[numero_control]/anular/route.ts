@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
@@ -39,9 +40,18 @@ export async function POST(
   { params }: { params: Promise<{ numero_control: string }> }
 ) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) {
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    }
+    // Requisito 11.4. Anular una compra devuelve el stock Y recalcula el costo
+    // promedio del producto hacia atrás: el precio al que se vende todo lo que
+    // queda en el depósito cambia solo. No es una operación de mostrador.
+    if (!isAdmin(ctx.auth)) {
+      return NextResponse.json(
+        errorResponse("Solo un administrador puede anular una compra."),
+        { status: 403 }
+      );
     }
     const { auth, supabase: sb } = ctx;
     const empresaId = auth.empresa_id;

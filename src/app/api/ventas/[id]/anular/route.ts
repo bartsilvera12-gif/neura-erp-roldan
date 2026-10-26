@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
+import { puedeAnularVenta } from "@/lib/ventas/server/permiso-anular";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { anularVentaCore, ventaTieneCobrosAplicados } from "@/lib/ventas/server/anular-venta-core";
@@ -28,7 +30,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) {
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     }
@@ -60,7 +62,7 @@ export async function POST(
     // Bloqueo 1: si tiene factura ERP asociada, redirigir al flujo SIFEN.
     const ventaHead = await sb
       .from("ventas")
-      .select("id, factura_id, estado")
+      .select("id, factura_id, estado, caja_id")
       .eq("id", ventaId)
       .eq("empresa_id", empresaId)
       .maybeSingle();
@@ -70,9 +72,23 @@ export async function POST(
     if (!ventaHead.data) {
       return NextResponse.json(errorResponse("Venta no encontrada."), { status: 404 });
     }
-    const head = ventaHead.data as { id: string; factura_id: string | null; estado: string };
+    const head = ventaHead.data as {
+      id: string; factura_id: string | null; estado: string; caja_id: string | null;
+    };
     if (head.estado === "anulada") {
       return NextResponse.json(errorResponse("La venta ya fue anulada."), { status: 409 });
+    }
+
+    // Bloqueo 0: permisos (requisito 11.4). El cajero anula lo de su turno
+    // abierto; lo de un turno ya cerrado y arqueado, solo un administrador.
+    const permiso = await puedeAnularVenta(sb, {
+      empresaId,
+      sucursalId: auth.sucursal_id ?? null,
+      esAdmin: isAdmin(auth),
+      cajaIdVenta: head.caja_id,
+    });
+    if (!permiso.permitido) {
+      return NextResponse.json(errorResponse(permiso.motivo), { status: 403 });
     }
     // Si tiene factura ERP asociada, verificar el estado SIFEN:
     //  - aprobado / enviado / en_proceso  → bloquear y redirigir al panel SIFEN

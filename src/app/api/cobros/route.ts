@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { registrarCobro, reversarCobro, CobroError } from "@/lib/cobros/server/cobros-pg";
+import { isAdmin } from "@/lib/middleware/auth";
 
 /** POST /api/cobros — registra un cobro contra una cuenta por cobrar. */
 export async function POST(request: NextRequest) {
@@ -59,6 +60,15 @@ export async function DELETE(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Requisito 11.4. Anular un cobro devuelve la deuda al cliente y saca la
+    // plata del turno: toca el saldo de un tercero y el arqueo a la vez. Mismo
+    // criterio que la anulación de un anticipo.
+    if (!isAdmin(ctx.auth)) {
+      return NextResponse.json(
+        errorResponse("Solo un administrador puede anular un cobro."),
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const id = (url.searchParams.get("id") ?? "").trim();
     if (!id) return NextResponse.json(errorResponse("Falta el id del cobro."), { status: 400 });
