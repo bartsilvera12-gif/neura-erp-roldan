@@ -80,7 +80,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     // Historial de cobros del cliente.
     const cobQ = await ctx.supabase
       .from("cobros_clientes")
-      .select("id, cuenta_por_cobrar_id, venta_id, fecha_pago, monto, metodo_pago, referencia")
+      .select("id, cuenta_por_cobrar_id, venta_id, fecha_pago, monto, metodo_pago, referencia, anulado_at, anulado_motivo")
       .eq("empresa_id", empresaId)
       .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
       .eq("cliente_id", id)

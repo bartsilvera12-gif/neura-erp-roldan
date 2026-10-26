@@ -150,41 +150,127 @@ export async function registrarCobro(
 }
 
 /**
- * Reversa (elimina) un cobro: lo borra de `cobros_clientes` y devuelve el monto
- * al saldo de la cuenta por cobrar, recalculando el estado. Permite luego anular
- * la venta. NO toca stock ni la venta.
+ * Anula un cobro: lo marca como anulado, devuelve el monto al saldo de la
+ * cuenta por cobrar y recalcula el estado. NO toca stock ni la venta.
+ *
+ * ── ANTES SE BORRABA, Y ESO ESTABA MAL (punto 10.3) ───────────────────────
+ *   El requisito pide "cancelación o disminución de deuda por recibos,
+ *   conservando historial". Borrar la fila hacía desaparecer el recibo: si el
+ *   cliente venía con su papel en la mano, en el sistema no había nada —ni el
+ *   cobro, ni quién lo había cargado, ni quién lo dio de baja—. Y el arqueo de
+ *   ese día, que ya se había cerrado con esa plata adentro, dejaba de cuadrar
+ *   sin que nadie pudiera explicar por qué.
+ *
+ *   Ahora el cobro queda, marcado con la fecha, el usuario y el motivo. Todas
+ *   las lecturas que suman plata filtran `anulado_at IS NULL`; las que muestran
+ *   historial lo siguen mostrando, tachado.
+ *
+ * El motivo es obligatorio por la misma razón que en las anulaciones de venta
+ * y de anticipo: un número que se mueve sin explicación es un número que
+ * alguien va a tener que explicar después, de memoria.
  */
 export async function reversarCobro(
   sb: AppSupabaseClient,
   empresaId: string,
-  cobroId: string
-): Promise<{ cuenta_id: string | null; saldo_nuevo: number; estado: string }> {
+  cobroId: string,
+  opciones?: {
+    motivo?: string | null;
+    usuarioId?: string | null;
+    usuarioNombre?: string | null;
+    /** Sucursal del turno abierto, para devolver la plata que el cobro metió en caja. */
+    sucursalId?: string | null;
+    usuarioEmail?: string | null;
+  }
+): Promise<{
+  cuenta_id: string | null;
+  saldo_nuevo: number;
+  estado: string;
+  /** true si la anulación también salió de la caja del turno abierto. */
+  compensado_en_caja?: boolean;
+}> {
   if (!cobroId) throw new CobroError("Falta el id del cobro.");
+  const motivo = (opciones?.motivo ?? "").trim();
+  if (!motivo) throw new CobroError("Escribí el motivo de la anulación del cobro.", 400);
 
   const cq = await sb
     .from("cobros_clientes")
-    .select("id, cuenta_por_cobrar_id, monto")
+    .select("id, cuenta_por_cobrar_id, monto, anulado_at, metodo_pago, caja_movimiento_id")
     .eq("empresa_id", empresaId)
     .eq("id", cobroId)
     .maybeSingle();
   if (cq.error) throw new CobroError(cq.error.message, 500);
   if (!cq.data) throw new CobroError("Cobro no encontrado.", 404);
-  const cobro = cq.data as { id: string; cuenta_por_cobrar_id: string | null; monto: number | string };
+  const cobro = cq.data as {
+    id: string; cuenta_por_cobrar_id: string | null; monto: number | string;
+    anulado_at: string | null; metodo_pago: string | null; caja_movimiento_id: string | null;
+  };
+  // Dos anulaciones seguidas devolverían el monto al saldo dos veces.
+  if (cobro.anulado_at) throw new CobroError("Ese cobro ya está anulado.", 409);
   const monto = round2(Number(cobro.monto) || 0);
 
-  // Borrar el cobro.
-  const del = await sb.from("cobros_clientes").delete().eq("id", cobroId).eq("empresa_id", empresaId);
-  if (del.error) throw new CobroError(del.error.message, 500);
+  const anu = await sb
+    .from("cobros_clientes")
+    .update({
+      anulado_at: new Date().toISOString(),
+      anulado_por_id: opciones?.usuarioId ?? null,
+      anulado_por_nombre: opciones?.usuarioNombre ?? null,
+      anulado_motivo: motivo,
+    })
+    .eq("id", cobroId)
+    .eq("empresa_id", empresaId)
+    // Si otro lo anuló entre la lectura y esta escritura, no se devuelve el
+    // monto dos veces.
+    .is("anulado_at", null)
+    .select("id")
+    .maybeSingle();
+  if (anu.error) throw new CobroError(anu.error.message, 500);
+  if (!anu.data) throw new CobroError("Ese cobro ya está anulado.", 409);
+
+  // ── La plata que había entrado a la caja tiene que volver a salir ─────────
+  //   Registrar el cobro metió un ingreso en el turno abierto. Si se anula y
+  //   ese ingreso queda, al cerrar el turno va a sobrar plata que no está en
+  //   el cajón.
+  //
+  //   Se registra un EGRESO y no se borra el ingreso: así el turno muestra las
+  //   dos puntas —entró y volvió a salir— en vez de que un movimiento
+  //   desaparezca de un arqueo que alguien ya miró.
+  //
+  //   Si no hay turno abierto, `enlazarConCaja` no escribe nada. Es lo
+  //   correcto: la plata entró en un turno que ya se cerró y contó, y sacarla
+  //   del turno de hoy dejaría corta la caja de hoy.
+  let compensadoEnCaja = false;
+  if (cobro.caja_movimiento_id) {
+    const movId = await enlazarConCaja(sb, {
+      empresaId,
+      sucursalId: opciones?.sucursalId ?? null,
+      tipo: "egreso",
+      concepto: "Anulación de cobro a cliente",
+      monto,
+      medioPago: metodoValido(cobro.metodo_pago),
+      observacion: motivo.slice(0, 200),
+      usuarioId: opciones?.usuarioId ?? null,
+      usuarioEmail: opciones?.usuarioEmail ?? null,
+      cobroId,
+    });
+    compensadoEnCaja = Boolean(movId);
+  }
 
   // Restaurar saldo de la cuenta (si el cobro tenía cuenta asociada).
-  if (!cobro.cuenta_por_cobrar_id) return { cuenta_id: null, saldo_nuevo: 0, estado: "pendiente" };
+  if (!cobro.cuenta_por_cobrar_id) {
+    return { cuenta_id: null, saldo_nuevo: 0, estado: "pendiente", compensado_en_caja: compensadoEnCaja };
+  }
   const cta = await sb
     .from("cuentas_por_cobrar")
     .select("id, total, saldo, estado")
     .eq("empresa_id", empresaId)
     .eq("id", cobro.cuenta_por_cobrar_id)
     .maybeSingle();
-  if (cta.error || !cta.data) return { cuenta_id: cobro.cuenta_por_cobrar_id, saldo_nuevo: 0, estado: "pendiente" };
+  if (cta.error || !cta.data) {
+    return {
+      cuenta_id: cobro.cuenta_por_cobrar_id, saldo_nuevo: 0, estado: "pendiente",
+      compensado_en_caja: compensadoEnCaja,
+    };
+  }
   const c = cta.data as { id: string; total: number | string; saldo: number | string; estado: string };
   const total = round2(Number(c.total) || 0);
   const saldoNuevo = Math.min(total, round2((Number(c.saldo) || 0) + monto));
@@ -194,5 +280,5 @@ export async function reversarCobro(
     .update({ saldo: saldoNuevo, estado: estadoNuevo, updated_at: new Date().toISOString() })
     .eq("empresa_id", empresaId)
     .eq("id", c.id);
-  return { cuenta_id: c.id, saldo_nuevo: saldoNuevo, estado: estadoNuevo };
+  return { cuenta_id: c.id, saldo_nuevo: saldoNuevo, estado: estadoNuevo, compensado_en_caja: compensadoEnCaja };
 }

@@ -11,10 +11,15 @@ import {
   useModoPersistido,
 } from "@/components/ui/ToggleNutricionConsig";
 
+/** Filtro de situación de las cuentas por cobrar (punto 10.3). */
+type Situacion = "todas" | "vencidas" | "al_dia";
+
 type Cuenta = {
   id: string;
   cliente_id: string;
   cliente_nombre: string;
+  /** Punto 10.3: CLI-00001, lo que se dice por teléfono. Null sin el script 28. */
+  cliente_codigo?: string | null;
   venta_id: string;
   numero_venta: string | null;
   fecha_emision: string | null;
@@ -35,6 +40,9 @@ type Cobro = {
   metodo_pago: string;
   referencia: string | null;
   usuario_nombre: string | null;
+  anulado?: boolean;
+  anulado_motivo?: string | null;
+  anulado_por?: string | null;
 };
 type PorPagar = {
   id: string;
@@ -94,6 +102,8 @@ export default function PagosPage() {
   const [tab, setTab] = useState<"pendientes" | "cobrados" | "por_pagar">("pendientes");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
+  const [buscar, setBuscar] = useState("");
+  const [situacion, setSituacion] = useState<Situacion>("todas");
   const [toast, setToast] = useState<string | null>(null);
 
   const [cobrando, setCobrando] = useState<Cuenta | null>(null);
@@ -149,6 +159,17 @@ export default function PagosPage() {
     }
   }
 
+  // Punto 10.3, "filtros amplios": además del rango de fechas, buscar por
+  // cliente, por código de cliente o por número de factura, y acotar por
+  // situación. Son las tres formas en que alguien llega a una deuda: con el
+  // nombre, con el papel en la mano, o preguntando qué está vencido.
+  const texto = buscar.trim().toLowerCase();
+  const coincideTexto = useCallback(
+    (...campos: (string | null | undefined)[]) =>
+      !texto || campos.some((c) => (c ?? "").toLowerCase().includes(texto)),
+    [texto]
+  );
+
   const enRango = useCallback(
     (fecha: string | null) => {
       const f = ymd(fecha);
@@ -165,13 +186,18 @@ export default function PagosPage() {
     () =>
       cuentas
         .filter((c) => c.saldo > 0 && c.estado !== "anulado")
-        .filter((c) => (!desde && !hasta) ? true : (enRango(c.fecha_emision) || enRango(c.fecha_vencimiento))),
-    [cuentas, desde, hasta, enRango]
+        .filter((c) => (!desde && !hasta) ? true : (enRango(c.fecha_emision) || enRango(c.fecha_vencimiento)))
+        .filter((c) => coincideTexto(c.cliente_nombre, c.cliente_codigo, c.numero_venta))
+        .filter((c) => situacion === "todas" || (situacion === "vencidas" ? c.vencida : !c.vencida)),
+    [cuentas, desde, hasta, enRango, coincideTexto, situacion]
   );
   // Cobrados = historial de pagos. Filtro por fecha de pago.
   const cobradosVista = useMemo(
-    () => cobros.filter((c) => (!desde && !hasta) ? true : enRango(c.fecha_pago)),
-    [cobros, desde, hasta, enRango]
+    () =>
+      cobros
+        .filter((c) => (!desde && !hasta) ? true : enRango(c.fecha_pago))
+        .filter((c) => coincideTexto(c.cliente_nombre, c.numero_venta, c.referencia)),
+    [cobros, desde, hasta, enRango, coincideTexto]
   );
   // Por pagar = compras crédito no pagadas. Filtro por fecha compra o vencimiento.
   const porPagarVista = useMemo(
@@ -190,7 +216,7 @@ export default function PagosPage() {
     setCobrando(c);
   }
 
-  const hayFiltro = !!desde || !!hasta;
+  const hayFiltro = !!desde || !!hasta || !!buscar.trim() || situacion !== "todas";
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-6">
@@ -217,8 +243,26 @@ export default function PagosPage() {
             <label className="block text-[11px] font-medium text-slate-500 mb-1">Hasta</label>
             <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={inputClass} />
           </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Situación</label>
+            <select value={situacion} onChange={(e) => setSituacion(e.target.value as Situacion)} className={inputClass}>
+              <option value="todas">Todas</option>
+              <option value="vencidas">Vencidas</option>
+              <option value="al_dia">Al día</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Buscar</label>
+            <input
+              type="text"
+              value={buscar}
+              onChange={(e) => setBuscar(e.target.value)}
+              placeholder="Cliente, código o factura"
+              className={`${inputClass} w-56`}
+            />
+          </div>
           {hayFiltro && (
-            <button type="button" onClick={() => { setDesde(""); setHasta(""); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); setSituacion("todas"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
               Limpiar
             </button>
           )}
@@ -286,7 +330,12 @@ export default function PagosPage() {
                 <tbody className="divide-y divide-slate-100">
                   {pendientes.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 text-gray-700"><Link href={`/clientes/${c.cliente_id}/estado-cuenta`} className="hover:text-[#4FAEB2] hover:underline">{c.cliente_nombre}</Link></td>
+                      <td className="py-3 px-4 text-gray-700">
+                        <Link href={`/clientes/${c.cliente_id}/estado-cuenta`} className="hover:text-[#4FAEB2] hover:underline">{c.cliente_nombre}</Link>
+                        {c.cliente_codigo && (
+                          <div className="font-mono text-[11px] text-slate-400">{c.cliente_codigo}</div>
+                        )}
+                      </td>
                       <td className="py-3 px-4 font-mono font-medium text-gray-800">{c.numero_venta ?? "—"}</td>
                       <td className="py-3 px-4 text-gray-600">{fmtFecha(c.fecha_emision)}</td>
                       <td className={`py-3 px-4 ${c.vencida ? "font-semibold text-red-600" : "text-gray-600"}`}>{fmtFecha(c.fecha_vencimiento)}</td>
@@ -347,17 +396,29 @@ export default function PagosPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {cobradosVista.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50">
+                    <tr key={c.id} className={c.anulado ? "bg-rose-50/40" : "hover:bg-slate-50"}>
                       <td className="py-2.5 px-4 text-gray-600">{fmtFecha(c.fecha_pago)}</td>
                       <td className="py-2.5 px-4 text-gray-700">
                         {c.cliente_id ? <Link href={`/clientes/${c.cliente_id}/estado-cuenta`} className="hover:text-[#4FAEB2] hover:underline">{c.cliente_nombre}</Link> : c.cliente_nombre}
+                        {c.anulado && (
+                          <div className="text-[11px] text-rose-600">
+                            Anulado{c.anulado_por ? ` por ${c.anulado_por}` : ""}
+                            {c.anulado_motivo ? `: ${c.anulado_motivo}` : ""}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-4 font-mono text-gray-700">{c.numero_venta ?? "—"}</td>
                       <td className="py-2.5 px-4 text-gray-600">{METODO_LABEL[c.metodo_pago] ?? c.metodo_pago}</td>
                       <td className="py-2.5 px-4 text-gray-500">{c.referencia ?? "—"}</td>
                       <td className="py-2.5 px-4 text-gray-600">{c.usuario_nombre ?? "—"}</td>
-                      <td className="py-2.5 px-4 text-right tabular-nums font-semibold text-emerald-700">{fmtGs(c.monto)}</td>
+                      <td className={`py-2.5 px-4 text-right tabular-nums font-semibold ${c.anulado ? "text-slate-400 line-through" : "text-emerald-700"}`}>{fmtGs(c.monto)}</td>
                       <td className="py-2.5 px-4 text-right">
+                        {/* Un cobro anulado no lleva recibo ni se vuelve a
+                            anular: la plata ya volvió al saldo del cliente. */}
+                        {c.anulado ? (
+                          <span className="text-xs text-slate-400">—</span>
+                        ) : (
+                        <>
                         <button
                           disabled={reciboBusy === c.id}
                           onClick={async () => {
@@ -379,25 +440,45 @@ export default function PagosPage() {
                           disabled={reversarBusy === c.id}
                           onClick={async () => {
                             if (reversarBusy) return;
-                            if (!window.confirm(`¿Reversar el cobro de ${fmtGs(c.monto)} de ${c.cliente_nombre}? El monto vuelve al saldo pendiente.`)) return;
+                            // El motivo es obligatorio (punto 10.3): el recibo no
+                            // se borra, queda anulado con su explicación.
+                            const motivo = window.prompt(
+                              `Anular el cobro de ${fmtGs(c.monto)} de ${c.cliente_nombre}.\n` +
+                              `El monto vuelve al saldo pendiente y el recibo queda en el historial, anulado.\n\n` +
+                              `¿Por qué se anula?`
+                            );
+                            if (motivo === null) return;
+                            if (!motivo.trim()) {
+                              setError("Hay que escribir el motivo de la anulación.");
+                              return;
+                            }
                             setReversarBusy(c.id);
                             try {
-                              const r = await fetchWithSupabaseSession(`/api/cobros?id=${encodeURIComponent(c.id)}`, { method: "DELETE" });
+                              const r = await fetchWithSupabaseSession(
+                                `/api/cobros?id=${encodeURIComponent(c.id)}&motivo=${encodeURIComponent(motivo.trim())}`,
+                                { method: "DELETE" }
+                              );
                               const j = await r.json().catch(() => ({}));
                               if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
-                              setToast("Cobro reversado");
+                              setToast(
+                                j?.data?.compensado_en_caja
+                                  ? "Cobro anulado y descontado del turno de caja"
+                                  : "Cobro anulado"
+                              );
                               setTimeout(() => setToast(null), 2500);
                               await cargar();
                             } catch (e) {
-                              setError(e instanceof Error ? e.message : "No se pudo reversar el cobro.");
+                              setError(e instanceof Error ? e.message : "No se pudo anular el cobro.");
                             } finally {
                               setReversarBusy(null);
                             }
                           }}
                           className="ml-2 inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          {reversarBusy === c.id ? <><Loader2 className="h-3 w-3 animate-spin" /> …</> : "Reversar"}
+                          {reversarBusy === c.id ? <><Loader2 className="h-3 w-3 animate-spin" /> …</> : "Anular"}
                         </button>
+                        </>
+                        )}
                       </td>
                     </tr>
                   ))}

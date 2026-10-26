@@ -46,14 +46,34 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** DELETE /api/cobros?id=... — reversa un cobro y devuelve el monto al saldo. */
+/**
+ * DELETE /api/cobros?id=...&motivo=... — anula un cobro y devuelve el monto al
+ * saldo de la cuenta.
+ *
+ * Sigue siendo DELETE porque es la acción que la pantalla ya llamaba, pero no
+ * borra nada: el recibo queda marcado como anulado, con su motivo y su autor
+ * (punto 10.3, "conservando historial"). El motivo puede venir por query o en
+ * el cuerpo.
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    const id = (new URL(request.url).searchParams.get("id") ?? "").trim();
+    const url = new URL(request.url);
+    const id = (url.searchParams.get("id") ?? "").trim();
     if (!id) return NextResponse.json(errorResponse("Falta el id del cobro."), { status: 400 });
-    const result = await reversarCobro(ctx.supabase, ctx.auth.empresa_id, id);
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const motivo =
+      (url.searchParams.get("motivo") ?? "").trim() ||
+      (typeof body.motivo === "string" ? body.motivo.trim() : "");
+
+    const result = await reversarCobro(ctx.supabase, ctx.auth.empresa_id, id, {
+      motivo,
+      usuarioId: ctx.auth.user?.id ?? null,
+      usuarioNombre: ctx.auth.nombre ?? ctx.auth.user?.email ?? null,
+      sucursalId: ctx.auth.sucursal_id ?? null,
+      usuarioEmail: ctx.auth.user?.email ?? null,
+    });
     return NextResponse.json(successResponse(result));
   } catch (err) {
     if (err instanceof CobroError) {

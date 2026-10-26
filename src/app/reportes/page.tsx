@@ -2,7 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { Wallet, Truck, Package, ShoppingCart, ArrowLeftRight, TrendingUp, Target, Banknote, Landmark } from "lucide-react";
+import { Wallet, Truck, Package, ShoppingCart, ArrowLeftRight, TrendingUp, Target, Banknote, Landmark, HandCoins } from "lucide-react";
 
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
@@ -31,6 +31,15 @@ export default function ReportesPage() {
             icon={Target}
             description="Qué producto y qué línea dejan más ganancia (no solo cuál factura más): unidades, costo, margen y participación en la utilidad."
             href="/reportes/rentabilidad"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Cobranzas"
+            subtitle="Qué se cobró y con qué comprobante"
+            icon={HandCoins}
+            description="Cliente, factura cobrada, fecha, importe, medio de pago y comprobante, con filtros por cliente, fecha y medio. Los anulados se muestran y no suman."
+            href="/reportes/cobranzas"
           />
         </li>
         <li>

@@ -539,6 +539,8 @@ export async function getReporteConciliacion(
         LEFT JOIN ${tCli} c ON c.id=cc.cliente_id AND c.empresa_id=cc.empresa_id
         LEFT JOIN ${tEnt} eb ON eb.id=cc.entidad_bancaria_id AND eb.empresa_id=cc.empresa_id
        WHERE cc.empresa_id=$1::uuid AND cc.fecha_pago>=$2::timestamptz AND cc.fecha_pago<=$3::timestamptz
+         -- Un cobro anulado no entro al banco: no hay nada que conciliar.
+         AND cc.anulado_at IS NULL
          AND cc.metodo_pago IS NOT NULL AND cc.metodo_pago <> 'efectivo'
     )`;
 
@@ -919,7 +921,7 @@ export async function getFlujoCaja(
   const cobrosQ = p.query<{ periodo: number; antes: number }>(
     `SELECT COALESCE(SUM(monto) FILTER (WHERE fecha_pago>=$2::timestamptz AND fecha_pago<=$3::timestamptz),0)::float8 AS periodo,
             COALESCE(SUM(monto) FILTER (WHERE fecha_pago<$2::timestamptz),0)::float8 AS antes
-       FROM ${tCob} WHERE empresa_id=$1::uuid`, args);
+       FROM ${tCob} WHERE empresa_id=$1::uuid AND anulado_at IS NULL`, args);
   const gastosQ = p.query<{ periodo: number; antes: number }>(
     `SELECT COALESCE(SUM(monto) FILTER (WHERE fecha>=$4::date AND fecha<=$5::date),0)::float8 AS periodo,
             COALESCE(SUM(monto) FILTER (WHERE fecha<$4::date),0)::float8 AS antes
@@ -937,6 +939,7 @@ export async function getFlujoCaja(
         SELECT cc.fecha_pago, 'Cobro'::text, NULL::text, 'Cobro de cliente'::text, cc.metodo_pago, cc.monto, 0
           FROM ${tCob} cc
          WHERE cc.empresa_id=$1::uuid AND cc.fecha_pago>=$2::timestamptz AND cc.fecha_pago<=$3::timestamptz
+           AND cc.anulado_at IS NULL
         UNION ALL
         SELECT g.fecha::timestamptz, 'Gasto'::text, NULLIF(g.categoria,''), COALESCE(g.descripcion,''), g.metodo_pago, 0, g.monto
           FROM ${tG} g
@@ -1051,6 +1054,7 @@ export async function getTesoreria(
         SELECT ${entidadExpr("cc")}, cc.metodo_pago, cc.monto::float8, cc.conciliacion_estado
           FROM ${tCob} cc
          WHERE cc.empresa_id=$1::uuid AND cc.fecha_pago>=$2::timestamptz AND cc.fecha_pago<=$3::timestamptz
+           AND cc.anulado_at IS NULL
            AND cc.metodo_pago IS NOT NULL
       )
       SELECT entidad,

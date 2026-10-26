@@ -75,6 +75,9 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     .from("cobros_clientes")
     .select("fecha_pago, monto, metodo_pago, referencia, usuario_nombre")
     .eq("empresa_id", empresaId)
+      // El estado de cuenta que se le entrega al cliente lista lo que pagó:
+      // un cobro anulado no es un pago, y mostrarlo invitaría a reclamarlo.
+      .is("anulado_at", null)
       .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id)).eq("cliente_id", id).order("fecha_pago", { ascending: false }).limit(500);
   const cobros = (cobQ.data ?? []) as Record<string, unknown>[];
 

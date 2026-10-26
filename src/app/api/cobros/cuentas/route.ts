@@ -84,18 +84,33 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Nombres de clientes.
+    // Nombres y códigos de clientes (punto 10.3: "clientes con códigos").
+    //
+    // El código va en su propia consulta porque lo crea el script 28: sumarlo
+    // al select de arriba dejaría la pantalla de cuentas por cobrar en blanco
+    // en una base sin migrar, que es justamente la pantalla de la plata.
     const clienteIds = [...new Set(rows.map((r) => String(r.cliente_id)).filter(Boolean))];
     const nombreById = new Map<string, string>();
+    const codigoById = new Map<string, string>();
     if (clienteIds.length) {
       const cq = await ctx.supabase
         .from("clientes")
-        .select("id, empresa, nombre_contacto, nombre")
+        .select("id, empresa, nombre_contacto, nombre, limite_credito")
         .eq("empresa_id", empresaId)
         .in("id", clienteIds);
       for (const c of (cq.data ?? []) as Record<string, unknown>[]) {
         const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
         nombreById.set(String(c.id), s(c.empresa) || s(c.nombre_contacto) || s(c.nombre) || "Cliente");
+      }
+      const codQ = await ctx.supabase
+        .from("clientes")
+        .select("id, codigo")
+        .eq("empresa_id", empresaId)
+        .in("id", clienteIds);
+      if (!codQ.error) {
+        for (const c of (codQ.data ?? []) as Record<string, unknown>[]) {
+          if (c.codigo != null) codigoById.set(String(c.id), String(c.codigo));
+        }
       }
     }
 
@@ -107,6 +122,7 @@ export async function GET(request: NextRequest) {
         total: Number(r.total) || 0,
         saldo: Number(r.saldo) || 0,
         cliente_nombre: nombreById.get(String(r.cliente_id)) ?? "Cliente",
+        cliente_codigo: codigoById.get(String(r.cliente_id)) ?? null,
         vencida,
       };
     });
@@ -170,6 +186,9 @@ export async function GET(request: NextRequest) {
       .select("monto, fecha_pago")
       .eq("empresa_id", empresaId)
       .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
+      // Los anulados no suman: el recibo queda en el historial (punto 10.3)
+      // pero esa plata volvió al saldo del cliente.
+      .is("anulado_at", null)
       .gte("fecha_pago", inicioMes);
     let cobradoMes = 0;
     for (const r of (cobMesQ.data ?? []) as Record<string, unknown>[]) cobradoMes += Number(r.monto) || 0;
@@ -177,7 +196,9 @@ export async function GET(request: NextRequest) {
     // Historial de cobros recientes (para la pestaña de cobros registrados).
     const histQ = await ctx.supabase
       .from("cobros_clientes")
-      .select("id, cliente_id, venta_id, cuenta_por_cobrar_id, fecha_pago, monto, metodo_pago, referencia, usuario_nombre")
+      // El historial SÍ muestra los anulados, con su motivo: para eso se
+      // conservan. La pantalla los marca.
+      .select("id, cliente_id, venta_id, cuenta_por_cobrar_id, fecha_pago, monto, metodo_pago, referencia, usuario_nombre, anulado_at, anulado_por_nombre, anulado_motivo")
       .eq("empresa_id", empresaId)
       .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
       .order("fecha_pago", { ascending: false })
@@ -242,6 +263,11 @@ export async function GET(request: NextRequest) {
       metodo_pago: r.metodo_pago ?? "efectivo",
       referencia: r.referencia ?? null,
       usuario_nombre: r.usuario_nombre ?? null,
+      // Punto 10.3: el historial muestra los anulados, marcados. Para eso se
+      // conservan en vez de borrarse.
+      anulado: r.anulado_at != null,
+      anulado_motivo: r.anulado_motivo ?? null,
+      anulado_por: r.anulado_por_nombre ?? null,
     }));
 
     return NextResponse.json(
