@@ -95,7 +95,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | 10.2 | Cobranzas: cliente, cobro, fecha, importe y comprobante; filtros por cliente y fecha. | ✅ |
 | 10.3 | Cuentas por cobrar: clientes con códigos y saldos, filtros amplios, cancelación o disminución de deuda por recibos, conservando historial. | ✅ |
 | 10.4 | IVA Compras e IVA Ventas: totales con IVA y, en la última página, resumen de base/importe total e IVA total. | ✅ |
-| 10.5 | Estudio de precios: modificar precios, margen, remarcación y comisiones por rubro, masivo y por fila; mostrar costo de compra, cantidad de artículos y filtros. | ⬜ |
+| 10.5 | Estudio de precios: modificar precios, margen, remarcación y comisiones por rubro, masivo y por fila; mostrar costo de compra, cantidad de artículos y filtros. | ✅ |
 
 ## 11. Requisitos generales
 

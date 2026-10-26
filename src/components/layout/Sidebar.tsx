@@ -160,6 +160,9 @@ const MENU_STRUCTURE: MenuItem[] = [
     { label: "Movimientos", href: "/inventario/movimientos" },
     { label: "Ajustes", href: "/inventario/ajustes" },
     { label: "Valoración", href: "/inventario/valoracion" },
+    // Punto 10.5. Vive en Inventario y no en Reportes porque no es un informe
+    // que se lee: es la pantalla donde se cambian los precios.
+    { label: "Estudio de precios", href: "/inventario/estudio-precios" },
     { label: "Rubros", href: "/inventario/categorias" },
     { label: "Ubicaciones", href: "/inventario/ubicaciones" },
     { label: "Depósitos", href: "/depositos" },
