@@ -18,12 +18,12 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | 1.6 | Valoración de existencias: inventario y valor del stock a una fecha, por año, rubro o general; cantidades, costos unitarios, valor total, fecha y hora. | ✅ |
 | 1.7 | Márgenes y remarcación visibles en Inventario y en Caja, según permisos. | ✅ |
 
-## 2. Ventas
+## 2. Ventas  ·  **completo**
 
 | # | Requerimiento | Estado |
 |---|---|---|
 | 2.1 | Buscar ventas por número de factura, cliente y fecha; ver historial y detalle. | ✅ |
-| 2.2 | Edición controlada: solo administradores, registrando quién, cuándo y qué cambió. | ⬜ |
+| 2.2 | Edición controlada: solo administradores, registrando quién, cuándo y qué cambió. | ✅ |
 | 2.3 | Descuentos por usuario: máximo configurable por usuario o vendedor. | ✅ |
 
 ## 3. Clientes

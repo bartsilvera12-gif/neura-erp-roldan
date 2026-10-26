@@ -11,6 +11,8 @@ import PedidosPendientesCaja from "./PedidosPendientesCaja";
 import CajaControlPanel from "@/components/caja/CajaControlPanel";
 import DevolucionWizard from "@/components/devoluciones/DevolucionWizard";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import EditarVentaModal from "./EditarVentaModal";
 import type { Venta, TipoVenta, TipoIvaVenta } from "@/lib/ventas/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -101,6 +103,9 @@ export default function VentasPage() {
   const [detalle,    setDetalle]    = useState<Venta | null>(null);
   const [anularTarget, setAnularTarget] = useState<Venta | null>(null);
   const [reclasificar, setReclasificar] = useState<Venta | null>(null);
+  // Edición de una venta emitida (punto 2.2). Solo admin.
+  const [editar, setEditar] = useState<Venta | null>(null);
+  const { isAdmin } = useIsAdmin();
   const [reloadKey, setReloadKey] = useState(0);
   const [devolucionesOn, setDevolucionesOn] = useState(false);
   const [devolverVentaId, setDevolverVentaId] = useState<string | null>(null);
@@ -436,6 +441,16 @@ export default function VentasPage() {
                               Nota de remisión
                             </a>
                           )}
+                          {!isAnulada && isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setEditar(v)}
+                              className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                              title="Editar la venta. Queda registrado quién, cuándo y qué cambió."
+                            >
+                              Editar
+                            </button>
+                          )}
                           {!isAnulada && (
                             <button
                               type="button"
@@ -488,6 +503,14 @@ export default function VentasPage() {
           }}
         />
       )}
+      {editar && (
+        <EditarVentaModal
+          venta={editar}
+          onClose={() => setEditar(null)}
+          onGuardado={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+
       {reclasificar && (
         <ModalMedioCobro
           venta={reclasificar}

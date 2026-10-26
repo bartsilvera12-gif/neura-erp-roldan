@@ -53,7 +53,9 @@
  *   que devuelve exactamente el costo anterior.
  *
  *   La anulación de una venta es al revés: la mercadería vuelve tal como
- *   salió, así que repone stock y NO toca el costo.
+ *   salió, así que repone stock y NO toca el costo. Lo mismo vale para
+ *   `edicion_venta_reversa`, que devuelve lo que tenía la versión anterior de
+ *   una venta editada.
  *
  * EL LÍMITE HONESTO
  *   La reconstrucción solo puede ser tan buena como los movimientos. Un ajuste
@@ -138,8 +140,11 @@ export function reconstruirProducto(movs: MovimientoReplay[]): EstadoProducto {
       continue;
     }
 
-    // ── Anulación de venta: la mercadería vuelve como salió ───────────────
-    if (origen === "anulacion_venta") {
+    // ── Anulación de venta, o reversa de una edición ──────────────────────
+    // La mercadería vuelve como salió, así que repone stock y NO toca el
+    // costo. `edicion_venta_reversa` es lo mismo con otro nombre: devuelve al
+    // depósito lo que tenía la versión anterior de una venta editada.
+    if (origen === "anulacion_venta" || origen === "edicion_venta_reversa") {
       stock += Math.abs(Number(m.cantidad) || 0);
       continue;
     }
