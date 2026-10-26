@@ -41,6 +41,15 @@ export interface Caja {
   arqueo_apertura_json: ArqueoItem[] | null;
   /** Detalle del conteo físico al cerrar (null si se cargó el monto directo). */
   arqueo_cierre_json: ArqueoItem[] | null;
+
+  // ── Punto 5.5: diferencias que vienen del turno anterior ───────────────
+  /** Diferencia arrastrada. Negativa = faltante del turno anterior sin explicar. */
+  diferencia_arrastrada?: number;
+  /** De qué turno vino, para poder rastrearla. */
+  arrastre_de_caja_id?: string | null;
+  /** La diferencia de ESTE turno ya se explicó: no se arrastra al siguiente. */
+  diferencia_resuelta?: boolean;
+  diferencia_motivo?: string | null;
 }
 
 export interface CajaMovimiento {
@@ -80,6 +89,24 @@ export interface CajaResumen {
   ajustes_efectivo: number;
   efectivo_esperado: number;
   movimientos: CajaMovimiento[];
+
+  // ── Punto 5.3: el resumen obligatorio del cierre ──────────────────────
+  /** Ventas cobradas en el momento. */
+  total_contado: number;
+  /** Ventas a crédito: se vendieron pero la plata todavía no entró. */
+  total_credito: number;
+  /** Anticipos de clientes cobrados en este turno (punto 5.6). */
+  total_anticipos: number;
+  /** Anticipos cobrados en efectivo: esos sí están en el cajón. */
+  anticipos_efectivo: number;
+  /**
+   * Lo que el cajero tiene que entregar: el efectivo esperado menos lo que
+   * había al abrir. Es distinto del efectivo esperado — el fondo fijo con el
+   * que se abrió no se rinde, se deja para el turno siguiente.
+   */
+  dinero_a_rendir: number;
+  /** Diferencia que viene arrastrada del turno anterior (punto 5.5). */
+  diferencia_arrastrada: number;
 }
 
 /**

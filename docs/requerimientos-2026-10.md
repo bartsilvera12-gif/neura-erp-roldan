@@ -49,11 +49,11 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 5.1 | Cajas de días anteriores: consultar o reabrir, con controles y registro. | ⬜ |
-| 5.2 | Detalle de cierre: operaciones y motivos de anulaciones (referencia: Ferretodo). | ⬜ |
-| 5.3 | Resumen obligatorio: egresos, anticipos, ventas contado y crédito, dinero a rendir, retiros y diferencias. | 🟨 el arqueo ya calcula varios de estos |
-| 5.4 | Arqueo por denominación: contar billetes y monedas (referencia: República); impresión A4 con ingresos, egresos y resumen. | ⬜ |
-| 5.5 | Diferencias de caja: sobrantes y faltantes, arqueo anterior, arrastre de la diferencia negativa al día siguiente. | 🟨 CJ-02 ya hace el neto mensual; falta el arrastre |
+| 5.1 | Cajas de días anteriores: consultar o reabrir, con controles y registro. | ✅ |
+| 5.2 | Detalle de cierre: operaciones y motivos de anulaciones (referencia: Ferretodo). | ✅ |
+| 5.3 | Resumen obligatorio: egresos, anticipos, ventas contado y crédito, dinero a rendir, retiros y diferencias. | ✅ |
+| 5.4 | Arqueo por denominación: contar billetes y monedas (referencia: República); impresión A4 con ingresos, egresos y resumen. | ✅ |
+| 5.5 | Diferencias de caja: sobrantes y faltantes, arqueo anterior, arrastre de la diferencia negativa al día siguiente. | ✅ |
 | 5.6 | Anticipos: listado de anticipos no facturados con número único, cliente, fecha, monto, acumulado y estado; anulación con motivo y filtros. | ⬜ |
 | 5.7 | Egresos: tipo de egreso, opción Otros con motivo libre, notas y adjuntos de factura y recibo. | ⬜ |
 

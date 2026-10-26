@@ -28,6 +28,36 @@ const CAJA_COLS =
   "monto_apertura, monto_cierre_contado, monto_esperado_efectivo, diferencia, " +
   "observacion_apertura, observacion_cierre, arqueo_apertura_json, arqueo_cierre_json";
 
+/**
+ * Diferencia arrastrada del turno anterior (punto 5.5).
+ *
+ * Va en una consulta aparte y no en CAJA_COLS a propósito: esas columnas
+ * llegan con el script 25, y si se pidieran en el SELECT principal, una base
+ * sin migrar dejaría de poder abrir, cerrar y consultar cajas — todo el
+ * módulo, no solo el renglón nuevo.
+ *
+ * Nunca lanza: sin el dato, la diferencia arrastrada es cero, que es
+ * exactamente como se comportaba antes.
+ */
+async function leerArrastre(
+  sb: AppSupabaseClient,
+  empresaId: string,
+  cajaId: string
+): Promise<number> {
+  try {
+    const r = await sb
+      .from("cajas")
+      .select("diferencia_arrastrada")
+      .eq("empresa_id", empresaId)
+      .eq("id", cajaId)
+      .maybeSingle();
+    if (r.error) return 0;
+    return num((r.data as { diferencia_arrastrada?: number | string } | null)?.diferencia_arrastrada ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 interface CajaRow {
   id: string;
   numero_caja: number | string;
@@ -557,9 +587,32 @@ export async function getDetalleCaja(
     else if (m.tipo === "retiro") retirosEf += monto;
     else if (m.tipo === "ajuste") ajustesEf += monto;
   }
+  // ── Anticipos cobrados en este turno (puntos 5.3 y 5.6) ─────────────────
+  // Van aparte de las ventas: es plata que entro pero que todavia se le debe
+  // al cliente en mercaderia. Si el script 25 no se corrio, la tabla no existe
+  // y el resumen sigue andando sin ese renglon.
+  let totalAnticipos = 0;
+  let anticiposEfectivo = 0;
+  {
+    const aQ = await sb
+      .from("anticipos")
+      .select("monto, medio_pago, estado")
+      .eq("empresa_id", empresaId)
+      .eq("caja_id", caja.id)
+      .neq("estado", "anulado");
+    if (!aQ.error) {
+      for (const a of (aQ.data ?? []) as Array<{ monto: number | string; medio_pago: string | null }>) {
+        const m = num(a.monto);
+        totalAnticipos += m;
+        if ((a.medio_pago ?? "efectivo") === "efectivo") anticiposEfectivo += m;
+      }
+    }
+  }
+
   const efectivoEsperado =
     caja.monto_apertura +
     totalEfectivo +
+    anticiposEfectivo +
     ingresosEf -
     egresosEf -
     retirosEf +
@@ -692,6 +745,11 @@ export async function abrirCaja(
   const usaArqueo = params.arqueoApertura != null;
   const montoFinal = usaArqueo ? calcularTotalArqueo(params.arqueoApertura!) : params.montoApertura;
 
+  // ── Punto 5.5: heredar la diferencia que quedó sin explicar ─────────────
+  // Un faltante que se olvida al cerrar el turno es un faltante que nadie
+  // investiga. El turno nuevo abre sabiendo que hay plata que explicar.
+  const arrastre = await calcularArrastrePendiente(sb, params.empresaId, sucursalId);
+
   const ins = await sb
     .from("cajas")
     .insert({
@@ -703,6 +761,9 @@ export async function abrirCaja(
       monto_apertura: Math.round(montoFinal),
       observacion_apertura: params.observacion,
       arqueo_apertura_json: usaArqueo ? params.arqueoApertura : null,
+      ...(arrastre
+        ? { diferencia_arrastrada: arrastre.monto, arrastre_de_caja_id: arrastre.cajaId }
+        : {}),
     })
     .select(CAJA_COLS)
     .single();
@@ -790,6 +851,50 @@ export async function cerrarCaja(
     caja: mapCaja(upd.data as unknown as CajaRow),
     efectivo_esperado: esperado,
   };
+}
+
+/**
+ * Diferencia pendiente del último turno cerrado (punto 5.5).
+ *
+ * Solo se arrastra lo que NO fue explicado: si alguien marcó la diferencia
+ * como resuelta, el turno nuevo arranca limpio. Arrastrar una diferencia ya
+ * aclarada la haría reaparecer todos los días hasta que alguien la ignore,
+ * que es como un aviso deja de servir.
+ *
+ * Nunca lanza: sin las columnas del script 25, no hay arrastre y la caja abre
+ * exactamente como antes.
+ */
+async function calcularArrastrePendiente(
+  sb: AppSupabaseClient,
+  empresaId: string,
+  sucursalId: string | null
+): Promise<{ monto: number; cajaId: string } | null> {
+  try {
+    let qb = sb
+      .from("cajas")
+      .select("id, diferencia, diferencia_resuelta, diferencia_arrastrada")
+      .eq("empresa_id", empresaId)
+      .eq("estado", "cerrada")
+      .order("fecha_cierre", { ascending: false })
+      .limit(1);
+    if (sucursalId) qb = qb.eq("sucursal_id", sucursalId);
+    const r = await qb.maybeSingle();
+    if (r.error || !r.data) return null;
+
+    const row = r.data as {
+      id: string; diferencia: number | string | null;
+      diferencia_resuelta?: boolean; diferencia_arrastrada?: number | string | null;
+    };
+    if (row.diferencia_resuelta) return null;
+
+    // La diferencia del turno anterior YA incluye lo que ese turno había
+    // heredado: sumar las dos contaría el mismo faltante dos veces.
+    const dif = num(row.diferencia ?? 0);
+    if (dif === 0) return null;
+    return { monto: dif, cajaId: row.id };
+  } catch {
+    return null;
+  }
 }
 
 /** Registra un movimiento manual en la caja abierta. */
@@ -915,6 +1020,8 @@ async function computeResumen(
   }
 
   let totalVendido = 0;
+  let totalContado = 0;
+  let totalCredito = 0;
   let totalEfectivo = 0;
   let totalTarjeta = 0;
   let totalTransferencia = 0;
@@ -927,7 +1034,10 @@ async function computeResumen(
     totalVendido += t;
     // Ventas a credito: se cuentan en total_vendido pero no en ningun medio de pago
     // (el cobro efectivo llega despues via cobros_clientes).
-    if ((v.tipo_venta ?? "").toLowerCase() === "credito") continue;
+    // El punto 5.3 pide verlas separadas: una venta a credito es facturacion
+    // pero NO es plata en el cajon, y mezclarlas hace que el cierre no cuadre.
+    if ((v.tipo_venta ?? "").toLowerCase() === "credito") { totalCredito += t; continue; }
+    totalContado += t;
     const bk = detalleByVenta.get(v.id);
     if (v.metodo_pago === "mixto" && bk) {
       totalEfectivo += bk.efectivo;
@@ -991,18 +1101,53 @@ async function computeResumen(
     };
   });
 
+  // ── Anticipos cobrados en este turno (puntos 5.3 y 5.6) ─────────────────
+  // Van aparte de las ventas: es plata que entró pero que todavía se le debe
+  // al cliente en mercadería. Si el script 25 no se corrió, la tabla no existe
+  // y el resumen sigue andando sin ese renglón.
+  let totalAnticipos = 0;
+  let anticiposEfectivo = 0;
+  {
+    const aQ = await sb
+      .from("anticipos")
+      .select("monto, medio_pago, estado")
+      .eq("empresa_id", empresaId)
+      .eq("caja_id", caja.id)
+      .neq("estado", "anulado");
+    if (!aQ.error) {
+      for (const a of (aQ.data ?? []) as Array<{ monto: number | string; medio_pago: string | null }>) {
+        const m = num(a.monto);
+        totalAnticipos += m;
+        if ((a.medio_pago ?? "efectivo") === "efectivo") anticiposEfectivo += m;
+      }
+    }
+  }
+
   const efectivoEsperado =
     caja.monto_apertura +
     totalEfectivo +
+    anticiposEfectivo +
     ingresosEf -
     egresosEf -
     retirosEf +
     ajustesEf;
 
+  // Lo que hay que entregar: todo menos el fondo con el que se abrió, que
+  // queda para el turno siguiente.
+  const dineroARendir = efectivoEsperado - caja.monto_apertura;
+
+  const arrastre = await leerArrastre(sb, empresaId, caja.id);
+
   return {
     caja,
     cantidad_ventas: count,
     total_vendido: totalVendido,
+    total_contado: totalContado,
+    total_credito: totalCredito,
+    total_anticipos: totalAnticipos,
+    anticipos_efectivo: anticiposEfectivo,
+    dinero_a_rendir: dineroARendir,
+    diferencia_arrastrada: arrastre,
     total_efectivo: totalEfectivo,
     total_tarjeta: totalTarjeta,
     total_transferencia: totalTransferencia,

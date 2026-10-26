@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import type { CajasReporte } from "@/lib/caja/types";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
@@ -28,6 +29,8 @@ export default function ReporteCajasPage() {
   const [mes, setMes] = useState(mesActual);
   const [data, setData] = useState<(CajasReporte & { mes?: string }) | null>(null);
   const [cargando, setCargando] = useState(true);
+  const { isAdmin } = useIsAdmin();
+  const [reabriendo, setReabriendo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -49,6 +52,38 @@ export default function ReporteCajasPage() {
   useEffect(() => { void cargar(); }, [cargar]);
 
   const t = data?.totales;
+
+  /**
+   * Reabrir un turno cerrado (punto 5.1).
+   *
+   * Pide el motivo porque es lo que se va a leer cuando alguien pregunte por
+   * qué el arqueo de ese día cambió después de haberse cerrado.
+   */
+  async function reabrir(cajaId: string, numero: number) {
+    const motivo = window.prompt(
+      `¿Por qué se reabre la Caja ${numero}?\n\n` +
+      "Queda registrado en la observación del cierre junto con tu nombre y la hora.\n" +
+      "Los números del cierre original se conservan para poder compararlos."
+    );
+    if (motivo == null) return;
+    if (!motivo.trim()) { alert("Hace falta el motivo."); return; }
+
+    setReabriendo(cajaId);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/cajas/${cajaId}/reabrir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: motivo.trim() }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo reabrir.");
+      await cargar();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setReabriendo(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -107,14 +142,15 @@ export default function ReporteCajasPage() {
                 <th className="px-4 py-3 text-right">Efectivo esperado</th>
                 <th className="px-4 py-3 text-right">Contado</th>
                 <th className="px-4 py-3 text-right">Diferencia</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {cargando ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400">Cargando…</td></tr>
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Cargando…</td></tr>
               ) : !data || data.cajas.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
                     No hubo turnos de caja en este mes.
                   </td>
                 </tr>
@@ -149,6 +185,29 @@ export default function ReporteCajasPage() {
                         abierta ? "text-slate-300" : dif < 0 ? "text-red-600" : dif > 0 ? "text-amber-600" : "text-emerald-700"
                       }`}>
                         {abierta ? "—" : dif === 0 ? "Cuadra" : gs(dif)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right">
+                        {/* Punto 5.1: consultar el cierre. El arqueo A4 trae las
+                            operaciones y los motivos de anulación (punto 5.2). */}
+                        <a
+                          href={`/api/cajas/${c.id}/arqueo-a4`}
+                          target="_blank" rel="noopener"
+                          className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+                          title="Arqueo completo: ingresos, egresos, conteo por denominación y anulaciones"
+                        >
+                          Ver cierre
+                        </a>
+                        {!abierta && isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => void reabrir(c.id, c.numero_caja)}
+                            disabled={reabriendo === c.id}
+                            className="ml-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                            title="Reabrir este turno para corregirlo"
+                          >
+                            {reabriendo === c.id ? "…" : "Reabrir"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
