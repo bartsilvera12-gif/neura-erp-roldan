@@ -281,6 +281,21 @@ export default function ClientesPage() {
   const [filtroOrigen, setFiltroOrigen] = useState<"" | "CRM" | "VENTA" | "MANUAL">("");
   const [filtroTipo,   setFiltroTipo]   = useState<"" | "empresa" | "persona">("");
   const [filtroTipoServicio, setFiltroTipoServicio] = useState<"" | string>("");
+  // Punto 3.1: filtro por rubro de cliente (ocasional, mayorista, minorista,
+  // frecuente, distribuidor). "__sin__" son los que todavía no tienen uno.
+  const [filtroRubro, setFiltroRubro] = useState("");
+  const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categorias-cliente", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success) return;
+        const lista = (j.data?.categorias ?? j.data?.items ?? []) as Array<{ id: string; nombre: string; activa?: boolean }>;
+        setRubros(lista.map((c) => ({ id: c.id, nombre: c.nombre })));
+      })
+      .catch(() => { /* sin rubros el filtro queda vacío y el listado anda igual */ });
+  }, []);
   const [columnasOpen, setColumnasOpen] = useState(false);
   const [columnasInicializadas, setColumnasInicializadas] = useState(false);
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<ClienteColumnKey[]>(DEFAULT_VISIBLE_COLUMN_KEYS);
@@ -367,10 +382,13 @@ export default function ClientesPage() {
     if (filtroOrigen       && c.origen              !== filtroOrigen) return false;
     if (filtroTipo         && c.tipo_cliente        !== filtroTipo) return false;
     if (filtroTipoServicio && c.tipo_servicio_cliente !== filtroTipoServicio) return false;
+    if (filtroRubro === "__sin__") {
+      if (c.categoria_cliente_id) return false;
+    } else if (filtroRubro && c.categoria_cliente_id !== filtroRubro) return false;
     return true;
   });
 
-  const hayFiltros = busqueda || filtroEstado || filtroOrigen || filtroTipo || filtroTipoServicio;
+  const hayFiltros = busqueda || filtroEstado || filtroOrigen || filtroTipo || filtroTipoServicio || filtroRubro;
 
   function toggleColumn(key: ClienteColumnKey) {
     const col = clienteColumns.find((c) => c.key === key);
@@ -466,10 +484,22 @@ export default function ClientesPage() {
             { value: "persona", label: "Persona" },
           ]}
         />
+        <FancySelect
+          value={filtroRubro}
+          onChange={(v) => setFiltroRubro(v)}
+          ariaLabel="Filtrar por rubro de cliente"
+          className="w-52"
+          size="sm"
+          options={[
+            { value: "", label: "Todos los rubros" },
+            { value: "__sin__", label: "— Sin rubro —" },
+            ...rubros.map((r) => ({ value: r.id, label: r.nombre })),
+          ]}
+        />
         {/* Roldán e Hijos: filtros "Origen" y "Tipo servicio" eliminados (herencia de Reserva). */}
         {hayFiltros && (
           <button
-            onClick={() => { setBusqueda(""); setFiltroEstado(""); setFiltroOrigen(""); setFiltroTipo(""); setFiltroTipoServicio(""); }}
+            onClick={() => { setBusqueda(""); setFiltroEstado(""); setFiltroOrigen(""); setFiltroTipo(""); setFiltroTipoServicio(""); setFiltroRubro(""); }}
             className="text-xs text-gray-500 hover:text-gray-900 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors"
           >
             Limpiar

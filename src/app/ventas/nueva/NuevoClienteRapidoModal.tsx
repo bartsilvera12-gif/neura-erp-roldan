@@ -28,6 +28,29 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
   const [ruc, setRuc] = useState("");
   const [documento, setDocumento] = useState("");
   const [telefono, setTelefono] = useState("");
+  // Punto 3.2: los campos que pidió el cliente para el alta desde Caja.
+  // Van plegados porque el alta rápida se usa con el cliente esperando en el
+  // mostrador: el que tiene apuro carga tres datos y sigue, el que tiene
+  // tiempo abre y completa.
+  const [verMas, setVerMas] = useState(false);
+  const [ciudad, setCiudad] = useState("");
+  const [profesion, setProfesion] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [email, setEmail] = useState("");
+  const [limiteCredito, setLimiteCredito] = useState("");
+  const [rubroId, setRubroId] = useState("");
+  const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categorias-cliente", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success) return;
+        const lista = (j.data?.categorias ?? j.data?.items ?? []) as Array<{ id: string; nombre: string; activa?: boolean }>;
+        setRubros(lista.filter((c) => c.activa !== false).map((c) => ({ id: c.id, nombre: c.nombre })));
+      })
+      .catch(() => { /* sin rubros el alta sigue funcionando */ });
+  }, []);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +76,13 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
       ruc: tipo === "empresa" ? ruc.trim() || undefined : undefined,
       documento: tipo === "persona" ? documento.trim() || undefined : undefined,
       telefono: telefono.trim() || undefined,
+      ciudad: ciudad.trim() || undefined,
+      profesion: profesion.trim() || undefined,
+      direccion: direccion.trim() || undefined,
+      email: email.trim().toLowerCase() || undefined,
+      // Vacío queda sin definir, que no es lo mismo que cero.
+      limite_credito: limiteCredito.trim() === "" ? undefined : Number(limiteCredito) || 0,
+      categoria_cliente_id: rubroId || undefined,
     });
     setEnviando(false);
     if (!res.ok) {
@@ -78,7 +108,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <h3 className="text-lg font-semibold text-slate-900">Nuevo cliente</h3>
         <p className="mt-1 text-xs text-slate-500">
-          Solo los datos mínimos. Podés completar dirección, SIFEN y condiciones más tarde desde la ficha del cliente.
+          Con el nombre alcanza para vender. El resto se puede completar ahora o más tarde desde la ficha.
         </p>
 
         {/* Tipo */}
@@ -136,6 +166,83 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
           placeholder="Ej: 0991 234 567"
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
         />
+
+        {/* Punto 3.2: ciudad, profesión, dirección, correo y límite de crédito. */}
+        <button
+          type="button"
+          onClick={() => setVerMas((v) => !v)}
+          className="mt-3 text-xs font-medium text-[#3F8E91] underline-offset-2 hover:underline"
+        >
+          {verMas ? "− Menos datos" : "+ Más datos (ciudad, profesión, dirección, correo, crédito)"}
+        </button>
+
+        {verMas && (
+          <div className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm">
+                <span className="font-medium text-slate-800">Ciudad</span>
+                <input
+                  value={ciudad} onChange={(e) => setCiudad(e.target.value.toUpperCase())}
+                  disabled={enviando} placeholder="Ej: ÑEMBY"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="font-medium text-slate-800">Profesión</span>
+                <input
+                  value={profesion} onChange={(e) => setProfesion(e.target.value.toUpperCase())}
+                  disabled={enviando} placeholder="Ej: ALBAÑIL"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+                />
+              </label>
+            </div>
+
+            <label className="block text-sm">
+              <span className="font-medium text-slate-800">Dirección</span>
+              <input
+                value={direccion} onChange={(e) => setDireccion(e.target.value.toUpperCase())}
+                disabled={enviando} placeholder="Ej: AVDA. MARISCAL LÓPEZ 1234"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+              />
+            </label>
+
+            <label className="block text-sm">
+              <span className="font-medium text-slate-800">Correo electrónico</span>
+              <input
+                type="email" value={email}
+                onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                disabled={enviando} placeholder="ej: juan@gmail.com"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lowercase focus:border-[#4FAEB2] focus:outline-none"
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm">
+                <span className="font-medium text-slate-800">Límite de crédito</span>
+                <input
+                  type="number" min={0} value={limiteCredito}
+                  onChange={(e) => setLimiteCredito(e.target.value)}
+                  disabled={enviando} placeholder="Gs."
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none"
+                />
+                <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+                  Vacío = sin definir. 0 = no se le vende a crédito.
+                </span>
+              </label>
+              <label className="block text-sm">
+                <span className="font-medium text-slate-800">Rubro</span>
+                <select
+                  value={rubroId} onChange={(e) => setRubroId(e.target.value)}
+                  disabled={enviando}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+                >
+                  <option value="">— Sin rubro —</option>
+                  {rubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">

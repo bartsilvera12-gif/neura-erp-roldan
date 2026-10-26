@@ -28,6 +28,10 @@ interface SupabaseRow {
   nombre_comercial:   string | null;
   nivel_precio: string | null;
   categoria_cliente_id?: string | null;
+  /** Punto 3.2. Profesión u oficio del cliente. */
+  profesion?: string | null;
+  /** Punto 3.2. Tope de deuda en guaraníes. null = sin definir, 0 = no se le vende a crédito. */
+  limite_credito?: number | null;
   ruc:                string | null;
   documento:          string | null;
   es_contribuyente?:  boolean | null;
@@ -109,6 +113,8 @@ function rowToCliente(row: SupabaseRow): Cliente {
     email_secundario:    row.email_secundario ?? undefined,
     direccion:           row.direccion ?? undefined,
     ciudad:              row.ciudad ?? undefined,
+    profesion:           row.profesion ?? undefined,
+    limite_credito:      row.limite_credito == null ? undefined : Number(row.limite_credito),
     pais:                row.pais ?? undefined,
     usa_nota_remision:   row.usa_nota_remision === true,
     sitio_web:           row.sitio_web ?? undefined,
@@ -406,6 +412,19 @@ export function construirPatchActualizacionCliente(datos: ActualizarClienteInput
   if (datos.categoria_cliente_id !== undefined) {
     const v = datos.categoria_cliente_id;
     patch.categoria_cliente_id = typeof v === "string" && v.length > 0 ? v : null;
+  }
+  if (datos.profesion !== undefined) {
+    const v = typeof datos.profesion === "string" ? datos.profesion.trim() : "";
+    patch.profesion = v ? v.toUpperCase() : null;
+  }
+  if (datos.limite_credito !== undefined) {
+    // Vacío vuelve a NULL ("sin definir"), que no es lo mismo que cero
+    // ("no se le vende a crédito"). Un negativo se descarta.
+    const n = Number(datos.limite_credito);
+    patch.limite_credito =
+      datos.limite_credito === null || (datos.limite_credito as unknown) === "" || !Number.isFinite(n) || n < 0
+        ? null
+        : n;
   }
   if (datos.ruc !== undefined) patch.ruc = datos.ruc ?? null;
   if (datos.documento !== undefined) patch.documento = datos.documento ?? null;

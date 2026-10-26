@@ -26,13 +26,13 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | 2.2 | Edición controlada: solo administradores, registrando quién, cuándo y qué cambió. | ✅ |
 | 2.3 | Descuentos por usuario: máximo configurable por usuario o vendedor. | ✅ |
 
-## 3. Clientes
+## 3. Clientes  ·  **completo**
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 3.1 | Rubros de cliente: ocasional, mayorista, minorista, frecuente, distribuidor + filtro. | 🟨 existen rubros de cliente configurables; faltan esos valores y el filtro |
-| 3.2 | Alta desde Caja: ciudad, profesión, dirección, correo y límite de crédito. | ⬜ |
-| 3.3 | Historial comercial: compras históricas del cliente, filtrables desde Caja. | ⬜ |
+| 3.1 | Rubros de cliente: ocasional, mayorista, minorista, frecuente, distribuidor + filtro. | ✅ |
+| 3.2 | Alta desde Caja: ciudad, profesión, dirección, correo y límite de crédito. | ✅ |
+| 3.3 | Historial comercial: compras históricas del cliente, filtrables desde Caja. | ✅ |
 
 ## 4. Vendedores y comisiones
 

@@ -256,6 +256,8 @@ export async function POST(request: NextRequest) {
       vendedor_usuario_id,
       usa_nota_remision,
       categoria_cliente_id,
+      profesion,
+      limite_credito,
     } = body;
 
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -333,6 +335,17 @@ export async function POST(request: NextRequest) {
       categoria_cliente_id: typeof categoria_cliente_id === "string" && uuidRe.test(categoria_cliente_id.trim())
         ? categoria_cliente_id.trim()
         : null,
+      // Punto 3.2. El límite queda en NULL si no se definió: cero significa
+      // "no se le vende a crédito", que es una decisión tomada, y mezclarlos
+      // haría que un cliente sin configurar parezca bloqueado.
+      profesion: typeof profesion === "string" && profesion.trim().length > 0
+        ? profesion.trim().toUpperCase()
+        : null,
+      limite_credito: limite_credito === null || limite_credito === undefined || limite_credito === ""
+        ? null
+        : Number.isFinite(Number(limite_credito)) && Number(limite_credito) >= 0
+          ? Number(limite_credito)
+          : null,
       // Defensa en profundidad: para personas, si es_contribuyente no está
       // marcado, el RUC se descarta del lado servidor. Evita que un RUC
       // "fantasma" (mandado por un cliente desactualizado o vía API directa)

@@ -80,6 +80,10 @@ export async function apiCreateCliente(data: {
   nombre_comercial?: string | null;
   nivel_precio?: "minorista" | "mayorista" | "distribuidor";
   categoria_cliente_id?: string | null;
+  /** Punto 3.2. Profesión u oficio del cliente. */
+  profesion?: string | null;
+  /** Punto 3.2. Tope de deuda en Gs. Omitir = sin definir; 0 = no se le vende a crédito. */
+  limite_credito?: number | null;
   telefono_secundario?: string;
   email_secundario?: string;
   sitio_web?: string;

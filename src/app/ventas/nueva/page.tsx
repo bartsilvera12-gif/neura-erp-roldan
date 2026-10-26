@@ -8,6 +8,7 @@ import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload }
 import { saveVenta, type FaltanteStock } from "@/lib/ventas/storage";
 import { getProductos } from "@/lib/inventario/storage";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
+import HistorialClienteModal from "@/components/clientes/HistorialClienteModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -808,6 +809,8 @@ export default function NuevaVentaPage() {
 
   // Cliente (opcional) — selección + filtrado del buscador.
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null;
+  // Punto 3.3: historial comercial, a mano en el mostrador.
+  const [verHistorial, setVerHistorial] = useState(false);
   const clientesFiltrados = (clienteQuery.trim() === ""
     ? clientes
     : clientes.filter((c) => productoMatchesQuery(clienteQuery, c.label, c.ruc))
@@ -1157,11 +1160,21 @@ export default function NuevaVentaPage() {
                   </button>
                 )}
               </div>
-              {clienteSel && (clienteSel.ruc || clienteSel.telefono) && (
-                <p className="mt-1 text-xs text-gray-500">
+              {clienteSel && (
+                <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500">
                   {clienteSel.ruc && <span className="font-medium">RUC {clienteSel.ruc}</span>}
-                  {clienteSel.ruc && clienteSel.telefono && <span className="mx-1.5 text-gray-300">·</span>}
+                  {clienteSel.ruc && clienteSel.telefono && <span className="text-gray-300">·</span>}
                   {clienteSel.telefono && <span>Tel {clienteSel.telefono}</span>}
+                  {(clienteSel.ruc || clienteSel.telefono) && <span className="text-gray-300">·</span>}
+                  {/* Punto 3.3: lo que el cliente pregunta en el mostrador —
+                      cuánto salió la última vez, de qué medida se llevó. */}
+                  <button
+                    type="button"
+                    onClick={() => setVerHistorial(true)}
+                    className="font-medium text-[#0EA5E9] underline-offset-2 hover:underline"
+                  >
+                    Ver historial de compras
+                  </button>
                 </p>
               )}
               {clienteOpen && !clienteSel && (
@@ -1778,6 +1791,14 @@ export default function NuevaVentaPage() {
         tipoCambio={tipoCambioNum}
         ivaDefault="10%"
       />
+
+      {verHistorial && clienteSel && (
+        <HistorialClienteModal
+          clienteId={clienteSel.id}
+          clienteNombre={clienteSel.label}
+          onClose={() => setVerHistorial(false)}
+        />
+      )}
 
       {showCrearCliente && (
         <NuevoClienteRapidoModal

@@ -77,6 +77,8 @@ function NuevoClienteForm() {
     email_secundario:    "",
     direccion:           "",
     ciudad:              "",
+    profesion:              "",
+    limite_credito:              "",
     pais:                "PARAGUAY",
     sitio_web:           "",
     instagram:           "",
@@ -225,7 +227,7 @@ function NuevoClienteForm() {
     return () => { cancelled = true; };
   }, [fromCrmId]);
 
-  const upper = ["empresa", "nombre_contacto", "nombre_facturacion", "ciudad", "pais", "vendedor_asignado", "condicion_pago", "direccion", "sifen_codigo_pais"];
+  const upper = ["empresa", "nombre_contacto", "nombre_facturacion", "ciudad", "profesion", "pais", "vendedor_asignado", "condicion_pago", "direccion", "sifen_codigo_pais"];
   const lower = ["email", "email_secundario"];
 
   function handleChange(
@@ -365,6 +367,10 @@ function NuevoClienteForm() {
       email_secundario: form.email_secundario.trim() || undefined,
       direccion: form.direccion.trim() || undefined,
       ciudad: form.ciudad.trim().toUpperCase() || undefined,
+      profesion: form.profesion.trim().toUpperCase() || undefined,
+      // Vacío queda sin definir; cero se manda tal cual porque significa
+      // "no se le vende a crédito", que es una decisión distinta.
+      limite_credito: form.limite_credito.trim() === "" ? undefined : Number(form.limite_credito),
       pais: form.pais.trim().toUpperCase() || undefined,
       sitio_web: form.sitio_web.trim() || undefined,
       instagram: form.instagram.trim() || undefined,
@@ -764,6 +770,34 @@ function NuevoClienteForm() {
             </label>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Profesión</label>
+                <input
+                  type="text"
+                  name="profesion"
+                  value={form.profesion}
+                  onChange={handleChange}
+                  placeholder="ALBAÑIL, ELECTRICISTA, HERRERO…"
+                  className={`${inputClass} uppercase`}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Límite de crédito</label>
+                <input
+                  type="number"
+                  min={0}
+                  name="limite_credito"
+                  value={form.limite_credito}
+                  onChange={handleChange}
+                  placeholder="Gs."
+                  className={`${inputClass} tabular-nums`}
+                />
+                {/* Vacío y cero dicen cosas distintas y conviene aclararlo acá:
+                    el que lo deja vacío todavía no decidió; el que pone cero sí. */}
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Vacío = sin definir. 0 = no se le vende a crédito.
+                </p>
+              </div>
               <div>
                 <label className={labelClass}>Ciudad</label>
                 <input

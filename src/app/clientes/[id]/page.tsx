@@ -198,6 +198,8 @@ export default function ClienteDetailPage() {
     email_secundario:    "",
     direccion:           "",
     ciudad:              "",
+    profesion:              "",
+    limite_credito:              "",
     pais:                "",
     sitio_web:           "",
     instagram:           "",
@@ -365,6 +367,8 @@ export default function ClienteDetailPage() {
         email_secundario:    c.email_secundario    ?? "",
         direccion:           c.direccion           ?? "",
         ciudad:              c.ciudad              ?? "",
+        profesion:           c.profesion           ?? "",
+        limite_credito:      c.limite_credito == null ? "" : String(c.limite_credito),
         pais:                c.pais                ?? "",
         sitio_web:           c.sitio_web           ?? "",
         instagram:           c.instagram           ?? "",
@@ -527,7 +531,7 @@ export default function ClienteDetailPage() {
     }
   }, [form.condicion_pago, id]);
 
-  const upper = ["empresa", "nombre_contacto", "nombre_facturacion", "ciudad", "pais", "vendedor_asignado", "condicion_pago", "direccion", "sifen_codigo_pais"];
+  const upper = ["empresa", "nombre_contacto", "nombre_facturacion", "ciudad", "profesion", "pais", "vendedor_asignado", "condicion_pago", "direccion", "sifen_codigo_pais"];
   const lower = ["email", "email_secundario"];
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
@@ -659,6 +663,10 @@ export default function ClienteDetailPage() {
         email_secundario:    form.email_secundario.trim()    || undefined,
         direccion:           form.direccion.trim()           || undefined,
         ciudad:              form.ciudad.trim().toUpperCase()  || undefined,
+        profesion:           form.profesion.trim().toUpperCase() || null,
+        // Vacío vuelve a NULL ("sin definir"); cero se manda tal cual porque
+        // significa "no se le vende a crédito", que es otra cosa.
+        limite_credito:      form.limite_credito.trim() === "" ? null : Number(form.limite_credito),
         pais:                form.pais.trim().toUpperCase()    || undefined,
         sitio_web:           form.sitio_web.trim()           || undefined,
         instagram:           form.instagram.trim()           || undefined,
@@ -1735,6 +1743,19 @@ export default function ClienteDetailPage() {
                 </label>
 
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Profesión</label>
+                    <input type="text" name="profesion" value={form.profesion} onChange={handleChange}
+                      placeholder="ALBAÑIL, ELECTRICISTA…" className={`${inputClass} uppercase`} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Límite de crédito</label>
+                    <input type="number" min={0} name="limite_credito" value={form.limite_credito}
+                      onChange={handleChange} placeholder="Gs." className={`${inputClass} tabular-nums`} />
+                    {/* Vacío y cero dicen cosas distintas: el que lo deja vacío
+                        todavía no decidió; el que pone cero sí. */}
+                    <p className="mt-1 text-[11px] text-slate-400">Vacío = sin definir. 0 = sin crédito.</p>
+                  </div>
                   <div>
                     <label className={labelClass}>Ciudad</label>
                     <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`${inputClass} uppercase`} />
