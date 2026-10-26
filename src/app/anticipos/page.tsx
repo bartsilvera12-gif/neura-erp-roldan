@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 
 /**
  * Anticipos de clientes (punto 5.6).
@@ -114,13 +115,34 @@ export default function AnticiposPage() {
             Plata que dejaron a cuenta y todavía no se facturó.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setNuevo(true)}
-          className="ml-auto rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
-        >
-          + Registrar anticipo
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {/* Requisito 11.1. Los anulados van con su motivo: la planilla tiene
+              que poder explicar por qué ese número no suma. */}
+          <ExportarTablaButton
+            titulo="Anticipos de clientes"
+            archivo={`anticipos-${desde || "inicio"}_${hasta || "hoy"}`}
+            subtitulo={desde || hasta ? `Del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+            columnas={["Número", "Fecha", "Cliente", "Monto", "Medio", "Estado", "Registró", "Observación", "Motivo de anulación"]}
+            filas={(data?.anticipos ?? []).map((a) => [
+              a.numero ?? "",
+              fechaPy(a.fecha),
+              a.cliente_nombre,
+              a.monto,
+              a.medio_pago,
+              a.estado,
+              a.usuario_nombre ?? "",
+              a.observacion ?? "",
+              a.anulado_motivo ?? "",
+            ])}
+          />
+          <button
+            type="button"
+            onClick={() => setNuevo(true)}
+            className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
+          >
+            + Registrar anticipo
+          </button>
+        </div>
       </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

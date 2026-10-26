@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 /**
@@ -101,14 +102,40 @@ export default function AjustesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/inventario" className="text-xs font-medium text-slate-500 hover:text-slate-800">
-          ← Volver a inventario
-        </Link>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">Ajustes de stock</h1>
-        <p className="text-sm text-slate-500">
-          Todo lo que cambió el stock sin una compra ni una venta detrás.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link href="/inventario" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+            ← Volver a inventario
+          </Link>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">Ajustes de stock</h1>
+          <p className="text-sm text-slate-500">
+            Todo lo que cambió el stock sin una compra ni una venta detrás.
+          </p>
+        </div>
+        {/* Requisito 11.1: lo que se ve se puede sacar a Excel. */}
+        <ExportarTablaButton
+          titulo="Ajustes de stock"
+          archivo={`ajustes-${desde || "inicio"}_${hasta || "hoy"}`}
+          subtitulo={desde || hasta ? `Del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+          columnas={["Código", "Fecha", "Hora", "Producto", "SKU", "Cantidad", "Stock antes", "Stock después", "Motivo", "Usuario"]}
+          filas={ajustes.map((a) => {
+            const { fecha, hora } = fechaHoraPy(a.fecha);
+            return [
+              a.numero ?? "",
+              fecha,
+              hora,
+              a.producto_nombre,
+              a.producto_sku ?? "",
+              // Sin signo conocido se exporta el valor absoluto con "?", igual
+              // que en pantalla: inventar el signo seria peor que no saberlo.
+              a.delta == null ? `? ${a.cantidad}` : a.delta,
+              a.stock_antes ?? "",
+              a.stock_despues ?? "",
+              a.motivo ?? "",
+              a.usuario ?? "",
+            ];
+          })}
+        />
       </div>
 
       {data && !data.migrado && (

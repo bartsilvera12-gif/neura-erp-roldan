@@ -6,6 +6,7 @@ import { FileText, Plus, Loader2, Lock, ChevronDown, Trash2 } from "lucide-react
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 
 /** Estados que el usuario puede elegir manualmente desde el listado (nunca 'convertido'). */
 const ESTADOS_EDITABLES: EstadoPresupuesto[] = ["creado", "enviado", "aprobado", "rechazado"];
@@ -177,12 +178,31 @@ export default function PresupuestosPage() {
             <p className="text-gray-600">Cotizaciones comerciales. No afectan stock hasta convertirse en pedido.</p>
           </div>
         </div>
-        <Link
-          href="/presupuestos/nuevo"
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3F8E91]"
-        >
-          <Plus className="h-4 w-4" /> Nuevo presupuesto
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Requisito 11.1. El PDF de un presupuesto ya existía; esto es el
+              listado, para seguir qué se cotizó y qué venció. */}
+          <ExportarTablaButton
+            titulo="Presupuestos"
+            archivo="presupuestos"
+            subtitulo={filtro !== "todos" ? `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}` : undefined}
+            columnas={["Número", "Cliente", "Fecha", "Vence", "Total", "Moneda", "Estado"]}
+            filas={filtradas.map((r) => [
+              r.numero_control,
+              r.cliente_nombre,
+              fmtFecha(r.fecha),
+              r.fecha_vencimiento ? fmtFecha(String(r.fecha_vencimiento).slice(0, 10)) : "",
+              Number(r.total) || 0,
+              r.moneda,
+              ESTADO_LABEL[r.estado] ?? r.estado,
+            ])}
+          />
+          <Link
+            href="/presupuestos/nuevo"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3F8E91]"
+          >
+            <Plus className="h-4 w-4" /> Nuevo presupuesto
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

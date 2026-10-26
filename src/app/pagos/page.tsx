@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 import { Banknote, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
@@ -261,6 +262,44 @@ export default function PagosPage() {
               className={`${inputClass} w-56`}
             />
           </div>
+          {/* Requisito 11.1: la lista de lo que se debe y lo que se cobró,
+              con los filtros puestos, en Excel. Es la que se imprime para
+              salir a cobrar. */}
+          <ExportarTablaButton
+            titulo="Cuentas por cobrar"
+            archivo={`cuentas-por-cobrar-${desde || "inicio"}_${hasta || "hoy"}`}
+            subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+            columnas={["Código", "Cliente", "Factura", "Emisión", "Vencimiento", "Total", "Cobrado", "Saldo", "Vencida"]}
+            filas={pendientes.map((c) => [
+              c.cliente_codigo ?? "",
+              c.cliente_nombre,
+              c.numero_venta ?? "",
+              ymd(c.fecha_emision) ?? "",
+              ymd(c.fecha_vencimiento) ?? "",
+              c.total,
+              c.total - c.saldo,
+              c.saldo,
+              c.vencida,
+            ])}
+          />
+          <ExportarTablaButton
+            label="Excel cobros"
+            titulo="Cobros registrados"
+            archivo={`cobros-${desde || "inicio"}_${hasta || "hoy"}`}
+            subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+            columnas={["Fecha", "Cliente", "Factura", "Medio", "Comprobante", "Monto", "Cobró", "Anulado", "Motivo"]}
+            filas={cobradosVista.map((c) => [
+              ymd(c.fecha_pago) ?? "",
+              c.cliente_nombre,
+              c.numero_venta ?? "",
+              c.metodo_pago,
+              c.referencia ?? "",
+              c.monto,
+              c.usuario_nombre ?? "",
+              c.anulado ? "SÍ" : "",
+              c.anulado_motivo ?? "",
+            ])}
+          />
           {hayFiltro && (
             <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); setSituacion("todas"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
               Limpiar

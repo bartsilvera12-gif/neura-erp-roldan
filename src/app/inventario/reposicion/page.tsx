@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ArrowLeftRight, Plus, X, Search, Clock, CheckCircle2, Truck, PackageCheck } from "lucide-react";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 
 // ── Tipos que devuelve la API ────────────────────────────────────────────────
 type Resumen = {
@@ -143,12 +144,32 @@ export default function ReposicionPage() {
           </h1>
           <p className="mt-1 text-sm text-slate-500">Solicitá mercadería a otra sucursal y seguí el estado de cada transferencia.</p>
         </div>
-        <button
-          onClick={() => setCrearAbierto(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91] active:scale-95"
-        >
-          <Plus className="h-4 w-4" /> Solicitar reposición
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Requisito 11.1: el listado de transferencias con su remisión. */}
+          <ExportarTablaButton
+            titulo="Transferencias entre sucursales"
+            archivo={`transferencias-${fDesde || "inicio"}_${fHasta || "hoy"}`}
+            subtitulo={fDesde || fHasta ? `Del ${fDesde || "inicio"} al ${fHasta || "hoy"}` : undefined}
+            columnas={["Número", "Remisión", "Origen", "Destino", "Ítems", "Solicitada", "Despachada", "Recibida", "Estado"]}
+            filas={transfers.map((t) => [
+              t.numero,
+              t.numero_remision ?? "",
+              t.sucursal_origen_nombre,
+              t.sucursal_destino_nombre,
+              t.items_count,
+              fmtFecha(t.solicitada_at),
+              t.despachada_at ? fmtFecha(t.despachada_at) : "",
+              t.recibida_at ? fmtFecha(t.recibida_at) : "",
+              t.estado,
+            ])}
+          />
+          <button
+            onClick={() => setCrearAbierto(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91] active:scale-95"
+          >
+            <Plus className="h-4 w-4" /> Solicitar reposición
+          </button>
+        </div>
       </div>
 
       {/* Cards */}

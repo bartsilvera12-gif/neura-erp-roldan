@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 import { getMovimientos } from "@/lib/inventario/storage";
 import type { MovimientoInventario, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
 
@@ -134,6 +135,25 @@ export default function MovimientosPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Requisito 11.1: la planilla es exactamente lo que se ve, con
+                los filtros aplicados. */}
+            <ExportarTablaButton
+              titulo="Movimientos de inventario"
+              archivo={`movimientos-${fechaDesde || "inicio"}_${fechaHasta || "hoy"}`}
+              subtitulo={fechaDesde || fechaHasta ? `Del ${fechaDesde || "inicio"} al ${fechaHasta || "hoy"}` : undefined}
+              columnas={["Fecha", "Producto", "SKU", "Tipo", "Cantidad", "Costo unit.", "Origen", "Referencia", "Usuario"]}
+              filas={filtrados.map((m) => [
+                formatFecha(m.fecha),
+                m.producto_nombre,
+                m.producto_sku,
+                m.tipo,
+                m.tipo === "SALIDA" ? -Math.abs(m.cantidad) : m.cantidad,
+                m.costo_unitario,
+                origenLabel[m.origen] ?? m.origen,
+                m.referencia ?? "",
+                m.usuario_nombre ?? "",
+              ])}
+            />
             <Link
               href="/inventario/devoluciones-proveedor"
               className="text-xs font-medium text-[#3F8E91] hover:text-white hover:bg-[#3F8E91] border border-[#3F8E91]/40 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"

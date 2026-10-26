@@ -6,6 +6,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { colorMargen, pct } from "@/lib/precios/margen";
+import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
 
 /**
  * Estudio de precios (punto 10.5).
@@ -198,12 +199,31 @@ export default function EstudioPreciosPage() {
         backHref="/inventario"
         backLabel="Inventario"
         actions={
+          <div className="flex items-center gap-2">
+          {/* Requisito 11.1: el estudio se analiza en planilla antes de
+              decidir, no solo en pantalla. */}
+          <ExportarTablaButton
+            titulo="Estudio de precios"
+            archivo="estudio-precios"
+            columnas={["Producto", "SKU", "Rubro", "Stock", "Costo de compra", "Precio", "Margen %", "Remarcación %"]}
+            filas={filas.map((f) => [
+              f.nombre,
+              f.sku,
+              f.rubro,
+              f.stock,
+              f.costo,
+              f.precio,
+              Number(f.margen.toFixed(2)),
+              f.remarcacion == null ? "" : Number(f.remarcacion.toFixed(2)),
+            ])}
+          />
           <Link
             href="/configuracion/comisiones"
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             Comisiones por rubro
           </Link>
+          </div>
         }
       />
 
