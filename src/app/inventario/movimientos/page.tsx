@@ -21,6 +21,10 @@ const origenLabel: Record<OrigenMovimiento, string> = {
   produccion: "Producción",
   devolucion_venta: "Devolución de venta",
   devolucion_proveedor: "Devolución a proveedor",
+  transferencia_salida: "Transferencia enviada",
+  transferencia_entrada: "Transferencia recibida",
+  edicion_venta: "Edición de venta",
+  edicion_venta_reversa: "Edición de venta (reversa)",
 };
 
 const origenBadge: Record<OrigenMovimiento, string> = {
@@ -33,6 +37,10 @@ const origenBadge: Record<OrigenMovimiento, string> = {
   produccion: "bg-emerald-50 text-emerald-700",
   devolucion_venta: "bg-amber-50 text-amber-700",
   devolucion_proveedor: "bg-teal-50 text-teal-700",
+  transferencia_salida: "bg-indigo-50 text-indigo-700",
+  transferencia_entrada: "bg-indigo-50 text-indigo-700",
+  edicion_venta: "bg-violet-50 text-violet-700",
+  edicion_venta_reversa: "bg-violet-50 text-violet-700",
 };
 
 function formatGs(valor: number) {
@@ -59,10 +67,18 @@ const inputFilterClass =
 export default function MovimientosPage() {
   const [todos, setTodos] = useState<MovimientoInventario[]>([]);
 
-  // Filtros
+  // Filtros (punto 8.2: se saca el de tipo, se agrega el de usuario y se
+  // conserva el de fecha).
+  //
+  // POR QUÉ SE FUE EL FILTRO DE TIPO
+  //   ENTRADA / SALIDA / AJUSTE ya se lee de un vistazo en la columna Tipo y en
+  //   el signo de la cantidad, y además se deduce del origen: una compra es
+  //   siempre entrada, una venta siempre salida. El filtro que faltaba era el
+  //   otro: "¿qué tocó tal persona?", que es la pregunta de cuando aparece un
+  //   ajuste que nadie recuerda haber hecho.
   const [busqueda, setBusqueda] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState<TipoMovimiento | "">("");
   const [filtroOrigen, setFiltroOrigen] = useState<OrigenMovimiento | "">("");
+  const [filtroUsuario, setFiltroUsuario] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");  // "YYYY-MM-DD"
   const [fechaHasta, setFechaHasta] = useState(""); // "YYYY-MM-DD"
 
@@ -80,16 +96,24 @@ export default function MovimientosPage() {
       texto === "" ||
       m.producto_nombre.toLowerCase().includes(texto) ||
       m.producto_sku.toLowerCase().includes(texto);
-    const coincideTipo = filtroTipo === "" || m.tipo === filtroTipo;
     const coincideOrigen = filtroOrigen === "" || m.origen === filtroOrigen;
+    const coincideUsuario =
+      filtroUsuario === "" || (m.usuario_nombre ?? "") === filtroUsuario;
 
     // Compara solo la parte de fecha (YYYY-MM-DD) del ISO string del movimiento
     const fechaMov = m.fecha.slice(0, 10); // "YYYY-MM-DD"
     const coincideDesde = fechaDesde === "" || fechaMov >= fechaDesde;
     const coincideHasta = fechaHasta === "" || fechaMov <= fechaHasta;
 
-    return coincideTexto && coincideTipo && coincideOrigen && coincideDesde && coincideHasta;
+    return coincideTexto && coincideOrigen && coincideUsuario && coincideDesde && coincideHasta;
   });
+
+  // El desplegable se arma con los usuarios que realmente aparecen en los
+  // movimientos cargados: una lista de todos los usuarios de la empresa tendría
+  // nombres que nunca tocaron el stock.
+  const usuariosEnLista = Array.from(
+    new Set(todos.map((m) => (m.usuario_nombre ?? "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, "es"));
 
   return (
     <div className="space-y-8">
@@ -139,14 +163,14 @@ export default function MovimientosPage() {
             className={`${inputFilterClass} min-w-56`}
           />
           <select
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value as TipoMovimiento | "")}
+            value={filtroUsuario}
+            onChange={(e) => setFiltroUsuario(e.target.value)}
             className={inputFilterClass}
           >
-            <option value="">Todos los tipos</option>
-            <option value="ENTRADA">ENTRADA</option>
-            <option value="SALIDA">SALIDA</option>
-            <option value="AJUSTE">AJUSTE</option>
+            <option value="">Todos los usuarios</option>
+            {usuariosEnLista.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
           </select>
           <select
             value={filtroOrigen}
@@ -184,11 +208,11 @@ export default function MovimientosPage() {
                 className={inputFilterClass}
               />
             </div>
-            {(busqueda || filtroTipo || filtroOrigen || fechaDesde || fechaHasta) && (
+            {(busqueda || filtroUsuario || filtroOrigen || fechaDesde || fechaHasta) && (
               <button
                 onClick={() => {
                   setBusqueda("");
-                  setFiltroTipo("");
+                  setFiltroUsuario("");
                   setFiltroOrigen("");
                   setFechaDesde("");
                   setFechaHasta("");

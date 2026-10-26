@@ -4,17 +4,32 @@ import { resolverCtx, respError } from "./_ctx";
 import { crearTransferencia } from "@/lib/transferencias/server/transferencias-pg";
 import { listarTransferencias, contarPorEstado } from "@/lib/transferencias/server/transferencias-queries";
 
-/** GET /api/transferencias?filtro=realizadas|recibidas|todas — listado + conteos. */
+/**
+ * GET /api/transferencias?filtro=realizadas|recibidas|todas — listado + conteos.
+ *
+ * Filtros del punto 8.1: `q` busca en el número de transferencia, en el de
+ * remisión y en la observación; `estado`, `desde` y `hasta` acotan la lista.
+ */
 export async function GET(request: NextRequest) {
   const r = await resolverCtx(request);
   if (!r.ok) return r.response;
   try {
     const url = new URL(request.url);
-    const filtroRaw = url.searchParams.get("filtro");
+    const sp = url.searchParams;
+    const filtroRaw = sp.get("filtro");
     const filtro = filtroRaw === "realizadas" || filtroRaw === "recibidas" ? filtroRaw : "todas";
 
     const [transferencias, conteos] = await Promise.all([
-      listarTransferencias({ schemaRaw: r.ctx.schema, empresaId: r.ctx.empresaId, sucursalId: r.ctx.sucursalId, filtro }),
+      listarTransferencias({
+        schemaRaw: r.ctx.schema,
+        empresaId: r.ctx.empresaId,
+        sucursalId: r.ctx.sucursalId,
+        filtro,
+        q: sp.get("q"),
+        estado: sp.get("estado"),
+        desde: sp.get("desde"),
+        hasta: sp.get("hasta"),
+      }),
       contarPorEstado({ schemaRaw: r.ctx.schema, empresaId: r.ctx.empresaId, sucursalId: r.ctx.sucursalId }),
     ]);
     return NextResponse.json(successResponse({ transferencias, conteos }));

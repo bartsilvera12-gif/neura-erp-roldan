@@ -79,6 +79,63 @@ async function proximoNumeroTransferencia(
   return `TRF-${String(next).padStart(6, "0")}`;
 }
 
+/**
+ * Próximo REM-XXXXXX, el número del documento que viaja con la mercadería
+ * (punto 8.1).
+ *
+ * POR QUÉ NO ES EL MISMO NÚMERO QUE LA TRANSFERENCIA
+ *   El TRF nace cuando la sucursal PIDE; la remisión, cuando se DESPACHA. Un
+ *   pedido puede quedar aprobado y nunca salir, y en ese caso no hay remisión
+ *   porque no viajó nada. Numerarlos juntos dejaría huecos en la serie de
+ *   remisiones, que es justamente lo que un control en la ruta pregunta.
+ *
+ * Mismo esquema que el TRF: advisory lock por empresa dentro de la transacción
+ * para que dos despachos simultáneos se serialicen, y el índice único parcial
+ * (empresa_id, numero_remision) del script 26 como respaldo final. Si el lock
+ * no alcanzara, el despacho falla: es mejor que salgan dos camiones con la
+ * misma remisión.
+ */
+async function proximoNumeroRemision(
+  client: PoolClient,
+  schema: string,
+  empresaId: string
+): Promise<string> {
+  const t = quoteSchemaTable(schema, "transferencias_inventario");
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`${empresaId}:remision`]);
+  const { rows } = await client.query<{ maxn: number | null }>(
+    `SELECT COALESCE(MAX(
+       CASE WHEN numero_remision ~ '^REM-[0-9]+$' THEN (substring(numero_remision from 5))::int ELSE 0 END
+     ), 0) AS maxn
+     FROM ${t} WHERE empresa_id = $1::uuid`,
+    [empresaId]
+  );
+  const next = Number(rows[0]?.maxn ?? 0) + 1;
+  return `REM-${String(next).padStart(6, "0")}`;
+}
+
+/**
+ * ¿Está corrido el script 26?
+ *
+ * Se pregunta al catálogo en vez de intentar el UPDATE y atajar el error:
+ * dentro de una transacción de Postgres un statement que falla la aborta
+ * entera, así que un `numero_remision` inexistente tiraría abajo todo el
+ * despacho —stock incluido— en una base sin migrar.
+ */
+async function tieneColumnaRemision(
+  client: PoolClient,
+  schema: string
+): Promise<boolean> {
+  const { rows } = await client.query<{ existe: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'transferencias_inventario'
+          AND column_name = 'numero_remision'
+     ) AS existe`,
+    [schema]
+  );
+  return rows[0]?.existe === true;
+}
+
 // ── Crear solicitud ─────────────────────────────────────────────────────────
 /**
  * La crea la sucursal SOLICITANTE (= destino). El origen se elige entre las
@@ -388,7 +445,7 @@ export async function despacharTransferencia(params: {
   transferenciaId: string;
   usuarioId: string | null;
   usuarioNombre: string | null;
-}): Promise<void> {
+}): Promise<{ numero: string; numeroRemision: string | null }> {
   const schema = assertAllowedChatDataSchema(params.schemaRaw);
   const { empresaId, transferenciaId } = params;
   const tT = quoteSchemaTable(schema, "transferencias_inventario");
@@ -482,14 +539,32 @@ export async function despacharTransferencia(params: {
       );
     }
 
+    // El número de remisión se emite acá, al despachar, porque es el momento en
+    // que la mercadería sale: antes no hay papel que numerar.
+    let numeroRemision: string | null = null;
+    if (await tieneColumnaRemision(client, schema)) {
+      numeroRemision = await proximoNumeroRemision(client, schema, empresaId);
+    }
+
     // Ítems aprobados en 0 quedan fuera del despacho (cantidad_despachada = 0).
-    await client.query(
-      `UPDATE ${tT} SET estado = 'despachada', despachada_por = $1::uuid, despachada_at = now(), updated_at = now()
-        WHERE id = $2::uuid`,
-      [params.usuarioId, transferenciaId]
-    );
+    if (numeroRemision) {
+      await client.query(
+        `UPDATE ${tT}
+            SET estado = 'despachada', despachada_por = $1::uuid, despachada_at = now(),
+                numero_remision = $3, remision_emitida_at = now(), updated_at = now()
+          WHERE id = $2::uuid`,
+        [params.usuarioId, transferenciaId, numeroRemision]
+      );
+    } else {
+      await client.query(
+        `UPDATE ${tT} SET estado = 'despachada', despachada_por = $1::uuid, despachada_at = now(), updated_at = now()
+          WHERE id = $2::uuid`,
+        [params.usuarioId, transferenciaId]
+      );
+    }
 
     await client.query("COMMIT");
+    return { numero, numeroRemision };
   } catch (e) {
     await client.query("ROLLBACK").catch(() => null);
     throw e;

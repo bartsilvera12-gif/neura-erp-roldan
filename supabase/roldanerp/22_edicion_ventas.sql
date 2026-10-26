@@ -60,6 +60,7 @@ BEGIN
      AND origen <> ALL (ARRAY[
        'compra','venta','ajuste_manual','inventario_inicial',
        'anulacion_venta','anulacion_compra','produccion',
+       'devolucion_venta','devolucion_proveedor',
        'transferencia_salida','transferencia_entrada',
        'edicion_venta','edicion_venta_reversa'
      ]);
@@ -76,6 +77,11 @@ ALTER TABLE roldanerp.movimientos_inventario
     origen = ANY (ARRAY[
       'compra','venta','ajuste_manual','inventario_inicial',
       'anulacion_venta','anulacion_compra','produccion',
+      -- Las devoluciones ya las escribe el código (devoluciones a proveedor
+      -- registran SALIDA con origen='devolucion_proveedor'). Sin estos dos
+      -- valores el CHECK pasa al correr el script y recién revienta la primera
+      -- vez que alguien carga una devolución.
+      'devolucion_venta','devolucion_proveedor',
       'transferencia_salida','transferencia_entrada',
       'edicion_venta','edicion_venta_reversa'
     ])

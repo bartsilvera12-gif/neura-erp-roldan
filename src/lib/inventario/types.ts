@@ -1,6 +1,12 @@
 export type MetodoValuacion = "CPP" | "FIFO" | "LIFO";
 export type TipoMovimiento = "ENTRADA" | "SALIDA" | "AJUSTE";
-export type OrigenMovimiento = "compra" | "venta" | "ajuste_manual" | "inventario_inicial" | "anulacion_venta" | "anulacion_compra" | "produccion" | "devolucion_venta" | "devolucion_proveedor";
+export type OrigenMovimiento =
+  | "compra" | "venta" | "ajuste_manual" | "inventario_inicial"
+  | "anulacion_venta" | "anulacion_compra" | "produccion"
+  | "devolucion_venta" | "devolucion_proveedor"
+  // Transferencias entre sucursales (modulo 8) y edicion de ventas (2.2).
+  | "transferencia_salida" | "transferencia_entrada"
+  | "edicion_venta" | "edicion_venta_reversa";
 export type TipoIvaProducto = "EXENTA" | "5%" | "10%";
 
 export interface Producto {

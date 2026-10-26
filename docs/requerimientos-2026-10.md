@@ -75,8 +75,8 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 
 | # | Requerimiento | Estado |
 |---|---|---|
-| 8.1 | Transferencias entre sucursales con número único de remisión no repetible y filtros. | 🟨 existen transferencias; falta el número único |
-| 8.2 | Filtros: agregar filtro por usuario en Movimientos, sacar el de tipo, conservar el de fecha. | ⬜ |
+| 8.1 | Transferencias entre sucursales con número único de remisión no repetible y filtros. | ✅ |
+| 8.2 | Filtros: agregar filtro por usuario en Movimientos, sacar el de tipo, conservar el de fecha. | ✅ |
 
 ## 9. Presupuestos
 

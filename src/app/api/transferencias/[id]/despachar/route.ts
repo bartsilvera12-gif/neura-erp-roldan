@@ -18,14 +18,20 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
       return respProhibido("Solo la sucursal de origen puede despachar.");
     }
 
-    await despacharTransferencia({
+    // Devuelve el número de remisión (punto 8.1) para que la pantalla lo pueda
+    // mostrar y mandar a imprimir sin volver a pedir la transferencia.
+    const res = await despacharTransferencia({
       schemaRaw: r.ctx.schema,
       empresaId: r.ctx.empresaId,
       transferenciaId: id,
       usuarioId: r.ctx.usuarioId,
       usuarioNombre: r.ctx.usuarioNombre,
     });
-    return NextResponse.json(successResponse({ ok: true }));
+    return NextResponse.json(successResponse({
+      ok: true,
+      numero: res.numero,
+      numero_remision: res.numeroRemision,
+    }));
   } catch (err) {
     return respError(err);
   }

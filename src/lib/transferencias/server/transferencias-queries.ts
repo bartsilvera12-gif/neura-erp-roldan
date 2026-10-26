@@ -33,6 +33,8 @@ export type TransferenciaResumen = {
   items_count: number;
   /** true si el usuario que consulta es la sucursal solicitante (destino). */
   es_solicitante: boolean;
+  /** REM-XXXXXX del documento que viajó con la mercadería (punto 8.1). */
+  numero_remision: string | null;
 };
 
 export type TransferenciaItemDetalle = {
@@ -59,6 +61,42 @@ const n = (v: unknown): number => {
 };
 
 /**
+ * ¿Está corrida la migración 26 (numero_remision)?
+ *
+ * Se pregunta al catálogo en vez de probar el SELECT y atajar el error: si la
+ * columna no existe, la consulta falla y la pantalla de transferencias queda
+ * en blanco entera. Preguntando primero, en una base sin migrar la lista sigue
+ * andando y la remisión aparece como vacía.
+ *
+ * El resultado se recuerda por esquema: es una columna, no cambia dos veces en
+ * la misma vida del proceso.
+ */
+const cacheRemision = new Map<string, boolean>();
+async function hayColumnaRemision(schema: string): Promise<boolean> {
+  const cached = cacheRemision.get(schema);
+  if (cached !== undefined) return cached;
+  try {
+    const { rows } = await pool().query<{ existe: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+          WHERE table_schema = $1 AND table_name = 'transferencias_inventario'
+            AND column_name = 'numero_remision'
+       ) AS existe`,
+      [schema]
+    );
+    const existe = rows[0]?.existe === true;
+    cacheRemision.set(schema, existe);
+    return existe;
+  } catch {
+    return false;
+  }
+}
+
+/** La columna, o NULL si todavía no existe. Se interpola el literal, no datos. */
+const colRemision = (existe: boolean) =>
+  existe ? "t.numero_remision" : "NULL::text AS numero_remision";
+
+/**
  * Lista las transferencias visibles para una sucursal.
  * @param filtro "realizadas" (destino = mi sucursal) | "recibidas" (origen = mi sucursal) | "todas"
  */
@@ -67,18 +105,55 @@ export async function listarTransferencias(params: {
   empresaId: string;
   sucursalId: string;
   filtro: "realizadas" | "recibidas" | "todas";
+  /** Busca en el TRF, en el REM y en la observación (punto 8.1). */
+  q?: string | null;
+  estado?: string | null;
+  /** Rango sobre la fecha de solicitud, en formato YYYY-MM-DD. */
+  desde?: string | null;
+  hasta?: string | null;
 }): Promise<TransferenciaResumen[]> {
   const schema = assertAllowedChatDataSchema(params.schemaRaw);
   const tT = quoteSchemaTable(schema, "transferencias_inventario");
   const tI = quoteSchemaTable(schema, "transferencias_inventario_items");
   const tS = quoteSchemaTable(schema, "sucursales");
+  const conRemision = await hayColumnaRemision(schema);
 
   let scope = "(t.sucursal_origen_id = $2::uuid OR t.sucursal_destino_id = $2::uuid)";
   if (params.filtro === "realizadas") scope = "t.sucursal_destino_id = $2::uuid";
   else if (params.filtro === "recibidas") scope = "t.sucursal_origen_id = $2::uuid";
 
+  // Los filtros van como parámetros, nunca interpolados: lo único que se
+  // interpola son nombres de columna que decide este archivo.
+  const valores: unknown[] = [params.empresaId, params.sucursalId];
+  const condiciones: string[] = [];
+
+  const q = (params.q ?? "").trim();
+  if (q) {
+    valores.push(`%${q}%`);
+    const i = valores.length;
+    const campos = [`t.numero ILIKE $${i}`, `t.observacion_solicitud ILIKE $${i}`];
+    if (conRemision) campos.push(`t.numero_remision ILIKE $${i}`);
+    condiciones.push(`(${campos.join(" OR ")})`);
+  }
+  const estado = (params.estado ?? "").trim();
+  if (estado) {
+    valores.push(estado);
+    condiciones.push(`t.estado = $${valores.length}`);
+  }
+  // Paraguay es UTC−3 todo el año; el offset va escrito porque la tzdata del
+  // server puede estar vieja. El día "hasta" entra entero.
+  if (params.desde && /^\d{4}-\d{2}-\d{2}$/.test(params.desde)) {
+    valores.push(`${params.desde} 00:00:00-03`);
+    condiciones.push(`t.solicitada_at >= $${valores.length}::timestamptz`);
+  }
+  if (params.hasta && /^\d{4}-\d{2}-\d{2}$/.test(params.hasta)) {
+    valores.push(`${params.hasta} 23:59:59.999-03`);
+    condiciones.push(`t.solicitada_at <= $${valores.length}::timestamptz`);
+  }
+  const extra = condiciones.length ? ` AND ${condiciones.join(" AND ")}` : "";
+
   const { rows } = await pool().query(
-    `SELECT t.id, t.numero, t.estado,
+    `SELECT t.id, t.numero, t.estado, ${colRemision(conRemision)},
             t.sucursal_origen_id, so.nombre AS sucursal_origen_nombre,
             t.sucursal_destino_id, sd.nombre AS sucursal_destino_nombre,
             t.observacion_solicitud, t.motivo_rechazo,
@@ -88,10 +163,10 @@ export async function listarTransferencias(params: {
        FROM ${tT} t
        JOIN ${tS} so ON so.id = t.sucursal_origen_id
        JOIN ${tS} sd ON sd.id = t.sucursal_destino_id
-      WHERE t.empresa_id = $1::uuid AND ${scope}
+      WHERE t.empresa_id = $1::uuid AND ${scope}${extra}
       ORDER BY t.solicitada_at DESC
       LIMIT 500`,
-    [params.empresaId, params.sucursalId]
+    valores
   );
   return rows.map((r) => ({ ...r, items_count: n(r.items_count) })) as TransferenciaResumen[];
 }
@@ -109,8 +184,10 @@ export async function getTransferenciaDetalle(params: {
   const tS = quoteSchemaTable(schema, "sucursales");
   const tP = quoteSchemaTable(schema, "productos");
 
+  const conRemision = await hayColumnaRemision(schema);
+
   const { rows: cab } = await pool().query(
-    `SELECT t.id, t.numero, t.estado,
+    `SELECT t.id, t.numero, t.estado, ${colRemision(conRemision)},
             t.sucursal_origen_id, so.nombre AS sucursal_origen_nombre,
             t.sucursal_destino_id, sd.nombre AS sucursal_destino_nombre,
             t.observacion_solicitud, t.motivo_rechazo,

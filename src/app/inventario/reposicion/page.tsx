@@ -15,6 +15,8 @@ type Resumen = {
   sucursal_destino_nombre: string;
   observacion_solicitud: string | null;
   motivo_rechazo: string | null;
+  /** REM-XXXXXX del papel que viajó con la mercadería (punto 8.1). */
+  numero_remision: string | null;
   solicitada_at: string;
   aprobada_at: string | null;
   rechazada_at: string | null;
@@ -80,6 +82,13 @@ export default function ReposicionPage() {
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [crearAbierto, setCrearAbierto] = useState(false);
 
+  // Filtros del punto 8.1. Los aplica el servidor, no el navegador: la lista
+  // viene cortada en 500 filas, así que filtrar acá dejaría afuera lo viejo.
+  const [fBusqueda, setFBusqueda] = useState("");
+  const [fEstado, setFEstado] = useState("");
+  const [fDesde, setFDesde] = useState("");
+  const [fHasta, setFHasta] = useState("");
+
   const esAprobador = useMemo(() => {
     const r = rol.trim().toLowerCase();
     return r === "admin" || r === "administrador" || r === "supervisor" || r === "super_admin";
@@ -89,7 +98,12 @@ export default function ReposicionPage() {
     setCargando(true);
     setError(null);
     try {
-      const res = await fetchWithSupabaseSession(`/api/transferencias?filtro=${tab}`, { cache: "no-store" });
+      const qs = new URLSearchParams({ filtro: tab });
+      if (fBusqueda.trim()) qs.set("q", fBusqueda.trim());
+      if (fEstado) qs.set("estado", fEstado);
+      if (fDesde) qs.set("desde", fDesde);
+      if (fHasta) qs.set("hasta", fHasta);
+      const res = await fetchWithSupabaseSession(`/api/transferencias?${qs}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "No se pudo cargar.");
       setTransfers(json?.data?.transferencias ?? []);
@@ -99,10 +113,13 @@ export default function ReposicionPage() {
     } finally {
       setCargando(false);
     }
-  }, [tab]);
+  }, [tab, fBusqueda, fEstado, fDesde, fHasta]);
 
+  // Medio segundo de espera: así escribir "REM-000012" no dispara once
+  // consultas, una por tecla.
   useEffect(() => {
-    cargar();
+    const t = setTimeout(() => { cargar(); }, 400);
+    return () => clearTimeout(t);
   }, [cargar]);
 
   useEffect(() => {
@@ -171,6 +188,56 @@ export default function ReposicionPage() {
         ))}
       </div>
 
+      {/* Filtros (punto 8.1) */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={fBusqueda}
+              onChange={(e) => setFBusqueda(e.target.value)}
+              placeholder="N° de transferencia o remisión…"
+              className="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+            />
+          </div>
+          <select
+            value={fEstado}
+            onChange={(e) => setFEstado(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+          >
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="despachada">Despachada</option>
+            <option value="recibida">Recibida</option>
+            <option value="rechazada">Rechazada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-xs text-slate-400">Desde</label>
+            <input type="date" value={fDesde} onChange={(e) => setFDesde(e.target.value)}
+              max={fHasta || undefined}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-xs text-slate-400">Hasta</label>
+            <input type="date" value={fHasta} onChange={(e) => setFHasta(e.target.value)}
+              min={fDesde || undefined}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+          </div>
+        </div>
+        {(fBusqueda || fEstado || fDesde || fHasta) && (
+          <button
+            type="button"
+            onClick={() => { setFBusqueda(""); setFEstado(""); setFDesde(""); setFHasta(""); }}
+            className="mt-2 text-xs text-slate-400 underline transition-colors hover:text-slate-700"
+          >
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {/* Lista */}
@@ -179,13 +246,18 @@ export default function ReposicionPage() {
           <div className="px-4 py-10 text-center text-sm text-slate-400">Cargando…</div>
         ) : transfers.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-slate-400">
-            {tab === "realizadas" ? "Todavía no solicitaste reposiciones." : "No hay solicitudes de otras sucursales."}
+            {fBusqueda || fEstado || fDesde || fHasta
+              ? "Ninguna transferencia coincide con los filtros."
+              : tab === "realizadas"
+              ? "Todavía no solicitaste reposiciones."
+              : "No hay solicitudes de otras sucursales."}
           </div>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Número</th>
+                <th className="px-4 py-3 font-semibold">Remisión</th>
                 <th className="px-4 py-3 font-semibold">{tab === "realizadas" ? "Origen" : "Destino"}</th>
                 <th className="px-4 py-3 font-semibold text-center">Ítems</th>
                 <th className="px-4 py-3 font-semibold">Solicitada</th>
@@ -197,6 +269,11 @@ export default function ReposicionPage() {
               {transfers.map((t) => (
                 <tr key={t.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium tabular-nums text-slate-800">{t.numero}</td>
+                  {/* Vacío mientras no se despachó: no hay papel hasta que sale
+                      la mercadería. */}
+                  <td className="px-4 py-3 tabular-nums text-slate-600">
+                    {t.numero_remision ?? <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">
                     {tab === "realizadas" ? t.sucursal_origen_nombre : t.sucursal_destino_nombre}
                   </td>
@@ -528,6 +605,13 @@ function ModalDetalle({
             <span className="text-sm text-slate-500">
               {cab.sucursal_origen_nombre} → {cab.sucursal_destino_nombre}
             </span>
+            {/* El número de remisión (punto 8.1): el dato que se muestra si
+                para el camión un control en la ruta. */}
+            {cab.numero_remision && (
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
+                Remisión {cab.numero_remision}
+              </span>
+            )}
           </div>
 
           {cab.observacion_solicitud && (
