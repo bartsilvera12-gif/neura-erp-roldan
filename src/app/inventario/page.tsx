@@ -692,8 +692,8 @@ export default function InventarioPage() {
       {planillaAbierta && (
         <ModalPlanilla
           onClose={() => setPlanillaAbierta(false)}
-          categoriaId={categoriaId}
-          categoriaNombre={categoriaById.get(categoriaId) ?? ""}
+          rubros={categorias}
+          rubroInicial={categoriaId}
           busqueda={search}
         />
       )}
@@ -737,30 +737,41 @@ function PagBtn({
  */
 function ModalPlanilla({
   onClose,
-  categoriaId,
-  categoriaNombre,
+  rubros,
+  rubroInicial,
   busqueda,
 }: {
   onClose: () => void;
-  categoriaId: string;
-  categoriaNombre: string;
+  rubros: CategoriaLite[];
+  rubroInicial: string;
   busqueda: string;
 }) {
   const [ciego, setCiego] = useState(true);
   const [soloConStock, setSoloConStock] = useState(false);
-  const [usarFiltros, setUsarFiltros] = useState(true);
+  const [usarBusqueda, setUsarBusqueda] = useState(Boolean(busqueda));
+  // Arranca con el rubro que ya estaba filtrado en la pantalla: si el
+  // encargado filtró uno es porque ese es el que va a contar.
+  const [elegidos, setElegidos] = useState<string[]>(
+    rubroInicial ? [rubroInicial] : []
+  );
 
-  const hayFiltros = Boolean(categoriaId || busqueda);
+  const todos = elegidos.length === 0;
+
+  function alternar(id: string) {
+    setElegidos((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
 
   function imprimir() {
     const qs = new URLSearchParams();
     if (ciego) qs.set("oculto", "1");
     if (soloConStock) qs.set("stock", "con");
-    if (usarFiltros && categoriaId) {
-      if (categoriaId === "__sin__") qs.set("sin_categoria", "1");
-      else qs.set("categoria", categoriaId);
+    for (const id of elegidos) {
+      if (id === "__sin__") qs.set("sin_categoria", "1");
+      else qs.append("categoria", id);
     }
-    if (usarFiltros && busqueda) qs.set("q", busqueda);
+    if (usarBusqueda && busqueda) qs.set("q", busqueda);
     qs.set("auto", "1");
     window.open(`/api/inventario/planilla?${qs.toString()}`, "_blank");
     onClose();
@@ -772,7 +783,7 @@ function ModalPlanilla({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
@@ -782,7 +793,7 @@ function ModalPlanilla({
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-slate-900">Planilla de conteo</h3>
             <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-              El papel que se lleva al depósito, con una columna en blanco para
+              El papel que se lleva al depósito, con dos columnas en blanco para
               anotar a mano lo contado.
             </p>
           </div>
@@ -796,63 +807,114 @@ function ModalPlanilla({
           </button>
         </div>
 
-        <div className="space-y-3 px-5 py-4">
-          <label className="flex cursor-pointer gap-2.5">
-            <input
-              type="checkbox"
-              checked={ciego}
-              onChange={(e) => setCiego(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#4FAEB2]"
-            />
-            <span className="text-sm text-slate-700">
-              Conteo ciego
-              <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
-                No imprime el stock del sistema. Recomendado: si se ve, se copia.
-              </span>
-            </span>
-          </label>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          {/* Rubros a contar */}
+          <div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Rubros a contar
+              </p>
+              {!todos && (
+                <button
+                  type="button"
+                  onClick={() => setElegidos([])}
+                  className="text-[11px] text-slate-400 underline-offset-2 hover:text-slate-700 hover:underline"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+            <p className="mt-0.5 text-[11px] leading-snug text-slate-400">
+              {todos
+                ? "Sin elegir ninguno sale el inventario general, en una sola planilla."
+                : elegidos.length === 1
+                ? "Una planilla con ese rubro."
+                : `${elegidos.length} rubros: sale una hoja por rubro, para repartir el conteo.`}
+            </p>
 
-          <label className="flex cursor-pointer gap-2.5">
-            <input
-              type="checkbox"
-              checked={soloConStock}
-              onChange={(e) => setSoloConStock(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#4FAEB2]"
-            />
-            <span className="text-sm text-slate-700">
-              Solo artículos con stock
-              <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
-                Hojas más cortas, pero no se detecta lo que figura en cero y en
-                realidad hay.
-              </span>
-            </span>
-          </label>
+            <div className="mt-2 max-h-52 space-y-0.5 overflow-y-auto rounded-lg border border-slate-200 p-1.5">
+              {rubros.length === 0 ? (
+                <p className="px-2 py-3 text-xs text-slate-400">Todavía no cargaste rubros.</p>
+              ) : (
+                <>
+                  {rubros.map((r) => (
+                    <label
+                      key={r.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={elegidos.includes(r.id)}
+                        onChange={() => alternar(r.id)}
+                        className="h-4 w-4 shrink-0 accent-[#4FAEB2]"
+                      />
+                      <span className="truncate">{r.nombre}</span>
+                    </label>
+                  ))}
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={elegidos.includes("__sin__")}
+                      onChange={() => alternar("__sin__")}
+                      className="h-4 w-4 shrink-0 accent-[#4FAEB2]"
+                    />
+                    <span className="truncate">— Sin rubro —</span>
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
 
-          {hayFiltros && (
-            <label className="flex cursor-pointer gap-2.5 border-t border-slate-100 pt-3">
+          {/* Opciones */}
+          <div className="space-y-3 border-t border-slate-100 pt-3">
+            <label className="flex cursor-pointer gap-2.5">
               <input
                 type="checkbox"
-                checked={usarFiltros}
-                onChange={(e) => setUsarFiltros(e.target.checked)}
+                checked={ciego}
+                onChange={(e) => setCiego(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0 accent-[#4FAEB2]"
               />
               <span className="text-sm text-slate-700">
-                Usar los filtros de la pantalla
+                Conteo ciego
                 <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
-                  {[
-                    categoriaId
-                      ? categoriaId === "__sin__"
-                        ? "Sin rubro"
-                        : categoriaNombre || "Rubro elegido"
-                      : null,
-                    busqueda ? `Búsqueda: "${busqueda}"` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  No imprime el stock del sistema. Recomendado: si se ve, se copia.
                 </span>
               </span>
             </label>
-          )}
+
+            <label className="flex cursor-pointer gap-2.5">
+              <input
+                type="checkbox"
+                checked={soloConStock}
+                onChange={(e) => setSoloConStock(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#4FAEB2]"
+              />
+              <span className="text-sm text-slate-700">
+                Solo artículos con stock
+                <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+                  Hojas más cortas, pero no se detecta lo que figura en cero y en
+                  realidad hay.
+                </span>
+              </span>
+            </label>
+
+            {busqueda && (
+              <label className="flex cursor-pointer gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={usarBusqueda}
+                  onChange={(e) => setUsarBusqueda(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#4FAEB2]"
+                />
+                <span className="text-sm text-slate-700">
+                  Usar la búsqueda de la pantalla
+                  <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+                    &quot;{busqueda}&quot;
+                  </span>
+                </span>
+              </label>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-2 border-t border-slate-100 bg-slate-50/40 px-5 py-3">

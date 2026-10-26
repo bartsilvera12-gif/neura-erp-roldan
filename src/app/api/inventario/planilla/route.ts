@@ -10,12 +10,18 @@ import { EMPRESA_DOC } from "@/lib/documentos/membrete";
  * GET /api/inventario/planilla — planilla de conteo físico, lista para imprimir.
  *
  * Es el papel que se lleva al depósito: artículos ordenados, el stock del
- * sistema en una columna y otra EN BLANCO para anotar a mano lo que se cuenta.
+ * sistema en una columna y DOS en blanco para anotar a mano lo que se cuenta.
  * Después esa diferencia se carga como ajuste.
  *
+ * POR QUÉ DOS COLUMNAS DE CONTEO
+ *   El segundo conteo es el que cierra la discusión. Cuando el primero no
+ *   coincide con el sistema, se recuenta sin borrar lo anterior: queda a la
+ *   vista si la diferencia era de conteo o de stock.
+ *
  * Parámetros, todos opcionales:
- *   categoria — id de rubro, para contar un rubro por vez.
- *   sin_categoria — "1" trae solo los que no tienen rubro.
+ *   categoria — id de rubro. Se puede repetir (?categoria=a&categoria=b) o
+ *               mandar separado por comas. Sin ninguno = inventario general.
+ *   sin_categoria — "1" agrega los artículos sin rubro.
  *   q         — filtra por nombre, SKU o código de barras.
  *   stock     — "con" deja solo los que tienen stock; "todos" (default) trae todo.
  *   oculto    — "1" oculta la columna Stock Act.
@@ -23,7 +29,12 @@ import { EMPRESA_DOC } from "@/lib/documentos/membrete";
  * Sobre `oculto`: contar con el stock del sistema a la vista induce a escribir
  * ese número en vez del real. Para un conteo ciego, que es el que sirve para
  * auditar, conviene esconderlo.
+ *
+ * Con VARIOS rubros sale una hoja por rubro, cada una con su propio
+ * encabezado y su total. Es para repartir: cada persona se lleva su rubro.
  */
+
+const SIN_RUBRO = "__sin__";
 
 function esc(s: unknown): string {
   return String(s ?? "")
@@ -40,6 +51,18 @@ function ahoraPy(): string {
 
 const num = (n: unknown) => Number(n ?? 0).toLocaleString("es-PY");
 
+/** Lee `categoria` venga repetido o separado por comas, sin duplicados. */
+function leerRubros(sp: URLSearchParams): string[] {
+  const crudos = [...sp.getAll("categoria"), ...sp.getAll("categorias")]
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (sp.get("sin_categoria") === "1") crudos.push(SIN_RUBRO);
+  return [...new Set(crudos)];
+}
+
+type Fila = Record<string, unknown>;
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -48,8 +71,9 @@ export async function GET(request: NextRequest) {
     const sucursalId = exigirSucursal(ctx.auth.sucursal_id);
     const sp = new URL(request.url).searchParams;
 
-    const categoriaId = (sp.get("categoria") ?? "").trim();
-    const sinCategoria = sp.get("sin_categoria") === "1";
+    const rubros = leerRubros(sp);
+    const idsReales = rubros.filter((r) => r !== SIN_RUBRO);
+    const incluyeSinRubro = rubros.includes(SIN_RUBRO);
     const q = (sp.get("q") ?? "").trim();
     const soloConStock = sp.get("stock") === "con";
     const ocultarStock = sp.get("oculto") === "1";
@@ -66,8 +90,16 @@ export async function GET(request: NextRequest) {
         sucursalId
       );
       if (q) base = applyTokenSearch(base, q, ["nombre", "sku", "codigo_barras"]);
-      if (sinCategoria) base = base.is("categoria_principal_id", null);
-      else if (categoriaId) base = base.eq("categoria_principal_id", categoriaId);
+      // Un solo criterio: varios rubros, o los sin rubro, o la combinación.
+      if (idsReales.length > 0 && incluyeSinRubro) {
+        base = base.or(
+          `categoria_principal_id.in.(${idsReales.join(",")}),categoria_principal_id.is.null`
+        );
+      } else if (idsReales.length > 0) {
+        base = base.in("categoria_principal_id", idsReales);
+      } else if (incluyeSinRubro) {
+        base = base.is("categoria_principal_id", null);
+      }
       return base.order("nombre");
     };
 
@@ -76,11 +108,11 @@ export async function GET(request: NextRequest) {
     // lotes hasta agotar. Cortar en 1000 dejaría artículos sin contar.
     const CHUNK = 1000;
     const MAX = 50_000;
-    const crudas: Array<Record<string, unknown>> = [];
+    const crudas: Fila[] = [];
     for (let desde = 0; desde < MAX; desde += CHUNK) {
       const { data, error } = await build().range(desde, desde + CHUNK - 1);
       if (error) throw new Error(error.message);
-      const lote = (data ?? []) as unknown as Array<Record<string, unknown>>;
+      const lote = (data ?? []) as unknown as Fila[];
       if (lote.length === 0) break;
       crudas.push(...lote);
       if (lote.length < CHUNK) break;
@@ -89,23 +121,97 @@ export async function GET(request: NextRequest) {
     let filas = crudas.filter((p) => p.controla_stock !== false);
     if (soloConStock) filas = filas.filter((p) => (Number(p.stock_actual) || 0) > 0);
 
-    // Nombre del rubro, para el encabezado "Rubro:".
-    let grupo = sinCategoria ? "Sin rubro" : "";
-    if (categoriaId && !sinCategoria) {
+    // ── Nombres de los rubros, para el encabezado de cada hoja ────────────
+    const nombreRubro = new Map<string, string>();
+    if (idsReales.length > 0) {
       const c = await ctx.supabase
-        .from("categorias_productos").select("nombre")
-        .eq("empresa_id", empresaId).eq("id", categoriaId).maybeSingle();
-      grupo = String((c.data as { nombre?: string } | null)?.nombre ?? "");
+        .from("categorias_productos").select("id, nombre")
+        .eq("empresa_id", empresaId).in("id", idsReales);
+      for (const r of (c.data ?? []) as Fila[]) {
+        nombreRubro.set(String(r.id), String(r.nombre ?? ""));
+      }
     }
 
-    const filasHtml = filas.map((p) => `
-      <tr>
-        <td class="cod">${esc(p.codigo_barras ?? "")}</td>
-        <td class="ref">${esc(p.sku ?? "")}</td>
-        <td class="art">${esc(p.nombre ?? "")}</td>
-        ${ocultarStock ? "" : `<td class="stock">${num(p.stock_actual)}</td>`}
-        <td class="conteo"></td>
-      </tr>`).join("");
+    // ── Agrupado ──────────────────────────────────────────────────────────
+    // Con un solo rubro (o ninguno) es una planilla sola. Con varios, una por
+    // rubro: la idea es repartirlas, cada persona cuenta lo suyo.
+    type Bloque = { titulo: string; filas: Fila[] };
+    let bloques: Bloque[];
+    if (rubros.length > 1) {
+      bloques = rubros.map((r) => ({
+        titulo: r === SIN_RUBRO ? "Sin rubro" : (nombreRubro.get(r) || "Rubro"),
+        filas: filas.filter((p) =>
+          r === SIN_RUBRO
+            ? p.categoria_principal_id == null
+            : String(p.categoria_principal_id ?? "") === r
+        ),
+      }));
+    } else {
+      const uno = rubros[0];
+      bloques = [{
+        titulo: uno == null ? "" : uno === SIN_RUBRO ? "Sin rubro" : (nombreRubro.get(uno) || ""),
+        filas,
+      }];
+    }
+
+    const cols = ocultarStock ? 5 : 6;
+    const fecha = ahoraPy();
+
+    const bloquesHtml = bloques.map((b, i) => `
+  <section class="hoja${i > 0 ? " salto" : ""}">
+    <div class="encabezado">
+      <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
+      <h1>Planilla de Inventario</h1>
+      <div class="sub">
+        <div class="meta">
+          <div><b>Rubro:</b> ${b.titulo ? esc(b.titulo) : '<span class="linea"></span>'}</div>
+          <div><b>Marca:</b> <span class="linea"></span></div>
+        </div>
+        <div class="fecha">${esc(fecha)}</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr class="aire"><td colspan="${cols}"></td></tr>
+        <tr>
+          <th>Cód</th>
+          <th>Cód Ref.</th>
+          <th>Artículo</th>
+          ${ocultarStock ? "" : "<th>Stock Act</th>"}
+          <th>1er conteo</th>
+          <th>2do conteo</th>
+        </tr>
+      </thead>
+      <tfoot>
+        <tr class="aire"><td colspan="${cols}"></td></tr>
+      </tfoot>
+      <tbody>
+        ${b.filas.map((p) => `
+        <tr>
+          <td class="cod">${esc(p.codigo_barras ?? "")}</td>
+          <td class="ref">${esc(p.sku ?? "")}</td>
+          <td class="art">${esc(p.nombre ?? "")}</td>
+          ${ocultarStock ? "" : `<td class="stock">${num(p.stock_actual)}</td>`}
+          <td class="conteo"></td>
+          <td class="conteo"></td>
+        </tr>`).join("") ||
+        `<tr><td colspan="${cols}" style="text-align:center;padding:16px">Sin artículos para los filtros elegidos.</td></tr>`}
+      </tbody>
+    </table>
+
+    <p class="pie">
+      ${b.filas.length} ${b.filas.length === 1 ? "artículo" : "artículos"}.
+      Las columnas de conteo van en blanco: se completan a mano.
+      El <b>2do conteo</b> es para recontar lo que no cuadró, sin borrar el primero.
+    </p>
+
+    <div class="firmas">
+      <div class="firma">Contó</div>
+      <div class="firma">Controló</div>
+      <div class="firma">Fecha</div>
+    </div>
+  </section>`).join("");
 
     const html = `<!doctype html>
 <html lang="es">
@@ -131,6 +237,9 @@ export async function GET(request: NextRequest) {
     padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
   }
   @media print { .print-btn { display: none; } }
+
+  /* Cada rubro arranca en hoja nueva: la planilla se reparte. */
+  .salto { break-before: page; page-break-before: always; }
 
   .encabezado { padding-top: 10mm; }
   .empresa { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: #444; }
@@ -162,14 +271,15 @@ export async function GET(request: NextRequest) {
 
   /* Los códigos de barras son de 13 dígitos: con menos ancho se desbordan. */
   .cod    { width: 94px;  font-family: "Courier New", monospace; font-size: 9.5px; }
-  .ref    { width: 80px;  font-family: "Courier New", monospace; font-size: 9.5px; }
+  .ref    { width: 78px;  font-family: "Courier New", monospace; font-size: 9.5px; }
   .art    { }
-  .stock  { width: 62px;  text-align: right; }
-  /* En blanco a propósito: acá se anota a mano lo contado, así que necesita
+  /* "Stock Act" en negrita no entra en menos: con 58px el encabezado se partía en dos renglones. */
+  .stock  { width: 68px;  text-align: right; }
+  /* En blanco a propósito: acá se anota a mano lo contado, así que necesitan
      ancho de sobra para un número escrito a mano. */
-  .conteo { width: 95px; background: #fbfbfb; }
+  .conteo { width: 70px; background: #fbfbfb; }
 
-  /* Alto generoso: la celda de Inventario se completa a mano y con 15px no
+  /* Alto generoso: las celdas de conteo se completan a mano y con 15px no
      entra un número escrito con lapicera. */
   tbody tr { height: 22px; }
 
@@ -180,49 +290,7 @@ export async function GET(request: NextRequest) {
 </head>
 <body>
   <button class="print-btn" onclick="window.print()">Imprimir</button>
-
-  <div class="encabezado">
-    <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
-    <h1>Planilla de Inventario</h1>
-    <div class="sub">
-      <div class="meta">
-        <div><b>Rubro:</b> ${grupo ? esc(grupo) : '<span class="linea"></span>'}</div>
-        <div><b>Marca:</b> <span class="linea"></span></div>
-      </div>
-      <div class="fecha">${esc(ahoraPy())}</div>
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr class="aire"><td colspan="${ocultarStock ? 4 : 5}"></td></tr>
-      <tr>
-        <th>Cód</th>
-        <th>Cód Ref.</th>
-        <th>Artículo</th>
-        ${ocultarStock ? "" : "<th>Stock Act</th>"}
-        <th>Inventario</th>
-      </tr>
-    </thead>
-    <tfoot>
-      <tr class="aire"><td colspan="${ocultarStock ? 4 : 5}"></td></tr>
-    </tfoot>
-    <tbody>
-      ${filasHtml || `<tr><td colspan="${ocultarStock ? 4 : 5}" style="text-align:center;padding:16px">Sin artículos para los filtros elegidos.</td></tr>`}
-    </tbody>
-  </table>
-
-  <p class="pie">
-    ${filas.length} ${filas.length === 1 ? "artículo" : "artículos"}.
-    La columna <b>Inventario</b> va en blanco: se completa a mano durante el conteo.
-  </p>
-
-  <div class="firmas">
-    <div class="firma">Contó</div>
-    <div class="firma">Controló</div>
-    <div class="firma">Fecha</div>
-  </div>
-
+${bloquesHtml}
   ${sp.get("auto") === "1" ? "<script>window.addEventListener('load',()=>window.print())</script>" : ""}
 </body>
 </html>`;
