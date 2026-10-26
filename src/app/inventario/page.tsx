@@ -8,6 +8,7 @@ import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
 import {
   Search,
   ChevronLeft,
@@ -37,16 +38,7 @@ function formatStock(valor: number) {
   return valor.toLocaleString("es-PY", { maximumFractionDigits: 3 });
 }
 
-function calcularMargenVenta(costo: number, precio: number): number {
-  if (precio === 0) return 0;
-  return ((precio - costo) / precio) * 100;
-}
 
-function margenColor(margen: number): string {
-  if (margen >= 40) return "text-green-600";
-  if (margen >= 20) return "text-yellow-600";
-  return "text-red-600";
-}
 
 /**
  * Devuelve un color consistente para una categoria basado en hash del nombre.
@@ -387,7 +379,18 @@ export default function InventarioPage() {
                 <th className="px-3 py-3 text-right">Costo</th>
                 <th className="px-3 py-3 text-right">Precio</th>
                 <th className="px-3 py-3 text-center">Stock</th>
-                <th className="hidden px-3 py-3 text-right lg:table-cell">Margen</th>
+                <th
+                  className="hidden px-3 py-3 text-right lg:table-cell"
+                  title="Cuánto se le puso encima al costo. Costo 100.000 y precio 150.000 son 50% de remarcación."
+                >
+                  Remarcación
+                </th>
+                <th
+                  className="hidden px-3 py-3 text-right lg:table-cell"
+                  title="Qué parte de la venta queda como ganancia. Costo 100.000 y precio 150.000 son 33,3% de margen."
+                >
+                  Margen
+                </th>
                 <th className="hidden px-3 py-3 text-center lg:table-cell">Valuación</th>
                 <th className="px-5 py-3 text-center">Acción</th>
               </tr>
@@ -395,14 +398,14 @@ export default function InventarioPage() {
             <tbody className="divide-y divide-slate-100">
               {loading && productos.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-16 text-center">
+                  <td colSpan={10} className="px-5 py-16 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
                     <p className="mt-2 text-xs text-slate-500">Cargando productos...</p>
                   </td>
                 </tr>
               ) : productosMostrados.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-16 text-center">
+                  <td colSpan={10} className="px-5 py-16 text-center">
                     <Package className="mx-auto h-8 w-8 text-slate-300" />
                     <p className="mt-3 text-sm font-medium text-slate-700">
                       No se encontraron productos
@@ -417,7 +420,8 @@ export default function InventarioPage() {
               ) : (
                 productosMostrados.map((p) => {
                   const stockBajo = p.stock_actual <= p.stock_minimo;
-                  const margen = calcularMargenVenta(p.costo_promedio, p.precio_venta);
+                  const margen = margenSobreVenta(p.costo_promedio, p.precio_venta);
+                  const remarcacion = remarcacionSobreCosto(p.costo_promedio, p.precio_venta);
                   const sinControl = p.controla_stock === false;
                   const catNombre = p.categoria_principal_id
                     ? categoriaById.get(p.categoria_principal_id) ?? "—"
@@ -493,10 +497,13 @@ export default function InventarioPage() {
                           </span>
                         )}
                       </td>
+                      <td className="hidden px-3 py-3.5 text-right tabular-nums text-slate-600 lg:table-cell">
+                        {pct(remarcacion)}
+                      </td>
                       <td
-                        className={`hidden px-3 py-3.5 text-right tabular-nums font-semibold lg:table-cell ${margenColor(margen)}`}
+                        className={`hidden px-3 py-3.5 text-right tabular-nums font-semibold lg:table-cell ${colorMargen(margen)}`}
                       >
-                        {margen.toFixed(1)}%
+                        {pct(margen)}
                       </td>
                       <td className="hidden px-3 py-3.5 text-center lg:table-cell">
                         <span

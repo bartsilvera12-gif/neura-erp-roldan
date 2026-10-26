@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Minus, Trash2, ImageIcon, ChevronDown } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
@@ -10,6 +10,8 @@ import { getProductos } from "@/lib/inventario/storage";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
 import type { Producto, MetodoValuacion } from "@/lib/inventario/types";
@@ -758,6 +760,38 @@ export default function NuevaVentaPage() {
   // ── Cálculos ───────────────────────────────────────────────────────────────
   const tipoCambioNum = 1;
 
+  /**
+   * Margen y remarcación en Caja (punto 1.7).
+   *
+   * Solo admin: son números de costo. Un cajero que ve el costo de cada
+   * artículo se lo lleva el día que se va, y el pedido dice "según permisos".
+   *
+   * Sirve para decidir un descuento sabiendo cuánto hay para ceder, en vez de
+   * bajar el precio a ojo y enterarse al cierre del mes.
+   */
+  const { isAdmin: verMargenes } = useIsAdmin();
+
+  const resumenMargen = useMemo(() => {
+    let costo = 0;
+    let venta = 0;
+    let sinCosto = 0;
+    for (const it of items) {
+      const prod = productos.find((p) => p.id === it.producto_id);
+      const c = Number(prod?.costo_promedio) || 0;
+      if (c <= 0) sinCosto++;
+      costo += c * it.cantidad;
+      venta += it.total_linea;
+    }
+    return {
+      costo,
+      venta,
+      ganancia: venta - costo,
+      margen: margenSobreVenta(costo, venta),
+      remarcacion: remarcacionSobreCosto(costo, venta),
+      sinCosto,
+    };
+  }, [items, productos]);
+
   const totalSubtotal = items.reduce((s, i) => s + i.subtotal, 0);
   const totalIva      = items.reduce((s, i) => s + i.monto_iva, 0);
   const totalGeneral  = items.reduce((s, i) => s + i.total_linea, 0);
@@ -1414,6 +1448,21 @@ export default function NuevaVentaPage() {
                               <div className="min-w-0">
                                 <p className="font-semibold text-slate-900 leading-snug">{item.producto_nombre}</p>
                                 <p className="font-mono text-[11px] text-slate-500">{item.sku}</p>
+                                {verMargenes && costoMin > 0 && (() => {
+                                  const m = margenSobreVenta(costoMin, item.precio_venta);
+                                  const r = remarcacionSobreCosto(costoMin, item.precio_venta);
+                                  return (
+                                    <p
+                                      className="text-[11px] leading-snug text-slate-400"
+                                      title={`Costo ${formatGs(costoMin)} por unidad`}
+                                    >
+                                      Rem. {pct(r)} ·{" "}
+                                      <span className={`font-semibold ${colorMargen(m)}`}>
+                                        Marg. {pct(m)}
+                                      </span>
+                                    </p>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </td>
@@ -1543,6 +1592,37 @@ export default function NuevaVentaPage() {
                       <span>TOTAL</span>
                       <span className="tabular-nums">{formatGs(totalGeneral)}</span>
                     </div>
+
+                    {/* Rentabilidad de la venta (punto 1.7). Solo admin. */}
+                    {verMargenes && items.length > 0 && resumenMargen.costo > 0 && (
+                      <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
+                        <div className="flex justify-between text-[12px] text-slate-500">
+                          <span>Costo</span>
+                          <span className="tabular-nums">{formatGs(resumenMargen.costo)}</span>
+                        </div>
+                        <div className="flex justify-between text-[12px] text-slate-500">
+                          <span>Ganancia</span>
+                          <span className="tabular-nums font-medium text-slate-700">
+                            {formatGs(resumenMargen.ganancia)}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-[12px]">
+                          <span className="text-slate-500">
+                            Remarcación {pct(resumenMargen.remarcacion)}
+                          </span>
+                          <span className={`font-bold tabular-nums ${colorMargen(resumenMargen.margen)}`}>
+                            Margen {pct(resumenMargen.margen)}
+                          </span>
+                        </div>
+                        {resumenMargen.sinCosto > 0 && (
+                          <p className="mt-1 text-[11px] leading-snug text-amber-600">
+                            {resumenMargen.sinCosto}{" "}
+                            {resumenMargen.sinCosto === 1 ? "artículo no tiene" : "artículos no tienen"}{" "}
+                            costo cargado: la ganancia real es menor que la que figura acá.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {tipoVenta === "CONTADO" && (
