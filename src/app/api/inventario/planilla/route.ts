@@ -113,9 +113,17 @@ export async function GET(request: NextRequest) {
 <meta charset="utf-8" />
 <title>Planilla de Inventario — ${esc(EMPRESA_DOC.nombre)}</title>
 <style>
-  @page { size: A4 portrait; margin: 12mm 10mm 14mm 10mm; }
+  /* Margen 0 a propósito. Chrome imprime SU encabezado y SU pie (la fecha, el
+     título repetido, el link) dentro del margen de @page: sin margen no le
+     queda lugar y no los dibuja. El aire de la hoja lo ponen el padding
+     lateral del body y las filas espaciadoras del thead/tfoot, que son las
+     únicas que se repiten en TODAS las páginas. */
+  @page { size: A4 portrait; margin: 0; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 11px; }
+  body {
+    font-family: Arial, Helvetica, sans-serif; color: #111;
+    margin: 0; padding: 0 10mm 10mm; font-size: 11px;
+  }
 
   .print-btn {
     position: fixed; top: 12px; right: 12px; z-index: 10;
@@ -124,22 +132,33 @@ export async function GET(request: NextRequest) {
   }
   @media print { .print-btn { display: none; } }
 
+  .encabezado { padding-top: 10mm; }
   .empresa { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: #444; }
   h1 { font-size: 19px; margin: 0 0 2px; font-weight: 700; }
-  .sub { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
-  .meta { font-size: 11px; line-height: 1.5; }
+  .sub { display: flex; justify-content: space-between; align-items: flex-end; }
+  .meta { font-size: 11px; line-height: 1.6; }
   .meta b { font-weight: 700; }
+  /* Si no vino de un filtro, queda un renglón para escribirlo a mano. */
+  .linea { display: inline-block; width: 150px; border-bottom: 1px solid #999; }
   .fecha { font-size: 11px; white-space: nowrap; }
 
   table { width: 100%; border-collapse: collapse; }
   thead { display: table-header-group; }  /* repite el encabezado en cada hoja */
+  tfoot { display: table-footer-group; }
   tr { page-break-inside: avoid; }
+
+  /* Filas sin borde ni contenido. Como thead y tfoot se repiten en cada hoja,
+     son las que dejan aire arriba y abajo en la 2da página en adelante, donde
+     el padding del body ya no llega. Sin esto la tabla arrancaría pegada al
+     borde y la impresora recortaría la primera línea. */
+  tr.aire td { border: 0; padding: 0; height: 7mm; }
+  thead tr.aire td { height: 9mm; }
 
   th {
     border: 1px solid #000; padding: 3px 5px; font-size: 11px;
     text-align: left; font-weight: 700; background: #fff;
   }
-  td { border: 1px solid #000; padding: 2px 5px; font-size: 10.5px; }
+  td { border: 1px solid #000; padding: 4px 5px; font-size: 10.5px; }
 
   /* Los códigos de barras son de 13 dígitos: con menos ancho se desbordan. */
   .cod    { width: 94px;  font-family: "Courier New", monospace; font-size: 9.5px; }
@@ -148,9 +167,11 @@ export async function GET(request: NextRequest) {
   .stock  { width: 62px;  text-align: right; }
   /* En blanco a propósito: acá se anota a mano lo contado, así que necesita
      ancho de sobra para un número escrito a mano. */
-  .conteo { width: 95px; }
+  .conteo { width: 95px; background: #fbfbfb; }
 
-  tbody tr { height: 15px; }
+  /* Alto generoso: la celda de Inventario se completa a mano y con 15px no
+     entra un número escrito con lapicera. */
+  tbody tr { height: 22px; }
 
   .pie { margin-top: 10px; font-size: 10px; color: #333; }
   .firmas { margin-top: 22px; display: flex; gap: 40px; }
@@ -160,18 +181,21 @@ export async function GET(request: NextRequest) {
 <body>
   <button class="print-btn" onclick="window.print()">Imprimir</button>
 
-  <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
-  <h1>Planilla de Inventario</h1>
-  <div class="sub">
-    <div class="meta">
-      <div><b>Grupo:</b> ${esc(grupo)}</div>
-      <div><b>Marca:</b> </div>
+  <div class="encabezado">
+    <div class="empresa">${esc(EMPRESA_DOC.nombre)}</div>
+    <h1>Planilla de Inventario</h1>
+    <div class="sub">
+      <div class="meta">
+        <div><b>Grupo:</b> ${grupo ? esc(grupo) : '<span class="linea"></span>'}</div>
+        <div><b>Marca:</b> <span class="linea"></span></div>
+      </div>
+      <div class="fecha">${esc(ahoraPy())}</div>
     </div>
-    <div class="fecha">${esc(ahoraPy())}</div>
   </div>
 
   <table>
     <thead>
+      <tr class="aire"><td colspan="${ocultarStock ? 4 : 5}"></td></tr>
       <tr>
         <th>Cód</th>
         <th>Cód Ref.</th>
@@ -180,6 +204,9 @@ export async function GET(request: NextRequest) {
         <th>Inventario</th>
       </tr>
     </thead>
+    <tfoot>
+      <tr class="aire"><td colspan="${ocultarStock ? 4 : 5}"></td></tr>
+    </tfoot>
     <tbody>
       ${filasHtml || `<tr><td colspan="${ocultarStock ? 4 : 5}" style="text-align:center;padding:16px">Sin artículos para los filtros elegidos.</td></tr>`}
     </tbody>
