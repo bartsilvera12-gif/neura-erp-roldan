@@ -173,11 +173,19 @@ export default function ProveedorForm({
           <input
             type="number"
             min={0}
+            max={365}
+            placeholder="Ej: 30"
             className={inputClass}
             value={values.plazo_pago_dias}
             onChange={(e) => patch("plazo_pago_dias", e.target.value)}
             disabled={disabled}
           />
+          {/* Punto 6.2: este plazo se arrastra a cada compra a crédito y es lo
+              que le pone fecha de vencimiento a la factura. */}
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+            Se sugiere solo en cada compra a crédito de este proveedor. El
+            vencimiento de la factura es la fecha de la factura más estos días.
+          </p>
         </div>
         <div>
           <label className={labelClass}>Moneda preferida</label>

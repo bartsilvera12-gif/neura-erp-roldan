@@ -102,6 +102,24 @@ function fechaCortaPy(iso: string): string {
   return `${p(py.getUTCDate())}/${p(py.getUTCMonth() + 1)} ${p(py.getUTCHours())}:${p(py.getUTCMinutes())}`;
 }
 
+/**
+ * Vencimiento de una factura a crédito: fecha de factura + plazo (punto 6.2).
+ * Se calcula en UTC a mediodía para que el cambio de día no se mueva por el
+ * huso: solo interesa la fecha, no la hora.
+ */
+function vencimientoISO(fechaFactura: string, dias: number): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaFactura) || !Number.isFinite(dias)) return null;
+  const d = new Date(`${fechaFactura}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setUTCDate(d.getUTCDate() + Math.trunc(dias));
+  return d.toISOString().slice(0, 10);
+}
+
+function fechaDiaPy(iso: string): string {
+  const [a, m, d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
 export default function NuevaCompraPage() {
   const router = useRouter();
 
@@ -331,6 +349,27 @@ export default function NuevaCompraPage() {
     : productoControlaLote && !/^\d{4}-\d{2}-\d{2}$/.test(nl.lote_fecha_vencimiento)
     ? "Este producto controla lote — ingresá la fecha de vencimiento."
     : null;
+
+  // ── Condición de pago del proveedor elegido (punto 6.2) ────────────────────
+  const condicionProveedor = useMemo(() => {
+    const pv = proveedores.find((x) => String(x.id) === cab.proveedor_id);
+    if (!pv) return null;
+    const cond =
+      pv.condicion_pago === "credito" ? "crédito"
+      : pv.condicion_pago === "contado" ? "contado"
+      : pv.condicion_pago === "mixto" ? "mixto"
+      : null;
+    const dias = pv.plazo_pago_dias != null && pv.plazo_pago_dias > 0 ? `${pv.plazo_pago_dias} días` : null;
+    if (!cond && !dias) return null;
+    return [cond, dias].filter(Boolean).join(" a ");
+  }, [proveedores, cab.proveedor_id]);
+
+  const vencimientoCalculado = useMemo(() => {
+    if (cab.tipo_pago !== "credito") return null;
+    const dias = parseInt(cab.plazo_dias, 10);
+    if (!Number.isFinite(dias) || dias <= 0) return null;
+    return vencimientoISO(cab.fecha_factura, dias);
+  }, [cab.tipo_pago, cab.plazo_dias, cab.fecha_factura]);
 
   // ── Totales de la compra ───────────────────────────────────────────────────
   const totales = useMemo(() => {
@@ -622,7 +661,24 @@ export default function NuevaCompraPage() {
                 <SearchableSelect
                   value={cab.proveedor_id || null}
                   onChange={(id) => {
-                    setCab((p) => ({ ...p, proveedor_id: id }));
+                    // Se arrastra la condición de pago del proveedor (6.2). Es
+                    // una sugerencia: el usuario la puede cambiar en esta compra
+                    // sin tocar la ficha del proveedor.
+                    const pv = proveedores.find((x) => String(x.id) === id);
+                    setCab((p) => ({
+                      ...p,
+                      proveedor_id: id,
+                      tipo_pago:
+                        pv?.condicion_pago === "credito"
+                          ? "credito"
+                          : pv?.condicion_pago === "contado"
+                          ? "contado"
+                          : p.tipo_pago,
+                      plazo_dias:
+                        pv?.plazo_pago_dias != null && pv.plazo_pago_dias > 0
+                          ? String(pv.plazo_pago_dias)
+                          : p.plazo_dias,
+                    }));
                     setProveedorCreado(null);
                   }}
                   options={proveedores.map((p) => ({
@@ -743,7 +799,25 @@ export default function NuevaCompraPage() {
                 <div>
                   <label className={labelClass}>Plazo (días)</label>
                   <input type="number" value={cab.plazo_dias} onChange={(e) => setCab((p) => ({ ...p, plazo_dias: e.target.value }))}
-                    placeholder="Ej: 30" className={inputClass} min={1} />
+                    placeholder="Ej: 30" className={inputClass} min={1} max={365} />
+                  {condicionProveedor && (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                      Condición del proveedor: {condicionProveedor}.
+                    </p>
+                  )}
+                  {vencimientoCalculado ? (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-600">
+                      Vence el <strong>{fechaDiaPy(vencimientoCalculado)}</strong>.
+                    </p>
+                  ) : cab.plazo_dias && !cab.fecha_factura ? (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                      Sin fecha de factura el vencimiento se cuenta desde hoy.
+                    </p>
+                  ) : !cab.plazo_dias ? (
+                    <p className="mt-1 text-[11px] leading-snug text-amber-600">
+                      Sin plazo la factura no vence nunca y no aparece en los pagos a proveedores.
+                    </p>
+                  ) : null}
                 </div>
               )}
               {cab.moneda === "USD" && (

@@ -228,14 +228,40 @@ export async function POST(request: NextRequest) {
         ? metodoPagoRaw
         : null;
 
+    // ── Condición de pago del proveedor (punto 6.2) ──────────────────────────
+    // El plazo en días vive en el proveedor. Si la compra es a crédito y nadie
+    // escribió el plazo, se usa el del proveedor.
+    //
+    // POR QUÉ NO ALCANZA CON PONERLO EN EL FORMULARIO
+    //   El vencimiento de una factura se calcula como fecha_factura + plazo_dias
+    //   (ver /api/pagos/proveedores-estado-cuenta). Una compra a crédito sin
+    //   plazo no vence nunca: no aparece como vencida, no entra en el flujo de
+    //   caja y se paga cuando el proveedor llama. El plazo del proveedor es el
+    //   dato que evita que un olvido del mostrador borre la deuda del radar.
+    const tipoPagoPost = body.tipo_pago === "credito" ? "credito" : "contado";
+    let plazoDiasPost =
+      body.plazo_dias != null && String(body.plazo_dias).trim() !== ""
+        ? parseInt(String(body.plazo_dias), 10) || null
+        : null;
+    if (tipoPagoPost === "credito" && plazoDiasPost == null) {
+      const pv = await ctx.supabase
+        .from("proveedores")
+        .select("plazo_pago_dias")
+        .eq("empresa_id", empresaId)
+        .eq("id", String(body.proveedor_id))
+        .maybeSingle();
+      // Si la consulta falla no se corta la compra: queda sin plazo, como antes.
+      const dias = pv.data ? Number((pv.data as Record<string, unknown>).plazo_pago_dias) : NaN;
+      if (Number.isFinite(dias) && dias > 0) plazoDiasPost = Math.trunc(dias);
+    }
+
     const header = {
       proveedor_id: String(body.proveedor_id),
       proveedor_nombre: String(body.proveedor_nombre ?? ""),
       moneda: body.moneda === "USD" ? "USD" : "PYG",
       tipo_cambio: Number(body.tipo_cambio) || 1,
-      tipo_pago: body.tipo_pago === "credito" ? "credito" : "contado",
-      plazo_dias: body.plazo_dias != null && String(body.plazo_dias).trim() !== ""
-        ? parseInt(String(body.plazo_dias), 10) || null : null,
+      tipo_pago: tipoPagoPost,
+      plazo_dias: plazoDiasPost,
       nro_timbrado: String(body.nro_timbrado).trim().toUpperCase(),
       numero_factura: body.numero_factura != null && String(body.numero_factura).trim() !== "" ? String(body.numero_factura).trim() : null,
       fecha_factura: fechaFactura,

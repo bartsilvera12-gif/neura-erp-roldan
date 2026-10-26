@@ -62,7 +62,7 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | # | Requerimiento | Estado |
 |---|---|---|
 | 6.1 | Ingreso de precios: tipear el precio de compra y expresarlo en dólares con su tipo de cambio. | ✅ cubierto por 1.5 |
-| 6.2 | Condiciones de pago por proveedor, en días. | ⬜ |
+| 6.2 | Condiciones de pago por proveedor, en días. | ✅ |
 
 ## 7. Tipos de cambio
 

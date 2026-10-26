@@ -117,6 +117,7 @@ export default function ProveedoresPage() {
                 <th className="py-3 pr-4 font-semibold">RUC</th>
                 <th className="py-3 pr-4 font-semibold">Contacto</th>
                 <th className="py-3 pr-4 font-semibold">Rubros</th>
+                <th className="py-3 pr-4 font-semibold">Condición</th>
                 <th className="py-3 pr-4 font-semibold">Estado</th>
                 <th className="py-3 font-semibold w-24" />
               </tr>
@@ -124,13 +125,13 @@ export default function ProveedoresPage() {
             <tbody>
               {cargando ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     Cargando…
                   </td>
                 </tr>
               ) : filtradas.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     {lista.length === 0 ? "No hay proveedores cargados." : "Sin resultados."}
                   </td>
                 </tr>
@@ -163,6 +164,28 @@ export default function ProveedoresPage() {
                           ))
                         )}
                       </div>
+                    </td>
+                    {/* Condición de pago (punto 6.2). El plazo en días es lo que
+                        le da vencimiento a cada factura a crédito, así que se ve
+                        en el listado y no solo dentro de la ficha. */}
+                    <td className="py-3 pr-4 text-slate-600">
+                      {p.condicion_pago == null && p.plazo_pago_dias == null ? (
+                        <span className="text-xs text-slate-400">—</span>
+                      ) : (
+                        <>
+                          <div className="text-xs">
+                            {p.condicion_pago === "credito" ? "Crédito"
+                              : p.condicion_pago === "contado" ? "Contado"
+                              : p.condicion_pago === "mixto" ? "Mixto"
+                              : "Sin definir"}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {p.plazo_pago_dias != null && p.plazo_pago_dias > 0
+                              ? `${p.plazo_pago_dias} días`
+                              : "sin plazo"}
+                          </div>
+                        </>
+                      )}
                     </td>
                     <td className="py-3 pr-4">
                       <span
