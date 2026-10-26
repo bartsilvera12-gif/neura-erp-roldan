@@ -140,6 +140,7 @@ const MENU_STRUCTURE: MenuItem[] = [
       { label: "Nueva venta", href: "/ventas/nueva" },
       { label: "Devoluciones", href: "/ventas/devoluciones" },
       { label: "Arqueo mensual", href: "/ventas/arqueo-mensual" },
+      { label: "Anticipos", href: "/anticipos" },
     ],
   },
   { key: "presupuestos", slug: "presupuestos", label: "Presupuestos", href: "/presupuestos", icon: FileText },

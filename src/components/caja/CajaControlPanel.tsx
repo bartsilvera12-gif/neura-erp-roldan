@@ -61,6 +61,8 @@ interface Props {
   onStateChange?: () => void;
 }
 
+import { TIPOS_EGRESO } from "@/lib/caja/tipos-egreso";
+
 export default function CajaControlPanel({ onStateChange }: Props) {
   const [cajas, setCajas] = useState<CajaResumen[]>([]);
   const [target, setTarget] = useState<CajaResumen | null>(null);
@@ -151,6 +153,8 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     monto: number;
     medio_pago: MedioPagoCaja;
     observacion: string | null;
+    /** Punto 5.7. Viaja tal cual al endpoint junto con el resto. */
+    tipo_egreso?: string | null;
   }) {
     if (!target) return;
     const r = await fetch("/api/caja/movimiento", {
@@ -915,9 +919,14 @@ function ModalMovimiento({
     monto: number;
     medio_pago: MedioPagoCaja;
     observacion: string | null;
+    /** Punto 5.7: clasificación del egreso. */
+    tipo_egreso?: string | null;
   }) => Promise<void>;
 }) {
   const [tipo, setTipo] = useState<TipoMovimientoCaja>("ingreso");
+  // Punto 5.7: qué clase de egreso es. Sin esto no se puede contestar
+  // "¿cuánto se fue en fletes este mes?" sin leer los conceptos uno por uno.
+  const [tipoEgreso, setTipoEgreso] = useState<string>("proveedor");
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("0");
   const [medio, setMedio] = useState<MedioPagoCaja>("efectivo");
@@ -939,6 +948,12 @@ function ModalMovimiento({
       setErr("El monto debe ser > 0 (solo ajustes pueden ser negativos).");
       return;
     }
+    // "Otros" sin explicación es un egreso que nadie va a poder justificar
+    // cuando el contador pregunte.
+    if (tipo === "egreso" && tipoEgreso === "otros" && !obs.trim()) {
+      setErr("Si el egreso es 'Otros', escribí el motivo en las notas.");
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -948,6 +963,7 @@ function ModalMovimiento({
         monto: n,
         medio_pago: medio,
         observacion: obs.trim() || null,
+        tipo_egreso: tipo === "egreso" ? tipoEgreso : null,
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error");
@@ -983,6 +999,28 @@ function ModalMovimiento({
             ))}
           </div>
         </div>
+
+        {tipo === "egreso" && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Tipo de egreso
+            </label>
+            <select
+              value={tipoEgreso}
+              onChange={(e) => setTipoEgreso(e.target.value)}
+              className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#4FAEB2]"
+            >
+              {TIPOS_EGRESO.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            {tipoEgreso === "otros" && (
+              <p className="mt-1 text-[11px] text-amber-600">
+                Escribí el motivo en las notas de abajo: es obligatorio para &quot;Otros&quot;.
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">

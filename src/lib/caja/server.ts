@@ -912,6 +912,10 @@ export async function registrarMovimiento(
     usuarioId: string | null;
     /** Email snapshot del usuario (para listados sin JOIN). Opcional. */
     usuarioEmail?: string | null;
+    /** Punto 5.7: clasificación del egreso. Solo aplica a tipo='egreso'. */
+    tipoEgreso?: string | null;
+    /** Punto 5.7: factura y recibo que respaldan el egreso. */
+    adjuntos?: Array<{ tipo: string; nombre: string; path: string | null; url: string | null }> | null;
   }
 ): Promise<CajaMovimiento> {
   const sucursalId = params.sucursalId ?? null;
@@ -944,12 +948,26 @@ export async function registrarMovimiento(
       usuario_id: params.usuarioId,
       usuario_email: params.usuarioEmail ?? null,
       observacion: params.observacion,
+      // Punto 5.7. Las columnas llegan con el script 25; si no está corrido,
+      // el insert falla y se reintenta sin ellas (ver más abajo).
+      ...(params.tipo === "egreso" && params.tipoEgreso ? { tipo_egreso: params.tipoEgreso } : {}),
+      ...(params.adjuntos && params.adjuntos.length > 0 ? { adjuntos: params.adjuntos } : {}),
     })
     .select(
       "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, observacion, created_at"
     )
     .single();
-  if (ins.error) throw new Error(ins.error.message);
+  if (ins.error) {
+    // Sin el script 25 esas dos columnas no existen. Antes que perder el
+    // movimiento entero -que es plata que salió de la caja- se registra sin
+    // la clasificación.
+    if (/tipo_egreso|adjuntos/.test(ins.error.message ?? "")) {
+      return await registrarMovimiento(sb, {
+        ...params, tipoEgreso: null, adjuntos: null,
+      });
+    }
+    throw new Error(ins.error.message);
+  }
   const m = ins.data as unknown as {
     id: string;
     caja_id: string;

@@ -3,11 +3,12 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { registrarMovimiento, getCajaAbierta } from "@/lib/caja/server";
+import { esTipoEgresoValido } from "@/lib/caja/tipos-egreso";
 
 /**
  * POST /api/caja/movimiento
  *   Registra un movimiento manual en la caja abierta.
- *   Body: { tipo, concepto, monto, medio_pago?, observacion?, caja_id? }
+ *   Body: { tipo, concepto, monto, medio_pago?, observacion?, caja_id?, tipo_egreso? }
  *   Si caja_id no viene, se usa la caja abierta actual.
  */
 const TIPOS_VALIDOS = ["ingreso", "egreso", "retiro", "ajuste"] as const;
@@ -73,6 +74,10 @@ export async function POST(request: NextRequest) {
       monto,
       medioPago: medioPago as (typeof MEDIOS_VALIDOS)[number],
       observacion,
+      // Punto 5.7. Solo aplica a egresos; en el resto se ignora.
+      tipoEgreso: tipo === "egreso" && esTipoEgresoValido(o.tipo_egreso)
+        ? o.tipo_egreso
+        : null,
       usuarioId: ctx.auth.usuarioCatalogId ?? null,
       usuarioEmail: ctx.auth.user?.email ?? null,
     });

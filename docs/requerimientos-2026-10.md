@@ -54,8 +54,8 @@ Estados: ⬜ pendiente · 🟨 parcial · ✅ hecho
 | 5.3 | Resumen obligatorio: egresos, anticipos, ventas contado y crédito, dinero a rendir, retiros y diferencias. | ✅ |
 | 5.4 | Arqueo por denominación: contar billetes y monedas (referencia: República); impresión A4 con ingresos, egresos y resumen. | ✅ |
 | 5.5 | Diferencias de caja: sobrantes y faltantes, arqueo anterior, arrastre de la diferencia negativa al día siguiente. | ✅ |
-| 5.6 | Anticipos: listado de anticipos no facturados con número único, cliente, fecha, monto, acumulado y estado; anulación con motivo y filtros. | ⬜ |
-| 5.7 | Egresos: tipo de egreso, opción Otros con motivo libre, notas y adjuntos de factura y recibo. | ⬜ |
+| 5.6 | Anticipos: listado de anticipos no facturados con número único, cliente, fecha, monto, acumulado y estado; anulación con motivo y filtros. | ✅ |
+| 5.7 | Egresos: tipo de egreso, opción Otros con motivo libre, notas y adjuntos de factura y recibo. | ✅ |
 
 ## 6. Compras y proveedores
 
