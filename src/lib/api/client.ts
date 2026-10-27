@@ -84,6 +84,8 @@ export async function apiCreateCliente(data: {
   profesion?: string | null;
   /** Punto 3.2. Tope de deuda en Gs. Omitir = sin definir; 0 = no se le vende a crédito. */
   limite_credito?: number | null;
+  /** Plazo acordado, en días. null = sin plazo acordado. */
+  dias_credito?: number | null;
   telefono_secundario?: string;
   email_secundario?: string;
   sitio_web?: string;

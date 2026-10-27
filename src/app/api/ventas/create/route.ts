@@ -4,6 +4,7 @@ import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-s
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { descuentoMaximoDe, lineasSobreTope } from "@/lib/ventas/server/descuento-maximo";
 import { buscarAutorizaciones, marcarUsadas } from "@/lib/descuentos/server/solicitudes";
+import { creditoDe, validarCredito } from "@/lib/clientes/server/credito";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { createVentaTransaccionalPg, StockInsuficienteError } from "@/lib/ventas/server/create-venta-pg";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
@@ -306,6 +307,28 @@ export async function POST(request: NextRequest) {
           );
         }
         autorizacionesAConsumir = permiso.ids;
+      }
+    }
+
+    // ── Crédito del cliente ───────────────────────────────────────────────
+    // Va junto al tope de descuento y por el mismo motivo: un límite que solo
+    // se mira en la pantalla no frena nada, y el saldo cambia mientras el
+    // vendedor arma la venta —otro cajero puede estar cobrándole al mismo
+    // cliente—, así que el número que vale es el de este momento.
+    if (tipoVenta === "CREDITO" && clienteId) {
+      try {
+        const sbCred = await createServiceRoleClientForEmpresa(auth.empresa_id);
+        const credito = await creditoDe(sbCred, auth.empresa_id, clienteId);
+        const total = items.reduce((t, i) => t + i.total_linea, 0);
+        const problema = validarCredito(credito, total, plazoDias);
+        if (problema) {
+          return NextResponse.json(errorResponse(problema), { status: 403 });
+        }
+      } catch (e) {
+        // Si la consulta falla —tabla que falta, red— no se bloquea la venta:
+        // dejar de vender porque no se pudo leer un límite es peor que la
+        // venta que ese límite habría frenado.
+        console.error("[ventas/create] credito cliente:", e instanceof Error ? e.message : e);
       }
     }
 

@@ -79,6 +79,7 @@ function NuevoClienteForm() {
     ciudad:              "",
     profesion:              "",
     limite_credito:              "",
+    dias_credito:                "",
     pais:                "PARAGUAY",
     sitio_web:           "",
     instagram:           "",
@@ -371,6 +372,7 @@ function NuevoClienteForm() {
       // Vacío queda sin definir; cero se manda tal cual porque significa
       // "no se le vende a crédito", que es una decisión distinta.
       limite_credito: form.limite_credito.trim() === "" ? undefined : Number(form.limite_credito),
+      dias_credito: form.dias_credito.trim() === "" ? undefined : Number(form.dias_credito),
       pais: form.pais.trim().toUpperCase() || undefined,
       sitio_web: form.sitio_web.trim() || undefined,
       instagram: form.instagram.trim() || undefined,
@@ -800,6 +802,25 @@ function NuevoClienteForm() {
                     el que lo deja vacío todavía no decidió; el que pone cero sí. */}
                 <p className="mt-1 text-[11px] text-slate-400">
                   Vacío = sin definir. 0 = no se le vende a crédito.
+                </p>
+              </div>
+              <div>
+                {/* El plazo acordado vive en la ficha y no en cada venta: que
+                    a este cliente son 30 días y al otro 15 no puede depender
+                    de que el que atiende se acuerde. */}
+                <label className={labelClass}>Días de crédito</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={365}
+                  name="dias_credito"
+                  value={form.dias_credito}
+                  onChange={handleChange}
+                  placeholder="Ej: 30"
+                  className={`${inputClass} tabular-nums`}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Se propone solo al vender a crédito, y no se puede pasar. Vacío = sin plazo acordado.
                 </p>
               </div>
               <div>

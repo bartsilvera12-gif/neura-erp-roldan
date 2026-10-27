@@ -258,6 +258,7 @@ export async function POST(request: NextRequest) {
       categoria_cliente_id,
       profesion,
       limite_credito,
+      dias_credito,
     } = body;
 
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -345,6 +346,12 @@ export async function POST(request: NextRequest) {
         ? null
         : Number.isFinite(Number(limite_credito)) && Number(limite_credito) >= 0
           ? Number(limite_credito)
+          : null,
+      // Plazo acordado, en días. Vacío = sin plazo acordado, que no es cero.
+      dias_credito: dias_credito === null || dias_credito === undefined || dias_credito === ""
+        ? null
+        : Number.isFinite(Number(dias_credito)) && Number(dias_credito) >= 0 && Number(dias_credito) <= 365
+          ? Math.round(Number(dias_credito))
           : null,
       // Defensa en profundidad: para personas, si es_contribuyente no está
       // marcado, el RUC se descarta del lado servidor. Evita que un RUC

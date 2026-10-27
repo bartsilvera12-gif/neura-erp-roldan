@@ -200,6 +200,7 @@ export default function ClienteDetailPage() {
     ciudad:              "",
     profesion:              "",
     limite_credito:              "",
+    dias_credito:                "",
     pais:                "",
     sitio_web:           "",
     instagram:           "",
@@ -369,6 +370,7 @@ export default function ClienteDetailPage() {
         ciudad:              c.ciudad              ?? "",
         profesion:           c.profesion           ?? "",
         limite_credito:      c.limite_credito == null ? "" : String(c.limite_credito),
+        dias_credito:        c.dias_credito == null ? "" : String(c.dias_credito),
         pais:                c.pais                ?? "",
         sitio_web:           c.sitio_web           ?? "",
         instagram:           c.instagram           ?? "",
@@ -667,6 +669,7 @@ export default function ClienteDetailPage() {
         // Vacío vuelve a NULL ("sin definir"); cero se manda tal cual porque
         // significa "no se le vende a crédito", que es otra cosa.
         limite_credito:      form.limite_credito.trim() === "" ? null : Number(form.limite_credito),
+        dias_credito:        form.dias_credito.trim() === "" ? null : Number(form.dias_credito),
         pais:                form.pais.trim().toUpperCase()    || undefined,
         sitio_web:           form.sitio_web.trim()           || undefined,
         instagram:           form.instagram.trim()           || undefined,
@@ -1758,6 +1761,13 @@ export default function ClienteDetailPage() {
                     {/* Vacío y cero dicen cosas distintas: el que lo deja vacío
                         todavía no decidió; el que pone cero sí. */}
                     <p className="mt-1 text-[11px] text-slate-400">Vacío = sin definir. 0 = sin crédito.</p>
+                  </div>
+                  <div>
+                    {/* El plazo acordado vive en la ficha y no en cada venta. */}
+                    <label className={labelClass}>Días de crédito</label>
+                    <input type="number" min={0} max={365} name="dias_credito" value={form.dias_credito}
+                      onChange={handleChange} placeholder="Ej: 30" className={`${inputClass} tabular-nums`} />
+                    <p className="mt-1 text-[11px] text-slate-400">Se propone al vender a crédito y no se puede pasar. Vacío = sin plazo.</p>
                   </div>
                   <div>
                     <label className={labelClass}>Ciudad</label>

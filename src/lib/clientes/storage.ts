@@ -32,6 +32,8 @@ interface SupabaseRow {
   profesion?: string | null;
   /** Punto 3.2. Tope de deuda en guaraníes. null = sin definir, 0 = no se le vende a crédito. */
   limite_credito?: number | null;
+  /** Plazo acordado, en días. null = sin plazo acordado. */
+  dias_credito?: number | null;
   ruc:                string | null;
   documento:          string | null;
   es_contribuyente?:  boolean | null;
@@ -115,6 +117,7 @@ function rowToCliente(row: SupabaseRow): Cliente {
     ciudad:              row.ciudad ?? undefined,
     profesion:           row.profesion ?? undefined,
     limite_credito:      row.limite_credito == null ? undefined : Number(row.limite_credito),
+    dias_credito:        row.dias_credito == null ? undefined : Number(row.dias_credito),
     pais:                row.pais ?? undefined,
     usa_nota_remision:   row.usa_nota_remision === true,
     sitio_web:           row.sitio_web ?? undefined,
@@ -425,6 +428,15 @@ export function construirPatchActualizacionCliente(datos: ActualizarClienteInput
       datos.limite_credito === null || (datos.limite_credito as unknown) === "" || !Number.isFinite(n) || n < 0
         ? null
         : n;
+  }
+  if (datos.dias_credito !== undefined) {
+    // Mismo criterio que el límite: vacío vuelve a NULL ("sin plazo
+    // acordado"), que no es lo mismo que cero.
+    const n = Number(datos.dias_credito);
+    patch.dias_credito =
+      datos.dias_credito === null || (datos.dias_credito as unknown) === "" || !Number.isFinite(n) || n < 0 || n > 365
+        ? null
+        : Math.round(n);
   }
   if (datos.ruc !== undefined) patch.ruc = datos.ruc ?? null;
   if (datos.documento !== undefined) patch.documento = datos.documento ?? null;

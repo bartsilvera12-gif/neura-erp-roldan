@@ -63,6 +63,8 @@ export interface Cliente {
   profesion?: string | null;
   /** Punto 3.2. Tope de deuda en Gs. null = sin definir, 0 = no se le vende a crédito. */
   limite_credito?: number | null;
+  /** Plazo de crédito acordado, en días. null = sin plazo acordado. */
+  dias_credito?: number | null;
   pais?:               string;
 
   /** El cliente requiere nota de remisión al venderle (documento no fiscal). */
