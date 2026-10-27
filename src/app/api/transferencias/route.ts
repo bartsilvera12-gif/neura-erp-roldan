@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         estado: sp.get("estado"),
         desde: sp.get("desde"),
         hasta: sp.get("hasta"),
+        usuario: sp.get("usuario"),
       }),
       contarPorEstado({ schemaRaw: r.ctx.schema, empresaId: r.ctx.empresaId, sucursalId: r.ctx.sucursalId }),
     ]);

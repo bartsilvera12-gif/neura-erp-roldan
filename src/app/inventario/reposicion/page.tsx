@@ -26,6 +26,11 @@ type Resumen = {
   cancelada_at: string | null;
   items_count: number;
   es_solicitante: boolean;
+  /** Valor de la mercadería movida, en guaraníes. Lo suma el servidor. */
+  total_gs: number;
+  solicitada_por_nombre: string | null;
+  despachada_por_nombre: string | null;
+  recibida_por_nombre: string | null;
 };
 type ItemDet = {
   id: string;
@@ -64,10 +69,45 @@ function EstadoBadge({ estado }: { estado: string }) {
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${e.cls}`}>{e.label}</span>;
 }
 
+/**
+ * Fecha y hora van en columnas separadas, y las dos en hora de Paraguay.
+ *
+ * El corrimiento va escrito en vez de usar la hora local del navegador: si
+ * alguien abre el sistema desde otro huso —o la computadora tiene mal el
+ * reloj— una transferencia despachada a las 23:40 aparecería con la fecha del
+ * día siguiente, y al cruzar con la remisión en papel no cerraría.
+ */
+function py(iso: string): Date {
+  return new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000);
+}
+function fmtSoloFecha(iso: string | null): string {
+  if (!iso) return "—";
+  const d = py(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
+}
+function fmtHora(iso: string | null): string {
+  if (!iso) return "";
+  const d = py(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${fmtSoloFecha(iso)} ${fmtHora(iso)}`;
+}
+const fmtGs = (n: number) => Math.round(n).toLocaleString("es-PY");
+
+/**
+ * El movimiento contado desde la sucursal que mira la pantalla.
+ *
+ * La misma transferencia es una salida para quien manda y una entrada para
+ * quien recibe. Decir solo "Casa Central → Sucursal" obliga a pensar de qué
+ * lado está uno; escribirlo en palabras lo resuelve de una.
+ */
+function tipoMovimiento(t: Resumen): string {
+  const lado = t.es_solicitante ? "Entrada" : "Salida";
+  return `${lado} de mercadería de ${t.sucursal_origen_nombre} a ${t.sucursal_destino_nombre}`;
 }
 function fmtNum(n: number): string {
   return n.toLocaleString("es-PY", { maximumFractionDigits: 2 });
@@ -89,6 +129,44 @@ export default function ReposicionPage() {
   const [fEstado, setFEstado] = useState("");
   const [fDesde, setFDesde] = useState("");
   const [fHasta, setFHasta] = useState("");
+  const [fUsuario, setFUsuario] = useState("");
+
+  /**
+   * Los nombres del selector salen de lo que hay en la lista, no del padrón de
+   * usuarios: un usuario que nunca intervino en una transferencia no sirve
+   * para filtrar, y el padrón entero llenaría el desplegable de gente de
+   * administración que nunca movió mercadería.
+   *
+   * El costo es que si se filtra por alguien y después se cambia otro filtro,
+   * su nombre podría no estar en la lista nueva; por eso el valor elegido se
+   * agrega siempre, aunque ya no aparezca.
+   */
+  const usuariosEnLista = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of transfers) {
+      for (const n of [t.solicitada_por_nombre, t.despachada_por_nombre, t.recibida_por_nombre]) {
+        if (n) set.add(n);
+      }
+    }
+    if (fUsuario) set.add(fUsuario);
+    return [...set].sort((a, b) => a.localeCompare(b, "es"));
+  }, [transfers, fUsuario]);
+
+  /**
+   * Totales de lo que se está viendo, no de todo.
+   *
+   * Si los totales ignoraran los filtros, al acotar por fecha el listado
+   * diría una cosa y el total otra. Se separan entrada y salida porque sumadas
+   * no significan nada: una es mercadería que llegó y la otra que se fue.
+   */
+  const totales = useMemo(() => {
+    let entrada = 0, salida = 0, nEntrada = 0, nSalida = 0;
+    for (const t of transfers) {
+      if (t.es_solicitante) { entrada += t.total_gs; nEntrada++; }
+      else { salida += t.total_gs; nSalida++; }
+    }
+    return { entrada, salida, nEntrada, nSalida };
+  }, [transfers]);
 
   const esAprobador = useMemo(() => {
     const r = rol.trim().toLowerCase();
@@ -104,6 +182,7 @@ export default function ReposicionPage() {
       if (fEstado) qs.set("estado", fEstado);
       if (fDesde) qs.set("desde", fDesde);
       if (fHasta) qs.set("hasta", fHasta);
+      if (fUsuario) qs.set("usuario", fUsuario);
       const res = await fetchWithSupabaseSession(`/api/transferencias?${qs}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "No se pudo cargar.");
@@ -114,7 +193,7 @@ export default function ReposicionPage() {
     } finally {
       setCargando(false);
     }
-  }, [tab, fBusqueda, fEstado, fDesde, fHasta]);
+  }, [tab, fBusqueda, fEstado, fDesde, fHasta, fUsuario]);
 
   // Medio segundo de espera: así escribir "REM-000012" no dispara once
   // consultas, una por tecla.
@@ -150,14 +229,23 @@ export default function ReposicionPage() {
             titulo="Transferencias entre sucursales"
             archivo={`transferencias-${fDesde || "inicio"}_${fHasta || "hoy"}`}
             subtitulo={fDesde || fHasta ? `Del ${fDesde || "inicio"} al ${fHasta || "hoy"}` : undefined}
-            columnas={["Número", "Remisión", "Origen", "Destino", "Ítems", "Solicitada", "Despachada", "Recibida", "Estado"]}
+            columnas={["Número", "Remisión", "Fecha", "Hora", "Movimiento", "Origen", "Destino",
+                       "Pidió", "Despachó", "Recibió", "Ítems", "Total Gs.", "Nota",
+                       "Despachada", "Recibida", "Estado"]}
             filas={transfers.map((t) => [
               t.numero,
               t.numero_remision ?? "",
+              fmtSoloFecha(t.solicitada_at),
+              fmtHora(t.solicitada_at),
+              tipoMovimiento(t),
               t.sucursal_origen_nombre,
               t.sucursal_destino_nombre,
+              t.solicitada_por_nombre ?? "",
+              t.despachada_por_nombre ?? "",
+              t.recibida_por_nombre ?? "",
               t.items_count,
-              fmtFecha(t.solicitada_at),
+              t.total_gs,
+              t.observacion_solicitud ?? "",
               t.despachada_at ? fmtFecha(t.despachada_at) : "",
               t.recibida_at ? fmtFecha(t.recibida_at) : "",
               t.estado,
@@ -193,6 +281,34 @@ export default function ReposicionPage() {
         })}
       </div>
 
+      {/* Totales de lo que se está viendo. Entrada y salida van separadas: una
+          es mercadería que llegó y la otra que se fue; sumadas no dicen nada. */}
+      {transfers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <div>
+            <span className="text-xs text-slate-400">Entró</span>
+            <p className="font-bold tabular-nums text-emerald-700">
+              Gs. {fmtGs(totales.entrada)}
+              <span className="ml-1.5 text-xs font-normal text-slate-400">
+                en {totales.nEntrada} transferencia{totales.nEntrada === 1 ? "" : "s"}
+              </span>
+            </p>
+          </div>
+          <div>
+            <span className="text-xs text-slate-400">Salió</span>
+            <p className="font-bold tabular-nums text-slate-700">
+              Gs. {fmtGs(totales.salida)}
+              <span className="ml-1.5 text-xs font-normal text-slate-400">
+                en {totales.nSalida} transferencia{totales.nSalida === 1 ? "" : "s"}
+              </span>
+            </p>
+          </div>
+          <p className="text-xs text-slate-400">
+            Es el total de lo que estás viendo, con los filtros puestos.
+          </p>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg bg-slate-100 p-1 w-fit">
         {([
@@ -211,7 +327,7 @@ export default function ReposicionPage() {
 
       {/* Filtros (punto 8.1) */}
       <div className="rounded-xl border border-slate-200 bg-white p-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -235,6 +351,16 @@ export default function ReposicionPage() {
             <option value="rechazada">Rechazada</option>
             <option value="cancelada">Cancelada</option>
           </select>
+          <select
+            value={fUsuario}
+            onChange={(e) => setFUsuario(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+          >
+            <option value="">Todo el personal</option>
+            {usuariosEnLista.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
           <div className="flex items-center gap-2">
             <label className="whitespace-nowrap text-xs text-slate-400">Desde</label>
             <input type="date" value={fDesde} onChange={(e) => setFDesde(e.target.value)}
@@ -248,10 +374,10 @@ export default function ReposicionPage() {
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
           </div>
         </div>
-        {(fBusqueda || fEstado || fDesde || fHasta) && (
+        {(fBusqueda || fEstado || fDesde || fHasta || fUsuario) && (
           <button
             type="button"
-            onClick={() => { setFBusqueda(""); setFEstado(""); setFDesde(""); setFHasta(""); }}
+            onClick={() => { setFBusqueda(""); setFEstado(""); setFDesde(""); setFHasta(""); setFUsuario(""); }}
             className="mt-2 text-xs text-slate-400 underline transition-colors hover:text-slate-700"
           >
             Limpiar filtros
@@ -279,9 +405,13 @@ export default function ReposicionPage() {
               <tr>
                 <th className="px-4 py-3 font-semibold">Número</th>
                 <th className="px-4 py-3 font-semibold">Remisión</th>
-                <th className="px-4 py-3 font-semibold">{tab === "realizadas" ? "Origen" : "Destino"}</th>
+                <th className="px-4 py-3 font-semibold">Fecha</th>
+                <th className="px-4 py-3 font-semibold">Hora</th>
+                <th className="px-4 py-3 font-semibold">Movimiento</th>
+                <th className="px-4 py-3 font-semibold">Personal</th>
                 <th className="px-4 py-3 font-semibold text-center">Ítems</th>
-                <th className="px-4 py-3 font-semibold">Solicitada</th>
+                <th className="px-4 py-3 font-semibold text-right">Total Gs.</th>
+                <th className="px-4 py-3 font-semibold">Nota</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -295,11 +425,36 @@ export default function ReposicionPage() {
                   <td className="px-4 py-3 tabular-nums text-slate-600">
                     {t.numero_remision ?? <span className="text-slate-300">—</span>}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-500">{fmtSoloFecha(t.solicitada_at)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap tabular-nums text-slate-500">{fmtHora(t.solicitada_at)}</td>
                   <td className="px-4 py-3 text-slate-600">
-                    {tab === "realizadas" ? t.sucursal_origen_nombre : t.sucursal_destino_nombre}
+                    <span className={t.es_solicitante ? "font-medium text-emerald-700" : "font-medium text-slate-700"}>
+                      {t.es_solicitante ? "Entrada" : "Salida"}
+                    </span>
+                    <span className="text-slate-400"> de {t.sucursal_origen_nombre} a {t.sucursal_destino_nombre}</span>
+                  </td>
+                  {/* Se muestra el último que intervino, con el detalle completo
+                      en el title: en el listado interesa quién tocó la
+                      transferencia más recientemente, no los tres pasos. */}
+                  <td
+                    className="px-4 py-3 text-slate-600"
+                    title={[
+                      t.solicitada_por_nombre ? `Pidió: ${t.solicitada_por_nombre}` : null,
+                      t.despachada_por_nombre ? `Despachó: ${t.despachada_por_nombre}` : null,
+                      t.recibida_por_nombre ? `Recibió: ${t.recibida_por_nombre}` : null,
+                    ].filter(Boolean).join(" · ")}
+                  >
+                    {t.recibida_por_nombre ?? t.despachada_por_nombre ?? t.solicitada_por_nombre ?? (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center tabular-nums text-slate-600">{t.items_count}</td>
-                  <td className="px-4 py-3 text-slate-500">{fmtFecha(t.solicitada_at)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    {t.total_gs > 0 ? fmtGs(t.total_gs) : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3 max-w-[18rem] truncate text-slate-500" title={t.observacion_solicitud ?? ""}>
+                    {t.observacion_solicitud || <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3"><EstadoBadge estado={t.estado} /></td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => setDetalleId(t.id)} className="text-sm font-medium text-[#4FAEB2] hover:underline">

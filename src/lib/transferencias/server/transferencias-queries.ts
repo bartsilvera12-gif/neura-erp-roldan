@@ -31,6 +31,19 @@ export type TransferenciaResumen = {
   recibida_at: string | null;
   cancelada_at: string | null;
   items_count: number;
+  /**
+   * Lo que vale la mercadería que se movió, en guaraníes.
+   *
+   * Se calcula sumando los ítems; no se guarda en la cabecera. Guardado
+   * habría que acordarse de recalcularlo en cada paso (aprobar, despachar,
+   * recibir), y el primero que se olvide deja una transferencia diciendo un
+   * importe que no es el de sus líneas.
+   */
+  total_gs: number;
+  /** Quién la pidió, la despachó y la recibió. Null si ese paso no ocurrió. */
+  solicitada_por_nombre: string | null;
+  despachada_por_nombre: string | null;
+  recibida_por_nombre: string | null;
   /** true si el usuario que consulta es la sucursal solicitante (destino). */
   es_solicitante: boolean;
   /** REM-XXXXXX del documento que viajó con la mercadería (punto 8.1). */
@@ -111,11 +124,14 @@ export async function listarTransferencias(params: {
   /** Rango sobre la fecha de solicitud, en formato YYYY-MM-DD. */
   desde?: string | null;
   hasta?: string | null;
+  /** Nombre del usuario que intervino en cualquiera de los tres pasos. */
+  usuario?: string | null;
 }): Promise<TransferenciaResumen[]> {
   const schema = assertAllowedChatDataSchema(params.schemaRaw);
   const tT = quoteSchemaTable(schema, "transferencias_inventario");
   const tI = quoteSchemaTable(schema, "transferencias_inventario_items");
   const tS = quoteSchemaTable(schema, "sucursales");
+  const tU = quoteSchemaTable(schema, "usuarios");
   const conRemision = await hayColumnaRemision(schema);
 
   let scope = "(t.sucursal_origen_id = $2::uuid OR t.sucursal_destino_id = $2::uuid)";
@@ -150,6 +166,15 @@ export async function listarTransferencias(params: {
     valores.push(`${params.hasta} 23:59:59.999-03`);
     condiciones.push(`t.solicitada_at <= $${valores.length}::timestamptz`);
   }
+  // Busca al usuario en los tres pasos, no solo en quien la pidió: lo que se
+  // quiere saber es "en qué transferencias anduvo fulano", y despachar o
+  // recibir cuentan igual que pedir.
+  const usuario = (params.usuario ?? "").trim();
+  if (usuario) {
+    valores.push(usuario);
+    const i = valores.length;
+    condiciones.push(`(us.nombre = $${i} OR ud.nombre = $${i} OR ur.nombre = $${i})`);
+  }
   const extra = condiciones.length ? ` AND ${condiciones.join(" AND ")}` : "";
 
   const { rows } = await pool().query(
@@ -159,16 +184,40 @@ export async function listarTransferencias(params: {
             t.observacion_solicitud, t.motivo_rechazo,
             t.solicitada_at, t.aprobada_at, t.rechazada_at, t.despachada_at, t.recibida_at, t.cancelada_at,
             (SELECT count(*) FROM ${tI} i WHERE i.transferencia_id = t.id)::int AS items_count,
+            -- La cantidad que vale es la del paso más avanzado: lo recibido si
+            -- ya llegó, lo despachado si está en camino, lo aprobado, y recién
+            -- al final lo solicitado. Tomar siempre lo solicitado haría que una
+            -- transferencia de la que se despachó la mitad figure por el total.
+            COALESCE((
+              SELECT SUM(
+                       COALESCE(NULLIF(i.cantidad_recibida, 0),
+                                NULLIF(i.cantidad_despachada, 0),
+                                NULLIF(i.cantidad_aprobada, 0),
+                                i.cantidad_solicitada)
+                       * COALESCE(i.costo_unitario_transferencia, 0)
+                     )
+                FROM ${tI} i WHERE i.transferencia_id = t.id
+            ), 0)::float8 AS total_gs,
+            us.nombre AS solicitada_por_nombre,
+            ud.nombre AS despachada_por_nombre,
+            ur.nombre AS recibida_por_nombre,
             (t.sucursal_destino_id = $2::uuid) AS es_solicitante
        FROM ${tT} t
        JOIN ${tS} so ON so.id = t.sucursal_origen_id
        JOIN ${tS} sd ON sd.id = t.sucursal_destino_id
+       LEFT JOIN ${tU} us ON us.id = t.solicitada_por
+       LEFT JOIN ${tU} ud ON ud.id = t.despachada_por
+       LEFT JOIN ${tU} ur ON ur.id = t.recibida_por
       WHERE t.empresa_id = $1::uuid AND ${scope}${extra}
       ORDER BY t.solicitada_at DESC
       LIMIT 500`,
     valores
   );
-  return rows.map((r) => ({ ...r, items_count: n(r.items_count) })) as TransferenciaResumen[];
+  return rows.map((r) => ({
+    ...r,
+    items_count: n(r.items_count),
+    total_gs: n(r.total_gs),
+  })) as TransferenciaResumen[];
 }
 
 /** Cabecera + ítems + stock de ambos lados. Devuelve null si la sucursal no participa. */
