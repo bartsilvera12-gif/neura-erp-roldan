@@ -38,6 +38,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
   const [direccion, setDireccion] = useState("");
   const [email, setEmail] = useState("");
   const [limiteCredito, setLimiteCredito] = useState("");
+  const [diasCredito, setDiasCredito] = useState("");
   const [rubroId, setRubroId] = useState("");
   const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
 
@@ -82,6 +83,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
       email: email.trim().toLowerCase() || undefined,
       // Vacío queda sin definir, que no es lo mismo que cero.
       limite_credito: limiteCredito.trim() === "" ? undefined : Number(limiteCredito) || 0,
+      dias_credito: diasCredito.trim() === "" ? undefined : Number(diasCredito) || 0,
       categoria_cliente_id: rubroId || undefined,
     });
     setEnviando(false);
@@ -234,6 +236,20 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
                 />
                 <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
                   Vacío = sin definir. 0 = no se le vende a crédito.
+                </span>
+              </label>
+              {/* El plazo va al lado del límite: las dos mitades de "cuánto y
+                  hasta cuándo se le fía" se deciden juntas o no se deciden. */}
+              <label className="block text-sm">
+                <span className="font-medium text-slate-800">Días de crédito</span>
+                <input
+                  type="number" min={0} max={365} value={diasCredito}
+                  onChange={(e) => setDiasCredito(e.target.value)}
+                  disabled={enviando} placeholder="Ej: 30"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none"
+                />
+                <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+                  Plazo acordado. Vacío = sin plazo.
                 </span>
               </label>
               <label className="block text-sm">
