@@ -112,13 +112,12 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
             Datos del gasto
           </h3>
-          <span className={`ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            form.unidad_negocio === "consignataria"
-              ? "bg-[#4FAEB2]/15 text-[#3F8E91]"
-              : "bg-emerald-50 text-emerald-700"
-          }`}>
-            {form.unidad_negocio === "consignataria" ? "Consignataria" : "Nutrición"}
-          </span>
+          {/* Acá iba una etiqueta "Nutrición" / "Consignataria". Es la unidad
+              de negocio del ERP del que se copió este repo; Roldán e Hijos
+              tiene una sola y el selector no se muestra, así que la etiqueta
+              mostraba siempre lo mismo y con el nombre de otro rubro. El campo
+              `unidad_negocio` se sigue guardando, que es lo que esperan los
+              informes heredados: lo que se saca es mostrarlo. */}
         </div>
         <div className="space-y-4">
           <div>

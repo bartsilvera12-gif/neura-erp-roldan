@@ -118,10 +118,13 @@ export default function GastosPage() {
             </p>
           </div>
           <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Gastos operativos</h1>
+          {/* Acá decía "Gastos de la empresa (nutrición)": texto heredado del
+              ERP del que se copió este repo, donde la empresa se dedicaba a
+              nutrición y había una segunda unidad de negocio (consignataria).
+              Roldán e Hijos tiene una sola, el selector ni se muestra, así que
+              la aclaración entre paréntesis no distinguía nada y confundía. */}
           <p className="mt-0.5 text-xs text-slate-500">
-            {modo === "nutricion"
-              ? "Gastos de la empresa (nutrición)"
-              : "Gastos de la consignataria (viáticos, gastos particulares…)"}
+            Servicios, alquiler, sueldos y todo lo que no es mercadería.
           </p>
         </div>
         <div className="flex items-center gap-3">
