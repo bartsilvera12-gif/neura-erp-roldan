@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getProductosPaginated } from "@/lib/inventario/storage";
 import type { Producto, MetodoValuacion } from "@/lib/inventario/types";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -246,7 +247,23 @@ export default function InventarioPage() {
             <Printer className="h-3.5 w-3.5" />
             Planilla de conteo
           </button>
-          <ExportExcelButton url="/api/inventario/productos/export" />
+          <span className="inline-flex items-start gap-2">
+            <ExportExcelButton url="/api/inventario/productos/export" />
+            <ImprimirTablaButton
+              titulo="Productos"
+              columnas={["Producto", "SKU", "Rubro", "Costo", "Precio", "Stock", "Mínimo"]}
+              sumar={[5]}
+              filas={productosMostrados.map((p) => [
+                p.nombre,
+                p.sku,
+                p.categoria_principal_id ? categoriaById.get(p.categoria_principal_id) ?? "" : "",
+                p.costo_promedio,
+                p.precio_venta,
+                p.controla_stock === false ? "" : p.stock_actual,
+                p.controla_stock === false ? "" : p.stock_minimo,
+              ])}
+            />
+          </span>
           {/* La planilla que el cliente venía armando a mano con el sistema
               viejo (`stockconprecio-<mes>-<año>_<SUCURSAL>.xls`): existencias
               con costo, precios de lista y valorizado. Va aparte del export de

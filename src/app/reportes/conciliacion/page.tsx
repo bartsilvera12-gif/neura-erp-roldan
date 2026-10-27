@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import MesSelector from "@/components/reportes/MesSelector";
 import { getConciliacionReporte } from "@/lib/reportes/storage";
 import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
@@ -92,7 +93,25 @@ export default function ConciliacionReportePage() {
         actions={
           <div className="flex items-center gap-3">
             <MesSelector mes={mes} onChange={setMes} />
+            <span className="inline-flex items-start gap-2">
             <ExportExcelButton url={`/api/reportes/conciliacion/export?mes=${mes}`} />
+            <ImprimirTablaButton
+              titulo="Conciliación de cobros"
+              subtitulo={`Mes ${mes}`}
+              columnas={["Fecha", "N° venta", "Método", "Banco / entidad", "Titular", "Monto", "N° comprobante", "Estado"]}
+              sumar={[5]}
+              filas={movs.map((m) => [
+                formatFecha(m.fecha),
+                m.numero ?? "",
+                metodoLabel(m.metodo_pago),
+                [m.entidad_codigo, m.entidad].filter(Boolean).join(" · "),
+                m.titular ?? "",
+                m.monto,
+                m.referencia ?? "",
+                ESTADO_LBL[m.estado],
+              ])}
+            />
+          </span>
           </div>
         }
       />

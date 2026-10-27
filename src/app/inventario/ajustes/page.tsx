@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 /**
@@ -113,7 +113,7 @@ export default function AjustesPage() {
           </p>
         </div>
         {/* Requisito 11.1: lo que se ve se puede sacar a Excel. */}
-        <ExportarTablaButton
+        <AccionesTabla
           titulo="Ajustes de stock"
           archivo={`ajustes-${desde || "inicio"}_${hasta || "hoy"}`}
           subtitulo={desde || hasta ? `Del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 /**
@@ -127,7 +128,31 @@ export default function CobranzasReportePage() {
         description="Qué se cobró, a quién, cuándo y con qué comprobante"
         backHref="/reportes"
         backLabel="Reportes"
-        actions={<ExportExcelButton url={`/api/reportes/cobranzas/export?${qs}`} />}
+        actions={
+          <span className="inline-flex items-start gap-2">
+            <ExportExcelButton url={`/api/reportes/cobranzas/export?${qs}`} />
+            {/* El importe NO se totaliza al pie: el detalle incluye los cobros
+                anulados, marcados en su columna, y sumarlos daria una cobranza
+                mas alta que la real. El total que sirve esta en las tarjetas
+                de arriba, donde lo cobrado y lo anulado van separados. */}
+            <ImprimirTablaButton
+              titulo="Cobranzas"
+              subtitulo={desde || hasta ? `Del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+              columnas={["Fecha", "Cliente", "Factura", "Importe", "Medio", "Comprobante", "Cobró", "Anulado", "Motivo"]}
+              filas={(data?.filas ?? []).map((f) => [
+                fechaPy(f.fecha_pago),
+                f.cliente_nombre,
+                f.numero_venta ?? "",
+                f.monto,
+                METODO_LABEL[f.metodo_pago] ?? f.metodo_pago,
+                f.referencia ?? "",
+                f.usuario_nombre ?? "",
+                f.anulado ? "SÍ" : "",
+                f.anulado_motivo ?? "",
+              ])}
+            />
+          </span>
+        }
       />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

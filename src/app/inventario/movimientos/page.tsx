@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 import { getMovimientos } from "@/lib/inventario/storage";
 import type { MovimientoInventario, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
 
@@ -138,7 +138,7 @@ export default function MovimientosPage() {
           <div className="flex items-center gap-2">
             {/* Requisito 11.1: la planilla es exactamente lo que se ve, con
                 los filtros aplicados. */}
-            <ExportarTablaButton
+            <AccionesTabla
               titulo="Movimientos de inventario"
               archivo={`movimientos-${fechaDesde || "inicio"}_${fechaHasta || "hoy"}`}
               subtitulo={fechaDesde || fechaHasta ? `Del ${fechaDesde || "inicio"} al ${fechaHasta || "hoy"}` : undefined}

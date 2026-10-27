@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ArrowLeftRight, Plus, X, Search, Clock, CheckCircle2, Truck, PackageCheck } from "lucide-react";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 
 // ── Tipos que devuelve la API ────────────────────────────────────────────────
 type Resumen = {
@@ -225,7 +225,7 @@ export default function ReposicionPage() {
         </div>
         <div className="flex items-center gap-2">
           {/* Requisito 11.1: el listado de transferencias con su remisión. */}
-          <ExportarTablaButton
+          <AccionesTabla
             titulo="Transferencias entre sucursales"
             archivo={`transferencias-${fDesde || "inicio"}_${fHasta || "hoy"}`}
             subtitulo={fDesde || fHasta ? `Del ${fDesde || "inicio"} al ${fHasta || "hoy"}` : undefined}

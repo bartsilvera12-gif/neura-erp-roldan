@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { Banknote, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -268,7 +268,7 @@ export default function PagosPage() {
           {/* Requisito 11.1: la lista de lo que se debe y lo que se cobró,
               con los filtros puestos, en Excel. Es la que se imprime para
               salir a cobrar. */}
-          <ExportarTablaButton
+          <AccionesTabla
             titulo="Cuentas por cobrar"
             archivo={`cuentas-por-cobrar-${desde || "inicio"}_${hasta || "hoy"}`}
             subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
@@ -285,8 +285,9 @@ export default function PagosPage() {
               c.vencida,
             ])}
           />
-          <ExportarTablaButton
-            label="Excel cobros"
+          <AccionesTabla
+            labelExcel="Excel cobros"
+            labelImprimir="Imprimir cobros"
             titulo="Cobros registrados"
             archivo={`cobros-${desde || "inicio"}_${hasta || "hoy"}`}
             subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}

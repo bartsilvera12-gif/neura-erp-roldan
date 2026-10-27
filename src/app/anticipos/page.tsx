@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 
 /**
  * Anticipos de clientes (punto 5.6).
@@ -118,7 +118,7 @@ export default function AnticiposPage() {
         <div className="ml-auto flex items-center gap-2">
           {/* Requisito 11.1. Los anulados van con su motivo: la planilla tiene
               que poder explicar por qué ese número no suma. */}
-          <ExportarTablaButton
+          <AccionesTabla
             titulo="Anticipos de clientes"
             archivo={`anticipos-${desde || "inicio"}_${hasta || "hoy"}`}
             subtitulo={desde || hasta ? `Del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import MesSelector from "@/components/reportes/MesSelector";
 import { getEstadoCuentaReporte } from "@/lib/reportes/storage";
 import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
@@ -75,7 +76,23 @@ export default function EstadoCuentaReportePage() {
           <div className="flex items-center gap-3">
             <MesSelector mes={mes} onChange={setMes} />
             {modo === "nutricion" && (
-              <ExportExcelButton url={`/api/reportes/estado-cuenta/export?mes=${mes}`} />
+              <span className="inline-flex items-start gap-2">
+            <ExportExcelButton url={`/api/reportes/estado-cuenta/export?mes=${mes}`} />
+            <ImprimirTablaButton
+                titulo="Estado de cuenta"
+                subtitulo={`Mes ${mes}`}
+                columnas={["Fecha", "Tipo", "Referencia", "Descripción", "Entrada", "Salida"]}
+                sumar={[4, 5]}
+                filas={(data?.movimientos ?? []).map((m) => [
+                  m.fecha,
+                  m.tipo,
+                  m.referencia,
+                  m.descripcion,
+                  m.entrada,
+                  m.salida,
+                ])}
+              />
+          </span>
             )}
           </div>
         }

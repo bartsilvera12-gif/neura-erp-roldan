@@ -6,7 +6,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { colorMargen, pct } from "@/lib/precios/margen";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 
 /**
  * Estudio de precios (punto 10.5).
@@ -245,7 +245,7 @@ export default function EstudioPreciosPage() {
           <div className="flex items-center gap-2">
           {/* Requisito 11.1: el estudio se analiza en planilla antes de
               decidir, no solo en pantalla. */}
-          <ExportarTablaButton
+          <AccionesTabla
             titulo="Estudio de precios"
             archivo="estudio-precios"
             columnas={["Producto", "SKU", "Rubro", "Stock", "Costo de compra", "Precio", "Margen %", "Remarcación %"]}

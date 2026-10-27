@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 
@@ -200,7 +201,21 @@ export default function CategoriasProductosPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <ExportExcelButton url="/api/inventario/categorias/export" />
+          <span className="inline-flex items-start gap-2">
+            <ExportExcelButton url="/api/inventario/categorias/export" />
+            <ImprimirTablaButton
+            titulo="Rubros"
+            columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Descuento %", "Estado"]}
+            filas={items.map((c) => [
+              c.nombre,
+              c.codigo ?? "",
+              items.find((i) => i.id === c.parent_id)?.nombre ?? "",
+              c.dias_critico ?? "general",
+              c.descuento_pct ?? 0,
+              c.activo ? "Activo" : "Inactivo",
+            ])}
+          />
+          </span>
           <ImportExcelButton
             entidad="Rubros"
             previewUrl="/api/inventario/categorias/import/preview"

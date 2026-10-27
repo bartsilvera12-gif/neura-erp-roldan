@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
@@ -350,7 +350,7 @@ export default function SugerenciasReposicionPage() {
           {filas.length} de {todas.length} producto(s)
         </span>
         <div className="ml-auto pb-1">
-          <ExportarTablaButton
+          <AccionesTabla
             titulo="Reposición sugerida"
             archivo="reposicion"
             subtitulo={`Consumo de ${dias} días · cobertura de ${cobertura} días`}

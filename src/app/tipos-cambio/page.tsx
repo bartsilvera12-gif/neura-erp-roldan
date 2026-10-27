@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 
 /**
  * Historial de tipos de cambio (punto 7.2).
@@ -169,7 +169,7 @@ export default function TiposCambioPage() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400">{filas.length} cotizaciones</span>
             {/* Requisito 11.1. */}
-            <ExportarTablaButton
+            <AccionesTabla
               titulo="Tipos de cambio"
               archivo={`tipos-cambio-${desde || "inicio"}_${hasta || "hoy"}`}
               subtitulo={desde || hasta ? `Del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}

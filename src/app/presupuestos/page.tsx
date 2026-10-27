@@ -6,7 +6,7 @@ import { FileText, Plus, Loader2, Lock, ChevronDown, Trash2 } from "lucide-react
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
-import ExportarTablaButton from "@/components/ui/ExportarTablaButton";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 
 /** Estados que el usuario puede elegir manualmente desde el listado (nunca 'convertido'). */
 const ESTADOS_EDITABLES: EstadoPresupuesto[] = ["creado", "enviado", "aprobado", "rechazado"];
@@ -200,7 +200,7 @@ export default function PresupuestosPage() {
         <div className="flex shrink-0 items-center gap-2">
           {/* Requisito 11.1. El PDF de un presupuesto ya existía; esto es el
               listado, para seguir qué se cotizó y qué venció. */}
-          <ExportarTablaButton
+          <AccionesTabla
             titulo="Presupuestos"
             archivo="presupuestos"
             subtitulo={filtro !== "todos" ? `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}` : undefined}

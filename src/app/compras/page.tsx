@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getCompras } from "@/lib/compras/storage";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { FancySelect } from "@/components/ui/FancySelect";
 import MobileFab from "@/components/ui/MobileFab";
@@ -211,7 +212,27 @@ function VistaNutricion() {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Órdenes de compra</h2>
           <div className="flex items-center gap-3">
-            <ExportExcelButton url="/api/compras/export" />
+            <span className="inline-flex items-start gap-2">
+              <ExportExcelButton url="/api/compras/export" />
+              <ImprimirTablaButton
+              titulo="Compras"
+              subtitulo={filtrados.length !== grupos.length ? "Filtrado" : undefined}
+              columnas={["N° control", "Proveedor", "Productos", "Cant.", "Total", "Pago", "Método", "Fecha", "Fecha factura", "Estado"]}
+              sumar={[3, 4]}
+              filas={filtrados.map((g) => [
+                g.numero_control,
+                g.proveedor_nombre,
+                g.items.length === 1 ? g.items[0].producto_nombre : `${g.items.length} productos`,
+                g.items.length,
+                g.total,
+                g.tipo_pago,
+                g.metodo_pago ?? "",
+                formatFecha(g.fecha),
+                formatFechaDate(g.fecha_factura),
+                g.anulada ? "ANULADA" : "",
+              ])}
+            />
+            </span>
             <Link
               href="/compras/pedidos"
               className="rounded-lg border border-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-[#3F8E91] transition-colors hover:bg-[#4FAEB2]/10"

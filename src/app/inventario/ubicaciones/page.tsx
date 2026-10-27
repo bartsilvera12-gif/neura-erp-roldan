@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 
@@ -143,7 +144,20 @@ export default function UbicacionesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <ExportExcelButton url="/api/inventario/ubicaciones/export" />
+          <span className="inline-flex items-start gap-2">
+            <ExportExcelButton url="/api/inventario/ubicaciones/export" />
+            <ImprimirTablaButton
+            titulo="Ubicaciones"
+            columnas={["Nombre", "Tipo", "Código", "Padre", "Estado"]}
+            filas={items.map((u) => [
+              u.nombre,
+              u.tipo ?? "",
+              u.codigo ?? "",
+              items.find((i) => i.id === u.parent_id)?.nombre ?? "",
+              u.activo ? "Activo" : "Inactivo",
+            ])}
+          />
+          </span>
           <ImportExcelButton
             entidad="Ubicaciones"
             previewUrl="/api/inventario/ubicaciones/import/preview"

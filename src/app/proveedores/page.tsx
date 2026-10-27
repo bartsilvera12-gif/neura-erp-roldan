@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getProveedores } from "@/lib/proveedores/storage";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import type { Proveedor } from "@/lib/proveedores/types";
@@ -70,7 +71,25 @@ export default function ProveedoresPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <ExportExcelButton url="/api/proveedores/export" />
+          <span className="inline-flex items-start gap-2">
+            <ExportExcelButton url="/api/proveedores/export" />
+            <ImprimirTablaButton
+            titulo="Proveedores"
+            columnas={["Proveedor", "RUC", "Contacto", "Teléfono", "Rubros", "Condición", "Plazo (días)", "Estado"]}
+            filas={filtradas.map((p2) => [
+              p2.nombre,
+              p2.ruc ?? "",
+              p2.contacto ?? "",
+              p2.telefono ?? "",
+              (p2.categorias ?? []).map((c) => c.nombre).join(", "),
+              p2.condicion_pago === "credito" ? "Crédito"
+                : p2.condicion_pago === "contado" ? "Contado"
+                : p2.condicion_pago === "mixto" ? "Mixto" : "",
+              p2.plazo_pago_dias ?? "",
+              p2.estado,
+            ])}
+          />
+          </span>
           <ImportExcelButton
             entidad="Proveedores"
             previewUrl="/api/proveedores/import/preview"

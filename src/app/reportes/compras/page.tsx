@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import MesSelector from "@/components/reportes/MesSelector";
 import { getComprasReporte } from "@/lib/reportes/storage";
 import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
@@ -64,7 +65,26 @@ export default function ComprasReportePage() {
         actions={
           <div className="flex items-center gap-3">
             <MesSelector mes={mes} onChange={setMes} />
+            <span className="inline-flex items-start gap-2">
             <ExportExcelButton url={`/api/reportes/compras/export?mes=${mes}`} />
+            <ImprimirTablaButton
+              titulo="Compras del mes"
+              subtitulo={`Mes ${mes}`}
+              columnas={["Fecha", "N° compra", "Proveedor", "Ítems", "Subtotal", "IVA", "Total", "Pago", "Timbrado"]}
+              sumar={[3, 4, 5, 6]}
+              filas={(data?.compras ?? []).map((c) => [
+                c.fecha ? String(c.fecha).slice(0, 10) : "",
+                c.numero_control,
+                c.proveedor_nombre,
+                c.items_count,
+                c.subtotal,
+                c.monto_iva,
+                c.total,
+                c.tipo_pago,
+                c.nro_timbrado ?? "",
+              ])}
+            />
+          </span>
           </div>
         }
       />

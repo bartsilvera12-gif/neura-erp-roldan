@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import MesSelector from "@/components/reportes/MesSelector";
 import { getVentasReporte } from "@/lib/reportes/storage";
 import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
@@ -114,6 +115,21 @@ export default function VentasReportePage() {
     };
   }, [data, modo]);
 
+  /**
+   * Las ventas que se están viendo, con el filtro de anuladas ya aplicado.
+   *
+   * Vive acá y no adentro del JSX porque la usan tres cosas —la tabla, el
+   * Excel y la hoja impresa— y calculada en un solo lugar no se pueden
+   * despegar, que es justo el riesgo de tener el filtro escrito dentro del
+   * render.
+   */
+  const ventasVista = useMemo(() => {
+    const vs = dataFiltrada?.ventas ?? [];
+    if (filtroAnuladas === "solo_activas") return vs.filter((v) => v.estado !== "anulada");
+    if (filtroAnuladas === "solo_anuladas") return vs.filter((v) => v.estado === "anulada");
+    return vs;
+  }, [dataFiltrada, filtroAnuladas]);
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -125,7 +141,24 @@ export default function VentasReportePage() {
         actions={
           <div className="flex items-center gap-3">
             <MesSelector mes={mes} onChange={setMes} />
-            <ExportExcelButton url={`/api/reportes/ventas/export?mes=${mes}&origen=${modo === "consignataria" ? "consignacion" : "nutricion"}`} />
+            <span className="inline-flex items-start gap-2">
+              <ExportExcelButton url={`/api/reportes/ventas/export?mes=${mes}&origen=${modo === "consignataria" ? "consignacion" : "nutricion"}`} />
+              <ImprimirTablaButton
+                titulo="Ventas del mes"
+                subtitulo={`Mes ${mes}`}
+                columnas={["Fecha", "N° venta", "Cliente", "Pago", "Ítems", "Total", "Estado"]}
+                sumar={[4, 5]}
+                filas={ventasVista.map((v) => [
+                  v.fecha ? String(v.fecha).slice(0, 10) : "",
+                  v.numero_control,
+                  v.cliente ?? "",
+                  v.metodo_pago ?? "",
+                  v.items_count,
+                  v.total,
+                  v.estado === "anulada" ? "ANULADA" : "",
+                ])}
+              />
+            </span>
           </div>
         }
       />
@@ -186,11 +219,7 @@ export default function VentasReportePage() {
               </div>
             </div>
             {(() => {
-              const ventasFiltradas = dataFiltrada.ventas.filter((v) => {
-                if (filtroAnuladas === "solo_activas") return v.estado !== "anulada";
-                if (filtroAnuladas === "solo_anuladas") return v.estado === "anulada";
-                return true;
-              });
+              const ventasFiltradas = ventasVista;
               if (dataFiltrada.ventas.length === 0) {
                 return <p className="text-sm text-slate-400">
                   {modo === "consignataria"

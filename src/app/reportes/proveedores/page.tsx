@@ -5,6 +5,7 @@ import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
+import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import MesSelector from "@/components/reportes/MesSelector";
 import { getProveedoresReporte } from "@/lib/reportes/storage";
 import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
@@ -46,7 +47,23 @@ export default function ProveedoresReportePage() {
         actions={
           <div className="flex items-center gap-3">
             <MesSelector mes={mes} onChange={setMes} />
+            <span className="inline-flex items-start gap-2">
             <ExportExcelButton url={`/api/reportes/proveedores/export?mes=${mes}`} />
+            <ImprimirTablaButton
+              titulo="Proveedores"
+              subtitulo={`Mes ${mes}`}
+              columnas={["Proveedor", "RUC", "Teléfono", "Compras del mes", "Total del mes", "Última compra"]}
+              sumar={[3, 4]}
+              filas={(data?.proveedores ?? []).map((p2) => [
+                p2.nombre,
+                p2.ruc ?? "",
+                p2.telefono ?? "",
+                p2.cantidad,
+                p2.total,
+                p2.ultima_compra ? String(p2.ultima_compra).slice(0, 10) : "",
+              ])}
+            />
+          </span>
           </div>
         }
       />
