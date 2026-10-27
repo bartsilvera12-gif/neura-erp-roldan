@@ -319,6 +319,15 @@ export default function NuevaVentaPage() {
   const [categorias,     setCategorias]     = useState<{ id: string; nombre: string; descuento_pct: number }[]>([]);
   /** Cotización de venta del día, para los productos con precio en dólares. */
   const [tcVenta, setTcVenta] = useState<number | null>(null);
+
+  /**
+   * El crédito del cliente elegido: cuánto puede deber, cuánto debe ya y qué
+   * plazo tiene acordado. Se pide al elegirlo, para poder avisar mientras se
+   * arma la venta y no al confirmarla, que es enterarse tarde.
+   */
+  const [credito, setCredito] = useState<{
+    limite: number | null; dias: number | null; deuda: number; disponible: number | null;
+  } | null>(null);
   const comboInputRef    = useRef<HTMLInputElement>(null);
   const comboContainerRef = useRef<HTMLDivElement>(null);
   const comboTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -653,6 +662,32 @@ export default function NuevaVentaPage() {
     const t = setTimeout(() => comboInputRef.current?.focus(), 120);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!clienteId) { setCredito(null); return; }
+    let cancel = false;
+    fetchWithSupabaseSession(`/api/clientes/${clienteId}/credito`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel) return;
+        setCredito(j?.success ? (j.data?.credito ?? null) : null);
+      })
+      .catch(() => { if (!cancel) setCredito(null); });
+    return () => { cancel = true; };
+  }, [clienteId]);
+
+  // El plazo acordado se propone solo. Que el que atiende tenga que acordarse
+  // de que a este cliente son 15 días y al otro 30 es pedirle que haga de
+  // memoria lo que el sistema ya sabe.
+  useEffect(() => {
+    if (tipoVenta !== "CREDITO") return;
+    if (credito?.dias == null) return;
+    if (plazoDias.trim() !== "") return;
+    setPlazoDias(String(credito.dias));
+    // Solo al elegir cliente o al pasar a crédito; si después lo cambian a
+    // mano, se respeta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credito, tipoVenta]);
 
   // La cotización del día. Sin ella, un producto en dólares cae a su último
   // precio en guaraníes conocido: está cerca y deja seguir vendiendo.
@@ -1421,6 +1456,34 @@ export default function NuevaVentaPage() {
                   )}
                   {!clienteId && (
                     <p className="mt-1 text-[11px] text-red-600">La venta a crédito requiere un cliente: seleccioná uno o creá uno nuevo.</p>
+                  )}
+                  {/* Lo que el cliente tiene acordado, a la vista mientras se
+                      arma la venta. El control de verdad sigue estando en el
+                      servidor al confirmar —el saldo se mueve mientras tanto—
+                      pero enterarse recién ahí es enterarse con el cliente
+                      adelante y la venta ya cargada. */}
+                  {credito && (credito.dias != null || credito.limite != null) && (
+                    <div className="mt-2 space-y-1">
+                      {credito.dias != null && (
+                        <p className={`text-[11px] ${plazoDiasNum > credito.dias ? "font-semibold text-red-600" : "text-slate-500"}`}>
+                          {plazoDiasNum > credito.dias
+                            ? `Este cliente tiene ${credito.dias} días acordados y estás poniendo ${plazoDiasNum}: la venta se va a rechazar.`
+                            : `Plazo acordado con este cliente: ${credito.dias} días.`}
+                        </p>
+                      )}
+                      {credito.limite != null && (
+                        <p className={`text-[11px] ${
+                          credito.limite === 0 || (credito.disponible != null && totalGeneral > credito.disponible)
+                            ? "font-semibold text-red-600" : "text-slate-500"
+                        }`}>
+                          {credito.limite === 0
+                            ? "Este cliente no tiene crédito habilitado: cobrale al contado o subile el límite en su ficha."
+                            : credito.disponible != null && totalGeneral > credito.disponible
+                              ? `Le quedan ${formatGs(credito.disponible)} de crédito y esta venta es de ${formatGs(totalGeneral)}: se va a rechazar.`
+                              : `Crédito disponible: ${formatGs(credito.disponible ?? 0)} de ${formatGs(credito.limite)}${credito.deuda > 0 ? ` · ya debe ${formatGs(credito.deuda)}` : ""}.`}
+                        </p>
+                      )}
+                    </div>
                   )}
                   <p className="mt-1 text-[11px] text-slate-500">Al confirmar se genera una cuenta por cobrar por el total.</p>
                 </div>
