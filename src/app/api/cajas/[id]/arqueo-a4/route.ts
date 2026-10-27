@@ -89,9 +89,52 @@ export async function GET(
             <td class="m b">${gs(m.monto)}</td>
           </tr>`).join("");
 
-    const ventasAnuladas = (detalle?.ventas ?? []).filter(
-      (v) => String((v as { estado?: string }).estado ?? "") === "anulada"
-    );
+    // Punto 5.2: el cierre lista TODAS las operaciones del turno, no solo las
+    // anuladas. Un cierre sin el detalle obliga a ir a buscar las ventas a otra
+    // pantalla para controlar contra los comprobantes en papel, que es
+    // justamente lo que se hace con esta hoja en la mano.
+    type VentaCierre = {
+      numero_control?: string | null; fecha?: string; total?: number;
+      estado?: string | null; metodo_pago?: string | null;
+      usuario_nombre?: string | null; cliente_nombre?: string | null;
+      anulacion_motivo?: string | null;
+    };
+    const ventasDetalle = (detalle?.ventas ?? []) as VentaCierre[];
+    const esAnulada = (v: VentaCierre) => String(v.estado ?? "") === "anulada";
+    const anuladas = ventasDetalle.filter(esAnulada);
+    const vivas = ventasDetalle.filter((v) => !esAnulada(v));
+    const totalVivas = vivas.reduce((s, v) => s + (Number(v.total) || 0), 0);
+
+    const MEDIO: Record<string, string> = {
+      efectivo: "Efectivo", tarjeta: "Tarjeta", transferencia: "Transferencia",
+      cheque: "Cheque", mixto: "Mixto", credito: "Crédito",
+    };
+
+    const soloHora = (iso: string | undefined) => {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "—";
+      const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${p(py.getUTCHours())}:${p(py.getUTCMinutes())}`;
+    };
+
+    const filaVenta = (v: VentaCierre) => {
+      const anulada = esAnulada(v);
+      const medio = String(v.metodo_pago ?? "");
+      return `<tr class="${anulada ? "anul" : ""}">
+        <td class="hora">${soloHora(v.fecha)}</td>
+        <td>${esc(v.numero_control ?? "—")}${
+          anulada
+            ? `<span class="tag-anul">ANULADA</span><div class="motivo">${esc(v.anulacion_motivo ?? "sin motivo registrado")}</div>`
+            : ""
+        }</td>
+        <td>${esc(v.cliente_nombre ?? "Consumidor final")}</td>
+        <td>${esc(v.usuario_nombre ?? "—")}</td>
+        <td class="med">${esc(MEDIO[medio] ?? medio ?? "—")}</td>
+        <td class="m">${gs(Number(v.total) || 0)}</td>
+      </tr>`;
+    };
 
     const html = `<!doctype html>
 <html lang="es">
@@ -127,6 +170,20 @@ export async function GET(
   .cero td { color: #999; }
   .med { width: 80px; text-transform: capitalize; }
   .obs { color: #666; font-style: italic; }
+  .hora { width: 38px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* Una anulada se distingue en gris, con su marca y su motivo. El tachado va
+     SOLO en el importe, que es donde significa algo ("no cuenta"): tachar el
+     renglón entero deja la hora y el motivo sin poder leerse, porque una
+     línea sobre el texto no se puede quitar desde adentro. */
+  .anul td { color: #777; }
+  .anul .m { text-decoration: line-through; }
+  .anul .motivo { font-style: italic; font-size: 9px; color: #666; }
+  .tag-anul {
+    display: inline-block; border: 1px solid #999; padding: 0 3px;
+    font-size: 8px; font-weight: 700; letter-spacing: .04em; margin-left: 4px;
+    vertical-align: 1px;
+  }
+  tfoot td { border-top: 2px solid #000; }
   .vacio { text-align: center; color: #888; padding: 6px; }
 
   .cols { display: flex; gap: 8mm; }
@@ -236,21 +293,35 @@ export async function GET(
     </tbody>
   </table>
 
-  ${ventasAnuladas.length > 0 ? `
-  <h2>5 · Operaciones anuladas</h2>
+  <h2>5 · Detalle de operaciones</h2>
   <table>
-    <thead><tr><th>Comprobante</th><th>Motivo</th><th class="m">Monto</th></tr></thead>
+    <thead>
+      <tr>
+        <th class="hora">Hora</th>
+        <th>Comprobante</th>
+        <th>Cliente</th>
+        <th>Vendedor</th>
+        <th class="med">Medio</th>
+        <th class="m">Importe</th>
+      </tr>
+    </thead>
     <tbody>
-      ${ventasAnuladas.map((v) => {
-        const vv = v as { numero_control?: string; anulacion_motivo?: string | null; total?: number };
-        return `<tr>
-          <td>${esc(vv.numero_control ?? "")}</td>
-          <td>${esc(vv.anulacion_motivo ?? "Sin motivo registrado")}</td>
-          <td class="m">${gs(vv.total ?? 0)}</td>
-        </tr>`;
-      }).join("")}
+      ${ventasDetalle.length === 0
+        ? '<tr><td colspan="6" class="vacio">No hubo ventas en este turno.</td></tr>'
+        : ventasDetalle.map(filaVenta).join("")}
     </tbody>
-  </table>` : ""}
+    ${ventasDetalle.length > 0 ? `<tfoot>
+      <tr class="b">
+        <td colspan="5">${vivas.length} operación(es) válida(s)${anuladas.length ? ` · ${anuladas.length} anulada(s)` : ""}</td>
+        <td class="m">${gs(totalVivas)}</td>
+      </tr>
+    </tfoot>` : ""}
+  </table>
+  ${anuladas.length > 0 ? `<p class="nota">
+    Las anuladas figuran en gris, con su motivo, y su importe no suma en el
+    total: esa plata no entró. Se listan igual porque el comprobante existió y
+    alguien lo anuló.
+  </p>` : ""}
 
   ${c.observacion_cierre ? `<p class="nota"><b>Observación del cierre:</b> ${esc(c.observacion_cierre)}</p>` : ""}
 

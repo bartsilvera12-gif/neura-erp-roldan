@@ -159,6 +159,10 @@ export interface CajaDetalleVenta {
   total: number;
   estado: string | null;
   usuario_nombre: string | null;
+  /** Punto 5.2: el detalle del cierre nombra al cliente de cada operación. */
+  cliente_nombre?: string | null;
+  /** Por qué se anuló, cuando se anuló. */
+  anulacion_motivo?: string | null;
   /** Si fue pago mixto, desglose real por metodo (desde ventas_pagos_detalle). */
   desglose_pago?: { efectivo: number; tarjeta: number; transferencia: number } | null;
 }

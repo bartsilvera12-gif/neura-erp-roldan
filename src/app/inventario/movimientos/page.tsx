@@ -96,7 +96,8 @@ export default function MovimientosPage() {
     const coincideTexto =
       texto === "" ||
       m.producto_nombre.toLowerCase().includes(texto) ||
-      m.producto_sku.toLowerCase().includes(texto);
+      m.producto_sku.toLowerCase().includes(texto) ||
+      (m.referencia ?? "").toLowerCase().includes(texto);
     const coincideOrigen = filtroOrigen === "" || m.origen === filtroOrigen;
     const coincideUsuario =
       filtroUsuario === "" || (m.usuario_nombre ?? "") === filtroUsuario;
@@ -177,7 +178,7 @@ export default function MovimientosPage() {
           {/* Fila 1: búsqueda + tipo + origen */}
           <input
             type="text"
-            placeholder="Buscar por producto o SKU..."
+            placeholder="Buscar por producto, SKU o comprobante…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className={`${inputFilterClass} min-w-56`}
@@ -197,13 +198,14 @@ export default function MovimientosPage() {
             onChange={(e) => setFiltroOrigen(e.target.value as OrigenMovimiento | "")}
             className={inputFilterClass}
           >
+            {/* El desplegable se arma de origenLabel para que no vuelva a
+                quedar corto: las transferencias y las ediciones de venta ya
+                escribían movimientos y no estaban en esta lista, así que no
+                había forma de filtrarlas. */}
             <option value="">Todos los orígenes</option>
-            <option value="compra">Compra</option>
-            <option value="venta">Venta</option>
-            <option value="produccion">Producción</option>
-            <option value="anulacion_venta">Anulación de venta</option>
-            <option value="anulacion_compra">Anulación de compra</option>
-            <option value="ajuste_manual">Ajuste manual</option>
+            {(Object.keys(origenLabel) as OrigenMovimiento[]).map((o) => (
+              <option key={o} value={o}>{origenLabel[o]}</option>
+            ))}
           </select>
 
           {/* Separador visual entre grupos */}
@@ -257,6 +259,7 @@ export default function MovimientosPage() {
                 <th className="py-3 pr-4 font-medium text-right">Cantidad</th>
                 <th className="py-3 pr-4 font-medium text-right hidden lg:table-cell">Costo unit.</th>
                 <th className="py-3 pr-4 font-medium hidden md:table-cell">Origen</th>
+                <th className="py-3 pr-4 font-medium hidden lg:table-cell">Referencia</th>
                 <th className="py-3 pr-4 font-medium hidden lg:table-cell">Usuario</th>
                 <th className="py-3 font-medium">Fecha</th>
               </tr>
@@ -264,7 +267,7 @@ export default function MovimientosPage() {
             <tbody>
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
+                  <td colSpan={9} className="py-12 text-center text-gray-400">
                     {todos.length === 0
                       ? "No hay movimientos registrados"
                       : "Ningún movimiento coincide con los filtros"}
@@ -300,6 +303,13 @@ export default function MovimientosPage() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${origenBadge[m.origen]}`}>
                           {origenLabel[m.origen]}
                         </span>
+                      </td>
+                      {/* El número del comprobante que originó el movimiento:
+                          COMP-… para compras, TRF-… para transferencias. Sin
+                          esta columna, una transferencia aparecía en la lista
+                          sin forma de saber cuál era. */}
+                      <td className="py-4 pr-4 font-mono text-xs text-gray-500 hidden lg:table-cell">
+                        {m.referencia || <span className="text-gray-300">—</span>}
                       </td>
                       <td className="py-4 pr-4 text-gray-600 text-xs hidden lg:table-cell">
                         {m.usuario_nombre ?? <span className="text-gray-300">—</span>}

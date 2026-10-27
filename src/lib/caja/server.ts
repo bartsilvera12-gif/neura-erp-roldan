@@ -466,7 +466,7 @@ export async function getDetalleCaja(
   // Ventas individuales del turno (cronológico).
   const vQ = await sb
     .from("ventas")
-    .select("id, numero_control, fecha, metodo_pago, tipo_venta, total, estado, usuario_nombre")
+    .select("id, numero_control, fecha, metodo_pago, tipo_venta, total, estado, usuario_nombre, cliente_id, anulacion_motivo")
     .eq("empresa_id", empresaId)
     .eq("caja_id", cajaId)
     .order("fecha", { ascending: true });
@@ -480,7 +480,29 @@ export async function getDetalleCaja(
     total: number | string;
     estado: string | null;
     usuario_nombre: string | null;
+    cliente_id: string | null;
+    anulacion_motivo: string | null;
   }>;
+
+  // Nombres de los clientes del turno (punto 5.2). Una sola consulta para
+  // todos: un cierre con cincuenta ventas no puede hacer cincuenta consultas.
+  const clienteIds = [...new Set(ventasRaw.map((v) => v.cliente_id).filter((x): x is string => Boolean(x)))];
+  const nombreCliente = new Map<string, string>();
+  if (clienteIds.length > 0) {
+    const clQ = await sb
+      .from("clientes")
+      .select("id, nombre, empresa, nombre_contacto, nombre_facturacion")
+      .eq("empresa_id", empresaId)
+      .in("id", clienteIds.slice(0, 1000));
+    for (const c of (clQ.data ?? []) as Array<Record<string, unknown>>) {
+      const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+      nombreCliente.set(
+        String(c.id),
+        t(c.nombre_facturacion) || t(c.empresa) || t(c.nombre_contacto) || t(c.nombre)
+      );
+    }
+  }
+
   const ventas: CajaDetalleVenta[] = ventasRaw.map((v) => ({
     id: v.id,
     numero_control: v.numero_control,
@@ -490,6 +512,8 @@ export async function getDetalleCaja(
     total: num(v.total),
     estado: v.estado,
     usuario_nombre: v.usuario_nombre,
+    cliente_nombre: v.cliente_id ? (nombreCliente.get(v.cliente_id) || null) : null,
+    anulacion_motivo: v.anulacion_motivo,
     desglose_pago: null, // se rellena mas abajo cuando la venta es mixto
   }));
 
