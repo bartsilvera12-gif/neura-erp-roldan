@@ -3,12 +3,13 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 
 const PRESU_COLS =
   "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
   "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
   "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
-  "convertido_pedido_id, convertido_venta_id, created_at, updated_at";
+  "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre";
 
 function asIva(v: unknown): "EXENTA" | "5%" | "10%" {
   return v === "EXENTA" || v === "5%" || v === "10%" ? v : "10%";
@@ -146,7 +147,10 @@ export async function POST(request: NextRequest) {
         ? String(body.condiciones_comerciales).slice(0, 4000)
         : null,
       usuario_id: ctx.auth.user?.id ?? null,
-      usuario_nombre: ctx.auth.user?.email ?? null,
+      // El nombre y no el correo: es lo que se muestra en el listado y en la
+      // ficha cuando alguien pregunta quién hizo la cotización. Si el usuario
+      // no tiene nombre cargado, firmaUsuario cae al correo igual.
+      usuario_nombre: (await firmaUsuario(ctx.supabase, ctx.auth)).nombre,
       items,
     });
 

@@ -28,6 +28,7 @@ type Presu = {
   plazo_entrega: string | null;
   observaciones: string | null;
   condiciones_comerciales?: string | null;
+  usuario_nombre?: string | null;
   convertido_pedido_id: string | null;
 };
 type ItemRow = {
@@ -297,6 +298,11 @@ export default function PresupuestoDetallePage() {
           {presu.validez_dias != null && <p className="text-sm text-gray-600">Validez: {presu.validez_dias} día(s){presu.fecha_vencimiento ? ` (vence ${fmtFecha(presu.fecha_vencimiento)})` : ""}</p>}
           {presu.forma_pago && <p className="text-sm text-gray-600">Forma de pago: {presu.forma_pago}</p>}
           {presu.plazo_entrega && <p className="text-sm text-gray-600">Plazo de entrega: {presu.plazo_entrega}</p>}
+          {/* Quién lo cotizó. Está acá y no en el PDF: adentro sirve para saber
+              a quién preguntarle; al cliente no le dice nada. */}
+          {presu.usuario_nombre && (
+            <p className="text-sm text-gray-600">Emitió: {presu.usuario_nombre}</p>
+          )}
         </div>
       </div>
 

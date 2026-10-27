@@ -127,28 +127,6 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   if (pq.error || !pq.data) return new NextResponse("Presupuesto no encontrado", { status: 404 });
   const p = pq.data as Record<string, unknown>;
 
-  // Emisor: usuario que creó el presupuesto (nombre/email/teléfono). Se une por
-  // auth_user_id = presupuestos.usuario_id. Best-effort: si falta, no se imprime.
-  let emisorNombre: string | null = null;
-  let emisorEmail: string | null = null;
-  let emisorTelefono: string | null = null;
-  if (p.usuario_id) {
-    try {
-      const uq = await ctx.supabase
-        .from("usuarios")
-        .select("nombre, email, telefono")
-        .eq("empresa_id", ctx.auth.empresa_id)
-        .eq("auth_user_id", String(p.usuario_id))
-        .maybeSingle();
-      const u = uq.data as { nombre?: string | null; email?: string | null; telefono?: string | null } | null;
-      emisorNombre = u?.nombre?.trim() || (typeof p.usuario_nombre === "string" ? p.usuario_nombre.trim() : null);
-      emisorEmail = u?.email?.trim() || null;
-      emisorTelefono = u?.telefono?.trim() || null;
-    } catch {
-      emisorNombre = typeof p.usuario_nombre === "string" ? p.usuario_nombre : null;
-    }
-  }
-
   const itq = await ctx.supabase
     .from("presupuesto_items")
     .select("producto_nombre, sku, cantidad, unidad_medida, precio_unitario, iva_tipo, descuento, total")
@@ -356,16 +334,14 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     for (const ln of obsLines) { T(page, ln, MARGIN + 4, y, 9, font, rgb(0.25, 0.28, 0.32)); y -= 12; }
   }
 
-  // ═══════ Emitido por (usuario emisor) ═══════
-  if (emisorNombre || emisorEmail || emisorTelefono) {
-    y -= 8;
-    ensureSpace(20 + 28);
-    T(page, "EMITIDO POR", MARGIN, y, 8, bold, GREY);
-    y -= 14;
-    if (emisorNombre) { T(page, emisorNombre, MARGIN + 4, y, 9, font, rgb(0.25, 0.28, 0.32)); y -= 12; }
-    const contactoEmisor = [emisorTelefono ? `Tel: ${emisorTelefono}` : "", emisorEmail || ""].filter(Boolean).join("    ");
-    if (contactoEmisor) { T(page, contactoEmisor, MARGIN + 4, y, 9, font, rgb(0.25, 0.28, 0.32)); y -= 12; }
-  }
+  // ── QUIÉN LO EMITIÓ NO VA EN LA HOJA ──────────────────────────────────────
+  //   El presupuesto es lo que se le entrega al cliente, y ahí el correo
+  //   interno del vendedor no le dice nada: le ocupa lugar y expone una
+  //   dirección de la empresa sin motivo.
+  //
+  //   El dato sigue guardado y se muestra adentro del sistema, en el listado
+  //   y en la ficha del presupuesto, que es donde alguien pregunta "¿quién
+  //   hizo esta cotización?".
 
   // ═══════ Pie legal ═══════
   ensureSpace(40);

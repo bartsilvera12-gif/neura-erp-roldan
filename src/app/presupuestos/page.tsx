@@ -21,6 +21,8 @@ type PresupuestoRow = {
   moneda: string;
   /** Punto 9.3: la vigencia ya se guardaba; faltaba verla sin abrir el presupuesto. */
   fecha_vencimiento?: string | null;
+  /** Quién lo cotizó. No va en el PDF: el cliente no necesita ese dato. */
+  usuario_nombre?: string | null;
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
@@ -202,12 +204,13 @@ export default function PresupuestosPage() {
             titulo="Presupuestos"
             archivo="presupuestos"
             subtitulo={filtro !== "todos" ? `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}` : undefined}
-            columnas={["Número", "Cliente", "Fecha", "Vence", "Total", "Moneda", "Estado"]}
+            columnas={["Número", "Cliente", "Fecha", "Vence", "Emitió", "Total", "Moneda", "Estado"]}
             filas={filtradas.map((r) => [
               r.numero_control,
               r.cliente_nombre,
               fmtFecha(r.fecha),
               r.fecha_vencimiento ? fmtFecha(String(r.fecha_vencimiento).slice(0, 10)) : "",
+              r.usuario_nombre ?? "",
               Number(r.total) || 0,
               r.moneda,
               ESTADO_LABEL[r.estado] ?? r.estado,
@@ -283,6 +286,7 @@ export default function PresupuestosPage() {
                   <th className="py-3 px-4 font-medium">Cliente</th>
                   <th className="py-3 px-4 font-medium">Fecha</th>
                   <th className="py-3 px-4 font-medium">Vence</th>
+                  <th className="py-3 px-4 font-medium">Emitió</th>
                   <th className="py-3 px-4 font-medium text-right">Total</th>
                   <th className="py-3 px-4 font-medium w-48">Estado</th>
                   <th className="py-3 px-4 font-medium text-right">Acciones</th>
@@ -310,6 +314,9 @@ export default function PresupuestosPage() {
                           </span>
                         );
                       })()}
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      {r.usuario_nombre || <span className="text-gray-300">—</span>}
                     </td>
                     <td className="py-3 px-4 text-right tabular-nums font-semibold text-gray-800">{fmtGs(r.total, r.moneda)}</td>
                     <td className="py-3 px-4 align-middle">
