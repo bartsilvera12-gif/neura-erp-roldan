@@ -31,7 +31,10 @@ export type EstadoTransferencia =
   | "cancelada";
 
 export type TransferenciaItemInput = {
-  producto_destino_id: string;
+  /** Producto del catálogo propio. Camino viejo; uno de los dos tiene que venir. */
+  producto_destino_id?: string;
+  /** Producto del catálogo de la sucursal que despacha. Camino normal. */
+  producto_origen_id?: string;
   cantidad_solicitada: number;
 };
 
@@ -202,32 +205,113 @@ export async function crearTransferencia(params: {
       const cant = num(it.cantidad_solicitada);
       if (cant <= 0) throw new TransferenciaError(400, "Las cantidades deben ser mayores a 0.");
 
-      // Producto del DESTINO: debe existir, ser de esa sucursal, activo y controlar stock.
-      const { rows: prodDst } = await client.query<{
-        id: string; sku: string; nombre: string; unidad_medida: string;
-      }>(
-        `SELECT id, sku, nombre, unidad_medida FROM ${tP}
-          WHERE id = $1::uuid AND empresa_id = $2::uuid AND sucursal_id = $3::uuid
-            AND activo = true AND controla_stock = true`,
-        [it.producto_destino_id, empresaId, sucursalDestinoId]
-      );
-      if (!prodDst[0]) {
-        throw new TransferenciaError(
-          400,
-          "Un producto no pertenece a tu sucursal, está inactivo o no controla stock."
-        );
-      }
-      const p = prodDst[0];
+      // ── De qué producto estamos hablando ──────────────────────────────
+      //
+      // Se puede pedir de dos maneras, y las dos terminan en lo mismo:
+      //
+      //   `producto_origen_id` — se eligió del catálogo de la sucursal que
+      //     despacha. Es el camino normal: repone lo que uno NO tiene, así
+      //     que buscar en el catálogo propio no sirve, y una sucursal recién
+      //     abierta no tiene ninguno.
+      //
+      //   `producto_destino_id` — se eligió del catálogo propio. Es el camino
+      //     viejo; se mantiene para no romper lo que ya estaba.
+      //
+      // Cada sucursal tiene su propia ficha del mismo artículo, emparejadas
+      // por SKU. Si la que pide todavía no tiene la suya, se le crea una
+      // copia en cero: sin eso no habría dónde registrar la entrada cuando
+      // llegue la mercadería.
+      let p: { id: string; sku: string; nombre: string; unidad_medida: string };
+      let productoOrigenId: string | null = null;
 
-      // Equivalente en el ORIGEN por MISMO SKU (no por nombre). Nullable si no hay.
-      const { rows: prodOrg } = await client.query<{ id: string }>(
-        `SELECT id FROM ${tP}
-          WHERE empresa_id = $1::uuid AND sucursal_id = $2::uuid AND sku = $3
-            AND activo = true AND controla_stock = true
-          LIMIT 1`,
-        [empresaId, sucursalOrigenId, p.sku]
-      );
-      const productoOrigenId = prodOrg[0]?.id ?? null;
+      if (it.producto_origen_id) {
+        const { rows: prodOrg } = await client.query<{
+          id: string; sku: string; nombre: string; unidad_medida: string;
+        }>(
+          `SELECT id, sku, nombre, unidad_medida FROM ${tP}
+            WHERE id = $1::uuid AND empresa_id = $2::uuid AND sucursal_id = $3::uuid
+              AND activo = true AND controla_stock = true`,
+          [it.producto_origen_id, empresaId, sucursalOrigenId]
+        );
+        if (!prodOrg[0]) {
+          throw new TransferenciaError(
+            400,
+            "Un producto no pertenece a la sucursal de origen, está inactivo o no controla stock."
+          );
+        }
+        const o = prodOrg[0];
+        productoOrigenId = o.id;
+
+        const { rows: yaEsta } = await client.query<{
+          id: string; sku: string; nombre: string; unidad_medida: string;
+        }>(
+          `SELECT id, sku, nombre, unidad_medida FROM ${tP}
+            WHERE empresa_id = $1::uuid AND sucursal_id = $2::uuid AND sku = $3
+            LIMIT 1`,
+          [empresaId, sucursalDestinoId, o.sku]
+        );
+
+        if (yaEsta[0]) {
+          p = yaEsta[0];
+        } else {
+          // El código de barras no se copia: suele ser único por empresa y
+          // copiarlo haría chocar las dos fichas. El stock arranca en cero
+          // porque todavía no llegó nada.
+          const { rows: creado } = await client.query<{
+            id: string; sku: string; nombre: string; unidad_medida: string;
+          }>(
+            `INSERT INTO ${tP} (
+               empresa_id, sucursal_id, nombre, sku, unidad_medida,
+               costo_promedio, precio_venta, stock_actual, stock_minimo,
+               activo, controla_stock, es_vendible, es_insumo,
+               categoria_principal_id, tipo_iva, metodo_valuacion, codigo_barras_interno
+             )
+             SELECT empresa_id, $2::uuid, nombre, sku, unidad_medida,
+                    COALESCE(costo_promedio, 0), COALESCE(precio_venta, 0), 0, 0,
+                    true, true, COALESCE(es_vendible, true), COALESCE(es_insumo, false),
+                    categoria_principal_id, COALESCE(tipo_iva, '10%'),
+                    COALESCE(metodo_valuacion, 'CPP'), true
+               FROM ${tP}
+              WHERE id = $1::uuid AND empresa_id = $3::uuid
+             RETURNING id, sku, nombre, unidad_medida`,
+            [o.id, sucursalDestinoId, empresaId]
+          );
+          if (!creado[0]) {
+            throw new TransferenciaError(
+              400,
+              `No se pudo crear la ficha de "${o.nombre}" en tu sucursal. Cargala a mano en Inventario y volvé a pedir.`
+            );
+          }
+          p = creado[0];
+        }
+      } else {
+        // Producto del DESTINO: debe existir, ser de esa sucursal, activo y controlar stock.
+        const { rows: prodDst } = await client.query<{
+          id: string; sku: string; nombre: string; unidad_medida: string;
+        }>(
+          `SELECT id, sku, nombre, unidad_medida FROM ${tP}
+            WHERE id = $1::uuid AND empresa_id = $2::uuid AND sucursal_id = $3::uuid
+              AND activo = true AND controla_stock = true`,
+          [it.producto_destino_id, empresaId, sucursalDestinoId]
+        );
+        if (!prodDst[0]) {
+          throw new TransferenciaError(
+            400,
+            "Un producto no pertenece a tu sucursal, está inactivo o no controla stock."
+          );
+        }
+        p = prodDst[0];
+
+        // Equivalente en el ORIGEN por MISMO SKU (no por nombre). Nullable si no hay.
+        const { rows: eq } = await client.query<{ id: string }>(
+          `SELECT id FROM ${tP}
+            WHERE empresa_id = $1::uuid AND sucursal_id = $2::uuid AND sku = $3
+              AND activo = true AND controla_stock = true
+            LIMIT 1`,
+          [empresaId, sucursalOrigenId, p.sku]
+        );
+        productoOrigenId = eq[0]?.id ?? null;
+      }
 
       await client.query(
         `INSERT INTO ${tI}

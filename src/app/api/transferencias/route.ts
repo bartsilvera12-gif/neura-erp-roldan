@@ -56,13 +56,19 @@ export async function POST(request: NextRequest) {
     const itemsRaw = Array.isArray(body.items) ? body.items : [];
     const items = itemsRaw
       .map((it) => {
-        const o = it as { producto_destino_id?: unknown; cantidad_solicitada?: unknown };
+        const o = it as {
+          producto_destino_id?: unknown; producto_origen_id?: unknown; cantidad_solicitada?: unknown;
+        };
         return {
           producto_destino_id: typeof o.producto_destino_id === "string" ? o.producto_destino_id : "",
+          // Se puede pedir eligiendo del catálogo de la sucursal que despacha:
+          // es lo único que sirve cuando la que pide todavía no tiene el
+          // artículo cargado, que es el caso de una sucursal nueva.
+          producto_origen_id: typeof o.producto_origen_id === "string" ? o.producto_origen_id : "",
           cantidad_solicitada: Number(o.cantidad_solicitada) || 0,
         };
       })
-      .filter((it) => it.producto_destino_id && it.cantidad_solicitada > 0);
+      .filter((it) => (it.producto_destino_id || it.producto_origen_id) && it.cantidad_solicitada > 0);
     if (items.length === 0) {
       return NextResponse.json(errorResponse("Agregá al menos un producto con cantidad."), { status: 400 });
     }

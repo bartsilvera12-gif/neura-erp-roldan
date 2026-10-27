@@ -499,6 +499,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
   const [obs, setObs] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<ProductoBusq[]>([]);
+  const [buscandoProd, setBuscandoProd] = useState(false);
   const [lineas, setLineas] = useState<Array<{ producto_destino_id: string; nombre: string; sku: string; stock: number; cantidad: string }>>([]);
   const [guardando, setGuardando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -517,30 +518,38 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
     })();
   }, []);
 
+  // Se busca en el catálogo de la sucursal que va a DESPACHAR, no en el
+  // propio. Reponer es pedir lo que uno no tiene: buscar entre los productos
+  // propios no devolvía lo que hacía falta, y en una sucursal nueva —que no
+  // tiene nada cargado— no devolvía absolutamente nada.
+  //
+  // Sin origen elegido no hay dónde buscar, y se dice en vez de quedarse mudo.
   useEffect(() => {
+    if (!origenId) { setResultados([]); return; }
     const q = busqueda.trim();
-    if (q.length < 2) {
-      setResultados([]);
-      return;
-    }
     let vivo = true;
     const t = setTimeout(async () => {
+      setBuscandoProd(true);
       try {
-        const res = await fetchWithSupabaseSession(`/api/productos/search?q=${encodeURIComponent(q)}&limit=20`);
+        const sp = new URLSearchParams({ sucursal: origenId, limit: "20" });
+        if (q) sp.set("q", q);
+        const res = await fetchWithSupabaseSession(`/api/transferencias/productos-origen?${sp}`);
         const json = await res.json();
         if (vivo && res.ok) {
-          const items = (json?.data?.items ?? []) as Array<{ id: string; nombre: string; sku: string; stock_actual: number }>;
+          const items = (json?.data?.productos ?? []) as Array<{ id: string; nombre: string; sku: string; stock_actual: number }>;
           setResultados(items.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, stock_actual: p.stock_actual })));
         }
       } catch {
-        /* ignore */
+        /* se reintenta al seguir escribiendo */
+      } finally {
+        if (vivo) setBuscandoProd(false);
       }
     }, 250);
     return () => {
       vivo = false;
       clearTimeout(t);
     };
-  }, [busqueda]);
+  }, [busqueda, origenId]);
 
   function agregar(p: ProductoBusq) {
     if (lineas.some((l) => l.producto_destino_id === p.id)) return;
@@ -556,7 +565,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
     setErr(null);
     if (!origenId) return setErr("Elegí la sucursal de origen.");
     const items = lineas
-      .map((l) => ({ producto_destino_id: l.producto_destino_id, cantidad_solicitada: Number(l.cantidad) || 0 }))
+      .map((l) => ({ producto_origen_id: l.producto_destino_id, cantidad_solicitada: Number(l.cantidad) || 0 }))
       .filter((i) => i.cantidad_solicitada > 0);
     if (items.length === 0) return setErr("Agregá al menos un producto con cantidad mayor a 0.");
     setGuardando(true);
@@ -596,15 +605,26 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Agregar productos</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            Agregar productos{" "}
+            <span className="font-normal text-slate-400">— del catálogo de la sucursal que despacha</span>
+          </label>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por nombre, SKU o código de barras…"
+              placeholder={origenId ? "Buscar por nombre o SKU…" : "Primero elegí la sucursal de origen"}
+              disabled={!origenId}
               className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
             />
+            {origenId && resultados.length === 0 && !buscandoProd && (
+              <p className="mt-1 text-xs text-slate-500">
+                {busqueda.trim()
+                  ? "Esa sucursal no tiene ningún producto que coincida."
+                  : "Esa sucursal no tiene productos cargados."}
+              </p>
+            )}
             {resultados.length > 0 && (
               <div className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
                 {resultados.map((p) => (
@@ -617,7 +637,11 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
                       <span className="font-medium text-slate-800">{p.nombre}</span>
                       <span className="ml-2 text-xs text-slate-400">{p.sku}</span>
                     </span>
-                    <span className="text-xs text-slate-500">Stock: {fmtNum(p.stock_actual)}</span>
+                    {/* El stock que importa es el del que despacha: de ahí
+                        va a salir, si es que hay. */}
+                    <span className={`text-xs ${p.stock_actual > 0 ? "text-slate-500" : "text-red-600"}`}>
+                      {p.stock_actual > 0 ? `Tiene ${fmtNum(p.stock_actual)}` : "Sin stock allá"}
+                    </span>
                   </button>
                 ))}
               </div>
