@@ -783,6 +783,14 @@ export default function NuevaVentaPage() {
    * Sirve para decidir un descuento sabiendo cuánto hay para ceder, en vez de
    * bajar el precio a ojo y enterarse al cierre del mes.
    */
+  /**
+   * Cuando alguien escribe un descuento mayor a su tope, el campo lo recorta.
+   * Sin decir nada, eso se lee como "me dejó": el vendedor escribe 30, ve la
+   * venta confirmada y cree que pasó con 30 —y quedó con 10. Se avisa en la
+   * línea, con el número que escribió y el que se aplicó.
+   */
+  const [avisoTope, setAvisoTope] = useState<{ idx: number; pidio: number; aplicado: number } | null>(null);
+
   const { isAdmin: verMargenes, descuentoMaximo } = useIsAdmin();
 
   const resumenMargen = useMemo(() => {
@@ -1608,6 +1616,8 @@ export default function NuevaVentaPage() {
                                   // lo aplica el servidor al confirmar la venta.
                                   const tope = descuentoMaximo ?? 100;
                                   const dOk = Math.min(Math.max(0, d), tope);
+                                  // Recortar sin decirlo se lee como "me dejó".
+                                  setAvisoTope(d > tope ? { idx, pidio: d, aplicado: dOk } : null);
                                   const base = item.precio_venta_original || item.precio_venta || 0;
                                   updateItemCampo(idx, { precio_venta: Math.round(base * (1 - dOk / 100)) });
                                 }}
@@ -1618,6 +1628,12 @@ export default function NuevaVentaPage() {
                               />
                               <span className="text-[10px] text-slate-400">%</span>
                             </div>
+                            {avisoTope?.idx === idx && (
+                              <p className="mt-1 text-[10px] font-medium leading-tight text-amber-700">
+                                Escribiste {avisoTope.pidio}%, pero tu tope es {descuentoMaximo}%: se aplicó{" "}
+                                {avisoTope.aplicado}%. Pedile a un administrador que lo autorice.
+                              </p>
+                            )}
                           </td>
                           {/* Stock */}
                           <td className="px-3 py-2.5 text-right">
