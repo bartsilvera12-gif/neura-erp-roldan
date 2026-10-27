@@ -143,7 +143,14 @@ export default function HistorialVentasPage() {
       if (fEstado === "anuladas" && v.estado !== "anulada") return false;
       if (fEstado === "activas" && v.estado === "anulada") return false;
       if (t) {
-        const heno = [v.numero_control, v.numero_factura, v.cliente_nombre, vend]
+        // Los productos entran en la búsqueda: "cinta" tiene que traer todas
+        // las ventas que llevaron una cinta, no solo las del cliente Cinta.
+        // Los ítems ya vienen con cada venta, así que esto no pide nada más
+        // al servidor.
+        const productos = (v.items ?? [])
+          .map((i) => `${i.producto_nombre} ${i.sku ?? ""}`)
+          .join(" ");
+        const heno = [v.numero_control, v.numero_factura, v.cliente_nombre, vend, productos]
           .filter(Boolean).join(" ").toLowerCase();
         if (!heno.includes(t)) return false;
       }
@@ -162,7 +169,7 @@ export default function HistorialVentasPage() {
   const hayFiltro = !!(fTexto || fCliente || fVendedor || fMedio || fEstado);
   const periodo = `Del ${desde || "inicio"} al ${hasta || "hoy"}`;
 
-  const columnas = ["Fecha", "Hora", "Comprobante", "Factura", "Cliente", "Vendedor", "Condición", "Medio", "Total", "Estado", "Motivo de anulación"];
+  const columnas = ["Fecha", "Hora", "Comprobante", "Factura", "Cliente", "Qué se vendió", "Vendedor", "Condición", "Medio", "Total", "Estado", "Motivo de anulación"];
   const filasExport = vista.map((v) => {
     const { fecha, hora } = fechaHora(v.fecha);
     return [
@@ -170,6 +177,9 @@ export default function HistorialVentasPage() {
       v.numero_control,
       v.numero_factura ?? "",
       v.cliente_nombre ?? "Consumidor final",
+      // En la planilla va la lista completa, no el resumen de la pantalla: un
+      // Excel se filtra y se busca, y "y 3 productos más" no se puede buscar.
+      (v.items ?? []).map((i) => `${i.cantidad} × ${i.producto_nombre}`).join(" · "),
       v.vendedor_nombre || v.usuario_nombre || "",
       v.tipo_venta ?? "",
       MEDIO[v.metodo_pago ?? ""] ?? v.metodo_pago ?? "",
@@ -252,7 +262,7 @@ export default function HistorialVentasPage() {
             type="text"
             value={fTexto}
             onChange={(e) => setFTexto(e.target.value)}
-            placeholder="N° de comprobante, factura, cliente o vendedor…"
+            placeholder="N° de comprobante, factura, cliente, vendedor o producto…"
             className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
           />
           {hayFiltro && (
@@ -310,6 +320,7 @@ export default function HistorialVentasPage() {
                 <th className="px-4 py-3 font-semibold">Hora</th>
                 <th className="px-4 py-3 font-semibold">Comprobante</th>
                 <th className="px-4 py-3 font-semibold">Cliente</th>
+                <th className="px-4 py-3 font-semibold">Qué se vendió</th>
                 <th className="px-4 py-3 font-semibold">Vendedor</th>
                 <th className="px-4 py-3 font-semibold">Condición</th>
                 <th className="px-4 py-3 font-semibold">Medio</th>
@@ -356,6 +367,28 @@ export default function HistorialVentasPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{v.cliente_nombre ?? <span className="text-slate-400">Consumidor final</span>}</td>
+                    {/* Qué se vendió, en una línea. El detalle completo está a
+                        un clic; acá alcanza con reconocer la venta al pasar. */}
+                    <td className="px-4 py-3 text-slate-600">
+                      {(() => {
+                        const its = v.items ?? [];
+                        if (its.length === 0) return <span className="text-slate-300">—</span>;
+                        const primero = its[0]!;
+                        return (
+                          <>
+                            <span className="block truncate max-w-[16rem]">
+                              {primero.cantidad > 1 && <span className="text-slate-400">{primero.cantidad} × </span>}
+                              {primero.producto_nombre}
+                            </span>
+                            {its.length > 1 && (
+                              <span className="text-[11px] text-slate-400">
+                                y {its.length - 1} producto{its.length - 1 === 1 ? "" : "s"} más
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{v.vendedor_nombre || v.usuario_nombre || <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3 text-slate-600">{v.tipo_venta ?? ""}</td>
                     <td className="px-4 py-3 text-slate-600">{MEDIO[v.metodo_pago ?? ""] ?? v.metodo_pago ?? ""}</td>

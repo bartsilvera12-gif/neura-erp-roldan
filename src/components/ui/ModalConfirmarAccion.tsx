@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 
 /**
@@ -48,9 +49,20 @@ export default function ModalConfirmarAccion({
     }
   }
 
-  return (
+  // ── Se dibuja colgado del <body> ───────────────────────────────────────
+  //   `position: fixed` se mide contra el ancestro que tenga transform,
+  //   filter o backdrop-filter, no contra la ventana. Este modal se abre
+  //   desde cualquier lado —una celda de tabla, un popover del encabezado— y
+  //   ahí adentro terminaba centrado respecto a un cuadrito de 300px, pegado
+  //   arriba a la izquierda y por debajo de lo que lo abrió. Colgándolo del
+  //   body el modal siempre es del tamaño de la pantalla.
+  const [montado, setMontado] = useState(false);
+  useEffect(() => { setMontado(true); }, []);
+  if (!montado) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       onClick={ocupado ? undefined : onCerrar}
     >
       <div
@@ -86,6 +98,7 @@ export default function ModalConfirmarAccion({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

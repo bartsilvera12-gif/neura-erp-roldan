@@ -52,7 +52,9 @@ export default function AutorizacionesDescuento() {
   const [abierto, setAbierto] = useState(false);
   const [resolviendo, setResolviendo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** Rechazo en curso: se pide el motivo en un modal, no en el cartel del navegador. */
+  /** Rechazo en curso: se pide el motivo en un modal, no en el cartel del
+   *  navegador. Al abrirlo se cierra la lista: con las dos cosas encima, no se
+   *  entiende cuál de los pedidos se está rechazando. */
   const [rechazando, setRechazando] = useState<Solicitud | null>(null);
   const caja = useRef<HTMLDivElement>(null);
 
@@ -158,7 +160,7 @@ export default function AutorizacionesDescuento() {
                   <button
                     type="button"
                     disabled={resolviendo === s.id}
-                    onClick={() => setRechazando(s)}
+                    onClick={() => { setRechazando(s); setAbierto(false); }}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
                     <X className="h-3.5 w-3.5" /> Rechazar
@@ -183,7 +185,7 @@ export default function AutorizacionesDescuento() {
             setRechazando(null);
             await resolver(s.id, false, v.trim() || null);
           }}
-          onCerrar={() => setRechazando(null)}
+          onCerrar={() => { setRechazando(null); setAbierto(true); }}
         />
       )}
     </div>
