@@ -134,3 +134,36 @@ export function validarTopeDescuento(
   }
   return null;
 }
+
+/** Una línea que pasó el tope, con el porcentaje que midió. */
+export interface LineaSobreTope {
+  producto_id: string;
+  producto_nombre: string | null;
+  pct: number;
+}
+
+/**
+ * Las líneas que pasan el tope, para ir a buscarles una autorización.
+ *
+ * Es la misma cuenta que `validarTopeDescuento`, pero devolviendo cuáles son
+ * en vez de cortar en la primera. Rechazar una por una obligaría al vendedor a
+ * pedir autorización, reintentar, que falle la siguiente, pedir de nuevo.
+ */
+export function lineasSobreTope<T extends LineaConDescuento & { producto_id?: string | null }>(
+  lineas: T[],
+  tope: number | null
+): LineaSobreTope[] {
+  if (tope == null) return [];
+  const out: LineaSobreTope[] = [];
+  for (const l of lineas) {
+    const pct = descuentoPctDeLinea(l.precio_venta_original, l.precio_venta);
+    if (pct > tope + TOLERANCIA_PCT) {
+      out.push({
+        producto_id: String(l.producto_id ?? ""),
+        producto_nombre: l.producto_nombre ?? null,
+        pct,
+      });
+    }
+  }
+  return out;
+}

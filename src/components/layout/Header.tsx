@@ -11,6 +11,7 @@ import { useBoot } from "@/components/BootContext";
 import { diasRestantes, nivelPorDias, type NivelVencimiento } from "@/lib/lotes/nivel";
 import { nombreUsuarioDisplay } from "@/lib/usuarios/hweber";
 import SucursalSwitcher from "@/components/layout/SucursalSwitcher";
+import AutorizacionesDescuento from "./AutorizacionesDescuento";
 import { getModuleAccessCached } from "@/lib/modulos/module-access-cache";
 import { isModuleSlugGranted } from "@/lib/modulos/route-slug-map";
 
@@ -269,6 +270,10 @@ export default function Header() {
             desde /api/sucursales/mias — ya no depende del prop `sucursal` del
             payload del header. */}
         <SucursalSwitcher />
+
+        {/* Pedidos de descuento esperando respuesta. Se muestra solo a quien
+            puede autorizarlos y solo cuando hay alguno. */}
+        <AutorizacionesDescuento />
 
         {/* Notificaciones — lotes próximos a vencer (≤15 días).
             Solo visible si la empresa tiene el módulo "Productos a vencer". */}

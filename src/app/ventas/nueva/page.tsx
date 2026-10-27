@@ -791,6 +791,21 @@ export default function NuevaVentaPage() {
    */
   const [avisoTope, setAvisoTope] = useState<{ idx: number; pidio: number; aplicado: number } | null>(null);
 
+  /**
+   * Pedidos de autorización en curso, por línea.
+   *
+   * Se guarda el porcentaje pedido además del id: cuando el administrador
+   * aprueba, hay que aplicar ESE descuento, y para entonces el campo ya
+   * muestra el recortado.
+   */
+  const [pedidos, setPedidos] = useState<Record<number, {
+    id: string;
+    pct: number;
+    estado: "pendiente" | "aprobada" | "rechazada" | "usada";
+    porQuien?: string | null;
+    motivo?: string | null;
+  }>>({});
+
   const { isAdmin: verMargenes, descuentoMaximo } = useIsAdmin();
 
   const resumenMargen = useMemo(() => {
@@ -911,6 +926,89 @@ export default function NuevaVentaPage() {
     },
     [descuentoDeLista]
   );
+
+  /**
+   * Pide al administrador que autorice un descuento mayor al tope.
+   *
+   * No se bloquea la venta mientras tanto: el vendedor puede seguir cargando
+   * productos o cobrar con el descuento recortado si el cliente no quiere
+   * esperar. Si llega la aprobación, el precio se corrige solo.
+   */
+  async function pedirAutorizacion(idx: number, pct: number) {
+    const item = items[idx];
+    if (!item) return;
+    try {
+      const r = await fetchWithSupabaseSession("/api/descuentos/solicitudes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          producto_id: item.producto_id,
+          producto_nombre: item.producto_nombre,
+          sku: item.sku,
+          cantidad: item.cantidad,
+          precio_lista: item.precio_venta_original || item.precio_venta,
+          precio_pedido: Math.round((item.precio_venta_original || item.precio_venta) * (1 - pct / 100)),
+          descuento_pct: pct,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo enviar el pedido.");
+      setPedidos((prev) => ({ ...prev, [idx]: { id: String(j.data.solicitud.id), pct, estado: "pendiente" } }));
+      setAvisoTope(null);
+    } catch (e) {
+      setErrorVenta(e instanceof Error ? e.message : "No se pudo enviar el pedido.");
+    }
+  }
+
+  /**
+   * Mientras haya un pedido sin contestar, se pregunta cada cinco segundos.
+   * Es la espera del mostrador: más lento se nota, y no hay tantos pedidos
+   * como para que esto pese.
+   */
+  useEffect(() => {
+    const pendientes = Object.entries(pedidos).filter(([, p]) => p.estado === "pendiente");
+    if (pendientes.length === 0) return;
+    let vivo = true;
+
+    const consultar = async () => {
+      for (const [idxStr, p] of pendientes) {
+        try {
+          const r = await fetchWithSupabaseSession(`/api/descuentos/solicitudes/${p.id}`, { cache: "no-store" });
+          const j = await r.json();
+          if (!vivo || !r.ok || !j?.success) continue;
+          const s = j.data.solicitud as {
+            estado: "pendiente" | "aprobada" | "rechazada" | "usada";
+            resuelta_por_nombre: string | null;
+            respuesta_motivo: string | null;
+            descuento_pct: number;
+          };
+          if (s.estado === "pendiente") continue;
+
+          const idx = Number(idxStr);
+          setPedidos((prev) => ({
+            ...prev,
+            [idx]: { ...prev[idx]!, estado: s.estado, porQuien: s.resuelta_por_nombre, motivo: s.respuesta_motivo },
+          }));
+
+          // Aprobado: se aplica el descuento autorizado, que es el que el
+          // vendedor había escrito antes de que el campo se lo recortara.
+          if (s.estado === "aprobada") {
+            setItems((prev) => prev.map((it, i) => {
+              if (i !== idx) return it;
+              const base = it.precio_venta_original || it.precio_venta || 0;
+              return recomputeLinea({ ...it, precio_venta: Math.round(base * (1 - Number(s.descuento_pct) / 100)) });
+            }));
+          }
+        } catch {
+          /* se reintenta en la próxima vuelta */
+        }
+      }
+    };
+
+    void consultar();
+    const id = window.setInterval(consultar, 5_000);
+    return () => { vivo = false; window.clearInterval(id); };
+  }, [pedidos]);
 
   /** Agrega un producto directo desde el autocomplete: si ya está (sin presentación)
    *  suma +1; si no, crea la línea. Luego limpia el input y devuelve el foco. */
@@ -1628,11 +1726,35 @@ export default function NuevaVentaPage() {
                               />
                               <span className="text-[10px] text-slate-400">%</span>
                             </div>
-                            {avisoTope?.idx === idx && (
-                              <p className="mt-1 text-[10px] font-medium leading-tight text-amber-700">
-                                Escribiste {avisoTope.pidio}%, pero tu tope es {descuentoMaximo}%: se aplicó{" "}
-                                {avisoTope.aplicado}%. Para dar más, un administrador tiene que subirte el tope o
-                                registrar la venta.
+                            {avisoTope?.idx === idx && !pedidos[idx] && (
+                              <div className="mt-1 space-y-1">
+                                <p className="text-[10px] font-medium leading-tight text-amber-700">
+                                  Escribiste {avisoTope.pidio}%, pero tu tope es {descuentoMaximo}%: se aplicó{" "}
+                                  {avisoTope.aplicado}%.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => void pedirAutorizacion(idx, avisoTope.pidio)}
+                                  className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-100"
+                                >
+                                  Pedir autorización al administrador
+                                </button>
+                              </div>
+                            )}
+                            {pedidos[idx] && (
+                              <p className={`mt-1 text-[10px] font-medium leading-tight ${
+                                pedidos[idx].estado === "pendiente" ? "text-slate-500"
+                                : pedidos[idx].estado === "rechazada" ? "text-red-700"
+                                : "text-emerald-700"
+                              }`}>
+                                {pedidos[idx].estado === "pendiente" && `Esperando al administrador por ${pedidos[idx].pct}%…`}
+                                {pedidos[idx].estado === "rechazada" && (
+                                  <>Rechazado{pedidos[idx].porQuien ? ` por ${pedidos[idx].porQuien}` : ""}
+                                  {pedidos[idx].motivo ? `: ${pedidos[idx].motivo}` : "."}</>
+                                )}
+                                {(pedidos[idx].estado === "aprobada" || pedidos[idx].estado === "usada") && (
+                                  <>Autorizado {pedidos[idx].pct}%{pedidos[idx].porQuien ? ` por ${pedidos[idx].porQuien}` : ""}.</>
+                                )}
                               </p>
                             )}
                           </td>

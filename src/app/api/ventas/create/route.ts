@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserAndEmpresa } from "@/lib/middleware/auth";
 import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
-import { descuentoMaximoDe, validarTopeDescuento } from "@/lib/ventas/server/descuento-maximo";
+import { descuentoMaximoDe, lineasSobreTope } from "@/lib/ventas/server/descuento-maximo";
+import { buscarAutorizaciones, marcarUsadas } from "@/lib/descuentos/server/solicitudes";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { createVentaTransaccionalPg, StockInsuficienteError } from "@/lib/ventas/server/create-venta-pg";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
@@ -263,12 +264,48 @@ export async function POST(request: NextRequest) {
     // Va acá, antes de tocar stock o numeración: una venta rechazada no tiene
     // que dejar nada a medio hacer. Esconder el campo en Caja no alcanza —
     // el precio igual se puede mandar por fuera de la pantalla.
+    //
+    // Una línea por encima del tope todavía puede pasar: si un administrador
+    // autorizó ese descuento para ese vendedor y ese producto, el permiso vale
+    // una venta. Las autorizaciones se marcan usadas DESPUÉS de crear la venta
+    // —ver el comentario en `solicitudes.ts`—, porque Caja reintenta el POST
+    // cuando falta stock y quemarlas acá rompería ese reintento.
+    let autorizacionesAConsumir: string[] = [];
     {
       const sbTope = await createServiceRoleClientForEmpresa(auth.empresa_id);
       const tope = await descuentoMaximoDe(sbTope, auth.empresa_id, auth.usuarioCatalogId);
-      const problema = validarTopeDescuento(items, tope);
-      if (problema) {
-        return NextResponse.json(errorResponse(problema), { status: 403 });
+      const pasadas = lineasSobreTope(items, tope);
+      if (pasadas.length > 0) {
+        let permiso: Awaited<ReturnType<typeof buscarAutorizaciones>> = {
+          ok: false,
+          faltaPara: pasadas[0]!.producto_nombre || "un producto",
+        };
+        try {
+          permiso = await buscarAutorizaciones(
+            sbTope,
+            auth.empresa_id,
+            auth.usuarioCatalogId ?? "",
+            pasadas.map((l) => ({ producto_id: l.producto_id, producto_nombre: l.producto_nombre, pct: l.pct }))
+          );
+        } catch (e) {
+          // Sin la tabla del script 35 no hay autorizaciones que valer: el
+          // tope sigue valiendo, que es el comportamiento anterior.
+          console.error("[ventas/create] autorizaciones:", e instanceof Error ? e.message : e);
+        }
+
+        if (!permiso.ok) {
+          const l = pasadas[0]!;
+          const nombre = l.producto_nombre ? `"${l.producto_nombre}"` : "una línea";
+          return NextResponse.json(
+            errorResponse(
+              tope === 0
+                ? `Tu usuario no tiene permitido aplicar descuentos, y ${nombre} tiene ${l.pct.toFixed(1)}% menos que el precio de lista.`
+                : `El descuento de ${nombre} es ${l.pct.toFixed(1)}% y tu tope es ${tope}%. Pedí autorización desde la línea del producto.`
+            ),
+            { status: 403 }
+          );
+        }
+        autorizacionesAConsumir = permiso.ids;
       }
     }
 
@@ -444,6 +481,20 @@ export async function POST(request: NextRequest) {
       genera_nota_remision: !!notaRemisionNumero,
       nota_remision_numero: notaRemisionNumero,
     });
+
+    // ── Consumir las autorizaciones de descuento ──────────────────────────
+    // La venta ya está hecha: una autorización vale una sola venta, así que
+    // acá se cierran. Va best-effort —si falla, se anota y la autorización
+    // queda viva hasta que vence— porque una venta registrada no se cae por
+    // no poder marcar un permiso.
+    if (autorizacionesAConsumir.length > 0) {
+      try {
+        const sbAut = await createServiceRoleClientForEmpresa(auth.empresa_id);
+        await marcarUsadas(sbAut, auth.empresa_id, autorizacionesAConsumir, ventaId);
+      } catch (e) {
+        console.error("[ventas/create] marcar autorizaciones:", e instanceof Error ? e.message : e);
+      }
+    }
 
     // ── Renovar la cartera del cliente (puntos 4.1 y 4.3) ─────────────────
     // Una operación reinicia los días que el cliente permanece en la cartera
