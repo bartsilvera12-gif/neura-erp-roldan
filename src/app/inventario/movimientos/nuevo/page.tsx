@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import MontoInput from "@/components/ui/MontoInput";
 import { getProductos } from "@/lib/inventario/storage";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -16,12 +16,20 @@ export default function NuevoMovimientoPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Se puede llegar acá desde Ajustes de stock, que quiere el formulario ya
+  // puesto en AJUSTE: elegir el tipo de nuevo sería repetir lo que ya se dijo
+  // al apretar el botón.
+  const sp = useSearchParams();
+  const tipoPedido = sp.get("tipo");
+  const tipoInicial: TipoMovimiento =
+    tipoPedido === "AJUSTE" || tipoPedido === "SALIDA" ? tipoPedido : "ENTRADA";
+
   const [form, setForm] = useState({
     producto_id: "",
-    tipo: "ENTRADA" as TipoMovimiento,
+    tipo: tipoInicial,
     cantidad: "",
     costo_unitario: "",
-    origen: "compra" as OrigenMovimiento,
+    origen: (tipoInicial === "AJUSTE" ? "ajuste_manual" : tipoInicial === "SALIDA" ? "venta" : "compra") as OrigenMovimiento,
     numero_lote: "",
     fecha_vencimiento: "",
     ubicacion_id: "",

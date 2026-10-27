@@ -132,6 +132,15 @@ export default function AjustesPage() {
             Todo lo que cambió el stock sin una compra ni una venta detrás.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {/* La pantalla mostraba los ajustes y no decía cómo hacer uno: el
+            formulario está en Movimientos, que desde acá no se adivina. */}
+        <Link
+          href="/inventario/movimientos/nuevo?tipo=AJUSTE"
+          className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-xs font-semibold text-white hover:bg-[#3F8E91]"
+        >
+          + Nuevo ajuste
+        </Link>
         {/* Requisito 11.1: lo que se ve se puede sacar a Excel. */}
         <AccionesTabla
           titulo="Ajustes de stock"
@@ -156,6 +165,7 @@ export default function AjustesPage() {
             ];
           })}
         />
+        </div>
       </div>
 
       {data && !data.migrado && (

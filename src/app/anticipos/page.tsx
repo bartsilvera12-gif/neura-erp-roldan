@@ -306,7 +306,12 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
       .then((r) => r.json())
       .then((j) => {
         if (!j?.success) return;
-        const lista = (j.data?.clientes ?? []) as Array<Record<string, unknown>>;
+        // `/api/clientes` devuelve el arreglo directo en `data`, no
+        // `data.clientes`: por eso el desplegable salía siempre vacío y no se
+        // podía registrar un anticipo. Se aceptan las dos formas para que un
+        // cambio en esa ruta no vuelva a dejar la pantalla muda.
+        const crudo = Array.isArray(j.data) ? j.data : (j.data?.clientes ?? []);
+        const lista = crudo as Array<Record<string, unknown>>;
         setClientes(lista.map((c) => ({
           id: String(c.id),
           nombre: String(c.nombre_facturacion ?? c.empresa ?? c.nombre_contacto ?? c.nombre ?? ""),
@@ -361,6 +366,7 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <option value="">— Elegir —</option>
               {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {clientes.length === 0 && <option value="" disabled>No se pudieron cargar los clientes</option>}
             </select>
           </label>
 
