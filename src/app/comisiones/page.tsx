@@ -58,6 +58,8 @@ type UsuarioLite = {
   id: string; nombre: string | null; email: string; tipo_vendedor_id: string | null;
   /** Tope propio. null = usa el de su tipo de vendedor. */
   descuento_maximo_pct?: number | null;
+  /** Comisión propia. null = usa las reglas y el % base de su tipo. */
+  porcentaje_comision?: number | null;
 };
 type RubroLite = { id: string; nombre: string };
 type Config = {
@@ -606,7 +608,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Tipos de vendedor */}
       <Caja titulo="Tipos de vendedor"
-        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. Si a una persona se le carga su propio tope en Configuración → RRHH → Usuarios, ese le gana al del tipo.">
+        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. La excepción de una persona se carga abajo, en “Tipo de cada vendedor”, y le gana a esto.">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
@@ -673,7 +675,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Reglas */}
       <Caja titulo="Porcentajes por rubro y tipo"
-        ayuda="Gana siempre la regla más específica: tipo + rubro, después solo rubro, después solo tipo, y al final el porcentaje base del tipo.">
+        ayuda="Gana siempre la regla más específica: tipo + rubro, después solo rubro, después solo tipo, y al final el porcentaje base del tipo. Por encima de todo esto manda la comisión propia de la persona, si tiene una cargada.">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
@@ -719,18 +721,19 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Tipo de cada usuario */}
       <Caja titulo="Tipo de cada vendedor"
-        ayuda="El tipo define cuánto comisiona y hasta cuánto puede descontar. El tope de acá es la excepción de esa persona: si lo dejás vacío usa el de su tipo, y 0 significa que no puede descontar nada.">
+        ayuda="El tipo define cuánto comisiona y hasta cuánto puede descontar. Las dos columnas de la derecha son las excepciones de esa persona: vacías usa lo de su tipo. La comisión propia le gana incluso a la regla por rubro, y un 0 es un valor real (no comisiona / no puede descontar).">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
               <th className="py-2">Vendedor</th>
               <th className="py-2 text-right">Tipo</th>
+              <th className="py-2 text-right">Comisión propia</th>
               <th className="py-2 text-right">Desc. máx. propio</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {cfg.vendedores.length === 0 && (
-              <tr><td colSpan={3} className="py-4 text-center text-slate-400">
+              <tr><td colSpan={4} className="py-4 text-center text-slate-400">
                 No hay usuarios cargados en la empresa.
               </td></tr>
             )}
@@ -749,6 +752,18 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
                     <option value="">— Sin tipo —</option>
                     {cfg.tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                   </select>
+                </td>
+                <td className="py-2 text-right">
+                  <PctEditable
+                    valor={u.porcentaje_comision == null ? -1 : Number(u.porcentaje_comision)}
+                    disabled={guardando}
+                    permiteVacio
+                    etiquetaVacio="por reglas"
+                    onGuardar={(n) => void enviar({
+                      accion: "comision_usuario", usuario_id: u.id,
+                      porcentaje_comision: n < 0 ? null : n,
+                    })}
+                  />
                 </td>
                 <td className="py-2 text-right">
                   <PctEditable

@@ -72,12 +72,12 @@ export async function GET(request: NextRequest) {
         .select("dias_cartera, base_calculo")
         .eq("empresa_id", auth.empresa_id).maybeSingle(),
       supabase.from("usuarios")
-        .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct")
+        .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct, porcentaje_comision")
         .eq("empresa_id", auth.empresa_id).order("nombre")
         .then(async (r) => {
           if (r.error && faltaColumnaTope(r.error.message ?? "")) {
             return await supabase.from("usuarios")
-              .select("id, nombre, email, tipo_vendedor_id")
+              .select("id, nombre, email, tipo_vendedor_id, porcentaje_comision")
               .eq("empresa_id", auth.empresa_id).order("nombre");
           }
           return r;
@@ -236,6 +236,33 @@ export async function POST(request: NextRequest) {
         }
         throw new Error(r.error.message);
       }
+      return NextResponse.json(successResponse({ ok: true }));
+    }
+
+    // ── Comisión propia de una persona ────────────────────────────────────
+    // El acuerdo particular con un vendedor. Le gana a la regla por rubro y al
+    // porcentaje base de su tipo: si una regla pudiera ganarle, el acuerdo no
+    // sería un acuerdo. Vacío = usa las reglas; 0 = no comisiona.
+    if (accion === "comision_usuario") {
+      const usuarioId = String(b.usuario_id ?? "");
+      if (!usuarioId) return NextResponse.json(errorResponse("Falta el usuario."), { status: 400 });
+
+      let valor: number | null = null;
+      if (b.porcentaje_comision !== null && b.porcentaje_comision !== "" && b.porcentaje_comision !== undefined) {
+        const d = Number(b.porcentaje_comision);
+        if (!Number.isFinite(d) || d < 0 || d > 100) {
+          return NextResponse.json(
+            errorResponse("La comisión tiene que estar entre 0 y 100, o vacía para usar las reglas."),
+            { status: 400 }
+          );
+        }
+        valor = d;
+      }
+
+      const r = await supabase.from("usuarios")
+        .update({ porcentaje_comision: valor })
+        .eq("empresa_id", auth.empresa_id).eq("id", usuarioId);
+      if (r.error) throw new Error(r.error.message);
       return NextResponse.json(successResponse({ ok: true }));
     }
 

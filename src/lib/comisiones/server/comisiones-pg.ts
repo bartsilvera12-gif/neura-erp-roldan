@@ -90,6 +90,7 @@ interface FilaCruda {
   tipo_vendedor_id: string | null;
   tipo_vendedor_nombre: string | null;
   porcentaje_base: string | null;
+  porcentaje_propio: string | null;
   categoria_id: string | null;
   cantidad: string;
   precio_venta: string;
@@ -160,6 +161,7 @@ export async function informeComisiones(
             u.tipo_vendedor_id::text    AS tipo_vendedor_id,
             tv.nombre                   AS tipo_vendedor_nombre,
             tv.porcentaje_base,
+            u.porcentaje_comision AS porcentaje_propio,
             pr.categoria_principal_id::text AS categoria_id,
             vi.cantidad,
             vi.precio_venta,
@@ -204,7 +206,8 @@ export async function informeComisiones(
       reglas,
       f.tipo_vendedor_id,
       Number(f.porcentaje_base) || 0,
-      base
+      base,
+      f.porcentaje_propio == null ? null : Number(f.porcentaje_propio)
     );
 
     const vendedorNombre = f.vendedor_nombre || "Sin vendedor";

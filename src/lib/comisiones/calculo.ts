@@ -85,8 +85,21 @@ export function porcentajeAplicable(
   reglas: ReglaComision[],
   tipoVendedorId: string | null,
   categoriaId: string | null,
-  porcentajeBaseDelTipo: number
+  porcentajeBaseDelTipo: number,
+  /**
+   * Porcentaje cargado en la ficha de la persona. Le gana a todo lo demás.
+   *
+   * Es el acuerdo particular con un vendedor —el que entró con otro trato, el
+   * socio que cobra distinto— y por eso pisa hasta la regla por rubro: si la
+   * regla pudiera ganarle, el acuerdo no sería un acuerdo.
+   *
+   * `null` es "no tiene uno propio", que no es lo mismo que cero. Cero es un
+   * valor real: la persona que no comisiona.
+   */
+  porcentajePropio: number | null = null
 ): number {
+  if (porcentajePropio != null) return porcentajePropio;
+
   const activas = reglas.filter((r) => r.activo !== false);
   const buscar = (t: string | null, c: string | null) =>
     activas.find((r) => r.tipo_vendedor_id === t && r.categoria_id === c);
@@ -115,7 +128,9 @@ export function comisionDeLinea(
   reglas: ReglaComision[],
   tipoVendedorId: string | null,
   porcentajeBaseDelTipo: number,
-  base: BaseCalculo = "margen"
+  base: BaseCalculo = "margen",
+  /** Porcentaje propio del vendedor; le gana a las reglas. */
+  porcentajePropio: number | null = null
 ): ResultadoLinea {
   const cantidad = Number(linea.cantidad) || 0;
   const iva = linea.tipo_iva;
@@ -135,7 +150,8 @@ export function comisionDeLinea(
     reglas,
     tipoVendedorId,
     linea.categoria_id,
-    porcentajeBaseDelTipo
+    porcentajeBaseDelTipo,
+    porcentajePropio
   );
 
   const sobre = base === "facturacion" ? facturado : ganancia;
