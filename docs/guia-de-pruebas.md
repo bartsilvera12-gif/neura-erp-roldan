@@ -459,8 +459,117 @@ error genérico.
 ### 11.5 · Formato institucional
 🟢 Los documentos impresos salen con el logo y el nombre de la empresa.
 🔴 **Pendiente:** hoy salen **sin RUC, sin teléfono y sin dirección**, porque
-esos datos están vacíos en el sistema. Pasámelos y los cargo. Mientras tanto,
-los libros de IVA y las remisiones se imprimen incompletos.
+esos datos están vacíos en el sistema. Mientras tanto, los libros de IVA y las
+remisiones se imprimen incompletos.
+🟢 Los Excel del paquete mensual ya leen esos datos de la tabla `empresas`: el
+día que se carguen, aparecen solos en todas las planillas sin tocar el código.
+
+
+---
+
+## 12 · Paquete mensual de contabilidad
+
+Todo esto es nuevo. El resto de la guía se escribió antes.
+
+**Antes de empezar, cerrá sesión y volvé a entrar.** El menú guarda los
+permisos en el navegador y hay entradas nuevas.
+
+### 12.1 · El menú ya no dice "Reposición" dos veces
+**Dónde:** menú lateral
+
+🟢 En Operaciones hay una entrada **Transferencias entre sucursales** (mueve
+mercadería de una sucursal a otra, con remisión).
+🟢 Adentro de Inventario sigue estando **Reposición**, que es otra cosa:
+cuánto se consumió y cuánto conviene comprar.
+🔴 Si todavía ves dos "Reposición", falta correr el script
+`31_nombre_modulo_transferencias.sql` o falta cerrar sesión.
+
+### 12.2 · Descargar el paquete
+**Dónde:** Contabilidad → *Paquete mensual (ZIP)*
+
+1. Fijate qué mes propone solo.
+2. Apretá *Descargar ZIP (12)* y esperá. Puede tardar.
+3. Abrí el ZIP.
+
+🟢 El mes que propone es el **anterior** al actual: el que se cierra, no el
+que está en curso.
+🟢 Baja un archivo `cierre-<mes>_CASA-CENTRAL.zip`.
+🟢 Adentro hay archivos numerados del `01-` al `12-`, más `_LEEME.txt`.
+🟢 El `_LEEME.txt` dice la empresa, el mes, la sucursal y qué informes entraron.
+🔴 El botón dice *Armando el paquete…* mientras trabaja y no se puede apretar
+dos veces. Si podés apretarlo de nuevo, avisame.
+
+### 12.3 · Que el mes sea el que pediste
+Esta es la prueba que más importa, porque es el error que nadie nota.
+
+1. Elegí **un mes con movimiento**. Hoy el que más tiene es **octubre de 2026**
+   (8 ventas, 9 compras, 2 gastos). Setiembre de 2026 tiene 5 ventas.
+2. Abrí `05-ventas.xlsx` y `10-utilidad-por-rubro.xlsx`.
+
+🟢 Los dos dicen **el mes que elegiste** en el encabezado, arriba de todo.
+🟢 Las fechas de adentro caen dentro de ese mes.
+🔴 Si *Utilidad por período* dice un mes distinto del resto, es el error que
+corregí antes de subir esto: avisame enseguida.
+
+### 12.4 · Destildar informes
+1. Destildá todo menos dos informes.
+2. Descargá.
+
+🟢 El botón dice *Descargar ZIP (2)*.
+🟢 El ZIP trae solo esos dos, más el `_LEEME.txt`.
+🟢 Los números de los archivos no cambian: si elegiste el 5 y el 10, siguen
+siendo `05-` y `10-`.
+
+### 12.5 · El formato de las planillas
+**Dónde:** cualquier archivo del ZIP
+
+🟢 Arriba: nombre de la empresa en verde, nombre del informe, el período.
+🟢 La fila de títulos es blanca sobre verde y **queda fija** al bajar.
+🟢 Cada título tiene su embudo de filtro.
+🟢 Los importes se ven `1.234.567`, no `1234567`.
+🟢 Abajo de todo, la fila **TOTALES** en negrita.
+🔴 **La prueba del total:** filtrá una columna (por ejemplo, un solo cliente en
+`01-libro-ventas.xlsx`). El total de abajo tiene que **recalcularse** con lo
+que quedó a la vista. Si sigue mostrando el total del mes entero, está mal.
+🔴 Mandá una planilla a imprimir (Ctrl+P): tiene que salir **apaisada**,
+entrando en el ancho de la hoja, y los títulos repetidos en cada página.
+
+### 12.6 · Dónde no tiene que haber total, a propósito
+🔴 `04-libro-mayor.xlsx` **no** lleva fila de totales. No es un olvido: cada
+cuenta trae su saldo inicial, sus movimientos y su saldo final, y el saldo
+final ya acumula el Debe y el Haber. Sumar la columna contaría dos veces lo
+mismo. El cierre de cada cuenta está en su renglón `SALDO FINAL`.
+🔴 En `07-cobranzas.xlsx`, la hoja *Cobros* **no** totaliza el importe, porque
+incluye los cobros anulados (marcados en su columna). El total que sirve está
+en la hoja *Resumen*, con lo cobrado y lo anulado separados.
+
+### 12.7 · Stock con precios
+**Dónde:** Inventario → botón *Stock con precios*. También es el `12-` del ZIP.
+
+🟢 Columnas: código, referencia, descripción, rubro, unidad, costo en Gs. y en
+US$, los tres precios de lista, existencia, stock mínimo y valorizado.
+🟢 Un producto **sin costo cargado** tiene la celda **vacía**, no `-1`.
+🟢 Abajo del encabezado dice a qué cotización se convirtieron los dólares.
+🔴 Si no hay ninguna cotización cargada, las columnas en dólares **no
+aparecen** y el encabezado lo aclara. No tienen que salir en cero.
+🔴 Es la foto del stock de **hoy**, no del cierre del mes. Si bajás el paquete
+de setiembre en diciembre, el stock es el de diciembre.
+
+### 12.8 · Que un informe roto no tumbe el ZIP
+🟢 Hoy **`03-libro-diario` y `04-libro-mayor` van a salir vacíos**: en la base
+no hay ningún asiento contable cargado (son 0). El plan de cuentas sí está
+cargado, con 46 cuentas. Los asientos se generan solo para facturas con DTE
+aprobado, y todavía no hay ninguna.
+🟢 El ZIP se arma igual con los otros diez.
+🟢 Si algún informe falla de verdad, aparece un `_ERRORES.txt` adentro del ZIP
+con el motivo, y la pantalla avisa cuántos quedaron afuera.
+🔴 Lo que **no** tiene que pasar: que no baje nada y salga un error genérico.
+
+### 12.9 · Que cada sucursal vea lo suyo
+🟢 El paquete sale siempre de **tu** sucursal, sin selector.
+🔴 Esto es a propósito y es el modelo que definieron ustedes: cada usuario ve
+solo su sucursal, el administrador incluido. Para el cierre de la otra
+sucursal lo baja alguien de ahí.
 
 ---
 

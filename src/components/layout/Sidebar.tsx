@@ -170,7 +170,12 @@ const MENU_STRUCTURE: MenuItem[] = [
   ]},
   // Módulo propio (no hijo de Inventario): un `usuario` puede tener acceso a
   // Reposición sin tener el Inventario completo. Gate por slug 'reposicion'.
-  { key: "reposicion", slug: "reposicion", label: "Reposición", href: "/inventario/reposicion", icon: ArrowLeftRight },
+  // El nombre dice "Transferencias" y no "Reposición" porque Inventario ya
+  // tiene su propia entrada "Reposición", que es otra cosa: aquella calcula
+  // qué conviene comprar, ésta mueve mercadería de una sucursal a otra con su
+  // número de remisión. Con el mismo nombre en las dos, el menú mostraba dos
+  // veces "Reposición" y había que entrar para saber cuál era cuál.
+  { key: "reposicion", slug: "reposicion", label: "Transferencias entre sucursales", href: "/inventario/reposicion", icon: ArrowLeftRight },
   { key: "notas_remision", slug: "notas_remision", label: "Notas de remisión", href: "/notas-remision", icon: ArrowLeftRight },
   { key: "ordenes_venta", slug: "ordenes_venta", label: "Órdenes de venta", href: "/ordenes-venta", icon: Package },
   {

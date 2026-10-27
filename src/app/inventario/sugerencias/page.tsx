@@ -174,7 +174,8 @@ export default function SugerenciasReposicionPage() {
         </Link>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">Reposición</h1>
         <p className="text-sm text-slate-500">
-          Cuánto se consumió, cuánto queda y cuánto conviene comprar.
+          Cuánto se consumió, cuánto queda y cuánto conviene comprar. Para mover
+          mercadería de una sucursal a otra, es Transferencias entre sucursales.
         </p>
       </div>
 

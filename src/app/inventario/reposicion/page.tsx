@@ -140,7 +140,7 @@ export default function ReposicionPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
-            <ArrowLeftRight className="h-6 w-6 text-[#4FAEB2]" /> Reposición entre sucursales
+            <ArrowLeftRight className="h-6 w-6 text-[#4FAEB2]" /> Transferencias entre sucursales
           </h1>
           <p className="mt-1 text-sm text-slate-500">Solicitá mercadería a otra sucursal y seguí el estado de cada transferencia.</p>
         </div>
