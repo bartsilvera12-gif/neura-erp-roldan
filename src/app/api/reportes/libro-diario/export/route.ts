@@ -1,37 +1,46 @@
 import { NextRequest } from "next/server";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { requireContabilidadApiAccess } from "@/lib/contabilidad/contabilidad-auth";
-import { buildXlsxBuffer, xlsxResponseHeaders, nowStamp } from "@/lib/excel/export";
+import { xlsxResponseHeaders } from "@/lib/excel/export";
+import { buildXlsxEstilado, type ColumnaEstilada } from "@/lib/excel/estilo";
+import { datosEmpresaInforme } from "@/lib/excel/encabezado";
 import { listLibroDiario, type DiarioRow } from "@/lib/contabilidad/libros-pg";
 import { diarioFiltersFromUrl } from "../route";
 
 export const runtime = "nodejs";
+
+export const COLUMNAS_LIBRO_DIARIO: ColumnaEstilada<DiarioRow>[] = [
+  { header: "N° asiento", value: (r) => r.numero_asiento, width: 14 },
+  { header: "Fecha", value: (r) => (r.fecha_contable ? new Date(r.fecha_contable) : ""), formato: "fecha", width: 12 },
+  { header: "Glosa", value: (r) => r.glosa ?? "", width: 34 },
+  { header: "Origen", value: (r) => r.documento ?? "", width: 18 },
+  { header: "Cuenta", value: (r) => r.cuenta_codigo, width: 12 },
+  { header: "Denominación", value: (r) => r.cuenta_denominacion, width: 30 },
+  { header: "Proveedor", value: (r) => r.proveedor_nombre ?? "", width: 26 },
+  { header: "Debe", value: (r) => r.debe, formato: "gs", suma: true, width: 15 },
+  { header: "Haber", value: (r) => r.haber, formato: "gs", suma: true, width: 15 },
+  { header: "Estado", value: (r) => r.estado, width: 12 },
+];
 
 export async function GET(request: NextRequest) {
   const auth = await requireContabilidadApiAccess(request);
   if (!auth.ok) return new Response(auth.message, { status: auth.status });
   try {
     const schema = await fetchDataSchemaForEmpresaId(auth.empresaId);
-    const { rows, totales } = await listLibroDiario(schema, auth.empresaId, diarioFiltersFromUrl(new URL(request.url)));
-    const totalRow: DiarioRow = {
-      numero_asiento: "TOTALES", fecha_contable: "", glosa: null, origen_tipo: "", documento: null,
-      cuenta_codigo: "", cuenta_denominacion: "", proveedor_nombre: null,
-      debe: totales.totalDebe, haber: totales.totalHaber, estado: "",
-    };
-    const data = [...rows, totalRow];
-    const buf = buildXlsxBuffer(data, [
-      { header: "N_ASIENTO", value: (r) => r.numero_asiento, width: 14 },
-      { header: "FECHA", value: (r) => (r.fecha_contable ? new Date(r.fecha_contable) : ""), width: 12 },
-      { header: "GLOSA", value: (r) => r.glosa ?? "", width: 30 },
-      { header: "ORIGEN", value: (r) => r.documento ?? "", width: 16 },
-      { header: "CUENTA", value: (r) => r.cuenta_codigo, width: 12 },
-      { header: "DENOMINACION", value: (r) => r.cuenta_denominacion, width: 28 },
-      { header: "PROVEEDOR", value: (r) => r.proveedor_nombre ?? "", width: 24 },
-      { header: "DEBE", value: (r) => r.debe, width: 14 },
-      { header: "HABER", value: (r) => r.haber, width: 14 },
-      { header: "ESTADO", value: (r) => r.estado, width: 12 },
-    ], { sheetName: "Libro Diario" });
-    return new Response(new Uint8Array(buf), { status: 200, headers: xlsxResponseHeaders(`libro-diario-${nowStamp()}`) });
+    const filtros = diarioFiltersFromUrl(new URL(request.url));
+    const { rows } = await listLibroDiario(schema, auth.empresaId, filtros);
+    const emp = await datosEmpresaInforme(auth.empresaId);
+
+    const buf = await buildXlsxEstilado(
+      { nombre: "Libro Diario", filas: rows, columnas: COLUMNAS_LIBRO_DIARIO },
+      {
+        ...emp,
+        informe: "Libro Diario",
+        periodo: filtros.desde || filtros.hasta ? `Del ${filtros.desde ?? "inicio"} al ${filtros.hasta ?? "hoy"}` : "Todas las fechas",
+        notas: ["Debe y Haber tienen que cerrar iguales: si no cierran, hay un asiento incompleto."],
+      }
+    );
+    return new Response(new Uint8Array(buf), { status: 200, headers: xlsxResponseHeaders(`libro-diario-${filtros.desde ?? "todo"}`) });
   } catch (e) {
     console.error("[/api/reportes/libro-diario/export]", e instanceof Error ? e.message : e);
     return new Response("No se pudo generar el Excel", { status: 500 });

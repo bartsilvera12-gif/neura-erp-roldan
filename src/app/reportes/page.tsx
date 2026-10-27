@@ -2,7 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { Wallet, Truck, Package, ShoppingCart, ArrowLeftRight, TrendingUp, Target, Banknote, Landmark, HandCoins } from "lucide-react";
+import { Wallet, Truck, Package, ShoppingCart, ArrowLeftRight, TrendingUp, Target, Banknote, Landmark, HandCoins, FileArchive } from "lucide-react";
 
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
@@ -15,6 +15,15 @@ export default function ReportesPage() {
       />
 
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+        <li>
+          <ReportCard
+            title="Paquete mensual"
+            subtitle="Todos los informes del mes en un ZIP"
+            icon={FileArchive}
+            description="Lo que se le manda al contador: se elige el mes una vez y salen los libros, las ventas, las compras, las cobranzas y el stock, cada uno en su planilla con encabezado y totales."
+            href="/reportes/paquete-mensual"
+          />
+        </li>
         <li>
           <ReportCard
             title="Ganancias"

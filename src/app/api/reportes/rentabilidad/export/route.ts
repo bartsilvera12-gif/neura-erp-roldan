@@ -5,8 +5,9 @@ import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/fi
 import { getRentabilidad } from "@/lib/reportes/server/reportes-pg";
 import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
-import { sheetFromRows, buildXlsxBufferSheets, xlsxResponseHeaders } from "@/lib/excel/export";
-import type { AgruparRentabilidad } from "@/lib/reportes/rentabilidad-types";
+import { xlsxResponseHeaders } from "@/lib/excel/export";
+import { buildXlsxEstiladoMulti, hoja, formatearGs, type ColumnaEstilada } from "@/lib/excel/estilo";
+import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
 
 /**
  * GET /api/reportes/rentabilidad/export → XLSX de utilidad por período
@@ -26,8 +27,34 @@ import type { AgruparRentabilidad } from "@/lib/reportes/rentabilidad-types";
  *   del % de margen". Un rubro al 60% que vende poco deja menos plata que uno
  *   al 12% que vende mucho. Por eso la planilla trae las dos, más la
  *   participación: qué porcentaje de la utilidad total aporta cada fila.
+ *
+ * ── POR QUÉ LOS PORCENTAJES SE DIVIDEN POR 100 ─────────────────────────────
+ *   El cálculo los devuelve como 35 para "35%", pero el formato porcentual de
+ *   Excel espera 0,35 y multiplica por cien al mostrar. Sin dividir, un margen
+ *   del 35% se imprimiría como 3.500%.
  */
 export const dynamic = "force-dynamic";
+
+interface FilaRent {
+  nombre: string;
+  sku?: string | null;
+  categoria?: string | null;
+  unidades: number;
+  facturacion: number;
+  costo: number;
+  ganancia: number;
+  margen: number;
+  participacion: number;
+}
+
+const COLS_COMUNES: ColumnaEstilada<FilaRent>[] = [
+  { header: "Unidades", value: (x) => x.unidades, formato: "cantidad", suma: true, width: 12 },
+  { header: "Facturación sin IVA", value: (x) => x.facturacion, formato: "gs", suma: true, width: 20 },
+  { header: "Costo", value: (x) => x.costo, formato: "gs", suma: true, width: 17 },
+  { header: "Utilidad Gs.", value: (x) => x.ganancia, formato: "gs", suma: true, width: 18 },
+  { header: "Margen", value: (x) => x.margen / 100, formato: "porcentaje", width: 11 },
+  { header: "% de la utilidad total", value: (x) => x.participacion / 100, formato: "porcentaje", width: 20 },
+];
 
 export async function GET(request: NextRequest) {
   const ctx = await getTenantSupabaseFromAuth(request);
@@ -39,7 +66,6 @@ export async function GET(request: NextRequest) {
 
     const sp = new URL(request.url).searchParams;
     const per = resolverPeriodo(sp);
-    const agrupar: AgruparRentabilidad = sp.get("agrupar") === "categoria" ? "categoria" : "producto";
     const b = {
       ...boundsDeRangoYmd(per.actual.desde, per.actual.hasta),
       desde: per.actual.desde,
@@ -52,19 +78,19 @@ export async function GET(request: NextRequest) {
       getRentabilidad(schema, empresaId, sucursalId, b, "categoria"),
       getRentabilidad(schema, empresaId, sucursalId, b, "producto"),
     ]);
+    const [emp, suc] = await Promise.all([datosEmpresaInforme(empresaId), nombreSucursal(sucursalId)]);
 
     const margenTotal =
       porRubro.totalFacturacion > 0 ? (porRubro.totalGanancia / porRubro.totalFacturacion) * 100 : 0;
 
     const resumen = [
-      { concepto: "Reporte", valor: "Utilidad por período" },
       { concepto: "Período", valor: per.periodoLabel },
       { concepto: "Desde", valor: per.actual.desde },
       { concepto: "Hasta", valor: per.actual.hasta },
-      { concepto: "Facturación sin IVA", valor: porRubro.totalFacturacion },
-      { concepto: "Costo de lo vendido", valor: porRubro.totalCosto },
-      { concepto: "Utilidad bruta (Gs.)", valor: porRubro.totalGanancia },
-      { concepto: "Margen sobre venta (%)", valor: Number(margenTotal.toFixed(2)) },
+      { concepto: "Facturación sin IVA", valor: formatearGs(porRubro.totalFacturacion) },
+      { concepto: "Costo de lo vendido", valor: formatearGs(porRubro.totalCosto) },
+      { concepto: "Utilidad bruta (Gs.)", valor: formatearGs(porRubro.totalGanancia) },
+      { concepto: "Margen sobre venta", valor: `${margenTotal.toFixed(2)} %` },
       {
         concepto: "Nota",
         valor:
@@ -74,42 +100,35 @@ export async function GET(request: NextRequest) {
       { concepto: "Excluye", valor: "Ventas anuladas y de consignación." },
     ];
 
-    const columnasRubro = [
-      { header: "Rubro", value: (x: { nombre: string }) => x.nombre, width: 34 },
-      { header: "Unidades", value: (x: { unidades: number }) => x.unidades, width: 12 },
-      { header: "Facturación sin IVA", value: (x: { facturacion: number }) => x.facturacion, width: 20 },
-      { header: "Costo", value: (x: { costo: number }) => x.costo, width: 16 },
-      { header: "Utilidad (Gs.)", value: (x: { ganancia: number }) => x.ganancia, width: 18 },
-      { header: "Margen %", value: (x: { margen: number }) => Number(x.margen.toFixed(2)), width: 12 },
-      {
-        header: "% de la utilidad total",
-        value: (x: { participacion: number }) => Number(x.participacion.toFixed(2)),
-        width: 20,
-      },
-    ];
-
-    const buf = buildXlsxBufferSheets([
-      sheetFromRows("Resumen", resumen, [
-        { header: "Concepto", value: (x) => x.concepto, width: 30 },
-        { header: "Valor", value: (x) => x.valor, width: 70 },
-      ]),
-      sheetFromRows("Por rubro", porRubro.filas, columnasRubro),
-      sheetFromRows("Por producto", porProducto.filas, [
-        { header: "Producto", value: (x) => x.nombre, width: 38 },
-        { header: "SKU", value: (x) => x.sku ?? "", width: 16 },
-        { header: "Rubro", value: (x) => x.categoria ?? "Sin rubro", width: 24 },
-        { header: "Unidades", value: (x) => x.unidades, width: 12 },
-        { header: "Facturación sin IVA", value: (x) => x.facturacion, width: 20 },
-        { header: "Costo", value: (x) => x.costo, width: 16 },
-        { header: "Utilidad (Gs.)", value: (x) => x.ganancia, width: 18 },
-        { header: "Margen %", value: (x) => Number(x.margen.toFixed(2)), width: 12 },
-        { header: "% de la utilidad total", value: (x) => Number(x.participacion.toFixed(2)), width: 20 },
-      ]),
-    ]);
+    const buf = await buildXlsxEstiladoMulti([
+      hoja({
+        nombre: "Resumen", filas: resumen, sinFiltro: true, totales: false,
+        columnas: [
+          { header: "Concepto", value: (x) => x.concepto, width: 28 },
+          { header: "Valor", value: (x) => x.valor, width: 70 },
+        ],
+      }),
+      hoja({
+        nombre: "Por rubro", filas: porRubro.filas as FilaRent[],
+        columnas: [{ header: "Rubro", value: (x: FilaRent) => x.nombre, width: 34 }, ...COLS_COMUNES],
+      }),
+      hoja({
+        nombre: "Por producto", filas: porProducto.filas as FilaRent[],
+        columnas: [
+          { header: "Producto", value: (x: FilaRent) => x.nombre, width: 38 },
+          { header: "SKU", value: (x: FilaRent) => x.sku ?? "", width: 16 },
+          { header: "Rubro", value: (x: FilaRent) => x.categoria ?? "Sin rubro", width: 24 },
+          ...COLS_COMUNES,
+        ],
+      }),
+    ], {
+      ...emp, informe: "Utilidad por período", periodo: per.periodoLabel, sucursal: suc,
+      notas: ["Excluye ventas anuladas y de consignación."],
+    });
 
     // El nombre lleva el período: tres planillas descargadas el mismo día se
     // distinguen sin abrirlas.
-    const nombre = `utilidad-${per.actual.desde}_${per.actual.hasta}.xlsx`;
+    const nombre = `utilidad-${per.actual.desde}_${per.actual.hasta}`;
     return new Response(new Uint8Array(buf), { headers: xlsxResponseHeaders(nombre) });
   } catch (err) {
     const sucResp = respuestaSucursalNoAsignada(err);

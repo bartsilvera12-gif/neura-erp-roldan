@@ -247,6 +247,15 @@ export default function InventarioPage() {
             Planilla de conteo
           </button>
           <ExportExcelButton url="/api/inventario/productos/export" />
+          {/* La planilla que el cliente venía armando a mano con el sistema
+              viejo (`stockconprecio-<mes>-<año>_<SUCURSAL>.xls`): existencias
+              con costo, precios de lista y valorizado. Va aparte del export de
+              productos porque contestan cosas distintas — ese es el catálogo,
+              esta es la plata que hay en el depósito. */}
+          <ExportExcelButton
+            url="/api/inventario/stock-con-precios/export"
+            label="Stock con precios"
+          />
           <ImportExcelButton
             entidad="Productos"
             previewUrl="/api/inventario/productos/import/preview"

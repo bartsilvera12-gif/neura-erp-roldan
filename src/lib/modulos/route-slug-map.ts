@@ -156,12 +156,15 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
   if (p.startsWith("/gastos")) return "gastos";
   // Más específico primero: el reporte de productos a vencer es su propio módulo.
   if (p.startsWith("/reportes/productos-a-vencer")) return "productos-a-vencer";
-  // Libros contables: módulo Contabilidad, no Reportes operativos.
+  // Libros contables y el paquete de cierre: módulo Contabilidad, no Reportes
+  // operativos. El paquete junta los libros en un ZIP, así que si alguien tiene
+  // Reportes pero no Contabilidad tampoco tiene que poder bajárselo de una.
   if (
     p.startsWith("/reportes/libro-diario") ||
     p.startsWith("/reportes/libro-mayor") ||
     p.startsWith("/reportes/libro-ventas") ||
-    p.startsWith("/reportes/libro-compras")
+    p.startsWith("/reportes/libro-compras") ||
+    p.startsWith("/reportes/paquete-mensual")
   ) {
     return "contabilidad";
   }

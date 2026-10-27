@@ -311,6 +311,9 @@ const MENU_STRUCTURE: MenuItem[] = [
     href: "/reportes/libro-diario",
     icon: BookOpen,
     children: [
+      // Primero el paquete: es lo que se usa una vez por mes y resume a todos
+      // los demás. Los libros quedan para cuando hay que mirar uno en pantalla.
+      { label: "Paquete mensual (ZIP)", href: "/reportes/paquete-mensual" },
       { label: "Libro diario", href: "/reportes/libro-diario" },
       { label: "Libro mayor", href: "/reportes/libro-mayor" },
       { label: "Libro de ventas", href: "/reportes/libro-ventas" },

@@ -1,14 +1,43 @@
 import { NextRequest } from "next/server";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { requireContabilidadApiAccess } from "@/lib/contabilidad/contabilidad-auth";
-import { buildXlsxBuffer, xlsxResponseHeaders, nowStamp } from "@/lib/excel/export";
-import { listLibroVentas, computeTotals, type LibroVentaFilters, type LibroVentaRow } from "@/lib/libro-ventas/libro-ventas-pg";
+import { xlsxResponseHeaders } from "@/lib/excel/export";
+import { buildXlsxEstilado, type ColumnaEstilada } from "@/lib/excel/estilo";
+import { datosEmpresaInforme } from "@/lib/excel/encabezado";
+import { listLibroVentas, type LibroVentaFilters, type LibroVentaRow } from "@/lib/libro-ventas/libro-ventas-pg";
 
 export const runtime = "nodejs";
 
 const num = (v: string | number) => Number(v) || 0;
 
-/** GET /api/reportes/libro-ventas/export — Excel del Libro de Ventas (respeta filtros y totales). */
+/**
+ * Columnas del Libro de Ventas.
+ *
+ * Los totales ya no se calculan acá y se pegan como última fila: las columnas
+ * marcadas con `suma` se cierran con un SUBTOTAL en la planilla. La diferencia
+ * importa cuando el contador filtra por cliente o por condición: un total
+ * escrito a mano sigue mostrando el del mes entero y lleva a declarar mal; el
+ * SUBTOTAL se recalcula con lo que quedó a la vista.
+ */
+export const COLUMNAS_LIBRO_VENTAS: ColumnaEstilada<LibroVentaRow>[] = [
+  { header: "Fecha", value: (r) => (r.fecha ? new Date(r.fecha) : ""), formato: "fecha", width: 12 },
+  { header: "Comprobante", value: (r) => r.tipo_comprobante, width: 16 },
+  { header: "Origen", value: (r) => r.origen, width: 12 },
+  { header: "Cliente", value: (r) => r.cliente ?? "", width: 32 },
+  { header: "RUC", value: (r) => r.ruc ?? "", width: 15 },
+  { header: "Timbrado", value: (r) => r.timbrado ?? "", width: 14 },
+  { header: "Número", value: (r) => r.numero ?? "", width: 16 },
+  { header: "Condición", value: (r) => r.condicion ?? "", width: 11 },
+  { header: "Exento", value: (r) => num(r.exento), formato: "gs", suma: true, width: 14 },
+  { header: "Gravado 5%", value: (r) => num(r.gravado5), formato: "gs", suma: true, width: 14 },
+  { header: "IVA 5%", value: (r) => num(r.iva5), formato: "gs", suma: true, width: 13 },
+  { header: "Gravado 10%", value: (r) => num(r.gravado10), formato: "gs", suma: true, width: 14 },
+  { header: "IVA 10%", value: (r) => num(r.iva10), formato: "gs", suma: true, width: 13 },
+  { header: "Total", value: (r) => num(r.total), formato: "gs", suma: true, width: 15 },
+  { header: "Estado", value: (r) => r.estado, width: 12 },
+];
+
+/** GET /api/reportes/libro-ventas/export — Excel del Libro de Ventas (respeta filtros). */
 export async function GET(request: NextRequest) {
   const auth = await requireContabilidadApiAccess(request);
   if (!auth.ok) return new Response(auth.message, { status: auth.status });
@@ -24,38 +53,24 @@ export async function GET(request: NextRequest) {
       tipo: tipo === "factura" || tipo === "nota_credito" ? tipo : undefined,
     };
     const rows = await listLibroVentas(schema, auth.empresaId, filters);
-    const totals = computeTotals(rows);
+    const emp = await datosEmpresaInforme(auth.empresaId);
 
-    const totalsRow: LibroVentaRow = {
-      origen_tipo: "factura", origen: "manual", fecha: null, cliente: "TOTALES", ruc: null,
-      tipo_comprobante: "", timbrado: null, numero: null, condicion: null,
-      exento: totals.exento, gravado5: totals.gravado5, iva5: totals.iva5,
-      gravado10: totals.gravado10, iva10: totals.iva10, total: totals.total, estado: "", cliente_id: null,
-    };
+    const periodo =
+      filters.desde || filters.hasta
+        ? `Del ${filters.desde ?? "inicio"} al ${filters.hasta ?? "hoy"}`
+        : "Todas las fechas";
 
-    const buf = buildXlsxBuffer(
-      [...rows, totalsRow],
-      [
-        { header: "FECHA", value: (r) => (r.fecha ? new Date(r.fecha) : ""), width: 12 },
-        { header: "COMPROBANTE", value: (r) => r.tipo_comprobante, width: 16 },
-        { header: "ORIGEN", value: (r) => r.origen, width: 12 },
-        { header: "CLIENTE", value: (r) => r.cliente ?? "", width: 30 },
-        { header: "RUC", value: (r) => r.ruc ?? "", width: 14 },
-        { header: "TIMBRADO", value: (r) => r.timbrado ?? "", width: 14 },
-        { header: "NUMERO", value: (r) => r.numero ?? "", width: 16 },
-        { header: "CONDICION", value: (r) => r.condicion ?? "", width: 10 },
-        { header: "EXENTO", value: (r) => num(r.exento), width: 14 },
-        { header: "GRAVADO_5", value: (r) => num(r.gravado5), width: 14 },
-        { header: "IVA_5", value: (r) => num(r.iva5), width: 12 },
-        { header: "GRAVADO_10", value: (r) => num(r.gravado10), width: 14 },
-        { header: "IVA_10", value: (r) => num(r.iva10), width: 12 },
-        { header: "TOTAL", value: (r) => num(r.total), width: 14 },
-        { header: "ESTADO", value: (r) => r.estado, width: 12 },
-      ],
-      { sheetName: "Libro de Ventas" }
+    const buf = await buildXlsxEstilado(
+      { nombre: "Libro de Ventas", filas: rows, columnas: COLUMNAS_LIBRO_VENTAS },
+      {
+        ...emp,
+        informe: "Libro de Ventas (IVA Ventas)",
+        periodo,
+        notas: ["Los totales son SUBTOTAL: si se filtra la planilla, se recalculan con lo que queda a la vista."],
+      }
     );
 
-    return new Response(new Uint8Array(buf), { status: 200, headers: xlsxResponseHeaders(`libro-ventas-${nowStamp()}`) });
+    return new Response(new Uint8Array(buf), { status: 200, headers: xlsxResponseHeaders(`libro-ventas-${filters.desde ?? "todo"}`) });
   } catch (err) {
     console.error("[/api/reportes/libro-ventas/export]", err instanceof Error ? err.message : err);
     return new Response("No se pudo generar el Excel", { status: 500 });
