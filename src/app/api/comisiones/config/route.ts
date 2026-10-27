@@ -21,7 +21,14 @@ import { isAdmin } from "@/lib/middleware/auth";
 const FALTA_TABLA = "Falta correr 24_comisiones_cartera.sql en la base.";
 const esTablaFaltante = (m: string) =>
   /tipos_vendedor|comisiones_reglas|comisiones_config/.test(m) &&
-  /(does not exist|schema cache|PGRST205)/i.test(m);
+  /(does not exist|schema cache|PGRST205)/i.test(m) &&
+  // "no existe la COLUMNA x" también nombra a la tabla. Sin esta línea, pedir
+  // una columna agregada después mandaba a correr un script que ya estaba
+  // corrido, y la pantalla entera quedaba en rojo por una columna opcional.
+  !/column/i.test(m);
+
+/** La columna del tope de descuento la agrega el script 34, que puede no estar. */
+const faltaColumnaTope = (m: string) => /descuento_maximo_pct/.test(m);
 
 type Ctx = NonNullable<Awaited<ReturnType<typeof getTenantSupabaseFromAuthWithRol>>>;
 
@@ -46,7 +53,18 @@ export async function GET(request: NextRequest) {
     const [tipos, reglas, config, vendedores, rubros] = await Promise.all([
       supabase.from("tipos_vendedor")
         .select("id, nombre, porcentaje_base, activo, descuento_maximo_pct")
-        .eq("empresa_id", auth.empresa_id).order("nombre"),
+        .eq("empresa_id", auth.empresa_id).order("nombre")
+        .then(async (r) => {
+          // Sin el script 34 corrido se reintenta sin esa columna: el tope de
+          // descuento es una función de más, no una razón para dejar sin
+          // configuración de comisiones a quien todavía no migró.
+          if (r.error && faltaColumnaTope(r.error.message ?? "")) {
+            return await supabase.from("tipos_vendedor")
+              .select("id, nombre, porcentaje_base, activo")
+              .eq("empresa_id", auth.empresa_id).order("nombre");
+          }
+          return r;
+        }),
       supabase.from("comisiones_reglas")
         .select("id, tipo_vendedor_id, categoria_id, porcentaje, activo")
         .eq("empresa_id", auth.empresa_id),
@@ -128,10 +146,26 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
         ...(topeDesc !== undefined ? { descuento_maximo_pct: topeDesc } : {}),
       };
-      const r = b.id
-        ? await supabase.from("tipos_vendedor").update(fila)
-            .eq("empresa_id", auth.empresa_id).eq("id", String(b.id)).select("id").single()
-        : await supabase.from("tipos_vendedor").insert(fila).select("id").single();
+      const guardar = (f: Record<string, unknown>) =>
+        b.id
+          ? supabase.from("tipos_vendedor").update(f)
+              .eq("empresa_id", auth.empresa_id).eq("id", String(b.id)).select("id").single()
+          : supabase.from("tipos_vendedor").insert(f).select("id").single();
+
+      let r = await guardar(fila);
+      if (r.error && faltaColumnaTope(r.error.message ?? "")) {
+        // Se guarda el resto y se avisa qué quedó sin aplicar, en vez de
+        // perder también el cambio de nombre o de porcentaje.
+        const { descuento_maximo_pct: _omitido, ...sinTope } = fila as Record<string, unknown>;
+        void _omitido;
+        r = await guardar(sinTope);
+        if (!r.error) {
+          return NextResponse.json(successResponse({
+            id: (r.data as { id: string }).id,
+            aviso: "Se guardó, pero el tope de descuento necesita que corras el script 34 en la base.",
+          }));
+        }
+      }
       if (r.error) {
         if (/duplicate|unique|23505/i.test(r.error.message)) {
           return NextResponse.json(errorResponse("Ya existe un tipo con ese nombre."), { status: 409 });

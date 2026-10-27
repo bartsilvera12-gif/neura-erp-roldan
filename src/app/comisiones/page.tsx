@@ -374,6 +374,10 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
       });
       const j = await r.json();
       if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo guardar.");
+      // Guardó, pero algo quedó afuera —por ejemplo el tope de descuento si
+      // todavía no se corrió el script 34. Se dice, en vez de dejar creer que
+      // se aplicó.
+      if (typeof j?.data?.aviso === "string") onError(j.data.aviso);
       await cargar();
     } catch (e) {
       onError(e instanceof Error ? e.message : "Error de red.");
