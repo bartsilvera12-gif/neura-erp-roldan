@@ -22,8 +22,10 @@ function pool() {
 export interface AnticipoRow {
   numero: string | null;
   fecha: string;
+  cliente_codigo: string | null;
   cliente_nombre: string | null;
   cliente_ruc: string | null;
+  caja: string | number | null;
   monto: string | number;
   medio_pago: string | null;
   estado: string | null;
@@ -44,6 +46,18 @@ export interface AnticipoRow {
  * `venta_id` se resuelve al número de la factura contra la que se liquidó:
  * el uuid no le dice nada a nadie, y en el archivo viejo esa columna traía
  * justamente el número de factura.
+ *
+ * ── LO QUE TRAE EL ARCHIVO VIEJO Y ACÁ NO ESTÁ ───────────────────────────
+ *   El `anticipo-<mes>-<año>_<SUCURSAL>.xls` trae un `recnro`, un número de
+ *   recibo aparte del número de anticipo (762 y 3198 en la misma fila). Acá
+ *   no hay equivalente: el anticipo tiene un solo número y es el que se le
+ *   dice al cliente. No se inventa una segunda numeración para que la
+ *   planilla se parezca más, porque un número que no está impreso en ningún
+ *   papel no sirve para buscar nada.
+ *
+ *   El viejo también trae `pc` (PC02_CAJA) y `apecodigo`, que juntos dicen en
+ *   qué terminal y en qué apertura de caja se cobró. Acá eso es una sola
+ *   cosa, `caja_id`, y se muestra como el número de caja.
  */
 export async function getAnticiposDelMes(
   schemaRaw: string,
@@ -55,11 +69,14 @@ export async function getAnticiposDelMes(
   const tA = quoteSchemaTable(schema, "anticipos");
   const tV = quoteSchemaTable(schema, "ventas");
   const tC = quoteSchemaTable(schema, "clientes");
+  const tCj = quoteSchemaTable(schema, "cajas");
   const { rows } = await pool().query<AnticipoRow>(
     `SELECT a.numero,
             a.fecha,
+            c.codigo                    AS cliente_codigo,
             a.cliente_nombre,
             c.ruc                       AS cliente_ruc,
+            cj.numero_caja              AS caja,
             a.monto,
             a.medio_pago,
             a.estado,
@@ -71,6 +88,7 @@ export async function getAnticiposDelMes(
        FROM ${tA} a
        LEFT JOIN ${tV} v ON v.id = a.venta_id
        LEFT JOIN ${tC} c ON c.id = a.cliente_id
+       LEFT JOIN ${tCj} cj ON cj.id = a.caja_id
       WHERE a.empresa_id = $1::uuid
         AND a.sucursal_id = $2::uuid
         AND a.fecha >= $3::timestamptz AND a.fecha <= $4::timestamptz

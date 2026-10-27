@@ -18,15 +18,30 @@ export const dynamic = "force-dynamic";
  * El importe no se totaliza: el detalle incluye los anticipos anulados, que
  * no son plata. El resumen de lo cobrado va en el informe de Cobranzas.
  */
+/** Hora de Paraguay (UTC−3) de un timestamp, como HH:MM. */
+function horaPy(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(py.getUTCHours())}:${p(py.getUTCMinutes())}`;
+}
+
 const COLUMNAS: ColumnaEstilada<AnticipoRow>[] = [
   { header: "Número", value: (r) => r.numero ?? "", width: 12 },
   { header: "Fecha", value: (r) => (r.fecha ? new Date(r.fecha) : ""), formato: "fecha", width: 12 },
+  // Como texto y no como hora de Excel: en una columna con formato de hora,
+  // un valor vacío se muestra como 00:00, que se lee como medianoche.
+  { header: "Hora", value: (r) => horaPy(r.fecha), width: 9 },
+  { header: "Cód. cliente", value: (r) => r.cliente_codigo ?? "", width: 13 },
   { header: "Cliente", value: (r) => r.cliente_nombre ?? "", width: 34 },
   { header: "RUC", value: (r) => r.cliente_ruc ?? "", width: 15 },
   { header: "Importe", value: (r) => Number(r.monto) || 0, formato: "gs", width: 17 },
   { header: "Medio de pago", value: (r) => r.medio_pago ?? "", width: 15 },
   { header: "Estado", value: (r) => r.estado ?? "", width: 13 },
   { header: "Factura liquidada", value: (r) => r.factura ?? "", width: 18 },
+  { header: "Caja", value: (r) => r.caja ?? "", width: 10 },
   { header: "Recibió", value: (r) => r.usuario_nombre ?? "", width: 22 },
   { header: "Observación", value: (r) => r.observacion ?? "", width: 34 },
   { header: "Anulado", value: (r) => (r.anulado ? "SÍ" : ""), width: 10 },
