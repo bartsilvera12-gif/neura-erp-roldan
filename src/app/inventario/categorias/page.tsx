@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
+import ModalCampo from "@/components/ui/ModalCampo";
+import ModalConfirmarAccion from "@/components/ui/ModalConfirmarAccion";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
@@ -90,104 +92,135 @@ export default function CategoriasProductosPage() {
     else setError(j?.error ?? "No se pudo actualizar.");
   }
 
+  /**
+   * Borrar es la única acción de esta pantalla que no se deshace, así que la
+   * confirmación no va por `window.confirm`: ese cuadro se parece a los
+   * avisos que uno descarta todo el día y se acepta de memoria.
+   */
+  const [aBorrar, setABorrar] = useState<Categoria | null>(null);
+
   async function eliminar(cat: Categoria) {
-    if (!window.confirm(`¿Borrar el rubro "${cat.nombre}"? Esta acción no se puede deshacer.`)) return;
     const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
       method: "DELETE",
       credentials: "include",
     });
     const j = await r.json().catch(() => ({}));
-    if (r.ok && j?.success) load();
-    else setError(j?.error ?? "No se pudo borrar.");
+    if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo borrar.");
+    setABorrar(null);
+    load();
+  }
+
+  /**
+   * Los tres campos que se editan de a uno —nombre, días críticos y
+   * descuento— comparten modal. Cada uno define su texto, su validación y qué
+   * manda al servidor; el modal pone la caja, el foco y el error.
+   *
+   * Antes eran `window.prompt`. Ese cuadro no se puede maquillar: sale con el
+   * título "roldanehijos.neura.com.py dice" y los colores del sistema. Y si
+   * el valor estaba mal había que avisar con otro cuadro, perdiendo lo
+   * escrito; acá el error se muestra adentro y el texto queda.
+   */
+  type CampoEnEdicion = {
+    cat: Categoria;
+    titulo: string;
+    descripcion: string;
+    etiqueta: string;
+    valorInicial: string;
+    sufijo?: string;
+    tipo: "text" | "number";
+    ayuda: string;
+    validar: (v: string) => string | null;
+    cuerpo: (v: string) => Record<string, unknown>;
+  };
+  const [campo, setCampo] = useState<CampoEnEdicion | null>(null);
+
+  async function guardarCampo(valor: string) {
+    if (!campo) return;
+    const r = await fetch(`/api/inventario/categorias/${campo.cat.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(campo.cuerpo(valor.trim())),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo guardar.");
+    setCampo(null);
+    load();
   }
 
   /**
    * Días de cobertura crítica del rubro (punto 1.3).
    *
-   * Se pide con un prompt igual que el nombre: es un número suelto y abrir un
-   * formulario entero para un campo sería peor. Vacío lo deja sin configurar,
-   * que es distinto de cero: significa "usá el umbral general".
+   * Vacío lo deja sin configurar, que es distinto de cero: significa "usá el
+   * umbral general de Reposición".
    */
-  async function editarDiasCritico(cat: Categoria) {
-    const actual = cat.dias_critico == null ? "" : String(cat.dias_critico);
-    const v = window.prompt(
-      `Días de stock por debajo de los cuales "${cat.nombre}" se marca CRÍTICO.\n\n` +
-      "En la práctica es lo que tarda reponerlo: si la chapa tarda 15 días, poné 15.\n" +
-      "Dejalo vacío para que use el umbral general de Reposición.",
-      actual
-    );
-    if (v == null) return;
-    const limpio = v.trim();
-    if (limpio === actual) return;
-    if (limpio !== "") {
-      const n = Number(limpio);
-      if (!Number.isFinite(n) || n < 1 || n > 365) {
-        setError("Los días tienen que ser un número entre 1 y 365.");
-        return;
-      }
-    }
-    const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ dias_critico: limpio === "" ? null : Number(limpio) }),
+  function editarDiasCritico(cat: Categoria) {
+    setCampo({
+      cat,
+      titulo: `Crítico bajo · ${cat.nombre}`,
+      descripcion: "Días de stock por debajo de los cuales este rubro se marca CRÍTICO en Reposición.",
+      etiqueta: "Días",
+      valorInicial: cat.dias_critico == null ? "" : String(cat.dias_critico),
+      sufijo: "días",
+      tipo: "number",
+      ayuda: "En la práctica es lo que tarda reponerlo: si la chapa tarda 15 días, poné 15. Vacío usa el umbral general.",
+      validar: (v) => {
+        const t = v.trim();
+        if (t === "") return null;
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 1 || n > 365) return "Tiene que ser un número entre 1 y 365.";
+        return null;
+      },
+      cuerpo: (v) => ({ dias_critico: v === "" ? null : Number(v) }),
     });
-    const j = await r.json();
-    if (r.ok && j?.success) load();
-    else setError(j?.error ?? "No se pudo guardar.");
   }
 
   /**
    * "Desc. Grupo %" (script 32): descuento que aplica a todos los artículos
-   * del rubro. Se pide con un prompt por lo mismo que los días críticos: es
-   * un número suelto.
+   * del rubro.
    *
    * Un artículo con descuento propio REEMPLAZA a éste; no se suman. Con la
    * suma, un artículo al 5% dentro de un rubro al 4% saldría al 9%, que no es
    * lo que nadie quiso decir al cargar los dos.
    */
-  async function editarDescuentoRubro(cat: Categoria) {
-    const actual = cat.descuento_pct ? String(cat.descuento_pct) : "";
-    const v = window.prompt(
-      `Descuento que se aplica a todos los artículos de "${cat.nombre}", en %.\n\n` +
-      "Un artículo con su propio descuento usa el suyo, no la suma de los dos.\n" +
-      "Dejalo vacío o en cero para que el rubro no tenga descuento.",
-      actual
-    );
-    if (v == null) return;
-    const limpio = v.trim().replace(",", ".");
-    if (limpio === actual) return;
-    if (limpio !== "") {
-      const n = Number(limpio);
-      if (!Number.isFinite(n) || n < 0 || n > 100) {
-        setError("El descuento tiene que ser un número entre 0 y 100.");
-        return;
-      }
-    }
-    const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ descuento_pct: limpio === "" ? 0 : Number(limpio) }),
+  function editarDescuentoRubro(cat: Categoria) {
+    setCampo({
+      cat,
+      titulo: `Descuento · ${cat.nombre}`,
+      descripcion: "Se aplica a todos los artículos del rubro que no tengan uno propio.",
+      etiqueta: "Descuento",
+      valorInicial: cat.descuento_pct ? String(cat.descuento_pct) : "",
+      sufijo: "%",
+      tipo: "number",
+      ayuda: "Un artículo con su propio descuento usa el suyo, no la suma de los dos. Vacío o cero deja el rubro sin descuento.",
+      validar: (v) => {
+        const t = v.trim().replace(",", ".");
+        if (t === "") return null;
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 0 || n > 100) return "Tiene que ser un número entre 0 y 100.";
+        return null;
+      },
+      cuerpo: (v) => {
+        const t = v.replace(",", ".");
+        return { descuento_pct: t === "" ? 0 : Number(t) };
+      },
     });
-    const j = await r.json();
-    if (r.ok && j?.success) load();
-    else setError(j?.error ?? "No se pudo guardar.");
   }
 
-  async function startEdit(cat: Categoria) {
-    const nuevoNombre = window.prompt("Nuevo nombre del rubro:", cat.nombre);
-    if (nuevoNombre == null || nuevoNombre.trim() === "" || nuevoNombre === cat.nombre) return;
-    const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ nombre: nuevoNombre.trim() }),
+  function startEdit(cat: Categoria) {
+    setCampo({
+      cat,
+      titulo: "Renombrar rubro",
+      descripcion: `Se cambia en todos los productos que hoy están en "${cat.nombre}".`,
+      etiqueta: "Nombre",
+      valorInicial: cat.nombre,
+      tipo: "text",
+      ayuda: "",
+      validar: (v) => (v.trim() === "" ? "El nombre no puede quedar vacío." : null),
+      cuerpo: (v) => ({ nombre: v }),
     });
-    const j = await r.json();
-    if (r.ok && j?.success) load();
-    else setError(j?.error ?? "No se pudo editar.");
   }
+
 
   return (
     <div className="space-y-8">
@@ -381,7 +414,7 @@ export default function CategoriasProductosPage() {
                           {c.activo ? "Desactivar" : "Activar"}
                         </button>
                         <button
-                          onClick={() => eliminar(c)}
+                          onClick={() => setABorrar(c)}
                           className="text-xs text-red-600 hover:text-red-800 underline"
                         >
                           Borrar
@@ -395,6 +428,30 @@ export default function CategoriasProductosPage() {
           </table>
         )}
       </div>
+
+      {aBorrar && (
+        <ModalConfirmarAccion
+          titulo={`Borrar el rubro "${aBorrar.nombre}"`}
+          detalle="No se puede deshacer. Los productos que estaban en este rubro quedan sin rubro."
+          onConfirmar={() => eliminar(aBorrar)}
+          onCerrar={() => setABorrar(null)}
+        />
+      )}
+
+      {campo && (
+        <ModalCampo
+          titulo={campo.titulo}
+          descripcion={campo.descripcion}
+          etiqueta={campo.etiqueta}
+          valorInicial={campo.valorInicial}
+          sufijo={campo.sufijo}
+          tipo={campo.tipo}
+          ayuda={campo.ayuda || undefined}
+          validar={campo.validar}
+          onGuardar={guardarCampo}
+          onCerrar={() => setCampo(null)}
+        />
+      )}
     </div>
   );
 }
