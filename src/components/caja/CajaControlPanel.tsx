@@ -572,7 +572,7 @@ function ModalAbrir({
   numeroSugerido: number;
   numerosOcupados: number[];
 }) {
-  const [modo, setModo] = useState<"arqueo" | "monto">("monto");
+  const [modo, setModo] = useState<"arqueo" | "monto">("arqueo");
   const [monto, setMonto] = useState("0");
   const [cant, setCant] = useState<ArqueoCantidades>(arqueoVacio());
   const [obs, setObs] = useState("");
@@ -644,8 +644,14 @@ function ModalAbrir({
           </div>
         </div>
 
-        {/* Toggle Contar/Monto oculto para Ferrecolor: solo monto directo. */}
-        {false && <ModoArqueoToggle modo={modo} onChange={setModo} />}
+        {/* El conteo por denominación estaba escondido con un `false &&`, por
+            una decisión de Ferrecolor —otro cliente de este mismo código—,
+            que cerraba la caja escribiendo el monto de una. Acá se cuenta
+            billete por billete: escribir un total de memoria es justamente
+            donde se cuela el error que después aparece como diferencia de
+            caja sin explicación. El selector queda igual, para el que prefiera
+            el monto directo. */}
+        <ModoArqueoToggle modo={modo} onChange={setModo} />
 
         {modo === "arqueo" ? (
           <div>
@@ -747,7 +753,7 @@ function ModalCerrar({
   onClose: () => void;
   onConfirm: (monto: number, obs: string | null, arqueo: ArqueoItem[] | null) => Promise<void>;
 }) {
-  const [modo, setModo] = useState<"arqueo" | "monto">("monto");
+  const [modo, setModo] = useState<"arqueo" | "monto">("arqueo");
   const [monto, setMonto] = useState(String(Math.round(resumen.efectivo_esperado)));
   const [cant, setCant] = useState<ArqueoCantidades>(arqueoVacio());
   const [obs, setObs] = useState("");
@@ -815,8 +821,14 @@ function ModalCerrar({
           </div>
         </div>
 
-        {/* Toggle Contar/Monto oculto para Ferrecolor: solo monto directo. */}
-        {false && <ModoArqueoToggle modo={modo} onChange={setModo} />}
+        {/* El conteo por denominación estaba escondido con un `false &&`, por
+            una decisión de Ferrecolor —otro cliente de este mismo código—,
+            que cerraba la caja escribiendo el monto de una. Acá se cuenta
+            billete por billete: escribir un total de memoria es justamente
+            donde se cuela el error que después aparece como diferencia de
+            caja sin explicación. El selector queda igual, para el que prefiera
+            el monto directo. */}
+        <ModoArqueoToggle modo={modo} onChange={setModo} />
 
         {modo === "arqueo" ? (
           <div>
