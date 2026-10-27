@@ -17,16 +17,17 @@ export async function GET(request: NextRequest) {
     const todas = url.searchParams.get("todas") === "1";
 
     const sucursalId = exigirSucursal(ctx.auth.sucursal_id);
-    // `dias_critico` (punto 1.3) viene del script 18. Si todavía no se corrió,
-    // la consulta falla entera: se reintenta sin esa columna para que la
-    // pantalla de rubros no quede rota esperando una migración.
+    // `dias_critico` (punto 1.3, script 18) y `descuento_pct` ("Desc. Grupo %",
+    // script 32). Si alguna migración todavía no se corrió, la consulta falla
+    // entera: se reintenta sin esas columnas para que la pantalla de rubros no
+    // quede rota esperando una migración.
     const armar = (conDiasCritico: boolean) => {
       let q = aplicarFiltroSucursal(
         ctx.supabase
           .from("categorias_productos")
           .select(
             conDiasCritico
-              ? "id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, created_at, updated_at"
+              ? "id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, descuento_pct, created_at, updated_at"
               : "id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at"
           )
           .eq("empresa_id", ctx.auth.empresa_id),
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     };
 
     let { data, error } = await armar(true);
-    if (error && /dias_critico/.test(error.message ?? "")) {
+    if (error && /(dias_critico|descuento_pct)/.test(error.message ?? "")) {
       ({ data, error } = await armar(false));
     }
     if (error) throw new Error(error.message);

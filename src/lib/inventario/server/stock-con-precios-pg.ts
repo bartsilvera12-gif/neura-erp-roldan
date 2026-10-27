@@ -36,6 +36,9 @@ export interface StockConPreciosRow {
   rubro: string | null;
   unidad: string;
   costo_gs: string | number | null;
+  /** Costo de la factura del proveedor, si se carga en dólares (script 32). */
+  costo_usd: string | number | null;
+  descuento_pct: string | number | null;
   precio_minorista: string | number | null;
   precio_mayorista: string | number | null;
   precio_distribuidor: string | number | null;
@@ -90,6 +93,16 @@ export async function getStockConPrecios(
             c.nombre                             AS rubro,
             p.unidad_medida                      AS unidad,
             NULLIF(p.costo_promedio, 0)          AS costo_gs,
+            p.costo_usd                          AS costo_usd,
+            -- Misma regla que descuentoEfectivo() en src/lib/precios/ficha.ts:
+            -- el descuento del artículo REEMPLAZA al del rubro, no se suman ni
+            -- se toma el mayor. Acá estaba con GREATEST, que daba otra cosa:
+            -- un artículo al 2% en un rubro al 4% salía con 4%, al revés de lo
+            -- que dice la ficha del producto.
+            CASE WHEN COALESCE(p.descuento_pct, 0) > 0
+                 THEN p.descuento_pct
+                 ELSE COALESCE(c.descuento_pct, 0)
+            END                                  AS descuento_pct,
             NULLIF(p.precio_venta, 0)            AS precio_minorista,
             NULLIF(p.precio_mayorista, 0)        AS precio_mayorista,
             NULLIF(p.precio_distribuidor, 0)     AS precio_distribuidor,

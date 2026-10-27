@@ -30,10 +30,20 @@ export async function PATCH(
           : Math.min(365, Math.max(1, Math.trunc(n)));
     }
 
+    // Script 32: "Desc. Grupo %". Se recorta a 0..100 — un 150 no es "muy
+    // barato", es un error de carga que regalaría mercadería.
+    if (body.descuento_pct !== undefined) {
+      const n = Number(body.descuento_pct);
+      patch.descuento_pct =
+        body.descuento_pct === null || body.descuento_pct === "" || !Number.isFinite(n)
+          ? 0
+          : Math.min(100, Math.max(0, n));
+    }
+
     if (Object.keys(patch).length === 0) {
       const { data, error } = await ctx.supabase
         .from("categorias_productos")
-        .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, created_at, updated_at")
+        .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, descuento_pct, created_at, updated_at")
         .eq("empresa_id", ctx.auth.empresa_id)
         .eq("id", id)
         .maybeSingle();
@@ -47,7 +57,7 @@ export async function PATCH(
       .update(patch)
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("id", id)
-      .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, created_at, updated_at")
+      .select("id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, descuento_pct, created_at, updated_at")
       .maybeSingle();
     if (upd.error) {
       const msg = upd.error.message ?? "";
@@ -56,7 +66,7 @@ export async function PATCH(
           status: 409,
         });
       }
-      if (/dias_critico/.test(msg)) {
+      if (/(dias_critico|descuento_pct)/.test(msg)) {
         return NextResponse.json(
           errorResponse("Falta correr 18_dias_critico_rubro.sql en la base."),
           { status: 500 }

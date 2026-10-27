@@ -21,6 +21,12 @@ export interface Producto {
   cantidad_minima_mayorista?: number | null;
   /** Precio distribuidor (opcional). Precio comercial por canal — NO es el costo. */
   precio_distribuidor?: number | null;
+  /** Costo en dolares de la factura del proveedor (script 32). */
+  costo_usd?: number | null;
+  /** % de remarcacion con el que se armo el precio. No se aplica solo. */
+  markup_pct?: number | null;
+  /** Descuento propio del articulo. Reemplaza al del rubro, no se suma. */
+  descuento_pct?: number | null;
   stock_actual: number;
   stock_minimo: number;
   unidad_medida: string;

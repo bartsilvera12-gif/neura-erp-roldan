@@ -11,6 +11,7 @@ import SelectFromList from "@/components/inventario/SelectFromList";
 import ProveedoresCostos from "@/components/inventario/ProveedoresCostos";
 import LotesProducto from "@/components/inventario/LotesProducto";
 import { MargenPorCanal } from "@/components/inventario/MargenPorCanal";
+import CostoDolarDescuento from "@/components/inventario/CostoDolarDescuento";
 import PreciosCategoriaEditor from "@/components/inventario/PreciosCategoriaEditor";
 import { useRequireAdmin } from "@/lib/auth/use-require-admin";
 
@@ -20,7 +21,7 @@ const UNIDADES_OPCIONES = [
 ] as const;
 
 
-interface CatRow { id: string; nombre: string }
+interface CatRow { id: string; nombre: string; descuento_pct?: number | null }
 interface UbiRow { id: string; nombre: string; tipo: string }
 interface ProvRow { id: string; nombre: string }
 
@@ -48,6 +49,11 @@ export default function EditarProductoPage() {
     codigo_barras_interno: false,
     costo_promedio: "",
     markup: "",
+    // Ficha en dolares y descuentos (script 32). El markup ya se calculaba en
+    // pantalla; lo que se agrega es guardarlo, para poder volver a aplicarlo
+    // cuando se mueve la cotizacion.
+    costo_usd: "",
+    descuento_pct: "",
     precio_venta: "",
     precio_mayorista: "",
     cantidad_minima_mayorista: "",
@@ -208,6 +214,8 @@ export default function EditarProductoPage() {
         precio_mayorista: p.precio_mayorista != null ? String(p.precio_mayorista) : "",
         cantidad_minima_mayorista: p.cantidad_minima_mayorista != null ? String(p.cantidad_minima_mayorista) : "",
         precio_distribuidor: p.precio_distribuidor != null ? String(p.precio_distribuidor) : "",
+        costo_usd: p.costo_usd != null ? String(p.costo_usd) : "",
+        descuento_pct: p.descuento_pct ? String(p.descuento_pct) : "",
         stock_actual: String(p.stock_actual),
         stock_minimo: String(p.stock_minimo),
         unidad_medida: p.unidad_medida,
@@ -377,6 +385,9 @@ export default function EditarProductoPage() {
         precio_mayorista: form.precio_mayorista.trim() !== "" ? parseFloat(form.precio_mayorista) || null : null,
         cantidad_minima_mayorista: form.cantidad_minima_mayorista.trim() !== "" ? parseFloat(form.cantidad_minima_mayorista) || null : null,
         precio_distribuidor: form.precio_distribuidor.trim() !== "" ? parseFloat(form.precio_distribuidor) || null : null,
+        costo_usd: form.costo_usd.trim() !== "" ? parseFloat(form.costo_usd) || null : null,
+        markup_pct: form.markup.trim() !== "" ? parseFloat(form.markup) : null,
+        descuento_pct: form.descuento_pct.trim() !== "" ? parseFloat(form.descuento_pct) || 0 : 0,
         stock_actual: parseInt(form.stock_actual) || 0,
         stock_minimo: parseInt(form.stock_minimo) || 0,
         unidad_medida: form.unidad_medida.trim().toUpperCase() || "UNIDAD",
@@ -909,6 +920,21 @@ export default function EditarProductoPage() {
                   { label: "Mayorista", precio: form.precio_mayorista },
                   { label: "Distribuidor", precio: form.precio_distribuidor },
                 ]}
+              />
+            )}
+
+            {showPrecioVenta && (
+              <CostoDolarDescuento
+                costoUsd={form.costo_usd}
+                onCostoUsdChange={(v) => setForm((prev) => ({ ...prev, costo_usd: v }))}
+                descuentoPct={form.descuento_pct}
+                onDescuentoChange={(v) => setForm((prev) => ({ ...prev, descuento_pct: v }))}
+                descuentoRubro={categorias.find((c) => c.id === categoriaId)?.descuento_pct ?? null}
+                costoGs={form.costo_promedio}
+                precioGs={form.precio_venta}
+                markupPct={form.markup}
+                onUsarCostoGs={(gs) => handleCostoChange(gs)}
+                disabled={submitting}
               />
             )}
           </div>

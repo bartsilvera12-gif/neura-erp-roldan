@@ -28,6 +28,8 @@ export interface CategoriaProductoRow {
   descripcion: string | null;
   parent_id: string | null;
   activo: boolean;
+  /** "Desc. Grupo %": descuento que aplica a todo el rubro (script 32). */
+  descuento_pct: number;
   created_at: string;
   updated_at: string;
 }
@@ -90,7 +92,7 @@ export async function listCategoriasProducto(
   const where = ["empresa_id = $1::uuid"];
   if (opts.soloActivas !== false) where.push("activo = true");
   const { rows } = await p.query<CategoriaProductoRow>(
-    `SELECT id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at
+    `SELECT id, empresa_id, nombre, codigo, descripcion, parent_id, activo, descuento_pct, created_at, updated_at
        FROM ${t}
       WHERE ${where.join(" AND ")}
       ORDER BY nombre`,
@@ -109,7 +111,7 @@ export async function insertCategoriaProducto(
   const { rows } = await pool().query<CategoriaProductoRow>(
     `INSERT INTO ${t} (empresa_id, nombre, codigo, descripcion, parent_id, activo)
      VALUES ($1::uuid, $2, $3, $4, $5, COALESCE($6::boolean, true))
-     RETURNING id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at`,
+     RETURNING id, empresa_id, nombre, codigo, descripcion, parent_id, activo, descuento_pct, created_at, updated_at`,
     [
       empresaId,
       d.nombre.trim(),
@@ -126,7 +128,7 @@ export async function updateCategoriaProducto(
   schemaRaw: string,
   empresaId: string,
   id: string,
-  d: Partial<{ nombre: string; codigo: string | null; descripcion: string | null; parent_id: string | null; activo: boolean }>
+  d: Partial<{ nombre: string; codigo: string | null; descripcion: string | null; parent_id: string | null; activo: boolean; descuento_pct: number }>
 ): Promise<CategoriaProductoRow | null> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const t = quoteSchemaTable(schema, "categorias_productos");
@@ -138,13 +140,21 @@ export async function updateCategoriaProducto(
   if (d.descripcion !== undefined) { sets.push(`descripcion = $${i++}`); params.push(d.descripcion?.trim() || null); }
   if (d.parent_id !== undefined) { sets.push(`parent_id = $${i++}`); params.push(d.parent_id || null); }
   if (d.activo !== undefined) { sets.push(`activo = $${i++}::boolean`); params.push(d.activo); }
+  // El descuento del rubro se recorta a 0..100 antes de escribir: la base
+  // tiene el mismo CHECK, pero fallar acá da un mensaje entendible en vez de
+  // un error de constraint.
+  if (d.descuento_pct !== undefined) {
+    const v = Math.min(100, Math.max(0, Number(d.descuento_pct) || 0));
+    sets.push(`descuento_pct = $${i++}::numeric`);
+    params.push(v);
+  }
   if (sets.length === 0) return null;
   sets.push("updated_at = now()");
   params.push(id, empresaId);
   const { rows } = await pool().query<CategoriaProductoRow>(
     `UPDATE ${t} SET ${sets.join(", ")}
       WHERE id = $${i++}::uuid AND empresa_id = $${i}::uuid
-      RETURNING id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at`,
+      RETURNING id, empresa_id, nombre, codigo, descripcion, parent_id, activo, descuento_pct, created_at, updated_at`,
     params
   );
   return rows[0] ?? null;

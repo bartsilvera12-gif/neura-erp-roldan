@@ -29,7 +29,7 @@ const n = (v: string | number | null) => {
  * columna de ceros se lee como "estos productos valen cero", que es peor que
  * no tenerla.
  */
-function columnas(cotizacion: number | null): ColumnaEstilada<StockConPreciosRow>[] {
+function columnas(cotizacion: number | null, filasConCostoUsd: number): ColumnaEstilada<StockConPreciosRow>[] {
   const cols: ColumnaEstilada<StockConPreciosRow>[] = [
     { header: "Código", value: (r) => r.codigo ?? "", width: 14 },
     { header: "Referencia", value: (r) => r.sku, width: 16 },
@@ -40,10 +40,20 @@ function columnas(cotizacion: number | null): ColumnaEstilada<StockConPreciosRow
     { header: "Unidad", value: (r) => r.unidad, width: 10 },
     { header: "Costo Gs.", value: (r) => n(r.costo_gs), formato: "gs", width: 15 }
   );
-  if (cotizacion) {
+  // El costo en dólares cargado a mano manda sobre el convertido: es el de la
+  // factura del proveedor. El convertido es una estimación que se rehace con
+  // la cotización de hoy, así que para mercadería importada miente apenas se
+  // mueve el dólar. La columna sale si hay alguna de las dos cosas.
+  const hayCostoUsdCargado = filasConCostoUsd > 0;
+  if (cotizacion || hayCostoUsdCargado) {
     cols.push({
       header: "Costo US$",
-      value: (r) => { const c = n(r.costo_gs); return c == null ? null : c / cotizacion; },
+      value: (r) => {
+        const guardado = n(r.costo_usd);
+        if (guardado != null) return guardado;
+        const c = n(r.costo_gs);
+        return c == null || !cotizacion ? null : c / cotizacion;
+      },
       formato: "usd", width: 13,
     });
   }
@@ -62,6 +72,7 @@ function columnas(cotizacion: number | null): ColumnaEstilada<StockConPreciosRow
   cols.push(
     { header: "Existencia", value: (r) => Number(r.existencia) || 0, formato: "cantidad", suma: true, width: 12 },
     { header: "Stock mínimo", value: (r) => Number(r.stock_minimo) || 0, formato: "cantidad", width: 14 },
+    { header: "Descuento", value: (r) => { const d = n(r.descuento_pct); return d == null ? null : d / 100; }, formato: "porcentaje", width: 12 },
     { header: "Valorizado Gs.", value: (r) => n(r.valorizado_gs), formato: "gs", suma: true, width: 18 }
   );
   return cols;
@@ -88,6 +99,7 @@ export async function GET(request: NextRequest) {
     const sucursalId = exigirSucursal(ctx.auth.sucursal_id);
 
     const { filas, cotizacion } = await getStockConPrecios(schema, ctx.auth.empresa_id, sucursalId);
+    const conCostoUsd = filas.filter((f) => n(f.costo_usd) != null).length;
     const [emp, suc] = await Promise.all([
       datosEmpresaInforme(ctx.auth.empresa_id),
       nombreSucursal(sucursalId),
@@ -100,14 +112,19 @@ export async function GET(request: NextRequest) {
     notas.push(
       cotizacion
         ? `Columnas en dólares convertidas a ${new Intl.NumberFormat("es-PY").format(cotizacion)} Gs. por dólar (última cotización cargada).`
-        : "Sin columnas en dólares: no hay ninguna cotización cargada en Tipos de cambio."
+        : "Sin cotización cargada en Tipos de cambio: no se puede convertir."
     );
+    if (conCostoUsd > 0) {
+      notas.push(
+        `${conCostoUsd} producto(s) tienen su costo en dólares cargado a mano: ahí se usa ese, no el convertido.`
+      );
+    }
 
     const buf = await buildXlsxEstilado(
       {
         nombre: "Stock con precios",
         filas,
-        columnas: columnas(cotizacion),
+        columnas: columnas(cotizacion, conCostoUsd),
         etiquetaTotales: `TOTALES (${filas.length} productos)`,
       },
       {

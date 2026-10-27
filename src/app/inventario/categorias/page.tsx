@@ -15,6 +15,7 @@ interface Categoria {
   activo: boolean;
   /** Punto 1.3: días bajo los cuales el rubro es crítico. null = umbral general. */
   dias_critico?: number | null;
+  descuento_pct?: number | null;
 }
 
 export default function CategoriasProductosPage() {
@@ -134,6 +135,44 @@ export default function CategoriasProductosPage() {
     else setError(j?.error ?? "No se pudo guardar.");
   }
 
+  /**
+   * "Desc. Grupo %" (script 32): descuento que aplica a todos los artículos
+   * del rubro. Se pide con un prompt por lo mismo que los días críticos: es
+   * un número suelto.
+   *
+   * Un artículo con descuento propio REEMPLAZA a éste; no se suman. Con la
+   * suma, un artículo al 5% dentro de un rubro al 4% saldría al 9%, que no es
+   * lo que nadie quiso decir al cargar los dos.
+   */
+  async function editarDescuentoRubro(cat: Categoria) {
+    const actual = cat.descuento_pct ? String(cat.descuento_pct) : "";
+    const v = window.prompt(
+      `Descuento que se aplica a todos los artículos de "${cat.nombre}", en %.\n\n` +
+      "Un artículo con su propio descuento usa el suyo, no la suma de los dos.\n" +
+      "Dejalo vacío o en cero para que el rubro no tenga descuento.",
+      actual
+    );
+    if (v == null) return;
+    const limpio = v.trim().replace(",", ".");
+    if (limpio === actual) return;
+    if (limpio !== "") {
+      const n = Number(limpio);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        setError("El descuento tiene que ser un número entre 0 y 100.");
+        return;
+      }
+    }
+    const r = await fetch(`/api/inventario/categorias/${cat.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ descuento_pct: limpio === "" ? 0 : Number(limpio) }),
+    });
+    const j = await r.json();
+    if (r.ok && j?.success) load();
+    else setError(j?.error ?? "No se pudo guardar.");
+  }
+
   async function startEdit(cat: Categoria) {
     const nuevoNombre = window.prompt("Nuevo nombre del rubro:", cat.nombre);
     if (nuevoNombre == null || nuevoNombre.trim() === "" || nuevoNombre === cat.nombre) return;
@@ -246,6 +285,9 @@ export default function CategoriasProductosPage() {
                 <th className="text-left px-4 py-2" title="Días de stock por debajo de los cuales el rubro se marca crítico en Reposición">
                   Crítico bajo
                 </th>
+                <th className="text-left px-4 py-2" title="Descuento que se aplica a todos los artículos del rubro">
+                  Descuento
+                </th>
                 <th className="text-left px-4 py-2">Estado</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -270,6 +312,21 @@ export default function CategoriasProductosPage() {
                           <span className="font-semibold text-slate-700 tabular-nums">
                             {c.dias_critico} d
                           </span>
+                        )}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2">
+                      <button
+                        onClick={() => editarDescuentoRubro(c)}
+                        className="rounded px-1.5 py-0.5 text-xs underline-offset-2 hover:bg-slate-100 hover:underline"
+                        title="Descuento que se aplica a todos los artículos de este rubro"
+                      >
+                        {c.descuento_pct ? (
+                          <span className="font-semibold text-emerald-700 tabular-nums">
+                            {c.descuento_pct}%
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">sin desc.</span>
                         )}
                       </button>
                     </td>

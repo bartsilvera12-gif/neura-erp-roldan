@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import MontoInput from "@/components/ui/MontoInput";
 import SelectFromList from "@/components/inventario/SelectFromList";
 import { MargenPorCanal } from "@/components/inventario/MargenPorCanal";
+import CostoDolarDescuento from "@/components/inventario/CostoDolarDescuento";
 import { productoExiste, productoPorCodigoBarras, saveProducto } from "@/lib/inventario/storage";
 import { useRequireAdmin } from "@/lib/auth/use-require-admin";
 import type { MetodoValuacion, TipoIvaProducto } from "@/lib/inventario/types";
@@ -14,7 +15,7 @@ const UNIDADES_OPCIONES = [
   "UNIDAD","BOLSA","KG","G","LT","ML","CAJA","PAQUETE","DOCENA","LATA","BOTELLA","PORCION","COMBO",
 ] as const;
 
-interface CatRow { id: string; nombre: string }
+interface CatRow { id: string; nombre: string; descuento_pct?: number | null }
 interface UbiRow { id: string; nombre: string; tipo: string }
 interface ProvRow { id: string; nombre: string }
 
@@ -35,6 +36,11 @@ export default function NuevoProductoPage() {
     codigo_barras: "",
     costo_promedio: "",
     markup: "",
+    // Ficha en dolares y descuentos (script 32). El markup ya se calculaba en
+    // pantalla; lo que se agrega es guardarlo, para poder volver a aplicarlo
+    // cuando se mueve la cotizacion.
+    costo_usd: "",
+    descuento_pct: "",
     precio_venta: "",
     precio_mayorista: "",
     precio_distribuidor: "",
@@ -384,6 +390,9 @@ export default function NuevoProductoPage() {
           precio_venta: parseFloat(form.precio_venta) || 0,
           precio_mayorista: form.precio_mayorista.trim() !== "" ? parseFloat(form.precio_mayorista) || null : null,
           precio_distribuidor: form.precio_distribuidor.trim() !== "" ? parseFloat(form.precio_distribuidor) || null : null,
+          costo_usd: form.costo_usd.trim() !== "" ? parseFloat(form.costo_usd) || null : null,
+          markup_pct: form.markup.trim() !== "" ? parseFloat(form.markup) : null,
+          descuento_pct: form.descuento_pct.trim() !== "" ? parseFloat(form.descuento_pct) || 0 : 0,
           cantidad_minima_mayorista: form.cantidad_minima_mayorista.trim() !== "" ? parseFloat(form.cantidad_minima_mayorista) || null : null,
           stock_actual: parseInt(form.stock_actual) || 0,
           stock_minimo: parseInt(form.stock_minimo) || 0,
@@ -793,6 +802,21 @@ export default function NuevoProductoPage() {
                   { label: "Mayorista", precio: form.precio_mayorista },
                   { label: "Distribuidor", precio: form.precio_distribuidor },
                 ]}
+              />
+            )}
+
+            {showPrecioVenta && (
+              <CostoDolarDescuento
+                costoUsd={form.costo_usd}
+                onCostoUsdChange={(v) => setForm((prev) => ({ ...prev, costo_usd: v }))}
+                descuentoPct={form.descuento_pct}
+                onDescuentoChange={(v) => setForm((prev) => ({ ...prev, descuento_pct: v }))}
+                descuentoRubro={categorias.find((c) => c.id === categoriaId)?.descuento_pct ?? null}
+                costoGs={form.costo_promedio}
+                precioGs={form.precio_venta}
+                markupPct={form.markup}
+                onUsarCostoGs={(gs) => handleCostoChange(gs)}
+                disabled={submitting}
               />
             )}
           </div>

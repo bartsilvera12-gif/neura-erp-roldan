@@ -15,7 +15,9 @@ const PRODUCTO_COLS =
   "codigo_barras, codigo_barras_interno, imagen_path, imagen_url, " +
   "categoria_principal_id, ubicacion_principal_id, proveedor_principal_id, " +
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
-  "factor_compra_receta, tiempo_prep_minutos, descripcion, precio_mayorista, cantidad_minima_mayorista, precio_distribuidor, modo_receta, tipo_iva, controla_lote";
+  "factor_compra_receta, tiempo_prep_minutos, descripcion, precio_mayorista, cantidad_minima_mayorista, precio_distribuidor, modo_receta, tipo_iva, controla_lote, " +
+  // Ficha en dolares y descuentos (script 32).
+  "costo_usd, markup_pct, descuento_pct";
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
@@ -36,6 +38,9 @@ function rowToApi(r: Record<string, unknown>): Record<string, unknown> {
     precio_mayorista: r.precio_mayorista != null ? toNumber(r.precio_mayorista) : null,
     cantidad_minima_mayorista: r.cantidad_minima_mayorista != null ? toNumber(r.cantidad_minima_mayorista) : null,
     precio_distribuidor: r.precio_distribuidor != null ? toNumber(r.precio_distribuidor) : null,
+    costo_usd: r.costo_usd != null ? toNumber(r.costo_usd) : null,
+    markup_pct: r.markup_pct != null ? toNumber(r.markup_pct) : null,
+    descuento_pct: r.descuento_pct != null ? toNumber(r.descuento_pct) : 0,
   };
 }
 
@@ -184,6 +189,9 @@ export async function PATCH(
     if (body.precio_mayorista !== undefined) patch.precio_mayorista = toNumberOrNull(body.precio_mayorista);
     if (body.cantidad_minima_mayorista !== undefined) patch.cantidad_minima_mayorista = toNumberOrNull(body.cantidad_minima_mayorista);
     if (body.precio_distribuidor !== undefined) patch.precio_distribuidor = toNumberOrNull(body.precio_distribuidor);
+    if (body.costo_usd !== undefined) patch.costo_usd = toNumberOrNull(body.costo_usd);
+    if (body.markup_pct !== undefined) patch.markup_pct = toNumberOrNull(body.markup_pct);
+    if (body.descuento_pct !== undefined) patch.descuento_pct = toNumberOrNull(body.descuento_pct) ?? 0;
     if (body.modo_receta !== undefined) {
       const mr = body.modo_receta;
       patch.modo_receta = mr === "produccion_previa" ? "produccion_previa" : "preparado_al_vender";
