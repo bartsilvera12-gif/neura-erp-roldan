@@ -488,13 +488,13 @@ cuánto se consumió y cuánto conviene comprar.
 **Dónde:** Contabilidad → *Paquete mensual (ZIP)*
 
 1. Fijate qué mes propone solo.
-2. Apretá *Descargar ZIP (12)* y esperá. Puede tardar.
+2. Apretá *Descargar ZIP (15)* y esperá. Puede tardar.
 3. Abrí el ZIP.
 
 🟢 El mes que propone es el **anterior** al actual: el que se cierra, no el
 que está en curso.
 🟢 Baja un archivo `cierre-<mes>_CASA-CENTRAL.zip`.
-🟢 Adentro hay archivos numerados del `01-` al `12-`, más `_LEEME.txt`.
+🟢 Adentro hay archivos numerados del `01-` al `15-`, más `_LEEME.txt`.
 🟢 El `_LEEME.txt` dice la empresa, el mes, la sucursal y qué informes entraron.
 🔴 El botón dice *Armando el paquete…* mientras trabaja y no se puede apretar
 dos veces. Si podés apretarlo de nuevo, avisame.
@@ -570,6 +570,42 @@ con el motivo, y la pantalla avisa cuántos quedaron afuera.
 🔴 Esto es a propósito y es el modelo que definieron ustedes: cada usuario ve
 solo su sucursal, el administrador incluido. Para el cierre de la otra
 sucursal lo baja alguien de ahí.
+
+### 12.10 · Los siete archivos que arma hoy el cliente
+Esta es la prueba de fondo: que el paquete reemplace lo que vienen sacando a
+mano del sistema anterior. Abrí al lado los dos y compará.
+
+| Archivo del sistema viejo | En el ZIP |
+|---|---|
+| `IVA-venta-9-2025_CENTRAL.xls` | `01-libro-ventas.xlsx` |
+| `egreso-9-2025_CENTRAL.xls` | `13-egresos.xlsx` |
+| `anticipo-9-2025_CENTRAL.xls` | `12-anticipos.xlsx` |
+| `inventario-a-la-fecha-9-2025_central.xls` | `14-inventario-a-la-fecha.xlsx` |
+| `stockconprecio-9-2025_CENTRAL.xls` | `15-stock-con-precios.xlsx` |
+| `venta_utilidad-9-2025_CENTRAL.xls` | `10-utilidad-por-rubro.xlsx`, hoja *Detalle por venta* |
+| `venta_utilidad-9-2025_resumido_CENTRAL.xls` | `10-utilidad-por-rubro.xlsx`, hoja *Por rubro* |
+
+🔴 **La prueba que vale:** en `10-utilidad-por-rubro.xlsx`, la suma de la
+columna *Facturación sin IVA* de la hoja **Detalle por venta** tiene que dar
+**lo mismo** que el total de esa columna en la hoja **Por rubro**. Si no
+cierran, son dos números distintos del mismo mes en el mismo archivo.
+🔴 En `13-egresos.xlsx` tienen que estar también los gastos **sin factura**
+(alquiler pagado sin comprobante, por ejemplo). Ésos a propósito **no** están
+en `02-libro-compras.xlsx`, que es un libro fiscal.
+🔴 `14-inventario-a-la-fecha` y `15-stock-con-precios` se parecen pero no son
+lo mismo: el 14 reconstruye el stock y el costo **al último día del mes** (es
+el valor que va al balance, sin precios de venta); el 15 es la foto de **hoy**
+con los precios. El 14 lista solo lo que tiene existencia.
+🔴 `12-anticipos.xlsx` no totaliza el importe: incluye los anulados, marcados
+en su columna.
+
+### 12.11 · Lo que todavía no está
+🔴 Los cuatro campos de la ficha de producto del sistema viejo — **% de
+remarcación en Gs. y en US$, Desc. Grupo % y Desc. Art %** — no existen en el
+sistema, así que tampoco en el ZIP.
+🔴 El **costo en dólares** del `stockconprecio` viejo está *guardado*; el
+nuestro se *calcula* dividiendo por la última cotización. Mientras el dólar no
+se mueva da igual; cuando se mueve, no.
 
 ---
 

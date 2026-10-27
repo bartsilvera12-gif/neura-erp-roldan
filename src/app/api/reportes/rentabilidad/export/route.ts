@@ -5,6 +5,7 @@ import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/fi
 import { getRentabilidad } from "@/lib/reportes/server/reportes-pg";
 import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
+import { getUtilidadDetalle } from "@/lib/reportes/server/mes-detalle-pg";
 import { xlsxResponseHeaders } from "@/lib/excel/export";
 import { buildXlsxEstiladoMulti, hoja, formatearGs, type ColumnaEstilada } from "@/lib/excel/estilo";
 import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
@@ -27,6 +28,13 @@ import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
  *   del % de margen". Un rubro al 60% que vende poco deja menos plata que uno
  *   al 12% que vende mucho. Por eso la planilla trae las dos, más la
  *   participación: qué porcentaje de la utilidad total aporta cada fila.
+ *
+ * ── Y UNA TERCERA HOJA: EL DETALLE ─────────────────────────────────────────
+ *   Las dos hojas de arriba dicen CUÁNTO dejó cada rubro y cada producto; la
+ *   de detalle dice EN QUÉ VENTA. Cuando un rubro cae, sin el detalle no hay
+ *   forma de saber si fue un descuento puntual, una venta grande al costo o
+ *   un precio mal cargado. Es el equivalente al archivo que el cliente sacaba
+ *   del sistema anterior, que traía una fila por línea de venta.
  *
  * ── POR QUÉ LOS PORCENTAJES SE DIVIDEN POR 100 ─────────────────────────────
  *   El cálculo los devuelve como 35 para "35%", pero el formato porcentual de
@@ -74,9 +82,10 @@ export async function GET(request: NextRequest) {
 
     // Se traen las dos agrupaciones: la planilla sirve para las dos preguntas
     // sin tener que exportarla dos veces.
-    const [porRubro, porProducto] = await Promise.all([
+    const [porRubro, porProducto, detalle] = await Promise.all([
       getRentabilidad(schema, empresaId, sucursalId, b, "categoria"),
       getRentabilidad(schema, empresaId, sucursalId, b, "producto"),
+      getUtilidadDetalle(schema, empresaId, sucursalId, b),
     ]);
     const [emp, suc] = await Promise.all([datosEmpresaInforme(empresaId), nombreSucursal(sucursalId)]);
 
@@ -121,9 +130,29 @@ export async function GET(request: NextRequest) {
           ...COLS_COMUNES,
         ],
       }),
+      hoja({
+        nombre: "Detalle por venta", filas: detalle,
+        columnas: [
+          { header: "Fecha", value: (x) => (x.fecha ? new Date(x.fecha) : ""), formato: "fecha", width: 12 },
+          { header: "Factura", value: (x) => x.numero_control ?? "", width: 16 },
+          { header: "Tipo", value: (x) => x.tipo_venta ?? "", width: 12 },
+          { header: "Cliente", value: (x) => x.cliente ?? "", width: 30 },
+          { header: "Producto", value: (x) => x.producto ?? "", width: 38 },
+          { header: "SKU", value: (x) => x.sku ?? "", width: 16 },
+          { header: "Rubro", value: (x) => x.rubro ?? "Sin rubro", width: 24 },
+          { header: "Cantidad", value: (x) => x.cantidad, formato: "cantidad", suma: true, width: 11 },
+          { header: "Precio unit.", value: (x) => x.precio_unitario, formato: "gs", width: 15 },
+          { header: "Facturación sin IVA", value: (x) => x.facturacion, formato: "gs", suma: true, width: 20 },
+          { header: "Costo", value: (x) => x.costo, formato: "gs", suma: true, width: 16 },
+          { header: "Utilidad Gs.", value: (x) => x.ganancia, formato: "gs", suma: true, width: 18 },
+        ],
+      }),
     ], {
       ...emp, informe: "Utilidad por período", periodo: per.periodoLabel, sucursal: suc,
-      notas: ["Excluye ventas anuladas y de consignación."],
+      notas: [
+        "Excluye ventas anuladas y de consignación.",
+        "El costo de cada línea es el que tenía el artículo en el momento de esa venta, no el de hoy.",
+      ],
     });
 
     // El nombre lleva el período: tres planillas descargadas el mismo día se

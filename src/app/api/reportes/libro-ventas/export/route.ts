@@ -10,6 +10,16 @@ export const runtime = "nodejs";
 
 const num = (v: string | number) => Number(v) || 0;
 
+/** Hora de Paraguay (UTC−3) de un timestamp, como HH:MM. */
+function horaPy(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(py.getUTCHours())}:${p(py.getUTCMinutes())}`;
+}
+
 /**
  * Columnas del Libro de Ventas.
  *
@@ -21,6 +31,11 @@ const num = (v: string | number) => Number(v) || 0;
  */
 export const COLUMNAS_LIBRO_VENTAS: ColumnaEstilada<LibroVentaRow>[] = [
   { header: "Fecha", value: (r) => (r.fecha ? new Date(r.fecha) : ""), formato: "fecha", width: 12 },
+  // La hora va aparte y como texto. El archivo que el cliente sacaba del
+  // sistema anterior la traía, y sirve para ubicar una factura cuando hay
+  // varias del mismo cliente el mismo día. Como texto y no como hora de Excel
+  // porque si no la columna hereda el formato de fecha y muestra 00/01/1900.
+  { header: "Hora", value: (r) => horaPy(r.fecha), width: 9 },
   { header: "Comprobante", value: (r) => r.tipo_comprobante, width: 16 },
   { header: "Origen", value: (r) => r.origen, width: 12 },
   { header: "Cliente", value: (r) => r.cliente ?? "", width: 32 },
