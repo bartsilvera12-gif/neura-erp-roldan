@@ -160,6 +160,7 @@ export async function PUT(request: NextRequest) {
       monto_iva: Number(it.monto_iva) || 0,
       total: Number(it.total) || 0,
       precio_venta: Number(it.precio_venta) || 0,
+      precio_venta_usd: it.precio_venta_usd != null ? Number(it.precio_venta_usd) || null : null,
       margen_venta: it.margen_venta != null ? Number(it.margen_venta) : null,
       tipo_pago: tipoPago,
       plazo_dias: plazoDias,
@@ -340,6 +341,7 @@ export async function POST(request: NextRequest) {
         monto_iva: Number(it.monto_iva) || 0,
         total: Number(it.total) || 0,
         precio_venta: Number(it.precio_venta) || 0,
+        precio_venta_usd: it.precio_venta_usd != null ? Number(it.precio_venta_usd) || null : null,
         margen_venta: it.margen_venta != null ? Number(it.margen_venta) : null,
       });
     }

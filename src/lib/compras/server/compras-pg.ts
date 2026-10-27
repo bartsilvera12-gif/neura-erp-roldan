@@ -205,6 +205,8 @@ export interface CompraItemInput {
   monto_iva: number;
   total: number;
   precio_venta: number;
+  /** Precio de venta en dólares, cuando la compra vino en USD. */
+  precio_venta_usd?: number | null;
   margen_venta: number | null;
 }
 
@@ -319,9 +321,16 @@ export async function insertComprasConImpacto(
                   ELSE $2::numeric
                 END,
                 precio_venta = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE precio_venta END,
+                -- Si la compra vino en dólares y trae precio de venta, el
+                -- producto pasa a venderse en dólares: de ahí en más el precio
+                -- en guaraníes se calcula al vender, con la cotización del día.
+                -- La columna precio_venta queda con el equivalente de hoy, para que
+                -- lo que ya la lee siga mostrando un número con sentido.
+                precio_usd = CASE WHEN $6::numeric > 0 THEN $6::numeric ELSE precio_usd END,
                 updated_at = now()
           WHERE id = $4::uuid AND empresa_id = $5::uuid`,
-        [it.cantidad, it.costo_unitario, it.precio_venta, it.producto_id, empresaId]
+        [it.cantidad, it.costo_unitario, it.precio_venta, it.producto_id, empresaId,
+         it.precio_venta_usd ?? 0]
       );
 
       // Sumar al depósito (inventario_stock_ubicacion). Si no se eligió depósito,

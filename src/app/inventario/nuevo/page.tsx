@@ -40,6 +40,7 @@ export default function NuevoProductoPage() {
     // pantalla; lo que se agrega es guardarlo, para poder volver a aplicarlo
     // cuando se mueve la cotizacion.
     costo_usd: "",
+    precio_usd: "",
     descuento_pct: "",
     precio_venta: "",
     precio_mayorista: "",
@@ -391,6 +392,7 @@ export default function NuevoProductoPage() {
           precio_mayorista: form.precio_mayorista.trim() !== "" ? parseFloat(form.precio_mayorista) || null : null,
           precio_distribuidor: form.precio_distribuidor.trim() !== "" ? parseFloat(form.precio_distribuidor) || null : null,
           costo_usd: form.costo_usd.trim() !== "" ? parseFloat(form.costo_usd) || null : null,
+          precio_usd: form.precio_usd.trim() !== "" ? parseFloat(form.precio_usd) || null : null,
           markup_pct: form.markup.trim() !== "" ? parseFloat(form.markup) : null,
           descuento_pct: form.descuento_pct.trim() !== "" ? parseFloat(form.descuento_pct) || 0 : 0,
           cantidad_minima_mayorista: form.cantidad_minima_mayorista.trim() !== "" ? parseFloat(form.cantidad_minima_mayorista) || null : null,
@@ -809,6 +811,8 @@ export default function NuevoProductoPage() {
               <CostoDolarDescuento
                 costoUsd={form.costo_usd}
                 onCostoUsdChange={(v) => setForm((prev) => ({ ...prev, costo_usd: v }))}
+                precioUsd={form.precio_usd}
+                onPrecioUsdChange={(v) => setForm((prev) => ({ ...prev, precio_usd: v }))}
                 descuentoPct={form.descuento_pct}
                 onDescuentoChange={(v) => setForm((prev) => ({ ...prev, descuento_pct: v }))}
                 descuentoRubro={categorias.find((c) => c.id === categoriaId)?.descuento_pct ?? null}

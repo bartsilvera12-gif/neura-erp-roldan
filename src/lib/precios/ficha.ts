@@ -116,3 +116,38 @@ export function precioConDescuento(
   if (d <= 0) return Math.round(p);
   return Math.round(p * (1 - d / 100));
 }
+
+/**
+ * Precio de lista en guaraníes de un producto.
+ *
+ * ── POR QUÉ NO ALCANZA CON `precio_venta` ─────────────────────────────────
+ *   Un producto con `precio_usd` cargado se vende en dólares: su precio en
+ *   guaraníes es el dólar por la cotización del día, y cambia cuando cambia
+ *   el dólar. `precio_venta` guarda el equivalente del último guardado, que
+ *   sirve para que los informes viejos muestren algo con sentido, pero no es
+ *   el precio de hoy.
+ *
+ *   Sin cotización a mano se cae a `precio_venta`: es el último valor
+ *   conocido y está cerca. Vender a cero porque no se pudo leer el tipo de
+ *   cambio sería mucho peor.
+ *
+ * Sin redondeo, por decisión del cliente: el precio es exactamente el dólar
+ * por la cotización, al guaraní entero porque no existe la fracción.
+ */
+export function precioListaGs(
+  p: { precio_venta?: number | string | null; precio_usd?: number | string | null },
+  cotizacionVenta: number | null | undefined
+): number {
+  const usd = num(p.precio_usd);
+  const tc = num(cotizacionVenta);
+  if (usd !== null && usd > 0 && tc !== null && tc > 0) {
+    return Math.round(usd * tc);
+  }
+  return Math.round(num(p.precio_venta) ?? 0);
+}
+
+/** ¿Este producto tiene el precio puesto en dólares? */
+export function precioEnDolares(p: { precio_usd?: number | string | null }): boolean {
+  const usd = num(p.precio_usd);
+  return usd !== null && usd > 0;
+}

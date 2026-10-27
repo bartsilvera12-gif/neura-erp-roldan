@@ -22,7 +22,9 @@ const PRODUCTO_COLS =
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
   "factor_compra_receta, tiempo_prep_minutos, descripcion, precio_mayorista, cantidad_minima_mayorista, precio_distribuidor, modo_receta, tipo_iva, controla_lote, " +
   // Ficha en dolares y descuentos (script 32).
-  "costo_usd, markup_pct, descuento_pct";
+  "costo_usd, markup_pct, descuento_pct, " +
+  // Precio de lista en dolares (script 37).
+  "precio_usd";
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;

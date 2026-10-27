@@ -29,6 +29,9 @@ interface Props {
   /** Costo en dólares cargado, como string del formulario. */
   costoUsd: string;
   onCostoUsdChange: (v: string) => void;
+  /** Precio de VENTA en dólares. Vacío = el producto se vende en guaraníes. */
+  precioUsd: string;
+  onPrecioUsdChange: (v: string) => void;
   /** Descuento propio del artículo, en porcentaje. */
   descuentoPct: string;
   onDescuentoChange: (v: string) => void;
@@ -53,6 +56,8 @@ const fmtUsd = (n: number) => "US$ " + n.toLocaleString("es-PY", { minimumFracti
 export default function CostoDolarDescuento({
   costoUsd,
   onCostoUsdChange,
+  precioUsd,
+  onPrecioUsdChange,
   descuentoPct,
   onDescuentoChange,
   descuentoRubro,
@@ -63,6 +68,7 @@ export default function CostoDolarDescuento({
   disabled,
 }: Props) {
   const [tcVenta, setTcVenta] = useState<number | null>(null);
+  const precioUsdNum = Number(String(precioUsd).replace(",", ".")) || 0;
   const [tcCompra, setTcCompra] = useState<number | null>(null);
 
   useEffect(() => {
@@ -91,7 +97,7 @@ export default function CostoDolarDescuento({
   return (
     <div className="mt-6 rounded-xl border-2 border-slate-100 bg-slate-50/60 p-4">
       <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
-        Costo en dólares y descuentos
+        Dólares y descuentos
       </p>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -114,6 +120,34 @@ export default function CostoDolarDescuento({
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
             El de la factura del proveedor. Se guarda tal cual para que no cambie cuando se mueve el dólar.
+          </p>
+        </div>
+
+        <div>
+          {/* El costo en dólares se congela al guardar; el PRECIO en dólares
+              no. Mientras esté cargado, el precio en guaraníes se recalcula
+              al vender con la cotización del día, que es como trabajaba el
+              cliente en su sistema anterior. */}
+          <label className={labelClass}>
+            Precio de venta en dólares <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">US$</span>
+            <input
+              type="number"
+              value={precioUsd}
+              onChange={(e) => onPrecioUsdChange(e.target.value)}
+              placeholder="Ej: 6.3800"
+              step="0.0001"
+              min="0"
+              disabled={disabled}
+              className={`${inputClass} pl-11`}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-gray-400">
+            {precioUsdNum && precioUsdNum > 0 && tcVenta
+              ? `Hoy sale ${fmtGs(precioUsdNum * tcVenta)} al cambio de ${fmtGs(tcVenta)}. Si el dólar se mueve, el precio acompaña solo.`
+              : "Cargalo y el precio en guaraníes se calcula al vender, con la cotización del día. Vacío = se vende en guaraníes."}
           </p>
         </div>
 

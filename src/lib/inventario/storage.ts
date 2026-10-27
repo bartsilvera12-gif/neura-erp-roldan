@@ -47,6 +47,7 @@ interface ProductoRow {
   tipo_iva?: string | null;
   // Ficha en dólares y descuentos (script 32).
   costo_usd?: string | number | null;
+  precio_usd?: string | number | null;
   markup_pct?: string | number | null;
   descuento_pct?: string | number | null;
 }
@@ -108,6 +109,7 @@ function rowToProducto(row: ProductoRow): Producto {
     // dólares, la remarcación y el descuento no llegaban a ninguna pantalla.
     // Por eso un descuento cargado en el rubro no se aplicaba en Caja.
     costo_usd: row.costo_usd != null ? Number(row.costo_usd) : null,
+    precio_usd: row.precio_usd != null ? Number(row.precio_usd) : null,
     markup_pct: row.markup_pct != null ? Number(row.markup_pct) : null,
     descuento_pct: row.descuento_pct != null ? Number(row.descuento_pct) : 0,
   };
@@ -284,6 +286,7 @@ export async function saveProducto(
     cantidad_minima_mayorista: datos.cantidad_minima_mayorista ?? null,
     precio_distribuidor: datos.precio_distribuidor ?? null,
     costo_usd: datos.costo_usd ?? null,
+    precio_usd: datos.precio_usd ?? null,
     markup_pct: datos.markup_pct ?? null,
     descuento_pct: datos.descuento_pct ?? 0,
     stock_actual: datos.stock_actual ?? 0,

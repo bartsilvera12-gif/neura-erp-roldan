@@ -23,6 +23,8 @@ export interface Producto {
   precio_distribuidor?: number | null;
   /** Costo en dolares de la factura del proveedor (script 32). */
   costo_usd?: number | null;
+  /** Precio de lista en dólares. null = se vende en guaraníes. */
+  precio_usd?: number | null;
   /** % de remarcacion con el que se armo el precio. No se aplica solo. */
   markup_pct?: number | null;
   /** Descuento propio del articulo. Reemplaza al del rubro, no se suma. */

@@ -17,7 +17,7 @@ const PRODUCTO_COLS =
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
   "factor_compra_receta, tiempo_prep_minutos, descripcion, precio_mayorista, cantidad_minima_mayorista, precio_distribuidor, modo_receta, tipo_iva, controla_lote, " +
   // Ficha en dolares y descuentos (script 32).
-  "costo_usd, markup_pct, descuento_pct";
+  "costo_usd, markup_pct, descuento_pct, precio_usd";
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
@@ -39,6 +39,7 @@ function rowToApi(r: Record<string, unknown>): Record<string, unknown> {
     cantidad_minima_mayorista: r.cantidad_minima_mayorista != null ? toNumber(r.cantidad_minima_mayorista) : null,
     precio_distribuidor: r.precio_distribuidor != null ? toNumber(r.precio_distribuidor) : null,
     costo_usd: r.costo_usd != null ? toNumber(r.costo_usd) : null,
+    precio_usd: r.precio_usd != null ? toNumber(r.precio_usd) : null,
     markup_pct: r.markup_pct != null ? toNumber(r.markup_pct) : null,
     descuento_pct: r.descuento_pct != null ? toNumber(r.descuento_pct) : 0,
   };
@@ -190,6 +191,9 @@ export async function PATCH(
     if (body.cantidad_minima_mayorista !== undefined) patch.cantidad_minima_mayorista = toNumberOrNull(body.cantidad_minima_mayorista);
     if (body.precio_distribuidor !== undefined) patch.precio_distribuidor = toNumberOrNull(body.precio_distribuidor);
     if (body.costo_usd !== undefined) patch.costo_usd = toNumberOrNull(body.costo_usd);
+    // Precio de lista en dólares (script 37). Vacío vuelve a NULL: el
+    // producto pasa a venderse en guaraníes y manda `precio_venta`.
+    if (body.precio_usd !== undefined) patch.precio_usd = toNumberOrNull(body.precio_usd);
     if (body.markup_pct !== undefined) patch.markup_pct = toNumberOrNull(body.markup_pct);
     if (body.descuento_pct !== undefined) patch.descuento_pct = toNumberOrNull(body.descuento_pct) ?? 0;
     if (body.modo_receta !== undefined) {

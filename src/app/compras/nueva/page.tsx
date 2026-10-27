@@ -56,6 +56,8 @@ type LineaCompra = {
   costo_unitario_pyg: number;
   iva_tipo: TipoIva;
   precio_venta: number;
+  /** Precio de venta en dólares, cuando la compra es en USD. */
+  precio_venta_usd?: number | null;
   subtotal: number;
   monto_iva: number;
   total: number;
@@ -318,7 +320,11 @@ export default function NuevaCompraPage() {
   const nlTotal = nlCant > 0 && nlCostoPYG > 0 ? nlCant * nlCostoPYG : 0;
   const nlIva = ivaMonto(nlTotal, nl.iva_tipo);
   const nlSubtotal = nlTotal - nlIva;
-  const nlMargen = nlPrecio > 0 && nlCostoPYG > 0 ? ((nlPrecio - nlCostoPYG) / nlPrecio) * 100 : null;
+  // El precio de venta está en la moneda de la compra, así que se lo pasa a
+  // guaraníes antes de compararlo con el costo. Medir un precio en dólares
+  // contra un costo en guaraníes es lo que daba márgenes de -266.566%.
+  const nlPrecioPYG = nlPrecio * tipoCambioNum;
+  const nlMargen = nlPrecioPYG > 0 && nlCostoPYG > 0 ? ((nlPrecioPYG - nlCostoPYG) / nlPrecioPYG) * 100 : null;
   const productoSel = productos.find((p) => p.id === nl.producto_id);
   // ¿El producto seleccionado controla lote? Lo tomamos del objeto Producto
   // (el listado de /api/productos incluye controla_lote).
@@ -416,7 +422,11 @@ export default function NuevaCompraPage() {
         iva_tipo: nl.iva_tipo,
         // Para insumos sin precio cargado, guardamos el precio actual del producto
         // (no inventamos uno). El backend no sobreescribe productos.precio_venta con 0.
-        precio_venta: nlPrecio > 0 ? nlPrecio : (prod.precio_venta ?? 0),
+        // En guaraníes para la fila de la compra y para el margen; y, cuando
+        // la compra es en dólares, también el precio en dólares, que es el que
+        // queda mandando en el producto.
+        precio_venta: nlPrecioPYG > 0 ? nlPrecioPYG : (prod.precio_venta ?? 0),
+        precio_venta_usd: cab.moneda === "USD" && nlPrecio > 0 ? nlPrecio : null,
         subtotal: nlSubtotal,
         monto_iva: nlIva,
         total: nlTotal,
@@ -1075,12 +1085,25 @@ export default function NuevaCompraPage() {
                     onChange={(v) => setNl((p) => ({ ...p, iva_tipo: v }))} />
                 </div>
                 <div>
+                  {/* El precio de venta sigue la moneda de la compra, igual que
+                      el costo. Antes estaba siempre en guaraníes y no lo decía:
+                      al lado de un costo en dólares, un 12 se leía como 12 Gs.
+                      contra un costo de 32.000 y el margen salía en -266.566%. */}
                   <label className={labelSmClass}>
-                    Precio venta <span className="font-normal text-gray-400">(opcional)</span>
+                    Precio venta {cab.moneda === "USD" ? "(USD)" : "(Gs.)"}{" "}
+                    <span className="font-normal text-gray-400">(opcional)</span>
                   </label>
                   <MontoInput value={nl.precio_venta}
                     onChange={(n) => setNl((p) => ({ ...p, precio_venta: String(n) }))}
-                    placeholder="Opcional" className={inputSmClass} decimals={false} />
+                    placeholder="Opcional" className={inputSmClass}
+                    decimals={cab.moneda === "USD"} />
+                  {cab.moneda === "USD" && (
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      {nlPrecio > 0 && tipoCambioNum > 0
+                        ? `Se guarda en dólares: hoy sale ${formatGs(nlPrecioPYG)}, y si el dólar se mueve el precio acompaña solo.`
+                        : "Se guarda en dólares. El precio en guaraníes se calcula al vender."}
+                    </p>
+                  )}
                 </div>
               </div>
 

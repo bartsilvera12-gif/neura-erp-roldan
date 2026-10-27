@@ -53,6 +53,7 @@ export default function EditarProductoPage() {
     // pantalla; lo que se agrega es guardarlo, para poder volver a aplicarlo
     // cuando se mueve la cotizacion.
     costo_usd: "",
+    precio_usd: "",
     descuento_pct: "",
     precio_venta: "",
     precio_mayorista: "",
@@ -215,6 +216,7 @@ export default function EditarProductoPage() {
         cantidad_minima_mayorista: p.cantidad_minima_mayorista != null ? String(p.cantidad_minima_mayorista) : "",
         precio_distribuidor: p.precio_distribuidor != null ? String(p.precio_distribuidor) : "",
         costo_usd: p.costo_usd != null ? String(p.costo_usd) : "",
+        precio_usd: p.precio_usd != null ? String(p.precio_usd) : "",
         descuento_pct: p.descuento_pct ? String(p.descuento_pct) : "",
         stock_actual: String(p.stock_actual),
         stock_minimo: String(p.stock_minimo),
@@ -386,6 +388,7 @@ export default function EditarProductoPage() {
         cantidad_minima_mayorista: form.cantidad_minima_mayorista.trim() !== "" ? parseFloat(form.cantidad_minima_mayorista) || null : null,
         precio_distribuidor: form.precio_distribuidor.trim() !== "" ? parseFloat(form.precio_distribuidor) || null : null,
         costo_usd: form.costo_usd.trim() !== "" ? parseFloat(form.costo_usd) || null : null,
+        precio_usd: form.precio_usd.trim() !== "" ? parseFloat(form.precio_usd) || null : null,
         markup_pct: form.markup.trim() !== "" ? parseFloat(form.markup) : null,
         descuento_pct: form.descuento_pct.trim() !== "" ? parseFloat(form.descuento_pct) || 0 : 0,
         stock_actual: parseInt(form.stock_actual) || 0,
@@ -905,6 +908,8 @@ export default function EditarProductoPage() {
               <CostoDolarDescuento
                 costoUsd={form.costo_usd}
                 onCostoUsdChange={(v) => setForm((prev) => ({ ...prev, costo_usd: v }))}
+                precioUsd={form.precio_usd}
+                onPrecioUsdChange={(v) => setForm((prev) => ({ ...prev, precio_usd: v }))}
                 descuentoPct={form.descuento_pct}
                 onDescuentoChange={(v) => setForm((prev) => ({ ...prev, descuento_pct: v }))}
                 descuentoRubro={categorias.find((c) => c.id === categoriaId)?.descuento_pct ?? null}

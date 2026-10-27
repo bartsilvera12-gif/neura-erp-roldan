@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Plus, Minus, Trash2, ImageIcon, ChevronDown } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
-import { descuentoEfectivo, precioConDescuento } from "@/lib/precios/ficha";
+import { descuentoEfectivo, precioConDescuento, precioListaGs, precioEnDolares } from "@/lib/precios/ficha";
 import { saveVenta, type FaltanteStock } from "@/lib/ventas/storage";
 import { getProductos } from "@/lib/inventario/storage";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
@@ -112,8 +112,12 @@ function calcIva(tipo: TipoIvaVenta, total: number) {
 //  A (minorista)    = precio de lista (precio_venta)
 //  B (mayorista)    = lista + 5%
 //  C (distribuidor) = lista + 10%
-function precioPorTipo(p: Producto, tipo: TipoPrecioVenta): number {
-  const lista = p.precio_venta;
+function precioPorTipo(p: Producto, tipo: TipoPrecioVenta, tcVenta?: number | null): number {
+  // Un producto con precio en dólares vale el dólar por la cotización de hoy:
+  // `precio_venta` guarda el equivalente del último guardado y para cuando se
+  // vende puede ser de otro dólar. Los niveles B y C se calculan sobre ese
+  // precio ya convertido, no sobre el viejo.
+  const lista = precioListaGs(p, tcVenta);
   if (tipo === "mayorista") return Math.round(lista * 1.05);    // B
   if (tipo === "distribuidor") return Math.round(lista * 1.10); // C
   if (tipo === "costo") return p.costo_promedio ?? 0; // histórico: ya no se ofrece en la UI
@@ -313,6 +317,8 @@ export default function NuevaVentaPage() {
   const [comboBuscando,  setComboBuscando]  = useState(false);
   const [comboCategoriaId, setComboCategoriaId] = useState<string>("");
   const [categorias,     setCategorias]     = useState<{ id: string; nombre: string; descuento_pct: number }[]>([]);
+  /** Cotización de venta del día, para los productos con precio en dólares. */
+  const [tcVenta, setTcVenta] = useState<number | null>(null);
   const comboInputRef    = useRef<HTMLInputElement>(null);
   const comboContainerRef = useRef<HTMLDivElement>(null);
   const comboTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -357,7 +363,7 @@ export default function NuevaVentaPage() {
     // el de lista, se le aplica el descuento del artículo o del rubro, igual
     // que en el autocomplete; si el vendedor escribió otro precio, manda el
     // suyo y no se le encima ningún descuento.
-    const listaPicker = precioPorTipo(pickerToProducto(p), tipo_precio);
+    const listaPicker = precioPorTipo(pickerToProducto(p), tipo_precio, tcVenta);
     const usaPrecioDeLista = Math.round(precio_input) === Math.round(listaPicker);
     const precioPyg = usaPrecioDeLista
       ? precioConDescuento(listaPicker, descuentoDeLista(p.id)) ?? listaPicker
@@ -648,6 +654,21 @@ export default function NuevaVentaPage() {
     return () => clearTimeout(t);
   }, []);
 
+  // La cotización del día. Sin ella, un producto en dólares cae a su último
+  // precio en guaraníes conocido: está cerca y deja seguir vendiendo.
+  useEffect(() => {
+    let cancel = false;
+    fetchWithSupabaseSession("/api/tipos-cambio?moneda=USD&limit=1", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel) return;
+        const v = Number(j?.data?.vigente?.venta);
+        if (Number.isFinite(v) && v > 0) setTcVenta(v);
+      })
+      .catch(() => undefined);
+    return () => { cancel = true; };
+  }, []);
+
   // Cargar catálogo de rubros una vez (para el dropdown del buscador).
   useEffect(() => {
     let cancel = false;
@@ -920,11 +941,11 @@ export default function NuevaVentaPage() {
   /** Precio de lista y precio ya con el descuento del artículo o del rubro. */
   const preciosDe = useCallback(
     (p: Producto, tipo: TipoPrecioVenta) => {
-      const lista = precioPorTipo(p, tipo);
+      const lista = precioPorTipo(p, tipo, tcVenta);
       const pct = descuentoDeLista(p.id);
       return { lista, final: precioConDescuento(lista, pct) ?? lista, pct };
     },
-    [descuentoDeLista]
+    [descuentoDeLista, tcVenta]
   );
 
   /**
@@ -1541,7 +1562,7 @@ export default function NuevaVentaPage() {
                             {/* Precio + acción apilados a la derecha: en celular evita que
                                 el precio se encime con el stock del nombre. */}
                             <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="text-sm font-bold tabular-nums text-slate-800 whitespace-nowrap">{formatGs(precioPorTipo(p, "minorista"))}</span>
+                              <span className="text-sm font-bold tabular-nums text-slate-800 whitespace-nowrap">{formatGs(precioPorTipo(p, "minorista", tcVenta))}</span>
                               {sinStock ? (
                                 <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-400">
                                   Sin stock
@@ -1612,6 +1633,17 @@ export default function NuevaVentaPage() {
                               <div className="min-w-0">
                                 <p className="font-semibold text-slate-900 leading-snug">{item.producto_nombre}</p>
                                 <p className="font-mono text-[11px] text-slate-500">{item.sku}</p>
+                                {/* Para un producto con precio en dólares, el
+                                    guaraní es una consecuencia del cambio de
+                                    hoy. Se dice de dónde sale el número: sin
+                                    eso, el vendedor no puede explicarle al
+                                    cliente por qué hoy cuesta distinto. */}
+                                {prod && precioEnDolares(prod) && tcVenta && (
+                                  <p className="text-[11px] leading-snug text-sky-700">
+                                    US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                    {" × "}{formatGs(tcVenta).replace("Gs. ", "")}{" = "}{formatGs(precioListaGs(prod, tcVenta))}
+                                  </p>
+                                )}
                                 {verMargenes && costoMin > 0 && (() => {
                                   const m = margenSobreVenta(costoMin, item.precio_venta);
                                   const r = remarcacionSobreCosto(costoMin, item.precio_venta);
