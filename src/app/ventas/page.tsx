@@ -296,6 +296,7 @@ export default function VentasPage() {
               <tr className="bg-slate-50 text-slate-600 text-sm font-semibold">
                 <th className="py-3 pr-4 font-medium">Número</th>
                 <th className="py-3 pr-4 font-medium">Productos</th>
+                <th className="py-3 pr-4 font-medium">Cliente</th>
                 <th className="hidden py-3 pr-4 text-center font-medium lg:table-cell">Ítems</th>
                 <th className="py-3 pr-4 font-medium text-right hidden lg:table-cell">Cant. total</th>
                 <th className="py-3 pr-4 font-medium hidden lg:table-cell">IVA</th>
@@ -310,7 +311,7 @@ export default function VentasPage() {
             <tbody>
               {filtradas.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-gray-400">
+                  <td colSpan={12} className="py-12 text-center text-gray-400">
                     {todas.length === 0
                       ? "No hay ventas registradas"
                       : "Ninguna venta coincide con los filtros"}
@@ -351,6 +352,21 @@ export default function VentasPage() {
                       <td className="py-4 pr-4 align-middle">
                         <ResumenProductos v={v} />
                       </td>
+                      {/* A quién se le vendió. Estaba en el detalle pero no en
+                          el listado, así que para contestar "¿esta venta de
+                          quién era?" había que abrir una por una. */}
+                      <td className="py-4 pr-4 align-middle text-sm text-gray-700">
+                        {v.cliente_nombre ? (
+                          <>
+                            {v.cliente_nombre}
+                            {v.cliente_sucursal && (
+                              <span className="block text-[11px] text-gray-400">{v.cliente_sucursal}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Consumidor final</span>
+                        )}
+                      </td>
                       <td className="hidden py-4 pr-4 text-center align-middle lg:table-cell">
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
                           {v.items.length}
@@ -389,7 +405,10 @@ export default function VentasPage() {
                           : "—"}
                       </td>
                       <td className="hidden py-4 pr-4 align-middle text-xs text-gray-600 lg:table-cell">
-                        {v.usuario_nombre ?? "—"}
+                        {/* El vendedor asignado manda sobre el cajero. En las
+                            ventas viejas `usuario_nombre` guardó el email, que
+                            es lo que se veía acá. */}
+                        {v.vendedor_nombre || v.usuario_nombre || "—"}
                       </td>
                       <td className="py-4 pr-4 text-gray-500 text-xs tabular-nums align-middle">
                         {formatFecha(v.fecha)}
@@ -655,7 +674,8 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
         {/* Meta: fecha/hora, vendedor, tipo, pago */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-4 sm:grid-cols-4">
           <Meta label="Fecha y hora" value={formatFecha(venta.fecha)} />
-          <Meta label="Vendedor" value={venta.usuario_nombre ?? "—"} />
+          <Meta label="Cliente" value={venta.cliente_nombre ?? "Consumidor final"} />
+          <Meta label="Vendedor" value={venta.vendedor_nombre || venta.usuario_nombre || "—"} />
           <Meta
             label="Tipo"
             value={venta.tipo_venta === "CONTADO" ? "Contado" : `Crédito ${venta.plazo_dias ?? ""}d`}
