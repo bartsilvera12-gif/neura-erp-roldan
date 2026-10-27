@@ -790,6 +790,25 @@ function ModalPlanilla({
 
   const todos = elegidos.length === 0;
 
+  // Buscador de la lista de rubros. Con cuarenta rubros, encontrar
+  // "TEJIDOS-ALAMBRES-CLAVOS" bajando con la rueda es peor que escribirlo.
+  const [filtroRubro, setFiltroRubro] = useState("");
+
+  /**
+   * Los rubros que se ven en la lista.
+   *
+   * Un rubro ya tildado se muestra SIEMPRE, aunque no coincida con lo que se
+   * está escribiendo: si se escondiera, se perdería de vista que está elegido
+   * y la planilla saldría con un rubro que el usuario cree que sacó.
+   */
+  const rubrosVisibles = useMemo(() => {
+    const t = filtroRubro.trim().toLowerCase();
+    if (!t) return rubros;
+    return rubros.filter(
+      (r) => r.nombre.toLowerCase().includes(t) || elegidos.includes(r.id)
+    );
+  }, [rubros, filtroRubro, elegidos]);
+
   function alternar(id: string) {
     setElegidos((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -865,12 +884,30 @@ function ModalPlanilla({
                 : `${elegidos.length} rubros: sale una hoja por rubro, para repartir el conteo.`}
             </p>
 
+            {/* El buscador aparece recién cuando hay suficientes rubros como
+                para que valga la pena: con cinco a la vista, un campo de
+                búsqueda arriba es un paso de más. */}
+            {rubros.length > 8 && (
+              <input
+                type="text"
+                value={filtroRubro}
+                onChange={(e) => setFiltroRubro(e.target.value)}
+                placeholder="Buscar rubro…"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-[#4FAEB2] focus:outline-none"
+              />
+            )}
+
             <div className="mt-2 max-h-52 space-y-0.5 overflow-y-auto rounded-lg border border-slate-200 p-1.5">
               {rubros.length === 0 ? (
                 <p className="px-2 py-3 text-xs text-slate-400">Todavía no cargaste rubros.</p>
               ) : (
                 <>
-                  {rubros.map((r) => (
+                  {rubrosVisibles.length === 0 && (
+                    <p className="px-2 py-3 text-xs text-slate-400">
+                      Ningún rubro se llama así.
+                    </p>
+                  )}
+                  {rubrosVisibles.map((r) => (
                     <label
                       key={r.id}
                       className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
@@ -884,6 +921,9 @@ function ModalPlanilla({
                       <span className="truncate">{r.nombre}</span>
                     </label>
                   ))}
+                  {/* No se filtra con el buscador: no es un rubro con nombre,
+                      es la bolsa de los que no tienen uno, y esconderla al
+                      escribir dejaría sin forma de contarlos. */}
                   <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
                     <input
                       type="checkbox"
