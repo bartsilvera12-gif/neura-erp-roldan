@@ -897,12 +897,15 @@ function ModalPlanilla({
                 : `${elegidos.length} rubros: sale una hoja por rubro, para repartir el conteo.`}
             </p>
 
-            {/* El buscador aparece recién cuando hay suficientes rubros como
-                para que valga la pena: con cinco a la vista, un campo de
-                búsqueda arriba es un paso de más. */}
-            {rubros.length > 8 && (
+            {/* El buscador va siempre que haya rubros. Antes aparecía recién
+                pasados los ocho, con el argumento de que con cinco a la vista
+                sobraba. Pero quien lo pidió tiene cinco: esconder un control
+                que alguien busca es peor que mostrar uno que a veces no hace
+                falta, y la lista crece sola —los rubros de proveedor se
+                importan— así que el día que haga falta ya va a estar. */}
+            {rubros.length > 0 && (
               <input
-                type="text"
+                type="search"
                 value={filtroRubro}
                 onChange={(e) => setFiltroRubro(e.target.value)}
                 placeholder="Buscar rubro…"
