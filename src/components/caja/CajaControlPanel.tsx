@@ -814,6 +814,17 @@ function ModalCerrar({
           {resumen.retiros_efectivo > 0 && (
             <Row label="− Retiros" value={`-${fmtGs(resumen.retiros_efectivo)}`} />
           )}
+          {/* El faltante que viene de atrás baja lo que se espera encontrar:
+              esa plata no está en el cajón y esperarla haría que el cajero de
+              hoy cargue con el error de ayer en su propio cierre. */}
+          {resumen.diferencia_arrastrada !== 0 && (
+            <Row
+              label={resumen.diferencia_arrastrada < 0
+                ? "− Faltante del turno anterior"
+                : "+ Sobrante del turno anterior"}
+              value={`${resumen.diferencia_arrastrada < 0 ? "-" : "+"}${fmtGs(Math.abs(resumen.diferencia_arrastrada))}`}
+            />
+          )}
           <div className="border-t border-slate-200 mt-2 pt-2">
             <Row
               label="Efectivo esperado"

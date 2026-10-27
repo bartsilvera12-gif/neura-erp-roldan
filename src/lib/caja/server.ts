@@ -637,6 +637,23 @@ export async function getDetalleCaja(
     }
   }
 
+  // El faltante del turno anterior se descuenta de lo que se espera encontrar.
+  //
+  // ── POR QUÉ ENTRA EN LA CUENTA Y NO SOLO EN UNA LÍNEA DE AVISO ──────────
+  //   Hasta acá el arrastre se guardaba al abrir y se mostraba en el arqueo,
+  //   pero el esperado lo ignoraba. Eso hace que el turno nuevo arranque
+  //   esperando una plata que no está en el cajón —se fue ayer— y que el
+  //   cajero de hoy aparezca con el faltante de ayer en su propio cierre, un
+  //   día tras otro, mientras nadie lo resuelve.
+  //
+  //   Con el arrastre adentro, el turno de hoy cuadra en cero si hoy no hubo
+  //   errores, y el faltante queda donde corresponde: en `diferencia_arrastrada`,
+  //   a la vista, hasta que alguien lo marque resuelto.
+  //
+  //   El signo ya viene dado: una diferencia negativa es faltante, así que
+  //   sumarla resta. Un sobrante arrastrado suma, por el mismo camino.
+  const arrastrePrevio = await leerArrastre(sb, empresaId, caja.id);
+
   const efectivoEsperado =
     caja.monto_apertura +
     totalEfectivo +
@@ -644,7 +661,8 @@ export async function getDetalleCaja(
     ingresosEf -
     egresosEf -
     retirosEf +
-    ajustesEf;
+    ajustesEf +
+    arrastrePrevio;
 
   // Nombres de usuarios (quién abrió/cerró + autores de movimientos).
   const userIds = [
@@ -1175,6 +1193,11 @@ async function computeResumen(
     }
   }
 
+  // Mismo criterio que en `computeResumen`: el faltante del turno anterior
+  // baja lo que se espera encontrar. Las dos cuentas tienen que dar igual o
+  // el panel de Caja y el arqueo dirían cosas distintas del mismo turno.
+  const arrastrePrevio = await leerArrastre(sb, empresaId, caja.id);
+
   const efectivoEsperado =
     caja.monto_apertura +
     totalEfectivo +
@@ -1182,13 +1205,12 @@ async function computeResumen(
     ingresosEf -
     egresosEf -
     retirosEf +
-    ajustesEf;
+    ajustesEf +
+    arrastrePrevio;
 
   // Lo que hay que entregar: todo menos el fondo con el que se abrió, que
   // queda para el turno siguiente.
   const dineroARendir = efectivoEsperado - caja.monto_apertura;
-
-  const arrastre = await leerArrastre(sb, empresaId, caja.id);
 
   return {
     caja,
@@ -1199,7 +1221,7 @@ async function computeResumen(
     total_anticipos: totalAnticipos,
     anticipos_efectivo: anticiposEfectivo,
     dinero_a_rendir: dineroARendir,
-    diferencia_arrastrada: arrastre,
+    diferencia_arrastrada: arrastrePrevio,
     total_efectivo: totalEfectivo,
     total_tarjeta: totalTarjeta,
     total_transferencia: totalTransferencia,
