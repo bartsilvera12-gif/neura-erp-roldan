@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Pencil } from "lucide-react";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
@@ -194,6 +195,13 @@ export default function CategoriasProductosPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Rubros de productos</h1>
           <p className="text-gray-600">Clasificá tus productos para reportes y búsqueda.</p>
+          {/* Las dos columnas configurables no se descubren solas: el valor
+              parece un dato de la fila y no un control. Se dice en una línea
+              en vez de esperar que alguien pruebe hacerle clic. */}
+          <p className="mt-1 text-xs text-slate-500">
+            Las columnas <strong>Crítico bajo</strong> y <strong>Descuento</strong> se configuran
+            haciendo clic sobre su valor, rubro por rubro.
+          </p>
           <div className="mt-3 max-w-2xl rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
             Estos rubros aparecen en el selector <strong>Rubro principal</strong> de Nuevo producto.
             Los <Link href="/proveedores/categorias" className="underline font-medium">rubros de proveedor</Link>{" "}
@@ -316,33 +324,39 @@ export default function CategoriasProductosPage() {
                     <td className="px-4 py-2 text-gray-500">{c.codigo ?? "—"}</td>
                     <td className="px-4 py-2 text-gray-500">{parent?.nombre ?? "—"}</td>
                     <td className="px-4 py-2">
+                      {/* Se dibuja como un campo editable y no como texto: con
+                          el estilo anterior —gris, subrayado solo al pasar por
+                          encima— se leía como un dato y nadie adivinaba que
+                          ahí se hace clic para configurarlo. */}
                       <button
                         onClick={() => editarDiasCritico(c)}
-                        className="rounded px-1.5 py-0.5 text-xs underline-offset-2 hover:bg-slate-100 hover:underline"
-                        title="Cambiar los días de cobertura crítica de este rubro"
+                        className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
+                        title="Clic para cambiar los días de cobertura crítica de este rubro"
                       >
                         {c.dias_critico == null ? (
-                          <span className="text-slate-400">general</span>
+                          <span className="text-slate-400 group-hover:text-[#3F8E91]">general</span>
                         ) : (
-                          <span className="font-semibold text-slate-700 tabular-nums">
+                          <span className="font-semibold text-slate-700 tabular-nums group-hover:text-[#3F8E91]">
                             {c.dias_critico} d
                           </span>
                         )}
+                        <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
                       </button>
                     </td>
                     <td className="px-4 py-2">
                       <button
                         onClick={() => editarDescuentoRubro(c)}
-                        className="rounded px-1.5 py-0.5 text-xs underline-offset-2 hover:bg-slate-100 hover:underline"
-                        title="Descuento que se aplica a todos los artículos de este rubro"
+                        className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
+                        title="Clic para cambiar el descuento que se aplica a todos los artículos de este rubro"
                       >
                         {c.descuento_pct ? (
                           <span className="font-semibold text-emerald-700 tabular-nums">
                             {c.descuento_pct}%
                           </span>
                         ) : (
-                          <span className="text-slate-400">sin desc.</span>
+                          <span className="text-slate-400 group-hover:text-[#3F8E91]">sin desc.</span>
                         )}
+                        <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
                       </button>
                     </td>
                     <td className="px-4 py-2">
