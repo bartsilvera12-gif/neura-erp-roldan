@@ -125,6 +125,15 @@ export default function ReportesPage() {
         </li>
         <li>
           <ReportCard
+            title="Ingresos y egresos"
+            subtitle="Movimientos de caja y gastos"
+            icon={ArrowLeftRight}
+            description="Toda la plata que entró y salió sin ser una venta, con rango de fechas y filtros. Desde acá también se cargan."
+            href="/reportes/ingresos-egresos"
+          />
+        </li>
+        <li>
+          <ReportCard
             title="Cierres de caja"
             subtitle="Turno por turno"
             icon={Wallet}
