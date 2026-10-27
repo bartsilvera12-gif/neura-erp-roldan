@@ -521,7 +521,7 @@ export async function getDetalleCaja(
   const mQ = await sb
     .from("caja_movimientos")
     .select(
-      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, usuario_email, observacion, created_at, venta_id"
+      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, usuario_email, observacion, created_at, venta_id, tipo_egreso, adjuntos"
     )
     .eq("empresa_id", empresaId)
     .eq("caja_id", cajaId)
@@ -677,6 +677,10 @@ export async function getDetalleCaja(
     created_at: m.created_at,
     usuario_email: m.usuario_email,
     usuario_nombre: m.usuario_id ? nombrePorUsuario.get(m.usuario_id) ?? null : null,
+    tipo_egreso: (m as { tipo_egreso?: string | null }).tipo_egreso ?? null,
+    // El `url` que viene de la base se ignora a propósito: las firmadas
+    // vencen, y la pantalla pide una nueva al abrir el comprobante.
+    adjuntos: (m as { adjuntos?: Array<{ tipo: string; nombre: string; path: string | null }> | null }).adjuntos ?? null,
   }));
 
   const row: CajaReporteRow = {
@@ -1097,7 +1101,7 @@ async function computeResumen(
   const mQ = await sb
     .from("caja_movimientos")
     .select(
-      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, observacion, created_at"
+      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, observacion, created_at, tipo_egreso, adjuntos"
     )
     .eq("empresa_id", empresaId)
     .eq("caja_id", caja.id)
@@ -1139,6 +1143,8 @@ async function computeResumen(
       medio_pago: medio,
       usuario_id: m.usuario_id,
       observacion: m.observacion,
+      tipo_egreso: (m as { tipo_egreso?: string | null }).tipo_egreso ?? null,
+      adjuntos: (m as { adjuntos?: Array<{ tipo: string; nombre: string }> | null }).adjuntos ?? null,
       created_at: m.created_at,
     };
   });

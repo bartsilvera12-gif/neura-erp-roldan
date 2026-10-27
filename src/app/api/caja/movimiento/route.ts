@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { registrarMovimiento, getCajaAbierta } from "@/lib/caja/server";
+import { comprobantePathBelongsToEmpresa } from "@/lib/compras/comprobante-storage";
 import { esTipoEgresoValido } from "@/lib/caja/tipos-egreso";
 
 /**
@@ -13,6 +14,37 @@ import { esTipoEgresoValido } from "@/lib/caja/tipos-egreso";
  */
 const TIPOS_VALIDOS = ["ingreso", "egreso", "retiro", "ajuste"] as const;
 const MEDIOS_VALIDOS = ["efectivo", "tarjeta", "transferencia", "otro"] as const;
+
+/** Tipos de papel que puede llevar un egreso. */
+const TIPOS_ADJUNTO = new Set(["factura", "recibo"]);
+
+/**
+ * Deja pasar solo los adjuntos bien formados y de esta empresa.
+ * Devuelve null si no queda ninguno, para no escribir un arreglo vacío.
+ */
+function adjuntosValidos(
+  raw: unknown,
+  empresaId: string
+): Array<{ tipo: string; nombre: string; path: string | null; url: string | null }> | null {
+  if (!Array.isArray(raw)) return null;
+  const out = raw.flatMap((a) => {
+    if (!a || typeof a !== "object") return [];
+    const o = a as Record<string, unknown>;
+    const tipo = String(o.tipo ?? "");
+    const path = typeof o.path === "string" ? o.path : "";
+    if (!TIPOS_ADJUNTO.has(tipo)) return [];
+    if (!comprobantePathBelongsToEmpresa(path, empresaId)) return [];
+    return [{
+      tipo,
+      nombre: String(o.nombre ?? "comprobante").slice(0, 200),
+      path,
+      // La URL no se guarda: las firmadas vencen, y una vencida guardada en la
+      // base se ve como un enlace roto. Se pide al abrir el comprobante.
+      url: null,
+    }];
+  });
+  return out.length > 0 ? out.slice(0, 2) : null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,6 +110,11 @@ export async function POST(request: NextRequest) {
       tipoEgreso: tipo === "egreso" && esTipoEgresoValido(o.tipo_egreso)
         ? o.tipo_egreso
         : null,
+      // Punto 5.7: la factura y el recibo que respaldan el egreso. Se valida
+      // que cada path sea de esta empresa antes de guardarlo: el navegador
+      // manda el path que le devolvió la subida, y confiar en él permitiría
+      // apuntar un egreso al comprobante de otro cliente.
+      adjuntos: tipo === "egreso" ? adjuntosValidos(o.adjuntos, ctx.auth.empresa_id) : null,
       usuarioId: ctx.auth.usuarioCatalogId ?? null,
       usuarioEmail: ctx.auth.user?.email ?? null,
     });

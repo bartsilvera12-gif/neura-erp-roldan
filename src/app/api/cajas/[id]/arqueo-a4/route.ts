@@ -83,11 +83,24 @@ export async function GET(
     const listaMovs = (lista: typeof movs) =>
       lista.length === 0
         ? `<tr><td colspan="3" class="vacio">Sin movimientos.</td></tr>`
-        : lista.map((m) => `<tr>
-            <td>${esc(m.concepto)}${m.observacion ? ` <span class="obs">· ${esc(m.observacion)}</span>` : ""}</td>
+        : lista.map((m) => {
+            // Qué papel respalda el egreso. Va impreso aunque el archivo esté
+            // en el sistema: con la hoja en la mano, el contador tiene que
+            // poder ver de un vistazo cuáles tienen respaldo y cuáles le van a
+            // faltar, sin abrir la computadora.
+            const papeles = (m.adjuntos ?? []).map((a) => a.tipo);
+            const marca = papeles.length
+              ? ` <span class="papel">[${papeles.map((t) => (t === "factura" ? "factura" : "recibo")).join(" + ")}]</span>`
+              : m.tipo === "egreso"
+              ? ` <span class="sinpapel">[sin comprobante]</span>`
+              : "";
+            const clase = m.tipo_egreso ? ` <span class="obs">· ${esc(m.tipo_egreso)}</span>` : "";
+            return `<tr>
+            <td>${esc(m.concepto)}${clase}${m.observacion ? ` <span class="obs">· ${esc(m.observacion)}</span>` : ""}${marca}</td>
             <td class="med">${esc(m.medio_pago)}</td>
             <td class="m b">${gs(m.monto)}</td>
-          </tr>`).join("");
+          </tr>`;
+          }).join("");
 
     // Punto 5.2: el cierre lista TODAS las operaciones del turno, no solo las
     // anuladas. Un cierre sin el detalle obliga a ir a buscar las ventas a otra
@@ -170,6 +183,9 @@ export async function GET(
   .cero td { color: #999; }
   .med { width: 80px; text-transform: capitalize; }
   .obs { color: #666; font-style: italic; }
+  /* Qué papel respalda cada egreso, para controlar con la hoja en la mano. */
+  .papel { color: #2E7D32; font-size: 9px; font-weight: 600; }
+  .sinpapel { color: #B45309; font-size: 9px; font-weight: 600; }
   .hora { width: 38px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   /* Una anulada se distingue en gris, con su marca y su motivo. El tachado va
      SOLO en el importe, que es donde significa algo ("no cuenta"): tachar el

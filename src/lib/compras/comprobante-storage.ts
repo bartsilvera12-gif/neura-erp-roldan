@@ -50,10 +50,28 @@ export async function ensureComprasFacturasBucket(supabase: AppSupabaseClient): 
   bucketEnsured = true;
 }
 
-/** Path nuevo para un comprobante de la empresa. `uuid` debe venir de crypto.randomUUID(). */
-export function buildComprobantePath(empresaId: string, uuid: string, mime: string): string {
+/**
+ * Path nuevo para un comprobante de la empresa. `uuid` debe venir de
+ * crypto.randomUUID().
+ *
+ * `carpeta` separa de dónde vino el papel —"caja" para la factura y el recibo
+ * de un egreso, nada para las facturas de compra, que ya estaban guardadas
+ * sin carpeta—. Se usa el mismo bucket y no uno por módulo: es el mismo tipo
+ * de documento, con los mismos límites y el mismo aislamiento por empresa, y
+ * un bucket por módulo multiplica la configuración sin dar nada a cambio.
+ *
+ * La empresa sigue siendo el PRIMER segmento, que es de lo que depende el
+ * aislamiento entre clientes: meter la carpeta delante lo rompería.
+ */
+export function buildComprobantePath(
+  empresaId: string,
+  uuid: string,
+  mime: string,
+  carpeta?: string
+): string {
   const ext = EXT_BY_MIME[mime] ?? "bin";
-  return `${empresaId}/${uuid}.${ext}`;
+  const sub = carpeta ? `${carpeta.replace(/[^a-z0-9-]/gi, "")}/` : "";
+  return `${empresaId}/${sub}${uuid}.${ext}`;
 }
 
 /** URL firmada para visualizar el comprobante. Null si el path es inválido o falla. */

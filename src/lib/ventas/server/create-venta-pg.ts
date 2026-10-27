@@ -90,6 +90,22 @@ export interface CreateVentaPgParams {
    *  para que /inventario/movimientos muestre quién hizo la salida de stock. */
   createdBy?: string | null;
   usuarioNombre?: string | null;
+  /**
+   * Vendedor al que se le acredita la venta y su comisión (punto 4.3).
+   *
+   * Por omisión es quien cerró la venta, que es la regla del cliente: "se le
+   * da la venta al vendedor que cerró la venta, pero el cliente se queda en
+   * la cartera del vendedor original". Por eso se guarda acá, en la venta, y
+   * NO se toca `clientes.vendedor_usuario_id`: así un reemplazo cobra su
+   * comisión sin quedarse con la cartera del que faltó.
+   *
+   * Va como parámetro aparte y no directamente `createdBy` porque son dos
+   * cosas distintas: `usuario_id` es quien operó el sistema (auditoría) y
+   * `vendedor_usuario_id` es a quién se le paga. Hoy coinciden; el día que
+   * Caja deje elegir el vendedor, se cambia solo acá.
+   */
+  vendedorUsuarioId?: string | null;
+  vendedorNombre?: string | null;
 }
 
 function recalcTotals(items: CreateVentaItemInput[]) {
@@ -527,6 +543,11 @@ export async function createVentaTransaccionalPg(
         caja_id: cajaIdActual,
         usuario_id: params.createdBy ?? null,
         usuario_nombre: params.usuarioNombre ?? null,
+        // Sin esto la columna quedaba siempre en NULL y el informe de
+        // comisiones —que agrupa por `vendedor_usuario_id`— no tenia a quien
+        // acreditarle nada.
+        vendedor_usuario_id: params.vendedorUsuarioId ?? params.createdBy ?? null,
+        vendedor_nombre: params.vendedorNombre ?? params.usuarioNombre ?? null,
       })
       .select("id")
       .single();

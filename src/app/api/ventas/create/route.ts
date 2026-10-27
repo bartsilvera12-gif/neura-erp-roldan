@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserAndEmpresa } from "@/lib/middleware/auth";
 import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { descuentoMaximoDe, validarTopeDescuento } from "@/lib/ventas/server/descuento-maximo";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { createVentaTransaccionalPg, StockInsuficienteError } from "@/lib/ventas/server/create-venta-pg";
@@ -142,6 +143,9 @@ export async function POST(request: NextRequest) {
     if (!auth) {
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     }
+    // Se resuelve una vez acá: la venta lo usa para el nombre del operador y
+    // para el del vendedor, y pedirlo dos veces sería una consulta de más.
+    const firma = await firmaUsuario(await createServiceRoleClientForEmpresa(auth.empresa_id), auth);
 
     let body: unknown;
     try {
@@ -312,7 +316,15 @@ export async function POST(request: NextRequest) {
       // cajero explícitamente eligió "solo ticket" al confirmar la venta.
       emitirFactura: emitirFacturaFlag,
       createdBy: auth.usuarioCatalogId ?? null,
-      usuarioNombre: auth.user?.email ?? null,
+      // El nombre y no el email: es lo que se ve en Movimientos, en la hoja de
+      // comisiones que el vendedor firma y en el detalle de la caja. Un
+      // "ventas03@..." ahí no le dice nada a nadie.
+      usuarioNombre: firma.nombre,
+      // Punto 4.3: la venta y su comisión son de quien la cerró. El cliente
+      // sigue en la cartera de su vendedor de siempre, que es lo que hace el
+      // bloque de más abajo al renovar `cartera_desde` sin cambiar el dueño.
+      vendedorUsuarioId: auth.usuarioCatalogId ?? null,
+      vendedorNombre: firma.nombre,
     });
 
     // Vincular el pedido facturado con la venta creada (Caja). Trazabilidad:

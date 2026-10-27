@@ -24,6 +24,7 @@ import {
   Clock,
 } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
+import AdjuntosEgreso, { type AdjuntoEgreso } from "@/components/caja/AdjuntosEgreso";
 import ArqueoDenominaciones, {
   arqueoVacio,
   cantidadesAArqueo,
@@ -155,6 +156,8 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     observacion: string | null;
     /** Punto 5.7. Viaja tal cual al endpoint junto con el resto. */
     tipo_egreso?: string | null;
+    /** Punto 5.7: factura y recibo ya subidos, con su path. */
+    adjuntos?: AdjuntoEgreso[] | null;
   }) {
     if (!target) return;
     const r = await fetch("/api/caja/movimiento", {
@@ -933,6 +936,8 @@ function ModalMovimiento({
     observacion: string | null;
     /** Punto 5.7: clasificación del egreso. */
     tipo_egreso?: string | null;
+    /** Punto 5.7: factura y recibo que lo respaldan. */
+    adjuntos?: AdjuntoEgreso[] | null;
   }) => Promise<void>;
 }) {
   const [tipo, setTipo] = useState<TipoMovimientoCaja>("ingreso");
@@ -943,6 +948,7 @@ function ModalMovimiento({
   const [monto, setMonto] = useState("0");
   const [medio, setMedio] = useState<MedioPagoCaja>("efectivo");
   const [obs, setObs] = useState("");
+  const [adjuntos, setAdjuntos] = useState<AdjuntoEgreso[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -976,6 +982,8 @@ function ModalMovimiento({
         medio_pago: medio,
         observacion: obs.trim() || null,
         tipo_egreso: tipo === "egreso" ? tipoEgreso : null,
+        // Solo en egresos: un ingreso o un retiro no tienen factura de proveedor.
+        adjuntos: tipo === "egreso" && adjuntos.length > 0 ? adjuntos : null,
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error");
@@ -1088,6 +1096,13 @@ function ModalMovimiento({
             className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none resize-none"
           />
         </div>
+
+        {/* Solo en egresos: un ingreso o un retiro no tienen factura de
+            proveedor que adjuntar. */}
+        {tipo === "egreso" && (
+          <AdjuntosEgreso value={adjuntos} onChange={setAdjuntos} disabled={busy} />
+        )}
+
         {err && (
           <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {err}
