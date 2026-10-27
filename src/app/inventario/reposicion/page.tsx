@@ -827,7 +827,23 @@ function ModalDetalle({
                       <div className="font-medium text-slate-800">{it.nombre}</div>
                       <div className="text-xs text-slate-400">{it.sku} · {it.unidad}</div>
                       {esOrigen && !it.tiene_equivalencia && (
-                        <div className="mt-0.5 text-xs font-medium text-red-600">Producto no encontrado en la sucursal de origen</div>
+                        <div className="mt-1 space-y-1">
+                          {/* El mensaje viejo —"producto no encontrado"— no
+                              decía qué hacer, y la única salida era rechazar.
+                              El equivalente se busca por SKU dentro de la
+                              sucursal que despacha: cada sucursal tiene su
+                              propia ficha del artículo, con su stock. */}
+                          <div className="text-xs font-medium text-red-600">
+                            Tu sucursal ({cab?.sucursal_origen_nombre}) no tiene ningún producto con el SKU{" "}
+                            <span className="font-mono">{it.sku}</span>. Elegí abajo cuál es el equivalente, o cargá
+                            el artículo en tu sucursal y volvé.
+                          </div>
+                          <ElegirEquivalente
+                            transferenciaId={id}
+                            itemId={it.id}
+                            onResuelto={() => { void cargar(); onCambio(); }}
+                          />
+                        </div>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-slate-600">{fmtNum(it.cantidad_solicitada)}</td>
@@ -948,6 +964,146 @@ function Overlay({ titulo, onClose, children }: { titulo: string; onClose: () =>
         </div>
         <div className="px-5 py-4">{children}</div>
       </div>
+    </div>
+  );
+}
+
+/* ──────────────── Elegir el equivalente en la sucursal que despacha ─────── */
+/**
+ * La equivalencia se resuelve sola por SKU al crear la transferencia: cada
+ * sucursal tiene su propia ficha de cada artículo, y se busca la del origen
+ * con el mismo código. Cuando el origen no tiene ese SKU —porque la sucursal
+ * es nueva, o porque el artículo está cargado con otro código— no hay match.
+ *
+ * Hasta ahora eso era un callejón sin salida: la pantalla avisaba del problema
+ * y los únicos botones eran Aprobar (que después no podía despachar) y
+ * Rechazar. La ruta para resolverlo ya existía, pero no estaba en ningún lado.
+ *
+ * Acá se busca entre los productos de la sucursal que despacha y se elige el
+ * que corresponde. Es una decisión de la sucursal de origen, que es la que
+ * sabe con qué nombre tiene cargada la cosa.
+ */
+function ElegirEquivalente({
+  transferenciaId, itemId, onResuelto,
+}: {
+  transferenciaId: string;
+  itemId: string;
+  onResuelto: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [q, setQ] = useState("");
+  const [opciones, setOpciones] = useState<Array<{ id: string; nombre: string; sku: string; stock_actual: number }>>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!abierto) return;
+    let cancel = false;
+    // Con menos de dos letras la búsqueda devuelve medio catálogo y no ayuda
+    // a nadie; vacío sí, para ver qué hay cuando la sucursal tiene poco.
+    const t = setTimeout(async () => {
+      setBuscando(true);
+      try {
+        const sp = new URLSearchParams({ limit: "20" });
+        if (q.trim().length >= 2) sp.set("q", q.trim());
+        const r = await fetchWithSupabaseSession(`/api/productos?${sp}`, { cache: "no-store" });
+        const j = await r.json();
+        if (cancel) return;
+        const rows = ((j?.data?.productos ?? []) as Array<Record<string, unknown>>).map((p) => ({
+          id: String(p.id),
+          nombre: String(p.nombre ?? ""),
+          sku: String(p.sku ?? ""),
+          stock_actual: Number(p.stock_actual) || 0,
+        }));
+        setOpciones(rows);
+      } catch {
+        if (!cancel) setOpciones([]);
+      } finally {
+        if (!cancel) setBuscando(false);
+      }
+    }, 250);
+    return () => { cancel = true; clearTimeout(t); };
+  }, [abierto, q]);
+
+  async function elegir(productoOrigenId: string) {
+    setGuardando(true);
+    setError(null);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/transferencias/${transferenciaId}/equivalencia`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: itemId, producto_origen_id: productoOrigenId }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(typeof j?.error === "string" ? j.error : "No se pudo asignar.");
+      setAbierto(false);
+      onResuelto();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+      >
+        Elegir el equivalente
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+      <input
+        type="search"
+        autoFocus
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Buscar en tu sucursal por nombre o SKU…"
+        className="w-full rounded border border-slate-300 px-2 py-1 text-xs outline-none focus:border-[#4FAEB2]"
+      />
+      {error && <p className="mt-1 text-[11px] text-red-700">{error}</p>}
+      <div className="mt-1 max-h-40 overflow-y-auto">
+        {buscando ? (
+          <p className="px-1 py-2 text-[11px] text-slate-400">Buscando…</p>
+        ) : opciones.length === 0 ? (
+          <p className="px-1 py-2 text-[11px] text-slate-500">
+            Tu sucursal no tiene productos que coincidan. Cargalo en Inventario y después volvé acá.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-200">
+            {opciones.map((o) => (
+              <li key={o.id}>
+                <button
+                  type="button"
+                  disabled={guardando}
+                  onClick={() => void elegir(o.id)}
+                  className="flex w-full items-center justify-between gap-2 px-1 py-1.5 text-left text-xs hover:bg-white disabled:opacity-50"
+                >
+                  <span>
+                    <span className="font-medium text-slate-800">{o.nombre}</span>
+                    <span className="block font-mono text-[10px] text-slate-400">{o.sku}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums text-slate-500">{o.stock_actual}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setAbierto(false)}
+        className="mt-1 text-[11px] text-slate-400 underline-offset-2 hover:text-slate-700 hover:underline"
+      >
+        Cancelar
+      </button>
     </div>
   );
 }
