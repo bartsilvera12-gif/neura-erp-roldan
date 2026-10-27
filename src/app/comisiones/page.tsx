@@ -54,7 +54,11 @@ type Tipo = {
   descuento_maximo_pct?: number | null;
 };
 type Regla = { id: string; tipo_vendedor_id: string | null; categoria_id: string | null; porcentaje: number; activo: boolean };
-type UsuarioLite = { id: string; nombre: string | null; email: string; tipo_vendedor_id: string | null };
+type UsuarioLite = {
+  id: string; nombre: string | null; email: string; tipo_vendedor_id: string | null;
+  /** Tope propio. null = usa el de su tipo de vendedor. */
+  descuento_maximo_pct?: number | null;
+};
 type RubroLite = { id: string; nombre: string };
 type Config = {
   tipos: Tipo[]; reglas: Regla[]; vendedores: UsuarioLite[]; rubros: RubroLite[];
@@ -714,9 +718,22 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
       </Caja>
 
       {/* Tipo de cada usuario */}
-      <Caja titulo="Tipo de cada vendedor">
+      <Caja titulo="Tipo de cada vendedor"
+        ayuda="El tipo define cuánto comisiona y hasta cuánto puede descontar. El tope de acá es la excepción de esa persona: si lo dejás vacío usa el de su tipo, y 0 significa que no puede descontar nada.">
         <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
+              <th className="py-2">Vendedor</th>
+              <th className="py-2 text-right">Tipo</th>
+              <th className="py-2 text-right">Desc. máx. propio</th>
+            </tr>
+          </thead>
           <tbody className="divide-y divide-slate-100">
+            {cfg.vendedores.length === 0 && (
+              <tr><td colSpan={3} className="py-4 text-center text-slate-400">
+                No hay usuarios cargados en la empresa.
+              </td></tr>
+            )}
             {cfg.vendedores.map((u) => (
               <tr key={u.id}>
                 <td className="py-2 text-slate-800">{u.nombre || u.email}</td>
@@ -732,6 +749,18 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
                     <option value="">— Sin tipo —</option>
                     {cfg.tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                   </select>
+                </td>
+                <td className="py-2 text-right">
+                  <PctEditable
+                    valor={u.descuento_maximo_pct == null ? -1 : Number(u.descuento_maximo_pct)}
+                    disabled={guardando}
+                    permiteVacio
+                    etiquetaVacio="el de su tipo"
+                    onGuardar={(n) => void enviar({
+                      accion: "tope_usuario", usuario_id: u.id,
+                      descuento_maximo_pct: n < 0 ? null : n,
+                    })}
+                  />
                 </td>
               </tr>
             ))}

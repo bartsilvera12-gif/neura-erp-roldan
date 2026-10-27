@@ -72,8 +72,16 @@ export async function GET(request: NextRequest) {
         .select("dias_cartera, base_calculo")
         .eq("empresa_id", auth.empresa_id).maybeSingle(),
       supabase.from("usuarios")
-        .select("id, nombre, email, tipo_vendedor_id")
-        .eq("empresa_id", auth.empresa_id).order("nombre"),
+        .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct")
+        .eq("empresa_id", auth.empresa_id).order("nombre")
+        .then(async (r) => {
+          if (r.error && faltaColumnaTope(r.error.message ?? "")) {
+            return await supabase.from("usuarios")
+              .select("id, nombre, email, tipo_vendedor_id")
+              .eq("empresa_id", auth.empresa_id).order("nombre");
+          }
+          return r;
+        }),
       supabase.from("categorias_productos")
         .select("id, nombre").eq("empresa_id", auth.empresa_id)
         .eq("activo", true).order("nombre"),
@@ -225,6 +233,41 @@ export async function POST(request: NextRequest) {
       if (r.error) {
         if (esTablaFaltante(r.error.message) || /tipo_vendedor_id/.test(r.error.message)) {
           return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+        }
+        throw new Error(r.error.message);
+      }
+      return NextResponse.json(successResponse({ ok: true }));
+    }
+
+    // ── Tope de descuento de una persona ──────────────────────────────────
+    // La excepción al tope de su tipo. Vive acá y no solo en RRHH porque es la
+    // misma pantalla donde se le asigna el tipo: separar las dos mitades de la
+    // misma decisión obliga a acordarse de la otra.
+    if (accion === "tope_usuario") {
+      const usuarioId = String(b.usuario_id ?? "");
+      if (!usuarioId) return NextResponse.json(errorResponse("Falta el usuario."), { status: 400 });
+
+      let valor: number | null = null;
+      if (b.descuento_maximo_pct !== null && b.descuento_maximo_pct !== "" && b.descuento_maximo_pct !== undefined) {
+        const d = Number(b.descuento_maximo_pct);
+        if (!Number.isFinite(d) || d < 0 || d > 100) {
+          return NextResponse.json(
+            errorResponse("El tope tiene que estar entre 0 y 100, o vacío para que use el de su tipo."),
+            { status: 400 }
+          );
+        }
+        valor = d;
+      }
+
+      const r = await supabase.from("usuarios")
+        .update({ descuento_maximo_pct: valor })
+        .eq("empresa_id", auth.empresa_id).eq("id", usuarioId);
+      if (r.error) {
+        if (faltaColumnaTope(r.error.message ?? "")) {
+          return NextResponse.json(
+            errorResponse("El tope por persona necesita que corras el script 34 en la base."),
+            { status: 500 }
+          );
         }
         throw new Error(r.error.message);
       }
