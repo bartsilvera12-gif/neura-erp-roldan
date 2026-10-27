@@ -49,7 +49,20 @@ export function useExistencias(productoIds: (string | null)[]): Record<string, E
   return mapa;
 }
 
-/** Línea chica bajo la cantidad: lo que hay, lo comprometido y lo que falta. */
+/**
+ * Línea chica bajo la cantidad.
+ *
+ * ── POR QUÉ DICE TAN POCO ─────────────────────────────────────────────────
+ *   La columna de cantidad mide 80px. Tres números y dos frases ahí adentro
+ *   se parten en cuatro renglones y empujan el resto de la fila hacia abajo:
+ *   el aviso termina estorbando más de lo que informa.
+ *
+ *   Y casi siempre los tres números dicen lo mismo: sin nada reservado,
+ *   disponible ES el físico. Entonces se muestra un solo dato, en un renglón
+ *   que no se parte, y el desglose completo queda en el `title` para cuando
+ *   alguien quiera el detalle. El desglose solo se escribe cuando hay algo
+ *   reservado, que es cuando los números difieren de verdad.
+ */
 export function ExistenciaLinea({
   existencia,
   cantidad,
@@ -59,13 +72,24 @@ export function ExistenciaLinea({
 }) {
   if (!existencia) return null;
   const falta = (Number(cantidad) || 0) - existencia.disponible;
+  const hayReserva = existencia.reservado > 0;
+
+  const resumen = hayReserva
+    ? `Disp. ${existencia.disponible} de ${existencia.fisico}`
+    : `Stock ${existencia.fisico}`;
+
+  const detalle =
+    `Físico ${existencia.fisico} · reservado ${existencia.reservado} · ` +
+    `disponible ${existencia.disponible}` +
+    (falta > 0 ? `. Faltan ${falta} para entregar hoy.` : "");
+
   return (
-    <div className="mt-1 space-y-0.5 text-[10px] leading-tight">
-      <div className="text-slate-400">
-        Físico {existencia.fisico} · reservado {existencia.reservado} · disponible {existencia.disponible}
-      </div>
+    // El nowrap va en el contenedor y no en cada parte: puesto en las partes,
+    // el renglón se corta igual entre una y otra.
+    <div className="mt-1 whitespace-nowrap text-[10px] leading-tight" title={detalle}>
+      <span className="text-slate-400">{resumen}</span>
       {falta > 0 && (
-        <div className="font-medium text-amber-600">Faltan {falta} para entregar hoy.</div>
+        <span className="ml-1 font-medium text-amber-600">· faltan {falta}</span>
       )}
     </div>
   );

@@ -393,7 +393,7 @@ export default function EditarPresupuestoPage() {
               <thead className="text-left text-xs text-gray-500 uppercase">
                 <tr>
                   <th className="py-2 pr-2">Descripción</th>
-                  <th className="py-2 px-2 w-20">Cant.</th>
+                  <th className="py-2 px-2 w-32">Cant.</th>
                   <th className="py-2 px-2 w-32">Precio unit.</th>
                   <th className="py-2 px-2 w-24">IVA</th>
                   <th className="py-2 px-2 w-28">Descuento</th>
@@ -405,7 +405,7 @@ export default function EditarPresupuestoPage() {
                 {items.map((it, i) => {
                   const t = itemTotals(it);
                   return (
-                    <tr key={i}>
+                    <tr key={i} className="align-top">
                       <td className="py-2 pr-2">
                         <input value={it.producto_nombre} onChange={(e) => updItem(i, { producto_nombre: e.target.value })} className={inputClass} placeholder="Descripción" />
                       </td>
