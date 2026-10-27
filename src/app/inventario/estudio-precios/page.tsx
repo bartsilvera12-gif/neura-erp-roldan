@@ -261,7 +261,7 @@ export default function EstudioPreciosPage() {
             ])}
           />
           <Link
-            href="/configuracion/comisiones"
+            href="/comisiones?tab=config"
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             Comisiones por rubro

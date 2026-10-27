@@ -72,6 +72,14 @@ export default function ComisionesPage() {
   const [solapa, setSolapa] = useState<Solapa>("informe");
   const [error, setError] = useState<string | null>(null);
 
+  // Se puede entrar directo a una solapa con ?tab=config. Lo usa el link
+  // "Comisiones por rubro" del estudio de precios: mandar a la pantalla y
+  // que después haya que buscar la solapa es media ayuda.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "config" || t === "cartera" || t === "informe") setSolapa(t);
+  }, []);
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -581,7 +589,15 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
             {cfg.tipos.map((t) => (
               <tr key={t.id}>
                 <td className="py-2 font-medium text-slate-800">{t.nombre}</td>
-                <td className="py-2 text-right tabular-nums">{pct(t.porcentaje_base)}</td>
+                <td className="py-2 text-right">
+                  <PctEditable
+                    valor={Number(t.porcentaje_base) || 0}
+                    disabled={guardando}
+                    onGuardar={(n) => void enviar({
+                      accion: "tipo", id: t.id, nombre: t.nombre, porcentaje_base: n,
+                    })}
+                  />
+                </td>
                 <td className="py-2 text-center">{t.activo ? "Sí" : "No"}</td>
                 <td className="py-2 text-right">
                   <button onClick={() => borrar("tipo", t.id)} disabled={guardando}
@@ -627,7 +643,17 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
               <tr key={r.id}>
                 <td className="py-2 text-slate-700">{nombreTipo(r.tipo_vendedor_id)}</td>
                 <td className="py-2 text-slate-700">{nombreRubro(r.categoria_id)}</td>
-                <td className="py-2 text-right font-semibold tabular-nums">{pct(r.porcentaje)}</td>
+                <td className="py-2 text-right">
+                  <PctEditable
+                    valor={Number(r.porcentaje) || 0}
+                    disabled={guardando}
+                    onGuardar={(n) => void enviar({
+                      accion: "regla", id: r.id,
+                      tipo_vendedor_id: r.tipo_vendedor_id, categoria_id: r.categoria_id,
+                      porcentaje: n,
+                    })}
+                  />
+                </td>
                 <td className="py-2 text-right">
                   <button onClick={() => borrar("regla", r.id)} disabled={guardando}
                     className="text-xs text-rose-600 underline-offset-2 hover:underline">Borrar</button>
@@ -676,6 +702,52 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 }
 
 /* ─────────────────────────────── Piezas ───────────────────────────────── */
+
+/**
+ * Porcentaje editable en la misma tabla.
+ *
+ * Antes solo se podía agregar y borrar. Cambiar un 5% a un 6% obligaba a
+ * borrar la regla y cargarla de nuevo, y si no la borrabas primero el
+ * servidor rechazaba el alta con "ya hay una regla para esa combinación,
+ * editá la que existe" — un mensaje que mandaba a editar algo que no se
+ * podía editar.
+ *
+ * Guarda al salir del campo y solo si el número cambió: así no escribe una
+ * vez por tecla.
+ */
+function PctEditable({
+  valor, disabled, onGuardar,
+}: {
+  valor: number;
+  disabled?: boolean;
+  onGuardar: (nuevo: number) => void;
+}) {
+  const [texto, setTexto] = useState(String(valor));
+  // Si el valor cambia desde afuera (otro guardado, una recarga), el campo
+  // lo sigue, salvo que lo esté editando alguien.
+  useEffect(() => { setTexto(String(valor)); }, [valor]);
+
+  return (
+    <input
+      type="number"
+      min={0}
+      max={100}
+      step="0.01"
+      value={texto}
+      disabled={disabled}
+      aria-label="Porcentaje"
+      onChange={(e) => setTexto(e.target.value)}
+      onBlur={() => {
+        const n = Number(texto.replace(",", "."));
+        if (!Number.isFinite(n) || n < 0 || n > 100) { setTexto(String(valor)); return; }
+        if (n === valor) return;
+        onGuardar(n);
+      }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className="w-20 rounded border border-slate-200 px-2 py-1 text-right text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none disabled:opacity-50"
+    />
+  );
+}
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
