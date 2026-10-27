@@ -6,8 +6,9 @@ import { useParams } from "next/navigation";
 import { getProducto } from "@/lib/inventario/storage";
 import type { Producto } from "@/lib/inventario/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { aUsd, descuentoEfectivo, markupDesdePrecio, precioConDescuento } from "@/lib/precios/ficha";
 
-interface CatRow { id: string; nombre: string }
+interface CatRow { id: string; nombre: string; descuento_pct?: number | null }
 interface UbiRow { id: string; nombre: string; tipo: string }
 interface ProvRow { id: string; nombre: string }
 
@@ -19,16 +20,6 @@ function formatGs(valor: number | null | undefined): string {
 function formatStock(valor: number | null | undefined): string {
   if (valor == null) return "—";
   return Number(valor).toLocaleString("es-PY", { maximumFractionDigits: 3 });
-}
-
-/** Deriva el tipo de producto (Reventa / Menú / Materia prima) desde los flags. */
-function tipoProducto(p: Producto): { label: string; hint: string } {
-  const esVendible = p.es_vendible !== false;
-  const esInsumo = p.es_insumo === true;
-  const controlaStock = p.controla_stock !== false;
-  if (esInsumo) return { label: "Materia prima (insumo)", hint: "Insumo para producir menú." };
-  if (esVendible && !controlaStock) return { label: "Menú (fabricado)", hint: "Producto que se fabrica y se vende al cliente final." };
-  return { label: "Reventa (compra y vende)", hint: "Producto que se compra y se revende tal cual." };
 }
 
 /** Fila etiqueta → valor para el detalle. */
@@ -53,6 +44,7 @@ export default function DetalleProductoPage() {
   const [categorias, setCategorias] = useState<CatRow[]>([]);
   const [ubicaciones, setUbicaciones] = useState<UbiRow[]>([]);
   const [proveedores, setProveedores] = useState<ProvRow[]>([]);
+  const [cotizacionVenta, setCotizacionVenta] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -87,13 +79,22 @@ export default function DetalleProductoPage() {
       if (cats?.categorias) setCategorias(cats.categorias as CatRow[]);
       if (ubis?.ubicaciones) setUbicaciones(ubis.ubicaciones as UbiRow[]);
       if (provs?.proveedores) setProveedores(provs.proveedores as ProvRow[]);
+      // Solo para mostrar a cuántos dólares equivale el costo cuando el
+      // producto no tiene costo en US$ cargado. Si falla, no se muestra nada.
+      try {
+        const r = await fetch("/api/tipos-cambio?moneda=USD&limit=1", { credentials: "include", cache: "no-store" });
+        const j = await r.json();
+        const v = Number(j?.data?.vigente?.venta);
+        if (!cancel && Number.isFinite(v) && v > 0) setCotizacionVenta(v);
+      } catch { /* sin cotización, se omite la línea */ }
     })();
     return () => { cancel = true; };
   }, []);
 
-  const nombreCategoria = producto?.categoria_principal_id
-    ? categorias.find((c) => c.id === producto.categoria_principal_id)?.nombre ?? null
+  const rubro = producto?.categoria_principal_id
+    ? categorias.find((c) => c.id === producto.categoria_principal_id) ?? null
     : null;
+  const nombreCategoria = rubro?.nombre ?? null;
   const nombreUbicacion = producto?.ubicacion_principal_id
     ? ubicaciones.find((u) => u.id === producto.ubicacion_principal_id)?.nombre ?? null
     : null;
@@ -120,12 +121,14 @@ export default function DetalleProductoPage() {
     );
   }
 
-  const tipo = tipoProducto(producto);
   const controlaStock = producto.controla_stock !== false;
   const esInsumo = producto.es_insumo === true;
   const mostrarStock = controlaStock || esInsumo;
   const mostrarPrecioVenta = !esInsumo;
   const stockBajo = producto.stock_actual <= producto.stock_minimo;
+  const remarcacion = markupDesdePrecio(producto.precio_venta, producto.costo_promedio);
+  const descuento = descuentoEfectivo(producto.descuento_pct, rubro?.descuento_pct);
+  const precioFinal = precioConDescuento(producto.precio_venta, descuento.pct);
 
   return (
     <div className="space-y-8">
@@ -158,10 +161,6 @@ export default function DetalleProductoPage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Información general</h2>
-            <DatoFila label="Tipo de producto">
-              {tipo.label}
-              <span className="block text-xs font-normal text-slate-400">{tipo.hint}</span>
-            </DatoFila>
             <DatoFila label="Nombre">{producto.nombre}</DatoFila>
             <DatoFila label="Descripción">{producto.descripcion?.trim() || "—"}</DatoFila>
             <DatoFila label="SKU interno"><span className="font-mono">{producto.sku || "—"}</span></DatoFila>
@@ -179,6 +178,46 @@ export default function DetalleProductoPage() {
             )}
             {mostrarPrecioVenta && <DatoFila label="Precio distribuidor">{formatGs(producto.precio_distribuidor)}</DatoFila>}
             {mostrarPrecioVenta && <DatoFila label="IVA aplicado">{producto.tipo_iva === "EXENTA" ? "Exenta" : `IVA ${producto.tipo_iva ?? "10%"}`}</DatoFila>}
+            {/* Lo que el cliente anotaba a mano en su sistema viejo: el costo
+                en dólares con el que compró, la remarcación que le aplicó y el
+                descuento que termina saliendo en la venta. Se muestra acá para
+                no tener que entrar a editar el producto solo para mirarlo. */}
+            <DatoFila label="Costo en dólares">
+              {producto.costo_usd != null && Number(producto.costo_usd) > 0
+                ? `US$ ${Number(producto.costo_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                : "—"}
+              {producto.costo_usd == null && producto.costo_promedio > 0 && cotizacionVenta != null && (
+                <span className="block text-xs font-normal text-slate-400">
+                  Equivale a US$ {(aUsd(producto.costo_promedio, cotizacionVenta) ?? 0).toLocaleString("es-PY", { maximumFractionDigits: 2 })} al cambio de hoy
+                </span>
+              )}
+            </DatoFila>
+            {mostrarPrecioVenta && (
+              <DatoFila label="Remarcación sobre el costo">
+                {remarcacion != null ? `${remarcacion.toLocaleString("es-PY", { maximumFractionDigits: 2 })} %` : "—"}
+                {producto.markup_pct != null && remarcacion != null && Math.abs(Number(producto.markup_pct) - remarcacion) >= 0.5 && (
+                  <span className="block text-xs font-normal text-amber-700">
+                    Cargada en la ficha: {Number(producto.markup_pct).toLocaleString("es-PY", { maximumFractionDigits: 2 })} %
+                    — el precio de lista quedó con otra remarcación.
+                  </span>
+                )}
+              </DatoFila>
+            )}
+            {mostrarPrecioVenta && (
+              <DatoFila label="Descuento aplicado">
+                {descuento.pct > 0 ? `${descuento.pct.toLocaleString("es-PY", { maximumFractionDigits: 2 })} %` : "Sin descuento"}
+                <span className="block text-xs font-normal text-slate-400">
+                  {descuento.origen === "articulo" && "Definido en este artículo (reemplaza al del rubro)."}
+                  {descuento.origen === "rubro" && `Viene del rubro ${nombreCategoria ?? ""}.`}
+                  {descuento.origen === "ninguno" && "Ni el artículo ni el rubro tienen descuento cargado."}
+                </span>
+                {descuento.pct > 0 && precioFinal != null && (
+                  <span className="block text-xs font-normal text-slate-600">
+                    Precio con descuento: {formatGs(precioFinal)}
+                  </span>
+                )}
+              </DatoFila>
+            )}
           </div>
 
           {mostrarStock && (

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Pencil, Search } from "lucide-react";
 import ModalCampo from "@/components/ui/ModalCampo";
 import ModalConfirmarAccion from "@/components/ui/ModalConfirmarAccion";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
@@ -25,6 +25,7 @@ interface Categoria {
 export default function CategoriasProductosPage() {
   const { isAdmin } = useIsAdmin();
   const [items, setItems] = useState<Categoria[]>([]);
+  const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,6 +134,25 @@ export default function CategoriasProductosPage() {
     cuerpo: (v: string) => Record<string, unknown>;
   };
   const [campo, setCampo] = useState<CampoEnEdicion | null>(null);
+
+  /**
+   * Lo que se ve en la tabla. Los rubros se acumulan —los de proveedor se
+   * importan solos— y a la vuelta de unos meses la lista no entra en pantalla,
+   * así que se busca por nombre, código y rubro padre: no siempre uno recuerda
+   * por cuál de los tres lo cargó.
+   */
+  const visibles = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((c) => {
+      const padre = items.find((i) => i.id === c.parent_id)?.nombre ?? "";
+      return (
+        c.nombre.toLowerCase().includes(q) ||
+        (c.codigo ?? "").toLowerCase().includes(q) ||
+        padre.toLowerCase().includes(q)
+      );
+    });
+  }, [items, busqueda]);
 
   async function guardarCampo(valor: string) {
     if (!campo) return;
@@ -247,7 +267,7 @@ export default function CategoriasProductosPage() {
             <ImprimirTablaButton
             titulo="Rubros"
             columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Descuento %", "Estado"]}
-            filas={items.map((c) => [
+            filas={visibles.map((c) => [
               c.nombre,
               c.codigo ?? "",
               items.find((i) => i.id === c.parent_id)?.nombre ?? "",
@@ -332,6 +352,29 @@ export default function CategoriasProductosPage() {
         ) : items.length === 0 ? (
           <p className="p-6 text-sm text-gray-400">Todavía no cargaste rubros.</p>
         ) : (
+          <>
+          <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50/60 px-4 py-3">
+            <div className="relative min-w-0 flex-1 sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar rubro por nombre, código o padre…"
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
+              />
+            </div>
+            <span className="text-xs text-slate-500">
+              {busqueda.trim()
+                ? `${visibles.length} de ${items.length} rubros`
+                : `${items.length} rubro${items.length === 1 ? "" : "s"}`}
+            </span>
+          </div>
+          {visibles.length === 0 ? (
+            <p className="p-6 text-sm text-gray-500">
+              Ningún rubro coincide con “{busqueda.trim()}”.
+            </p>
+          ) : (
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
               <tr>
@@ -349,7 +392,7 @@ export default function CategoriasProductosPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((c) => {
+              {visibles.map((c) => {
                 const parent = items.find((i) => i.id === c.parent_id);
                 return (
                   <tr key={c.id} className="border-t border-slate-100">
@@ -426,6 +469,8 @@ export default function CategoriasProductosPage() {
               })}
             </tbody>
           </table>
+          )}
+          </>
         )}
       </div>
 

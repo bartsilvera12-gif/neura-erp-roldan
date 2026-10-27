@@ -480,33 +480,11 @@ export default function EditarProductoPage() {
             </div>
           )}
 
-          {/* Tipo de producto — al cambiarlo se re-clasifica en Reventa/Menú/Materia */}
-          <div>
-            <label className={labelClass}>Tipo de producto</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(["reventa", "menu", "materia"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTipoGastro(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                    tipoGastro === t
-                      ? "border-[#4FAEB2] bg-[#4FAEB2]/10 text-[#2F6F72]"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  {t === "reventa" && "Reventa (compra y vende)"}
-                  {t === "menu" && "Menú (fabricado)"}
-                  {t === "materia" && "Materia prima (insumo)"}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              {tipoGastro === "reventa" && "Producto que comprás y revendés tal cual."}
-              {tipoGastro === "menu" && "Producto que fabricás y vendés al cliente final."}
-              {tipoGastro === "materia" && "Insumo para producir menú."}
-            </p>
-          </div>
+          {/* El selector de tipo (Reventa / Menú / Materia prima) se quitó:
+              Roldán e Hijos compra y revende, no fabrica ni maneja insumos, así
+              que las tres opciones eran una decisión que nadie tenía que tomar.
+              `tipoGastro` sigue existiendo —lo deduce el efecto que carga el
+              producto— para no tocar las ramas que dependen de él. */}
 
           <div>
             <label className={labelClass}>Nombre del producto</label>

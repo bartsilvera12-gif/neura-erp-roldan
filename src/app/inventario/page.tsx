@@ -20,6 +20,7 @@ import {
   Package,
   Loader2,
   X,
+  Eye,
   Pencil,
   Trash2,
   Printer,
@@ -540,6 +541,18 @@ export default function InventarioPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-center gap-1">
+                          {/* La ficha del producto existía pero no se llegaba
+                              desde ningún lado: para ver costos, precios y
+                              datos del artículo había que entrar a editarlo,
+                              con el riesgo de guardar algo sin querer. */}
+                          <Link
+                            href={`/inventario/${p.id}`}
+                            title="Ver ficha del producto"
+                            aria-label={`Ver ficha de ${p.nombre}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2]"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
                           <Link
                             href={`/inventario/${p.id}/editar`}
                             title="Editar producto"
