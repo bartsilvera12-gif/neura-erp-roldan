@@ -19,6 +19,20 @@ const PRODUCTO_COLS =
   // Ficha en dolares y descuentos (script 32).
   "costo_usd, markup_pct, descuento_pct, precio_usd";
 
+/**
+ * Sin las columnas que agregan los scripts 32 y 37, por si no están corridos.
+ * PostgREST rechaza la consulta entera cuando se le nombra una columna que no
+ * existe: sin este respaldo, una función nueva deja la ficha del producto sin
+ * abrir hasta que alguien corra una migración.
+ */
+const PRODUCTO_COLS_BASE = PRODUCTO_COLS
+  .replace(", costo_usd, markup_pct, descuento_pct, precio_usd", "");
+
+function esColumnaFaltante(msg: string): boolean {
+  return /column .* does not exist|42703/i.test(msg)
+    && /costo_usd|markup_pct|descuento_pct|precio_usd/.test(msg);
+}
+
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
 }
@@ -71,14 +85,20 @@ export async function GET(
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     // El filtro por sucursal también autoriza: sin él, conociendo el UUID se
     // podría leer un producto de otra sucursal.
-    const { data, error } = await aplicarFiltroSucursal(
-      ctx.supabase
-        .from("productos")
-        .select(PRODUCTO_COLS)
-        .eq("empresa_id", ctx.auth.empresa_id)
-        .eq("id", id),
-      exigirSucursal(ctx.auth.sucursal_id)
-    ).maybeSingle();
+    const leer = (cols: string) =>
+      aplicarFiltroSucursal(
+        ctx.supabase
+          .from("productos")
+          .select(cols)
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("id", id),
+        exigirSucursal(ctx.auth.sucursal_id)
+      ).maybeSingle();
+
+    let { data, error } = await leer(PRODUCTO_COLS);
+    if (error && esColumnaFaltante(error.message ?? "")) {
+      ({ data, error } = await leer(PRODUCTO_COLS_BASE));
+    }
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
     return NextResponse.json(successResponse({ producto: rowToApi(data as unknown as Record<string, unknown>) }));
@@ -211,23 +231,38 @@ export async function PATCH(
     }
 
     if (Object.keys(patch).length === 0) {
-      const { data: existing, error: errGet } = await sb
+      const leerUna = (cols: string) => sb
         .from("productos")
-        .select(PRODUCTO_COLS)
+        .select(cols)
         .eq("empresa_id", empresaId)
         .eq("id", id)
         .maybeSingle();
+      let { data: existing, error: errGet } = await leerUna(PRODUCTO_COLS);
+      if (errGet && esColumnaFaltante(errGet.message ?? "")) {
+        ({ data: existing, error: errGet } = await leerUna(PRODUCTO_COLS_BASE));
+      }
       if (errGet) throw new Error(errGet.message);
       if (!existing) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
       return NextResponse.json(successResponse({ producto: rowToApi(existing as unknown as Record<string, unknown>) }));
     }
 
-    const upd = await aplicarFiltroSucursal(
-      sb.from("productos").update(patch).eq("empresa_id", empresaId).eq("id", id),
-      exigirSucursal(ctx.auth.sucursal_id)
-    )
-      .select(PRODUCTO_COLS)
-      .maybeSingle();
+    // Si la base todavía no tiene las columnas de los scripts 32/37, se
+    // guarda el resto en vez de perder toda la edición por un campo que el
+    // usuario quizá ni tocó.
+    const guardar = (datos: Record<string, unknown>, cols: string) =>
+      aplicarFiltroSucursal(
+        sb.from("productos").update(datos).eq("empresa_id", empresaId).eq("id", id),
+        exigirSucursal(ctx.auth.sucursal_id)
+      )
+        .select(cols)
+        .maybeSingle();
+
+    let upd = await guardar(patch, PRODUCTO_COLS);
+    if (upd.error && esColumnaFaltante(upd.error.message ?? "")) {
+      const sinNuevas = { ...patch };
+      for (const k of ["costo_usd", "markup_pct", "descuento_pct", "precio_usd"]) delete sinNuevas[k];
+      upd = await guardar(sinNuevas, PRODUCTO_COLS_BASE);
+    }
     if (upd.error) {
       const msg = upd.error.message ?? "";
       if (/duplicate key|unique|23505/i.test(msg)) {

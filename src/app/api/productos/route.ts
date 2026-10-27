@@ -26,6 +26,34 @@ const PRODUCTO_COLS =
   // Precio de lista en dolares (script 37).
   "precio_usd";
 
+/**
+ * Las mismas columnas, sin las que agregan los scripts que pueden no estar
+ * corridos todavía.
+ *
+ * ── POR QUÉ EXISTE ESTO ───────────────────────────────────────────────────
+ *   Pedir una columna que la base no tiene no devuelve esa columna en null:
+ *   PostgREST rechaza la consulta entera. Y como de esta ruta cuelga todo el
+ *   inventario —Caja, Presupuestos, Compras, Transferencias—, nombrar acá una
+ *   columna de un script sin correr deja al sistema sin un solo producto, con
+ *   un "no se encontraron productos" que parece que se borró el catálogo.
+ *
+ *   Pasó: se agregó `precio_usd` y, hasta correr el 37, no se veía nada en
+ *   ninguna pantalla. Una función nueva no puede costar el inventario entero.
+ */
+const PRODUCTO_COLS_BASE =
+  "id, empresa_id, nombre, sku, costo_promedio, precio_venta, stock_actual, stock_minimo, " +
+  "unidad_medida, metodo_valuacion, activo, created_at, updated_at, " +
+  "codigo_barras, codigo_barras_interno, imagen_path, imagen_url, " +
+  "categoria_principal_id, ubicacion_principal_id, proveedor_principal_id, " +
+  "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
+  "factor_compra_receta, tiempo_prep_minutos, descripcion, precio_mayorista, cantidad_minima_mayorista, precio_distribuidor, modo_receta, tipo_iva, controla_lote";
+
+/** ¿El error es "falta una columna de un script que no se corrió"? */
+function esColumnaFaltante(msg: string): boolean {
+  return /column .* does not exist|42703/i.test(msg)
+    && /costo_usd|markup_pct|descuento_pct|precio_usd/.test(msg);
+}
+
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
 }
@@ -121,7 +149,7 @@ export async function GET(request: NextRequest) {
 
     /** Se re-arma por cada chunk: los builders de supabase-js no se reutilizan
      *  una vez ejecutados. El filtro de sucursal va siempre. */
-    const buildBase = () => {
+    const buildBase = (cols: string = PRODUCTO_COLS) => {
       let base = aplicarFiltroSucursal(
         ctx.supabase
           .from("productos")
@@ -129,7 +157,7 @@ export async function GET(request: NextRequest) {
           // conteo real: en tablas chicas o recién cargadas (sin ANALYZE) da
           // cualquier número, y la pantalla mostraba "Mostrando 1-1 de 1"
           // teniendo 5 productos a la vista. `exact` cuenta de verdad.
-          .select(PRODUCTO_COLS, { count: "exact" })
+          .select(cols, { count: "exact" })
           .eq("empresa_id", ctx.auth.empresa_id)
           .eq("activo", true),
         exigirSucursal(ctx.auth.sucursal_id)
@@ -141,7 +169,10 @@ export async function GET(request: NextRequest) {
     };
 
     if (limit > 0) {
-      const { data, error, count } = await buildBase().range(offset, offset + limit - 1);
+      let { data, error, count } = await buildBase().range(offset, offset + limit - 1);
+      if (error && esColumnaFaltante(error.message ?? "")) {
+        ({ data, error, count } = await buildBase(PRODUCTO_COLS_BASE).range(offset, offset + limit - 1));
+      }
       if (error) throw new Error(error.message);
       const rows = await conImagenesFirmadas(
         ctx.supabase,
@@ -158,8 +189,13 @@ export async function GET(request: NextRequest) {
     const MAX_TOTAL = 100_000;
     const allRows: Record<string, unknown>[] = [];
     let totalCount = 0;
+    let cols = PRODUCTO_COLS;
     for (let from = 0; from < MAX_TOTAL; from += CHUNK) {
-      const { data, error, count } = await buildBase().range(from, from + CHUNK - 1);
+      let { data, error, count } = await buildBase(cols).range(from, from + CHUNK - 1);
+      if (error && esColumnaFaltante(error.message ?? "")) {
+        cols = PRODUCTO_COLS_BASE;
+        ({ data, error, count } = await buildBase(cols).range(from, from + CHUNK - 1));
+      }
       if (error) throw new Error(error.message);
       const batch = (data ?? []) as unknown as Record<string, unknown>[];
       if (batch.length === 0) break;
@@ -327,7 +363,15 @@ export async function POST(request: NextRequest) {
       insertPayload.tipo_iva = body.tipo_iva;
     }
 
-    const ins = await sb.from("productos").insert(insertPayload).select(PRODUCTO_COLS).single();
+    // Mismo respaldo que en el GET: si faltan las columnas de los scripts
+    // 32/37, se da de alta el producto sin ellas en vez de no dejar crear
+    // ninguno hasta que alguien corra una migración.
+    let ins = await sb.from("productos").insert(insertPayload).select(PRODUCTO_COLS).single();
+    if (ins.error && esColumnaFaltante(ins.error.message ?? "")) {
+      const sinNuevas = { ...insertPayload };
+      for (const k of ["costo_usd", "markup_pct", "descuento_pct", "precio_usd"]) delete sinNuevas[k];
+      ins = await sb.from("productos").insert(sinNuevas).select(PRODUCTO_COLS_BASE).single();
+    }
     if (ins.error) {
       const msg = ins.error.message ?? "";
       if (/duplicate key|unique|23505/i.test(msg)) {
