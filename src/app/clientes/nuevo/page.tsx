@@ -571,7 +571,11 @@ function NuevoClienteForm() {
               </p>
             </div>
 
-            {!SIMPLE_CLIENTE && (
+            {/* El rubro de cliente SÍ se usa acá: de él sale el precio por rubro y
+                el filtro de la cartera. Estaba escondido detrás del mismo
+                interruptor que oculta los campos que Roldán e Hijos no usa, así
+                que el modal rápido de Caja lo pedía y la ficha completa no lo
+                tenía en ningún lado. */}
             <div>
               <label className={labelClass}>Rubro de cliente</label>
               <CategoriaClienteSelect
@@ -584,7 +588,7 @@ function NuevoClienteForm() {
                 Se administran en <a href="/configuracion/categorias-cliente" className="underline">Configuración → Rubros de cliente</a>.
               </p>
             </div>
-            )}
+            
 
             {!SIMPLE_CLIENTE && (
             <div>

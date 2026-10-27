@@ -48,7 +48,11 @@ type Informe = {
   totales: { operaciones: number; facturado: number; descuento: number; costo: number; ganancia: number; comision: number };
 };
 
-type Tipo = { id: string; nombre: string; porcentaje_base: number; activo: boolean };
+type Tipo = {
+  id: string; nombre: string; porcentaje_base: number; activo: boolean;
+  /** Tope de descuento en Caja para todos los de este tipo. null = sin tope. */
+  descuento_maximo_pct?: number | null;
+};
 type Regla = { id: string; tipo_vendedor_id: string | null; categoria_id: string | null; porcentaje: number; activo: boolean };
 type UsuarioLite = { id: string; nombre: string | null; email: string; tipo_vendedor_id: string | null };
 type RubroLite = { id: string; nombre: string };
@@ -156,6 +160,8 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
 
   useEffect(() => { void cargar(); }, [cargar]);
 
+  const [detalleDe, setDetalleDe] = useState<Vendedor | null>(null);
+
   const t = data?.totales;
 
   return (
@@ -223,7 +229,12 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
               ) : (data?.vendedores.length ?? 0) === 0 ? (
                 <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Sin ventas en el período.</td></tr>
               ) : data!.vendedores.map((v) => (
-                <tr key={v.vendedor_id ?? "sin"} className="hover:bg-slate-50/60">
+                <tr
+                  key={v.vendedor_id ?? "sin"}
+                  onClick={() => setDetalleDe(v)}
+                  title="Ver el resumen de este vendedor, venta por venta"
+                  className="cursor-pointer hover:bg-slate-50/60"
+                >
                   <td className="px-4 py-2.5 font-medium text-slate-800">{v.vendedor_nombre}</td>
                   <td className="px-4 py-2.5 text-slate-500">{v.tipo_vendedor ?? "—"}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{v.operaciones}</td>
@@ -239,6 +250,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
                       <a
                         href={`/api/comisiones/hoja?vendedor=${v.vendedor_id}&desde=${desde}&hasta=${hasta}&auto=1`}
                         target="_blank" rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
                         className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
                         title="Hoja imprimible con el detalle y espacio para firma"
                       >
@@ -286,6 +298,17 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
             </table>
           </div>
         </div>
+      )}
+
+      {detalleDe && data && (
+        <ResumenVendedorModal
+          vendedor={detalleDe}
+          ventas={data.ventas.filter((x) => x.vendedor_nombre === detalleDe.vendedor_nombre)}
+          desde={desde}
+          hasta={hasta}
+          baseCalculo={data.base_calculo}
+          onClose={() => setDetalleDe(null)}
+        />
       )}
 
       <p className="text-[11px] leading-snug text-slate-400">
@@ -575,12 +598,13 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Tipos de vendedor */}
       <Caja titulo="Tipos de vendedor"
-        ayuda="El porcentaje base se usa cuando ninguna regla por rubro aplica.">
+        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. Si a una persona se le carga su propio tope en Configuración → RRHH → Usuarios, ese le gana al del tipo.">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
               <th className="py-2">Nombre</th>
               <th className="py-2 text-right">% base</th>
+              <th className="py-2 text-right">Desc. máx.</th>
               <th className="py-2 text-center">Activo</th>
               <th className="py-2"></th>
             </tr>
@@ -598,6 +622,19 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
                     })}
                   />
                 </td>
+                <td className="py-2 text-right">
+                  <PctEditable
+                    valor={t.descuento_maximo_pct == null ? -1 : Number(t.descuento_maximo_pct)}
+                    disabled={guardando}
+                    etiquetaVacio="sin tope"
+                    permiteVacio
+                    onGuardar={(n) => void enviar({
+                      accion: "tipo", id: t.id, nombre: t.nombre,
+                      porcentaje_base: Number(t.porcentaje_base) || 0,
+                      descuento_maximo_pct: n < 0 ? null : n,
+                    })}
+                  />
+                </td>
                 <td className="py-2 text-center">{t.activo ? "Sí" : "No"}</td>
                 <td className="py-2 text-right">
                   <button onClick={() => borrar("tipo", t.id)} disabled={guardando}
@@ -606,7 +643,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
               </tr>
             ))}
             {cfg.tipos.length === 0 && (
-              <tr><td colSpan={4} className="py-4 text-center text-slate-400">
+              <tr><td colSpan={5} className="py-4 text-center text-slate-400">
                 Todavía no hay tipos. Cargá al menos uno para poder comisionar.
               </td></tr>
             )}
@@ -716,16 +753,22 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
  * vez por tecla.
  */
 function PctEditable({
-  valor, disabled, onGuardar,
+  valor, disabled, onGuardar, permiteVacio, etiquetaVacio,
 }: {
+  /** Con `permiteVacio`, -1 representa "sin valor" y el campo se ve vacío. */
   valor: number;
   disabled?: boolean;
   onGuardar: (nuevo: number) => void;
+  /** Deja borrar el campo, y entonces devuelve -1 en vez de un número. */
+  permiteVacio?: boolean;
+  /** Lo que se ve de fondo cuando está vacío, por ejemplo "sin tope". */
+  etiquetaVacio?: string;
 }) {
-  const [texto, setTexto] = useState(String(valor));
+  const aTexto = (v: number) => (permiteVacio && v < 0 ? "" : String(v));
+  const [texto, setTexto] = useState(aTexto(valor));
   // Si el valor cambia desde afuera (otro guardado, una recarga), el campo
   // lo sigue, salvo que lo esté editando alguien.
-  useEffect(() => { setTexto(String(valor)); }, [valor]);
+  useEffect(() => { setTexto(aTexto(valor)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [valor, permiteVacio]);
 
   return (
     <input
@@ -735,11 +778,19 @@ function PctEditable({
       step="0.01"
       value={texto}
       disabled={disabled}
+      placeholder={etiquetaVacio}
       aria-label="Porcentaje"
       onChange={(e) => setTexto(e.target.value)}
       onBlur={() => {
+        // Vacío es un valor en sí: "sin tope". Distinto de cero, que es "no
+        // puede descontar nada".
+        if (permiteVacio && texto.trim() === "") {
+          if (valor < 0) return;
+          onGuardar(-1);
+          return;
+        }
         const n = Number(texto.replace(",", "."));
-        if (!Number.isFinite(n) || n < 0 || n > 100) { setTexto(String(valor)); return; }
+        if (!Number.isFinite(n) || n < 0 || n > 100) { setTexto(aTexto(valor)); return; }
         if (n === valor) return;
         onGuardar(n);
       }}
@@ -845,6 +896,116 @@ function ReglaNueva({ cfg, disabled, onEnviar }: {
       >
         Agregar regla
       </button>
+    </div>
+  );
+}
+
+/* ──────────────────── Resumen de un vendedor, en pantalla ───────────────── */
+/**
+ * Antes el único detalle de un vendedor era la hoja para firmar, que se abre
+ * como documento imprimible. Para una pregunta rápida —"¿de qué ventas salen
+ * estos 7.868?"— eso es mucho: hay que abrir una pestaña nueva, leer una hoja
+ * armada para papel y volver.
+ *
+ * Las ventas ya vienen con el informe, así que esto no pide nada al servidor:
+ * filtra las del vendedor y las muestra. La hoja sigue estando, acá adentro,
+ * para cuando de verdad hay que firmarla.
+ */
+function ResumenVendedorModal({
+  vendedor, ventas, desde, hasta, baseCalculo, onClose,
+}: {
+  vendedor: Vendedor;
+  ventas: VentaCom[];
+  desde: string;
+  hasta: string;
+  baseCalculo: "margen" | "facturacion";
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-4xl rounded-xl border border-slate-200 bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">{vendedor.vendedor_nombre}</h2>
+            <p className="text-sm text-slate-500">
+              {vendedor.tipo_vendedor ?? "Sin tipo"} · del {fechaCorta(desde)} al {fechaCorta(hasta)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {vendedor.vendedor_id && (
+              <a
+                href={`/api/comisiones/hoja?vendedor=${vendedor.vendedor_id}&desde=${desde}&hasta=${hasta}&auto=1`}
+                target="_blank" rel="noopener"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+              >
+                Hoja para firmar
+              </a>
+            )}
+            <button
+              type="button" onClick={onClose}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Cerrar
+            </button>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-5">
+          <Tarjeta label="Operaciones" valor={String(vendedor.operaciones)} />
+          <Tarjeta label="Vendido (sin IVA)" valor={gs(vendedor.facturado)} />
+          <Tarjeta label="Descuentos" valor={gs(vendedor.descuento)} tono="ambar" />
+          <Tarjeta label="Ganancia" valor={gs(vendedor.ganancia)} sub={`Margen ${pct(vendedor.margen_pct)}`} />
+          <Tarjeta label="Comisión" valor={gs(vendedor.comision)} destacado />
+        </div>
+
+        <div className="overflow-x-auto px-5 pb-5">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2">Comprobante</th>
+                <th className="px-3 py-2">Fecha</th>
+                <th className="px-3 py-2">Cliente</th>
+                <th className="px-3 py-2 text-right">Vendido</th>
+                <th className="px-3 py-2 text-right">Desc.</th>
+                <th className="px-3 py-2 text-right">Ganancia</th>
+                <th className="px-3 py-2 text-right">Comisión</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {ventas.length === 0 ? (
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-400">Sin ventas en el período.</td></tr>
+              ) : ventas.map((v) => (
+                <tr key={v.venta_id} className="hover:bg-slate-50/60">
+                  <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{v.numero_control}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-600">{fechaCorta(v.fecha)}</td>
+                  <td className="px-3 py-2 text-slate-700">{v.cliente_nombre ?? "Consumidor final"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-slate-700">{gs(v.facturado)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-amber-700">{v.descuento > 0 ? gs(v.descuento) : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-slate-600">{gs(v.ganancia)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#3F8E91]">{gs(v.comision)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-3 text-[11px] leading-snug text-slate-400">
+            {baseCalculo === "facturacion"
+              ? "La comisión se calcula sobre el importe vendido sin IVA."
+              : "La comisión se calcula sobre la ganancia de cada venta. Las ventas anuladas no entran."}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

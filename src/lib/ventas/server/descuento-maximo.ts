@@ -12,6 +12,15 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
  *   El administrador no tiene techo: no tiene sentido que el sistema se lo
  *   ponga a quien decide los precios. Cero, en cambio, es un valor real y
  *   distinto: el cajero que cobra lo que dice la lista y nada más.
+ *
+ * DE DÓNDE SALE EL TOPE
+ *   1. El de la persona (`usuarios.descuento_maximo_pct`), si tiene uno.
+ *   2. Si no, el de su tipo de vendedor (`tipos_vendedor`).
+ *   3. Si tampoco, sin tope.
+ *
+ *   El del tipo es la regla —"call center hasta 10%"— y el de la persona la
+ *   excepción. Al revés no serviría: una excepción que no puede pasarle por
+ *   encima a la regla no es una excepción.
  */
 
 /** Margen de tolerancia, en puntos porcentuales. */
@@ -33,7 +42,7 @@ export async function descuentoMaximoDe(
   try {
     const r = await supabase
       .from("usuarios")
-      .select("descuento_maximo_pct")
+      .select("descuento_maximo_pct, tipo_vendedor_id")
       .eq("empresa_id", empresaId)
       .eq("id", usuarioCatalogId)
       .maybeSingle();
@@ -43,7 +52,29 @@ export async function descuentoMaximoDe(
       }
       return null;
     }
-    const v = (r.data as { descuento_maximo_pct?: number | null } | null)?.descuento_maximo_pct;
+    const fila = r.data as { descuento_maximo_pct?: number | null; tipo_vendedor_id?: string | null } | null;
+
+    const propio = fila?.descuento_maximo_pct;
+    if (propio != null) {
+      const n = Number(propio);
+      if (Number.isFinite(n)) return n;
+    }
+
+    // Sin tope propio, manda el del tipo de vendedor.
+    if (!fila?.tipo_vendedor_id) return null;
+    const t = await supabase
+      .from("tipos_vendedor")
+      .select("descuento_maximo_pct")
+      .eq("empresa_id", empresaId)
+      .eq("id", fila.tipo_vendedor_id)
+      .maybeSingle();
+    if (t.error) {
+      if (!/descuento_maximo_pct/.test(t.error.message ?? "")) {
+        console.error("[descuento-maximo]", t.error.message);
+      }
+      return null;
+    }
+    const v = (t.data as { descuento_maximo_pct?: number | null } | null)?.descuento_maximo_pct;
     if (v == null) return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;

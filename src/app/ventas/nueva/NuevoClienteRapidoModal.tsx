@@ -98,18 +98,25 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget && !enviando) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      {/* El alto se limita a la pantalla y el cuerpo scrollea: con "Más
+          datos" abierto el formulario pasaba de largo y los botones
+          quedaban fuera del borde, sin manera de confirmar. */}
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl">
+        <div className="shrink-0 px-6 pt-6">
         <h3 className="text-lg font-semibold text-slate-900">Nuevo cliente</h3>
         <p className="mt-1 text-xs text-slate-500">
           Con el nombre alcanza para vender. El resto se puede completar ahora o más tarde desde la ficha.
         </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-2">
 
         {/* Tipo */}
         <div className="mt-4 flex gap-2">
@@ -250,7 +257,9 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
           </div>
         )}
 
-        <div className="mt-5 flex justify-end gap-2">
+        </div>
+
+        <div className="shrink-0 flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
           <button
             type="button"
             onClick={onClose}

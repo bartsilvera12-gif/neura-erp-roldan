@@ -1053,6 +1053,12 @@ export default function NuevoProductoPage() {
                   min={0}
                   required={showStock}
                 />
+                <p className="mt-1.5 text-xs text-gray-400">
+                  Se carga a mano, pero no hace falta adivinarlo: en{" "}
+                  <a href="/inventario/sugerencias" className="underline">Inventario → Sugerencias de reposición</a>{" "}
+                  el sistema lo calcula con la mediana de lo vendido en los últimos seis meses
+                  y lo aplica a todos los productos de una vez.
+                </p>
               </div>
             </div>
             {parseInt(form.stock_actual) > 0 && (

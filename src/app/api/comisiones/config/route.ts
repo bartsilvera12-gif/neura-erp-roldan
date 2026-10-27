@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   try {
     const [tipos, reglas, config, vendedores, rubros] = await Promise.all([
       supabase.from("tipos_vendedor")
-        .select("id, nombre, porcentaje_base, activo")
+        .select("id, nombre, porcentaje_base, activo, descuento_maximo_pct")
         .eq("empresa_id", auth.empresa_id).order("nombre"),
       supabase.from("comisiones_reglas")
         .select("id, tipo_vendedor_id, categoria_id, porcentaje, activo")
@@ -101,12 +101,32 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+      // Tope de descuento del tipo. Se distingue "no vino en el pedido" (no se
+      // toca) de "vino vacío" (se borra el tope): null acá significa sin tope,
+      // que no es lo mismo que cero.
+      let topeDesc: number | null | undefined;
+      if (b.descuento_maximo_pct !== undefined) {
+        if (b.descuento_maximo_pct === null || b.descuento_maximo_pct === "") {
+          topeDesc = null;
+        } else {
+          const d = Number(b.descuento_maximo_pct);
+          if (!Number.isFinite(d) || d < 0 || d > 100) {
+            return NextResponse.json(
+              errorResponse("El tope de descuento tiene que estar entre 0 y 100, o vacío para sin tope."),
+              { status: 400 }
+            );
+          }
+          topeDesc = d;
+        }
+      }
+
       const fila = {
         empresa_id: auth.empresa_id,
         nombre,
         porcentaje_base: pct,
         activo: b.activo !== false,
         updated_at: new Date().toISOString(),
+        ...(topeDesc !== undefined ? { descuento_maximo_pct: topeDesc } : {}),
       };
       const r = b.id
         ? await supabase.from("tipos_vendedor").update(fila)

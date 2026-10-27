@@ -1623,7 +1623,11 @@ export default function ClienteDetailPage() {
                   </p>
                 </div>
 
-                {!SIMPLE_CLIENTE && (
+                {/* El rubro de cliente SÍ se usa acá: de él sale el precio por rubro y
+                    el filtro de la cartera. Estaba escondido detrás del mismo
+                    interruptor que oculta los campos que Roldán e Hijos no usa, así
+                    que el modal rápido de Caja lo pedía y la ficha completa no lo
+                    tenía en ningún lado. */}
                 <div>
                   <label className={labelClass}>Rubro de cliente</label>
                   <CategoriaClienteSelect
@@ -1635,7 +1639,6 @@ export default function ClienteDetailPage() {
                     Al facturar, la caja aplica el precio cargado para este rubro en el producto (si hay).
                   </p>
                 </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
