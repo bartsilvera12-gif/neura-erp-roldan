@@ -295,7 +295,30 @@ export default function PresupuestoDetallePage() {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Datos</h3>
           <p className="text-sm text-gray-600">Fecha: {fmtFecha(presu.fecha)}</p>
-          {presu.validez_dias != null && <p className="text-sm text-gray-600">Validez: {presu.validez_dias} día(s){presu.fecha_vencimiento ? ` (vence ${fmtFecha(presu.fecha_vencimiento)})` : ""}</p>}
+          {presu.validez_dias != null && (() => {
+            // Vencido se decide comparando con hoy: no hay un estado guardado,
+            // porque un presupuesto no cambia solo mientras nadie lo mira.
+            //
+            // El aviso estaba solo en el listado. Pero el que abre la ficha
+            // para mandársela al cliente mira ESTA pantalla, y ahí los precios
+            // vencidos se leían como vigentes.
+            const v = presu.fecha_vencimiento ? String(presu.fecha_vencimiento).slice(0, 10) : null;
+            const py = new Date(Date.now() - 3 * 60 * 60 * 1000);
+            const p2 = (n: number) => String(n).padStart(2, "0");
+            const hoy = `${py.getUTCFullYear()}-${p2(py.getUTCMonth() + 1)}-${p2(py.getUTCDate())}`;
+            const vencido = !!v && v < hoy;
+            return (
+              <p className={`text-sm ${vencido ? "font-medium text-amber-700" : "text-gray-600"}`}>
+                Validez: {presu.validez_dias} día(s)
+                {v ? ` (${vencido ? "venció" : "vence"} ${fmtFecha(presu.fecha_vencimiento!)})` : ""}
+                {vencido && (
+                  <span className="mt-1 block text-xs font-normal text-amber-700">
+                    Estos precios ya no están vigentes. Si el cliente lo acepta, conviene rehacerlo.
+                  </span>
+                )}
+              </p>
+            );
+          })()}
           {presu.forma_pago && <p className="text-sm text-gray-600">Forma de pago: {presu.forma_pago}</p>}
           {presu.plazo_entrega && <p className="text-sm text-gray-600">Plazo de entrega: {presu.plazo_entrega}</p>}
           {/* Quién lo cotizó. Está acá y no en el PDF: adentro sirve para saber
