@@ -1720,7 +1720,13 @@ export default function NuevaVentaPage() {
                                   updateItemCampo(idx, { precio_venta: Math.round(base * (1 - dOk / 100)) });
                                 }}
                                 min={0}
-                                max={descuentoMaximo ?? 100}
+                                // Sin `max`: el campo recortaba el número ANTES
+                                // de avisar. Si alguien escribía 30 con tope 10,
+                                // el handler recibía 10 y nunca se enteraba de
+                                // que había pedido más, así que no salía el
+                                // aviso ni el botón de autorización. El recorte
+                                // lo hace el handler, que sí ve lo que se
+                                // escribió.
                                 fallback={0}
                                 className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-[11px] tabular-nums"
                               />
