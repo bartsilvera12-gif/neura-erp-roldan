@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Minus, Trash2, ImageIcon, ChevronDown } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
+import { descuentoEfectivo, precioConDescuento } from "@/lib/precios/ficha";
 import { saveVenta, type FaltanteStock } from "@/lib/ventas/storage";
 import { getProductos } from "@/lib/inventario/storage";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
@@ -311,7 +312,7 @@ export default function NuevaVentaPage() {
   const [comboHits,      setComboHits]      = useState<Producto[]>([]);
   const [comboBuscando,  setComboBuscando]  = useState(false);
   const [comboCategoriaId, setComboCategoriaId] = useState<string>("");
-  const [categorias,     setCategorias]     = useState<{ id: string; nombre: string }[]>([]);
+  const [categorias,     setCategorias]     = useState<{ id: string; nombre: string; descuento_pct: number }[]>([]);
   const comboInputRef    = useRef<HTMLInputElement>(null);
   const comboContainerRef = useRef<HTMLDivElement>(null);
   const comboTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -352,7 +353,16 @@ export default function NuevaVentaPage() {
       iva,
       tipo_precio,
     } = payload;
-    const precioPyg = precio_input;
+    // El modal buscador prellena el precio de lista y deja cambiarlo. Si quedó
+    // el de lista, se le aplica el descuento del artículo o del rubro, igual
+    // que en el autocomplete; si el vendedor escribió otro precio, manda el
+    // suyo y no se le encima ningún descuento.
+    const listaPicker = precioPorTipo(pickerToProducto(p), tipo_precio);
+    const usaPrecioDeLista = Math.round(precio_input) === Math.round(listaPicker);
+    const precioPyg = usaPrecioDeLista
+      ? precioConDescuento(listaPicker, descuentoDeLista(p.id)) ?? listaPicker
+      : precio_input;
+    const precioOriginal = usaPrecioDeLista ? listaPicker : precio_input;
     // Verificar stock vs lo ya cargado SOLO si el producto controla stock.
     // Venta sin stock (Fase 5): NO se bloquea por falta de stock al agregar; la
     // confirmación se pide al registrar la venta. El Menú (controla_stock=false) tampoco valida.
@@ -374,7 +384,7 @@ export default function NuevaVentaPage() {
         producto_nombre: p.nombre,
         sku: p.sku,
         cantidad,
-        precio_venta_original: precio_input,
+        precio_venta_original: precioOriginal,
         precio_venta: precioPyg,
         tipo_iva: iva,
         tipo_precio,
@@ -648,6 +658,9 @@ export default function NuevaVentaPage() {
         const rows = ((j?.data?.categorias ?? []) as Record<string, unknown>[]).map((c) => ({
           id: String(c.id),
           nombre: String(c.nombre ?? ""),
+          // Se trae también para aplicarlo al precio: el descuento del rubro
+          // es una decisión de lista, no una concesión del vendedor.
+          descuento_pct: Number(c.descuento_pct ?? 0) || 0,
         }));
         setCategorias(rows);
       })
@@ -860,10 +873,41 @@ export default function NuevaVentaPage() {
     return { ...l, total_linea, monto_iva, subtotal: total_linea - monto_iva };
   }
 
+  /**
+   * Descuento que le corresponde a un producto por lista: el del artículo si
+   * tiene, y si no el de su rubro (misma regla que la ficha del producto; el
+   * del artículo reemplaza al del rubro, no se suman).
+   *
+   * Se resuelve contra `productos` y no contra lo que trae cada pantalla,
+   * porque el modal buscador no consulta estas columnas y quedaría aplicando
+   * un descuento distinto al del autocomplete para el mismo artículo.
+   */
+  const descuentoDeLista = useCallback(
+    (productoId: string): number => {
+      const prod = productos.find((x) => x.id === productoId);
+      if (!prod) return 0;
+      const rubro = prod.categoria_principal_id
+        ? categorias.find((c) => c.id === prod.categoria_principal_id)
+        : undefined;
+      return descuentoEfectivo(prod.descuento_pct, rubro?.descuento_pct).pct;
+    },
+    [productos, categorias]
+  );
+
+  /** Precio de lista y precio ya con el descuento del artículo o del rubro. */
+  const preciosDe = useCallback(
+    (p: Producto, tipo: TipoPrecioVenta) => {
+      const lista = precioPorTipo(p, tipo);
+      const pct = descuentoDeLista(p.id);
+      return { lista, final: precioConDescuento(lista, pct) ?? lista, pct };
+    },
+    [descuentoDeLista]
+  );
+
   /** Agrega un producto directo desde el autocomplete: si ya está (sin presentación)
    *  suma +1; si no, crea la línea. Luego limpia el input y devuelve el foco. */
   function agregarProductoRapido(p: Producto) {
-    const precio = precioPorTipo(p, "minorista");
+    const { lista, final: precio } = preciosDe(p, "minorista");
     setItems((prev) => {
       const idx = prev.findIndex((it) => it.producto_id === p.id);
       if (idx >= 0) {
@@ -876,7 +920,7 @@ export default function NuevaVentaPage() {
           producto_nombre: p.nombre,
           sku: p.sku,
           cantidad: 1,
-          precio_venta_original: precio,
+          precio_venta_original: lista,
           precio_venta: precio,
           tipo_iva: "10%",
           tipo_precio: "minorista",
@@ -904,8 +948,9 @@ export default function NuevaVentaPage() {
       prev.map((it, i) => {
         if (i !== idx) return it;
         const prod = productos.find((p) => p.id === it.producto_id);
-        const precio = prod ? precioPorTipo(prod, tipo) : it.precio_venta;
-        return recomputeLinea({ ...it, tipo_precio: tipo, precio_venta: precio, precio_venta_original: precio });
+        if (!prod) return recomputeLinea({ ...it, tipo_precio: tipo });
+        const { lista, final } = preciosDe(prod, tipo);
+        return recomputeLinea({ ...it, tipo_precio: tipo, precio_venta: final, precio_venta_original: lista });
       })
     );
   }

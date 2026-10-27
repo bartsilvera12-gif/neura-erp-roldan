@@ -121,6 +121,9 @@ export default function EditarVentaModal({
   async function guardar() {
     if (!motivo.trim()) { setError("Escribí el motivo del cambio."); return; }
     if (lineas.length === 0) { setError("La venta tiene que quedar con al menos un producto."); return; }
+    // Las cantidades se dejan en 0 mientras se escriben; en cero no se guarda.
+    const enCero = lineas.find((l) => l.cantidad < 1);
+    if (enCero) { setError(`Poné una cantidad en ${enCero.producto_nombre}.`); return; }
     setGuardando(true);
     setError(null);
     try {
@@ -199,16 +202,28 @@ export default function EditarVentaModal({
                         {l.sku && <p className="font-mono text-[11px] text-slate-400">{l.sku}</p>}
                       </td>
                       <td className="px-3 py-2">
+                        {/* Mientras se escribe se deja vacío o en 0.
+                            Antes cada tecla lo forzaba a 1, así que para poner
+                            10 había que borrar el 1 y el 1 volvía solo: no
+                            había forma de cambiar la cantidad. Se corrige al
+                            salir del campo, y Guardar no acepta líneas en 0. */}
                         <input
-                          type="number" min={1} value={l.cantidad}
-                          onChange={(e) => cambiar(idx, { cantidad: Math.max(1, Number(e.target.value) || 1) })}
+                          type="number" min={0} value={l.cantidad === 0 ? "" : l.cantidad}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            cambiar(idx, { cantidad: v === "" ? 0 : Math.max(0, Number(v) || 0) });
+                          }}
+                          onBlur={() => { if (l.cantidad < 1) cambiar(idx, { cantidad: 1 }); }}
                           className="w-full rounded border border-slate-200 px-2 py-1 text-right text-sm tabular-nums"
                         />
                       </td>
                       <td className="px-3 py-2">
                         <input
-                          type="number" min={0} value={l.precio_venta}
-                          onChange={(e) => cambiar(idx, { precio_venta: Math.max(0, Number(e.target.value) || 0) })}
+                          type="number" min={0} value={l.precio_venta === 0 ? "" : l.precio_venta}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            cambiar(idx, { precio_venta: v === "" ? 0 : Math.max(0, Number(v) || 0) });
+                          }}
                           className="w-full rounded border border-slate-200 px-2 py-1 text-right text-sm tabular-nums"
                         />
                       </td>

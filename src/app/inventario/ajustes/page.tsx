@@ -70,6 +70,8 @@ export default function AjustesPage() {
   const [desde, setDesde] = useState(() => haceDiasPy(30));
   const [hasta, setHasta] = useState(() => hoyPy());
   const [q, setQ] = useState("");
+  const [categoria, setCategoria] = useState("");
+  const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
   const [qDraft, setQDraft] = useState("");
   const [data, setData] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -83,6 +85,7 @@ export default function AjustesPage() {
       if (desde) sp.set("desde", desde);
       if (hasta) sp.set("hasta", hasta);
       if (q) sp.set("q", q);
+      if (categoria) sp.set("categoria", categoria);
       sp.set("limit", "500");
       const r = await fetchWithSupabaseSession(`/api/inventario/ajustes?${sp}`, { cache: "no-store" });
       const j = await r.json();
@@ -94,9 +97,26 @@ export default function AjustesPage() {
     } finally {
       setCargando(false);
     }
-  }, [desde, hasta, q]);
+  }, [desde, hasta, q, categoria]);
 
   useEffect(() => { void cargar(); }, [cargar]);
+
+  // Catálogo de rubros para el filtro. Un ajuste guarda el producto, no el
+  // rubro, así que el filtrado lo hace el servidor; acá solo se eligen.
+  useEffect(() => {
+    let cancel = false;
+    fetchWithSupabaseSession("/api/inventario/categorias", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel) return;
+        const rows = ((j?.data?.categorias ?? []) as Record<string, unknown>[])
+          .map((c) => ({ id: String(c.id), nombre: String(c.nombre ?? "") }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        setRubros(rows);
+      })
+      .catch(() => undefined);
+    return () => { cancel = true; };
+  }, []);
 
   const ajustes = data?.ajustes ?? [];
 
@@ -164,6 +184,19 @@ export default function AjustesPage() {
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            className="min-w-[160px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="">Todos los rubros</option>
+            {rubros.map((r) => (
+              <option key={r.id} value={r.id}>{r.nombre}</option>
+            ))}
+          </select>
+        </label>
         <form
           className="flex flex-1 flex-col gap-1"
           onSubmit={(e) => { e.preventDefault(); setQ(qDraft.trim()); }}
@@ -186,7 +219,7 @@ export default function AjustesPage() {
         </form>
         <button
           type="button"
-          onClick={() => { setDesde(haceDiasPy(30)); setHasta(hoyPy()); setQ(""); setQDraft(""); }}
+          onClick={() => { setDesde(haceDiasPy(30)); setHasta(hoyPy()); setQ(""); setQDraft(""); setCategoria(""); }}
           className="pb-2 text-xs text-slate-400 underline-offset-2 hover:text-slate-700 hover:underline"
         >
           Limpiar

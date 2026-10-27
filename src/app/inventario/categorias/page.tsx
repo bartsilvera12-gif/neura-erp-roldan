@@ -26,6 +26,8 @@ export default function CategoriasProductosPage() {
   const { isAdmin } = useIsAdmin();
   const [items, setItems] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
+  const [soloConDescuento, setSoloConDescuento] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,8 +145,11 @@ export default function CategoriasProductosPage() {
    */
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return items;
     return items.filter((c) => {
+      if (filtroEstado === "activos" && !c.activo) return false;
+      if (filtroEstado === "inactivos" && c.activo) return false;
+      if (soloConDescuento && !(Number(c.descuento_pct ?? 0) > 0)) return false;
+      if (!q) return true;
       const padre = items.find((i) => i.id === c.parent_id)?.nombre ?? "";
       return (
         c.nombre.toLowerCase().includes(q) ||
@@ -152,7 +157,7 @@ export default function CategoriasProductosPage() {
         padre.toLowerCase().includes(q)
       );
     });
-  }, [items, busqueda]);
+  }, [items, busqueda, filtroEstado, soloConDescuento]);
 
   async function guardarCampo(valor: string) {
     if (!campo) return;
@@ -364,15 +369,35 @@ export default function CategoriasProductosPage() {
                 className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
               />
             </div>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value as "todos" | "activos" | "inactivos")}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="activos">Solo activos</option>
+              <option value="inactivos">Solo inactivos</option>
+            </select>
+            {/* El descuento del rubro ahora sale en el precio de Caja, así que
+                conviene poder ver de un vistazo cuáles lo tienen puesto. */}
+            <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={soloConDescuento}
+                onChange={(e) => setSoloConDescuento(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Solo con descuento
+            </label>
             <span className="text-xs text-slate-500">
-              {busqueda.trim()
-                ? `${visibles.length} de ${items.length} rubros`
-                : `${items.length} rubro${items.length === 1 ? "" : "s"}`}
+              {visibles.length === items.length
+                ? `${items.length} rubro${items.length === 1 ? "" : "s"}`
+                : `${visibles.length} de ${items.length} rubros`}
             </span>
           </div>
           {visibles.length === 0 ? (
             <p className="p-6 text-sm text-gray-500">
-              Ningún rubro coincide con “{busqueda.trim()}”.
+              Ningún rubro coincide con los filtros.
             </p>
           ) : (
           <table className="w-full text-sm">

@@ -45,6 +45,10 @@ interface ProductoRow {
   descripcion?: string | null;
   modo_receta?: string | null;
   tipo_iva?: string | null;
+  // Ficha en dólares y descuentos (script 32).
+  costo_usd?: string | number | null;
+  markup_pct?: string | number | null;
+  descuento_pct?: string | number | null;
 }
 
 interface MovimientoRow {
@@ -100,6 +104,12 @@ function rowToProducto(row: ProductoRow): Producto {
     descripcion: row.descripcion ?? null,
     modo_receta: row.modo_receta ?? "preparado_al_vender",
     tipo_iva: (row.tipo_iva === "EXENTA" || row.tipo_iva === "5%" ? row.tipo_iva : "10%") as "EXENTA" | "5%" | "10%",
+    // La API ya las devolvía; el mapeo las descartaba, así que el costo en
+    // dólares, la remarcación y el descuento no llegaban a ninguna pantalla.
+    // Por eso un descuento cargado en el rubro no se aplicaba en Caja.
+    costo_usd: row.costo_usd != null ? Number(row.costo_usd) : null,
+    markup_pct: row.markup_pct != null ? Number(row.markup_pct) : null,
+    descuento_pct: row.descuento_pct != null ? Number(row.descuento_pct) : 0,
   };
 }
 

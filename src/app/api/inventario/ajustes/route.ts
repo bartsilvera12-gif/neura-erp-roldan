@@ -20,6 +20,9 @@ import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } fr
  *   desde, hasta — fechas (YYYY-MM-DD) en hora de Paraguay, inclusive ambas.
  *   q            — busca en producto, motivo, usuario o código.
  *   producto     — id de producto.
+ *   categoria    — id de rubro: se resuelven primero los productos del rubro
+ *                  y se filtra por esos ids, porque el movimiento guarda el
+ *                  producto pero no su rubro.
  *   limit, offset
  */
 
@@ -47,8 +50,27 @@ export async function GET(request: NextRequest) {
     const hasta = (sp.get("hasta") ?? "").trim();
     const q = (sp.get("q") ?? "").trim();
     const productoId = (sp.get("producto") ?? "").trim();
+    const categoriaId = (sp.get("categoria") ?? "").trim();
     const limit = Math.min(500, Math.max(1, parseInt(sp.get("limit") ?? "100", 10) || 100));
     const offset = Math.max(0, parseInt(sp.get("offset") ?? "0", 10) || 0);
+
+    // El rubro vive en el producto, no en el movimiento: primero se resuelven
+    // los ids del rubro y después se filtra por ellos. Un `in` con los ids es
+    // más barato que traer todos los ajustes y descartarlos en el navegador,
+    // que además rompería la paginación.
+    let idsDelRubro: string[] | null = null;
+    if (categoriaId) {
+      const { data: prods } = await aplicarFiltroSucursal(
+        ctx.supabase
+          .from("productos")
+          .select("id")
+          .eq("empresa_id", empresaId)
+          .eq("categoria_principal_id", categoriaId)
+          .limit(5000),
+        sucursalId
+      );
+      idsDelRubro = ((prods ?? []) as Array<{ id: string }>).map((x) => x.id);
+    }
 
     const filtros = <T,>(base: T, conCodigo: boolean): T => {
       let x = base as unknown as {
@@ -56,6 +78,7 @@ export async function GET(request: NextRequest) {
         gte(c: string, v: string): typeof x;
         lte(c: string, v: string): typeof x;
         or(f: string): typeof x;
+        in(c: string, v: string[]): typeof x;
         order(c: string, o: { ascending: boolean }): typeof x;
         range(a: number, b: number): typeof x;
       };
@@ -65,6 +88,7 @@ export async function GET(request: NextRequest) {
       if (desde) x = x.gte("fecha", `${desde}T00:00:00${OFFSET_PY}`);
       if (hasta) x = x.lte("fecha", `${hasta}T23:59:59.999${OFFSET_PY}`);
       if (productoId) x = x.eq("producto_id", productoId);
+      if (idsDelRubro) x = x.in("producto_id", idsDelRubro.length ? idsDelRubro : ["00000000-0000-0000-0000-000000000000"]);
       if (q) {
         const t2 = q.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
         if (t2) {
