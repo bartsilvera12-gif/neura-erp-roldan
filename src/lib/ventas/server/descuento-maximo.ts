@@ -125,7 +125,11 @@ export function validarTopeDescuento(
       const nombre = l.producto_nombre ? `"${l.producto_nombre}"` : "una línea";
       return tope === 0
         ? `Tu usuario no tiene permitido aplicar descuentos, y ${nombre} tiene ${pct.toFixed(1)}% menos que el precio de lista.`
-        : `El descuento de ${nombre} es ${pct.toFixed(1)}% y tu tope es ${tope}%. Pedile a un administrador que lo autorice.`;
+        // No se promete una autorización que no existe: hoy la única salida es
+        // que un administrador suba el tope o registre la venta él. Un mensaje
+        // que manda a pedir algo que el sistema no sabe hacer deja al vendedor
+        // esperando una pantalla que nunca va a aparecer.
+        : `El descuento de ${nombre} es ${pct.toFixed(1)}% y tu tope es ${tope}%. Para dar más, un administrador tiene que subirte el tope en Comisiones → Configuración, o registrar la venta él.`;
     }
   }
   return null;

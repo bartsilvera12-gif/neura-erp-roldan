@@ -1631,7 +1631,8 @@ export default function NuevaVentaPage() {
                             {avisoTope?.idx === idx && (
                               <p className="mt-1 text-[10px] font-medium leading-tight text-amber-700">
                                 Escribiste {avisoTope.pidio}%, pero tu tope es {descuentoMaximo}%: se aplicó{" "}
-                                {avisoTope.aplicado}%. Pedile a un administrador que lo autorice.
+                                {avisoTope.aplicado}%. Para dar más, un administrador tiene que subirte el tope o
+                                registrar la venta.
                               </p>
                             )}
                           </td>
