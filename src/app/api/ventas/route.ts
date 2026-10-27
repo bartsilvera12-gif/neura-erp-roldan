@@ -277,6 +277,24 @@ export async function GET(request: NextRequest) {
       byVenta.set(row.venta_id, list);
     }
 
+    // Banderas para la fila del listado: si la venta fue editada y si tiene
+    // devoluciones. Son dos consultas de ids sobre las ventas ya cargadas, no
+    // el detalle: ese se pide al abrir la venta (/api/ventas/[id]/historial).
+    const idsLista = ventasRows.map((v) => v.id);
+    const editadas = new Set<string>();
+    const conDevolucion = new Set<string>();
+    if (idsLista.length) {
+      const [edQ, devQ] = await Promise.all([
+        ctx.supabase.from("ventas_ediciones").select("venta_id").eq("empresa_id", empresaId).in("venta_id", idsLista),
+        ctx.supabase.from("devoluciones_venta").select("venta_id").eq("empresa_id", empresaId).in("venta_id", idsLista),
+      ]);
+      // Si todavía no se corrió la migración que crea alguna de las dos, la
+      // consulta falla: se ignora y el listado sale sin las banderas, en vez
+      // de dejar la pantalla de ventas rota esperando un script.
+      for (const r of ((edQ.data ?? []) as Array<{ venta_id: string }>)) editadas.add(r.venta_id);
+      for (const r of ((devQ.data ?? []) as Array<{ venta_id: string }>)) conDevolucion.add(r.venta_id);
+    }
+
     const ventas: Venta[] = ventasRows.map((r) => {
       const lineRows = byVenta.get(r.id) ?? [];
       return {
@@ -300,6 +318,13 @@ export async function GET(request: NextRequest) {
         genera_nota_remision: (r as unknown as { genera_nota_remision?: boolean }).genera_nota_remision === true,
         nota_remision_numero: (r as unknown as { nota_remision_numero?: string | null }).nota_remision_numero ?? null,
         fecha: r.fecha,
+        // Se seleccionaban pero no se copiaban al objeto de respuesta, así que
+        // la columna Vendedor del historial salía siempre vacía aunque la
+        // venta tuviera el vendedor guardado.
+        usuario_nombre: (r as unknown as { usuario_nombre?: string | null }).usuario_nombre ?? null,
+        editada: editadas.has(r.id),
+        tiene_devolucion: conDevolucion.has(r.id),
+        vendedor_nombre: (r as unknown as { vendedor_nombre?: string | null }).vendedor_nombre ?? null,
         estado: ((): "pendiente" | "completada" | "anulada" => {
           const e = (r as unknown as { estado?: string }).estado;
           return e === "anulada" || e === "pendiente" ? e : "completada";

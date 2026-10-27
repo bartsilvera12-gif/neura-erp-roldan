@@ -187,16 +187,18 @@ export default function ReporteCajasPage() {
                         {abierta ? "—" : dif === 0 ? "Cuadra" : gs(dif)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                        {/* Punto 5.1: consultar el cierre. El arqueo A4 trae las
-                            operaciones y los motivos de anulación (punto 5.2). */}
-                        <a
-                          href={`/api/cajas/${c.id}/arqueo-a4`}
-                          target="_blank" rel="noopener"
+                        {/* Punto 5.1: consultar el cierre. Antes esto abría el
+                            PDF directamente, así que para revisar una venta del
+                            turno había que imprimir una hoja. Ahora lleva al
+                            detalle en pantalla, donde cada venta se abre; la
+                            hoja para firmar está adentro. */}
+                        <Link
+                          href={`/reportes/cajas/${c.id}`}
                           className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
-                          title="Arqueo completo: ingresos, egresos, conteo por denominación y anulaciones"
+                          title="Ventas del turno, anulaciones con su motivo, ingresos y egresos, y el arqueo"
                         >
                           Ver cierre
-                        </a>
+                        </Link>
                         {!abierta && isAdmin && (
                           <button
                             type="button"

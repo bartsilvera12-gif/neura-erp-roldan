@@ -162,6 +162,8 @@ export interface CajaDetalleVenta {
   total: number;
   estado: string | null;
   usuario_nombre: string | null;
+  /** Vendedor asignado a la venta. Distinto del cajero que la cobró. */
+  vendedor_nombre?: string | null;
   /** Punto 5.2: el detalle del cierre nombra al cliente de cada operación. */
   cliente_nombre?: string | null;
   /** Por qué se anuló, cuando se anuló. */

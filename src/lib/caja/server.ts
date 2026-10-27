@@ -466,7 +466,7 @@ export async function getDetalleCaja(
   // Ventas individuales del turno (cronológico).
   const vQ = await sb
     .from("ventas")
-    .select("id, numero_control, fecha, metodo_pago, tipo_venta, total, estado, usuario_nombre, cliente_id, anulacion_motivo")
+    .select("id, numero_control, fecha, metodo_pago, tipo_venta, total, estado, usuario_nombre, vendedor_nombre, cliente_id, anulacion_motivo")
     .eq("empresa_id", empresaId)
     .eq("caja_id", cajaId)
     .order("fecha", { ascending: true });
@@ -480,6 +480,7 @@ export async function getDetalleCaja(
     total: number | string;
     estado: string | null;
     usuario_nombre: string | null;
+    vendedor_nombre: string | null;
     cliente_id: string | null;
     anulacion_motivo: string | null;
   }>;
@@ -512,6 +513,9 @@ export async function getDetalleCaja(
     total: num(v.total),
     estado: v.estado,
     usuario_nombre: v.usuario_nombre,
+    // Quién vendió, que no siempre es quién cobró: el cierre tiene que poder
+    // contestar las dos preguntas.
+    vendedor_nombre: v.vendedor_nombre,
     cliente_nombre: v.cliente_id ? (nombreCliente.get(v.cliente_id) || null) : null,
     anulacion_motivo: v.anulacion_motivo,
     desglose_pago: null, // se rellena mas abajo cuando la venta es mixto

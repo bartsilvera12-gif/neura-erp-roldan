@@ -62,6 +62,11 @@ export interface Venta {
   /** Snapshot del vendedor asignado, cuando lo hay. Distinto del cajero:
    *  el que cierra la operación no siempre es el que la vendió. */
   vendedor_nombre?: string | null;
+  /** La venta fue editada al menos una vez (tabla `ventas_ediciones`). El
+   *  detalle —quién, cuándo, por qué— se pide aparte, al abrirla. */
+  editada?: boolean;
+  /** La venta tiene al menos una devolución registrada. */
+  tiene_devolucion?: boolean;
   plazo_dias?: number;       // solo si tipo_venta === "CREDITO"
 
   metodo_pago?: MetodoPago;  // Neura ERP Roldán e Hijos: efectivo/tarjeta/transferencia

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import AccionesTabla from "@/components/ui/AccionesTabla";
+import DetalleVentaModal, { type VentaDetalleLite } from "@/components/ventas/DetalleVentaModal";
 
 /**
  * Historial de ventas.
@@ -38,6 +39,13 @@ type Row = {
   usuario_nombre?: string | null;
   numero_factura?: string | null;
   anulacion_motivo?: string | null;
+  subtotal?: number;
+  monto_iva?: number;
+  /** Los ítems ya vienen en /api/ventas: el detalle no pide nada más. */
+  items?: VentaDetalleLite["items"];
+  /** Banderas del listado; el detalle de cada una se pide al abrir la venta. */
+  editada?: boolean;
+  tiene_devolucion?: boolean;
 };
 
 const TOPE = 2000;
@@ -82,6 +90,7 @@ export default function HistorialVentasPage() {
   const [fTexto, setFTexto] = useState("");
   const [fCliente, setFCliente] = useState("");
   const [fVendedor, setFVendedor] = useState("");
+  const [abierta, setAbierta] = useState<Row | null>(null);
   const [fMedio, setFMedio] = useState("");
   const [fEstado, setFEstado] = useState("");
 
@@ -312,7 +321,12 @@ export default function HistorialVentasPage() {
                 const { fecha, hora } = fechaHora(v.fecha);
                 const anulada = v.estado === "anulada";
                 return (
-                  <tr key={v.id} className={anulada ? "bg-rose-50/40" : "hover:bg-slate-50"}>
+                  <tr
+                    key={v.id}
+                    onClick={() => setAbierta(v)}
+                    title="Ver qué se vendió, ediciones y devoluciones"
+                    className={`cursor-pointer ${anulada ? "bg-rose-50/40 hover:bg-rose-50" : "hover:bg-slate-50"}`}
+                  >
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">{fecha}</td>
                     <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-500">{hora}</td>
                     <td className="px-4 py-3 font-medium tabular-nums text-slate-800">
@@ -325,6 +339,19 @@ export default function HistorialVentasPage() {
                       {anulada && (
                         <span className="block text-[11px] font-normal text-rose-600">
                           ANULADA{v.anulacion_motivo ? `: ${v.anulacion_motivo}` : ""}
+                        </span>
+                      )}
+                      {/* Que una venta se haya editado o devuelto cambia cómo
+                          se lee el total: conviene verlo en la fila y no solo
+                          al abrirla. */}
+                      {(v.editada || v.tiene_devolucion) && (
+                        <span className="mt-0.5 flex flex-wrap gap-1">
+                          {v.editada && (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">EDITADA</span>
+                          )}
+                          {v.tiene_devolucion && (
+                            <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800">CON DEVOLUCIÓN</span>
+                          )}
                         </span>
                       )}
                     </td>
@@ -342,6 +369,10 @@ export default function HistorialVentasPage() {
           </table>
         )}
       </div>
+
+      {abierta && (
+        <DetalleVentaModal venta={abierta as VentaDetalleLite} onClose={() => setAbierta(null)} />
+      )}
     </div>
   );
 }
