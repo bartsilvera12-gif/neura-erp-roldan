@@ -689,6 +689,36 @@ export default function NuevaVentaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credito, tipoVenta]);
 
+  /**
+   * Cuando llega la cotización, se recalculan las líneas que ya estaban.
+   *
+   * La cotización se pide al abrir la pantalla y tarda su momento. En ese rato
+   * se puede agregar un producto con precio en dólares, y sin cotización cae a
+   * su último precio en guaraníes conocido. Después llegaba el dato, el cartel
+   * de la línea decía "US$ 5,00 × 6.400 = Gs. 32.000" y el precio cobrado
+   * seguía siendo el viejo: dos números distintos en la misma fila.
+   *
+   * Se respeta el descuento que tuviera la línea, y no se toca ninguna cuyo
+   * precio haya sido escrito a mano: esa decisión es del vendedor.
+   */
+  const tcAplicadoRef = useRef(false);
+  useEffect(() => {
+    if (!tcVenta || tcAplicadoRef.current) return;
+    tcAplicadoRef.current = true;
+    setItems((prev) => prev.map((it) => {
+      const prod = productos.find((x) => x.id === it.producto_id);
+      if (!prod || !precioEnDolares(prod)) return it;
+      const listaNueva = precioPorTipo(prod, it.tipo_precio ?? "minorista", tcVenta);
+      if (listaNueva <= 0 || listaNueva === it.precio_venta_original) return it;
+      const pct = descuentoPctDe(it);
+      return recomputeLinea({
+        ...it,
+        precio_venta_original: listaNueva,
+        precio_venta: Math.round(listaNueva * (1 - pct / 100)),
+      });
+    }));
+  }, [tcVenta, productos]);
+
   // La cotización del día. Sin ella, un producto en dólares cae a su último
   // precio en guaraníes conocido: está cerca y deja seguir vendiendo.
   useEffect(() => {
