@@ -385,6 +385,14 @@ export async function updateProducto(
   if (typeof datos.tiempo_prep_minutos === "number" && datos.tiempo_prep_minutos >= 0)
     body.tiempo_prep_minutos = datos.tiempo_prep_minutos;
   if (datos.descripcion !== undefined) body.descripcion = datos.descripcion;
+  // Los de la ficha en dólares y el descuento (scripts 32 y 37). Faltaban en
+  // esta lista: el formulario los mandaba, este armado los descartaba y el
+  // PATCH nunca los veía. Se guardaba todo lo demás, así que desde la pantalla
+  // parecía que el campo no servía para nada.
+  if (datos.costo_usd !== undefined) body.costo_usd = datos.costo_usd;
+  if (datos.precio_usd !== undefined) body.precio_usd = datos.precio_usd;
+  if (datos.markup_pct !== undefined) body.markup_pct = datos.markup_pct;
+  if (datos.descuento_pct !== undefined) body.descuento_pct = datos.descuento_pct;
   if (datos.modo_receta !== undefined) body.modo_receta = datos.modo_receta;
   if (datos.tipo_iva !== undefined) body.tipo_iva = datos.tipo_iva;
 

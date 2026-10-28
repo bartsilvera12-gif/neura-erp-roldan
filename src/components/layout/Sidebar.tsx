@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Package,
   Users,
+  UserCog,
   FileText,
   Settings,
   Building2,
@@ -251,7 +252,23 @@ const MENU_STRUCTURE: MenuItem[] = [
     href: "/notas-credito",
     icon: ScrollText,
   },
-  // "Usuarios" oculto en Roldán e Hijos: la gestión de usuarios se hace desde Configuración.
+  // Usuarios. Estuvo oculto con el argumento de que esto se hacía desde
+  // Configuración, pero ahí solo está "Usuarios y roles", que asigna el rol
+  // RRHH y el tope de descuento y NO da de alta a nadie. O sea que no había
+  // ninguna forma de crear un usuario desde el menú: la pantalla existía y no
+  // se llegaba.
+  {
+    key: "usuarios",
+    slug: "usuarios",
+    label: "Usuarios",
+    href: "/usuarios",
+    icon: UserCog,
+    children: [
+      { label: "Usuarios", href: "/usuarios", exactMatch: true },
+      { label: "Nuevo usuario", href: "/usuarios/nuevo" },
+      { label: "Roles y tope de descuento", href: "/configuracion/rrhh/usuarios" },
+    ],
+  },
   {
     key: "rrhh",
     slug: "rrhh",
@@ -342,7 +359,7 @@ const MENU_FAMILIES: { id: string; titulo: string; keys: string[] }[] = [
   { id: "omnicanal", titulo: "Omnicanal", keys: ["conversaciones", "conversaciones-finalizadas", "historial-omnicanal", "monitoreo", "campanas"] },
   { id: "marketing", titulo: "Marketing y Automatización", keys: ["marketing", "marketing_ops", "sorteos"] },
   { id: "rrhh", titulo: "Recursos Humanos", keys: ["rrhh"] },
-  { id: "administracion", titulo: "Administración", keys: ["sucursales", "configuracion"] },
+  { id: "administracion", titulo: "Administración", keys: ["usuarios", "sucursales", "configuracion"] },
 ];
 
 function modulosSyntheticFromMenu(): ModuloEmpresa[] {
