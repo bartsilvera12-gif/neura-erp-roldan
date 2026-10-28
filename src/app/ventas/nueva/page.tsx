@@ -723,6 +723,82 @@ export default function NuevaVentaPage() {
   }, [tcVenta, productos]);
 
   /**
+   * El precio que le corresponde al cliente por su rubro.
+   *
+   * La política de cada rubro es un porcentaje sobre el precio de lista
+   * (MAYORISTA -8%), cargado una sola vez en Configuración → Rubros de
+   * cliente. Si además hay un precio negociado para ese producto puntual, ese
+   * precio gana: es la excepción.
+   *
+   * Se pide al servidor y no se calcula acá porque el precio de lista y las
+   * excepciones son datos de la base: si el navegador los decidiera,
+   * cualquiera podría cobrarse un descuento disfrazado de precio de rubro.
+   */
+  type PrecioRubro = {
+    precio: number;
+    precio_lista: number;
+    fuente: "excepcion_producto" | "ajuste_rubro" | "lista";
+    categoria_nombre: string | null;
+    ajuste_pct: number | null;
+  };
+  const [preciosRubro, setPreciosRubro] = useState<Record<string, PrecioRubro>>({});
+
+  // Los productos de la venta, estables como texto: sin esto el efecto se
+  // volvería a disparar en cada render porque el array es nuevo cada vez.
+  const idsEnVenta = useMemo(
+    () => [...new Set(items.map((i) => i.producto_id).filter(Boolean))].sort().join(","),
+    [items]
+  );
+
+  useEffect(() => {
+    const ids = idsEnVenta ? idsEnVenta.split(",") : [];
+    if (!clienteId || ids.length === 0) { setPreciosRubro({}); return; }
+    let cancel = false;
+    fetchWithSupabaseSession("/api/productos/precios-para-cliente", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cliente_id: clienteId, producto_ids: ids }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel || !j?.success) return;
+        const mapa: Record<string, PrecioRubro> = {};
+        for (const row of (j.data?.precios ?? []) as (PrecioRubro & { producto_id: string })[]) {
+          mapa[row.producto_id] = row;
+        }
+        setPreciosRubro(mapa);
+      })
+      .catch(() => { /* silencioso: queda el precio de lista */ });
+    return () => { cancel = true; };
+  }, [clienteId, idsEnVenta]);
+
+  /**
+   * Lleva el precio del rubro a las líneas ya cargadas.
+   *
+   * Se respeta el descuento que tuviera la línea: el porcentaje del rubro
+   * cambia el precio de lista, no borra lo que el vendedor negoció encima.
+   */
+  useEffect(() => {
+    if (Object.keys(preciosRubro).length === 0) return;
+    setItems((prev) => {
+      let cambio = false;
+      const next = prev.map((it) => {
+        const r = preciosRubro[it.producto_id];
+        if (!r || r.fuente === "lista") return it;
+        if (r.precio <= 0 || r.precio === it.precio_venta_original) return it;
+        cambio = true;
+        const pct = descuentoPctDe(it);
+        return recomputeLinea({
+          ...it,
+          precio_venta_original: r.precio,
+          precio_venta: Math.round(r.precio * (1 - pct / 100)),
+        });
+      });
+      return cambio ? next : prev;
+    });
+  }, [preciosRubro]);
+
+  /**
    * ¿Alguna línea de esta venta tiene su precio atado al dólar? Si la hay, el
    * vendedor necesita ver con qué cotización se armó el guaraní que está
    * cobrando: la venta se cobra en Gs., pero el número vino de otra parte.
@@ -1775,6 +1851,28 @@ export default function NuevaVentaPage() {
                                     hoy. Se dice de dónde sale el número: sin
                                     eso, el vendedor no puede explicarle al
                                     cliente por qué hoy cuesta distinto. */}
+                                {/* De dónde salió el precio de esta línea: el
+                                    vendedor tiene que poder explicárselo al
+                                    cliente sin abrir otra pantalla. */}
+                                {(() => {
+                                  const r = preciosRubro[item.producto_id];
+                                  if (!r || r.fuente === "lista") return null;
+                                  if (r.fuente === "excepcion_producto") {
+                                    return (
+                                      <p className="text-[11px] leading-snug text-violet-700">
+                                        Precio especial de {r.categoria_nombre ?? "su rubro"} para este producto
+                                      </p>
+                                    );
+                                  }
+                                  const pct = r.ajuste_pct ?? 0;
+                                  return (
+                                    <p className="text-[11px] leading-snug text-emerald-700">
+                                      {r.categoria_nombre ?? "Rubro del cliente"}:{" "}
+                                      {pct < 0 ? `${Math.abs(pct)}% menos` : `${pct}% más`} que lista
+                                      {r.precio_lista > 0 && <> ({formatGs(r.precio_lista)} → {formatGs(r.precio)})</>}
+                                    </p>
+                                  );
+                                })()}
                                 {prod && precioEnDolares(prod) && (
                                   tcVenta ? (
                                     <p className="text-[11px] leading-snug text-sky-700">

@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
-type Categoria = { id: string; nombre: string; orden: number; activa: boolean };
+type Categoria = { id: string; nombre: string; orden: number; activa: boolean; ajuste_pct?: number | null };
+
+/** "-8" para mostrar, "" cuando no hay política definida. */
+function pctTexto(v: number | null | undefined): string {
+  return v == null ? "" : String(v);
+}
+/** Cómo se lee el porcentaje en la fila: el signo es lo que importa. */
+function pctLeyenda(v: number | null | undefined): string {
+  if (v == null || v === 0) return "Precio de lista";
+  return v < 0 ? `${Math.abs(v)}% menos que lista` : `${v}% más que lista`;
+}
 
 const inputClass =
   "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]";
@@ -15,6 +25,10 @@ export default function CategoriasClientePage() {
   // Orden vacío ⇒ el backend usa max(existente)+1 al crear. También se muestra
   // como hint en el placeholder para que Jaz sepa qué valor va a tomar.
   const [orden, setOrden] = useState<string>("");
+  const [ajuste, setAjuste] = useState<string>("");
+  // false mientras no se corra el script 39: la columna no existe y el
+  // porcentaje no se puede guardar. Se dice en pantalla en vez de fallar.
+  const [ajusteDisponible, setAjusteDisponible] = useState(true);
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +36,7 @@ export default function CategoriasClientePage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editNombre, setEditNombre] = useState("");
   const [editOrden, setEditOrden] = useState("");
+  const [editAjuste, setEditAjuste] = useState("");
   const [guardandoEdit, setGuardandoEdit] = useState(false);
 
   const proximoOrden = items.length > 0 ? Math.max(...items.map((i) => i.orden)) + 1 : 0;
@@ -31,7 +46,10 @@ export default function CategoriasClientePage() {
     try {
       const r = await fetchWithSupabaseSession("/api/categorias-cliente", { cache: "no-store" });
       const j = await r.json();
-      if (r.ok && j.success) setItems(j.data.categorias ?? []);
+      if (r.ok && j.success) {
+        setItems(j.data.categorias ?? []);
+        setAjusteDisponible(j.data.ajuste_disponible !== false);
+      }
       else setError(j.error ?? `Error ${r.status}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red.");
@@ -49,11 +67,15 @@ export default function CategoriasClientePage() {
       const r = await fetchWithSupabaseSession("/api/categorias-cliente", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombre.trim(), orden: Number.isFinite(ordenNum) ? ordenNum : proximoOrden }),
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          orden: Number.isFinite(ordenNum) ? ordenNum : proximoOrden,
+          ajuste_pct: ajuste.trim() === "" ? null : Number(ajuste),
+        }),
       });
       const j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.error ?? `Error ${r.status}`);
-      setNombre(""); setOrden("");
+      setNombre(""); setOrden(""); setAjuste("");
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear.");
@@ -66,20 +88,30 @@ export default function CategoriasClientePage() {
     setEditandoId(c.id);
     setEditNombre(c.nombre);
     setEditOrden(String(c.orden));
+    setEditAjuste(pctTexto(c.ajuste_pct));
     setError(null);
   }
   function cancelarEdicion() {
-    setEditandoId(null); setEditNombre(""); setEditOrden("");
+    setEditandoId(null); setEditNombre(""); setEditOrden(""); setEditAjuste("");
   }
   async function guardarEdicion(c: Categoria) {
     const nombreNuevo = editNombre.trim();
     if (!nombreNuevo) { setError("El nombre es obligatorio."); return; }
     const ordenNuevo = editOrden.trim() === "" ? c.orden : Number(editOrden);
     if (!Number.isFinite(ordenNuevo)) { setError("El orden debe ser un número."); return; }
+    let ajusteNuevo: number | null = null;
+    if (editAjuste.trim() !== "") {
+      const n = Number(editAjuste);
+      if (!Number.isFinite(n)) { setError("El porcentaje debe ser un número."); return; }
+      if (n <= -100 || n > 100) { setError("El porcentaje tiene que estar entre -99 y 100."); return; }
+      ajusteNuevo = n;
+    }
     setGuardandoEdit(true);
     try {
-      await patch(c.id, { nombre: nombreNuevo, orden: ordenNuevo });
-      cancelarEdicion();
+      const body: Record<string, unknown> = { nombre: nombreNuevo, orden: ordenNuevo };
+      if (ajusteDisponible) body.ajuste_pct = ajusteNuevo;
+      const ok = await patch(c.id, body);
+      if (ok) cancelarEdicion();
     } finally { setGuardandoEdit(false); }
   }
 
@@ -95,7 +127,7 @@ export default function CategoriasClientePage() {
       setError(e instanceof Error ? e.message : "No se pudo borrar.");
     }
   }
-  async function patch(id: string, body: Record<string, unknown>) {
+  async function patch(id: string, body: Record<string, unknown>): Promise<boolean> {
     try {
       const r = await fetchWithSupabaseSession(`/api/categorias-cliente/${id}`, {
         method: "PATCH",
@@ -105,8 +137,10 @@ export default function CategoriasClientePage() {
       const j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.error ?? `Error ${r.status}`);
       await cargar();
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo actualizar.");
+      return false;
     }
   }
 
@@ -115,17 +149,45 @@ export default function CategoriasClientePage() {
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
         <h1 className="mt-2 text-3xl font-bold text-slate-800">Rubros de cliente</h1>
-        <p className="text-slate-600">Rubros configurables (ej. Supermercado grande, Restaurante, Mayorista). Al asignar un rubro al cliente y cargar precios por rubro en el producto, la caja aplica el precio correcto automáticamente.</p>
+        <p className="text-slate-600">
+          Rubros configurables (ej. Supermercado grande, Restaurante, Mayorista).
+          Cada rubro tiene un <strong>porcentaje</strong> sobre el precio de lista:
+          se carga una vez acá y vale para todo el catálogo, también para los
+          productos que todavía no existen. Al elegir un cliente con rubro en la
+          caja o en un presupuesto, el precio se ajusta solo.
+        </p>
+        <p className="mt-2 text-sm text-slate-500">
+          Si un producto puntual tiene precio negociado que no sigue la regla,
+          se carga como excepción en la ficha de ese producto y gana sobre el
+          porcentaje del rubro.
+        </p>
       </div>
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {!ajusteDisponible && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          Falta correr <code className="font-mono">39_ajuste_pct_rubro_cliente.sql</code>.
+          Hasta entonces el porcentaje por rubro no se puede guardar y el precio
+          sale de la lista (o de la excepción cargada en el producto).
+        </div>
+      )}
 
       <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-slate-800">Nuevo rubro</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <input className={`${inputClass} sm:col-span-2`} placeholder="Nombre (ej. Supermercado grande)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          <input
+            type="number" step="0.01" className={inputClass}
+            placeholder="% sobre lista (ej. -8)"
+            value={ajuste} onChange={(e) => setAjuste(e.target.value)}
+            disabled={!ajusteDisponible}
+          />
           <input type="number" className={inputClass} placeholder={`Orden (auto: ${proximoOrden})`} value={orden} onChange={(e) => setOrden(e.target.value)} />
         </div>
-        <p className="text-xs text-slate-500">Dejá el orden vacío para que se ubique al final ({proximoOrden}).</p>
+        <p className="text-xs text-slate-500">
+          El porcentaje va con signo: <strong>-8</strong> es 8% menos que el precio
+          de lista, <strong>5</strong> es 5% más. Vacío o 0 = paga lista.
+          Dejá el orden vacío para que se ubique al final ({proximoOrden}).
+        </p>
         <button disabled={creando} className="rounded-lg bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 text-sm font-medium disabled:opacity-60">
           {creando ? "Creando…" : "Crear rubro"}
         </button>
@@ -142,6 +204,7 @@ export default function CategoriasClientePage() {
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-2">Nombre</th>
+                <th className="text-left px-4 py-2 w-48">% sobre lista</th>
                 <th className="text-left px-4 py-2 w-24">Orden</th>
                 <th className="text-left px-4 py-2 w-32">Activa</th>
                 <th className="px-4 py-2"></th>
@@ -161,6 +224,25 @@ export default function CategoriasClientePage() {
                         className="w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-sm"
                       />
                     ) : c.nombre}
+                  </td>
+                  <td className="px-4 py-2">
+                    {isEditing ? (
+                      <input
+                        type="number" step="0.01"
+                        value={editAjuste}
+                        onChange={(e) => setEditAjuste(e.target.value)}
+                        disabled={!ajusteDisponible}
+                        placeholder="ej. -8"
+                        className="w-24 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm disabled:bg-slate-100"
+                      />
+                    ) : c.ajuste_pct == null || c.ajuste_pct === 0 ? (
+                      <span className="text-slate-400">Precio de lista</span>
+                    ) : (
+                      <span className={`font-semibold tabular-nums ${c.ajuste_pct < 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                        {c.ajuste_pct > 0 ? "+" : ""}{c.ajuste_pct}%
+                        <span className="ml-2 text-xs font-normal text-slate-500">{pctLeyenda(c.ajuste_pct)}</span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-slate-500">
                     {isEditing ? (

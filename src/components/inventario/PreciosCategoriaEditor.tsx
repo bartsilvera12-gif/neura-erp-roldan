@@ -72,9 +72,12 @@ export default function PreciosCategoriaEditor({ productoId }: { productoId: str
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Precios por rubro de cliente</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Precio especial por rubro de cliente</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Al facturar, si el cliente tiene un rubro asignado y hay un precio cargado acá para ese cruce, la caja aplica ese precio automáticamente.
+            Solo para excepciones. La regla general es el porcentaje de cada rubro
+            (<a href="/configuracion/categorias-cliente" className="text-sky-700 underline">Configuración → Rubros de cliente</a>),
+            que vale para todo el catálogo sin cargar nada acá. Un precio cargado
+            en esta tabla gana sobre ese porcentaje, solo para este producto.
           </p>
         </div>
         <button onClick={guardar} disabled={guardando}
