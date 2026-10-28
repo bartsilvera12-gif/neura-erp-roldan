@@ -67,6 +67,22 @@ export function WhatsAppQrConnect({
     setSaving(true);
     try {
       const id = await saveBaileysWhatsappChannel({ nombre, bridge_url: url });
+
+      // Un puente sostiene varios números y los distingue por la ruta
+      // `/s/<id>`. Ese id lo genera la base al crear el canal, así que no se
+      // puede escribir en el formulario de arriba: se completa acá y se vuelve
+      // a guardar. Si alguien ya pegó la URL con `/s/`, se respeta.
+      const urlFinal = /\/s\/[0-9a-f-]{36}\/?$/i.test(url) ? url : `${url.replace(/\/+$/, "")}/s/${id}`;
+      if (urlFinal !== url) {
+        try {
+          await saveBaileysWhatsappChannel({ id, nombre, bridge_url: urlFinal });
+        } catch {
+          // Si esto falla, el canal igual quedó creado con la URL base: el
+          // puente de un solo número responde ahí y la pantalla siguiente deja
+          // corregirla a mano.
+        }
+      }
+      setBridgeUrl(urlFinal);
       setChannelId(id);
       setStep("connect");
     } catch (e) {
@@ -107,9 +123,9 @@ export function WhatsAppQrConnect({
     return (
       <div className="space-y-6">
         <p className="text-sm text-slate-600">
-          Vinculás tu número escaneando un QR, como WhatsApp Web. Cada número
-          necesita su propio puente: si vas a conectar dos, son dos contenedores
-          y dos canales.
+          Vinculás tu número escaneando un QR, como WhatsApp Web. Un mismo
+          puente puede sostener varios números: poné su dirección y el sistema
+          se encarga del resto.
         </p>
 
         <div className="space-y-4">
@@ -131,7 +147,9 @@ export function WhatsAppQrConnect({
               placeholder="https://wa-bridge.tudominio.com"
             />
             <span className="mt-1 block text-xs text-slate-500">
-              La dirección del contenedor del puente (Coolify). El ERP la usa para mostrar el QR y enviar.
+              La dirección del contenedor del puente, sin nada más al final. Si
+              ya tenés otro número andando, es la misma de siempre: el sistema
+              le agrega solo la parte que identifica a este número.
             </span>
           </label>
 
@@ -166,20 +184,25 @@ export function WhatsAppQrConnect({
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Paso 2 · Encendé el puente y escaneá</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Paso 2 · Escaneá el QR</p>
         <p className="mt-1 text-sm text-slate-700">
-          Poné estos dos valores en las variables del contenedor del puente en Coolify y encendelo:
+          Si el puente ya está andando, no hay nada que configurar: abre la
+          sesión de este número solo. Escaneá el QR de abajo y listo.
         </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <CopyField label="CHANNEL_ID" value={channelId} />
-          <CopyField label="EMPRESA_ID" value={status?.empresaId ?? ""} />
+        <div className="mt-3 space-y-2">
+          <CopyField label="URL de este número" value={bridgeUrl} />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <CopyField label="CHANNEL_ID" value={channelId} />
+            <CopyField label="EMPRESA_ID" value={status?.empresaId ?? ""} />
+          </div>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          El puente necesita además <code className="font-mono">ERP_WEBHOOK_URL</code> apuntando
+          Si es un puente nuevo, necesita <code className="font-mono">ERP_BASE_URL</code> apuntando
           a este ERP, <code className="font-mono">BRIDGE_SECRET</code> (el mismo valor que
-          <code className="font-mono"> BAILEYS_BRIDGE_SECRET</code> acá) y
-          <code className="font-mono"> AUTH_DIR</code> sobre un volumen propio, que es donde
-          guarda la sesión del número.
+          <code className="font-mono"> BAILEYS_BRIDGE_SECRET</code> acá),
+          <code className="font-mono"> EMPRESA_ID</code> y
+          <code className="font-mono"> AUTH_DIR</code> sobre un volumen persistente, que es donde
+          guarda las sesiones.
         </p>
       </div>
 
