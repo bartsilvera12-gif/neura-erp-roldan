@@ -1051,7 +1051,27 @@ export default function NuevaVentaPage() {
     !pagoMixto ||
     tipoVenta !== "CONTADO" ||
     Math.abs(pagosMixto.reduce((s, p) => s + (Number(p.monto) || 0), 0) - totalGeneral) < 1;
-  const ventaValida   = items.length > 0 && creditoValido && pagoMixtoValido;
+  /**
+   * Líneas con un pedido de descuento esperando respuesta del administrador.
+   *
+   * Mientras hay uno pendiente la venta no se confirma. Antes sí se dejaba:
+   * la línea se cobraba con el descuento recortado al tope y el pedido quedaba
+   * colgado, así que el vendedor pedía 30%, la pantalla decía "esperando al
+   * administrador" y la venta salía igual al 10%. Para el que está en el
+   * mostrador eso se lee como que el sistema lo dejó vender sin autorización.
+   *
+   * Si el cliente no quiere esperar, se cobra con el tope apretando
+   * "Cobrar con el tope", que es una decisión explícita y no un silencio.
+   */
+  const lineasEsperando = useMemo(
+    () => Object.entries(pedidos)
+      .filter(([, p]) => p.estado === "pendiente")
+      .map(([idx, p]) => ({ idx: Number(idx), pct: p.pct })),
+    [pedidos]
+  );
+
+  const ventaValida   = items.length > 0 && creditoValido && pagoMixtoValido
+                        && lineasEsperando.length === 0;
 
   // Cliente (opcional) — selección + filtrado del buscador.
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null;
@@ -2250,6 +2270,40 @@ export default function NuevaVentaPage() {
             </div>
           )}
 
+          {/* Un pedido sin contestar frena la venta. Se dice por qué y se da la
+              salida, porque el cliente está parado en el mostrador. */}
+          {lineasEsperando.length > 0 && (
+            <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Esperando la autorización del administrador
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                {lineasEsperando.length === 1
+                  ? `Pediste ${lineasEsperando[0]!.pct}% de descuento en ${items[lineasEsperando[0]!.idx]?.producto_nombre ?? "una línea"} y todavía no te contestaron.`
+                  : `Hay ${lineasEsperando.length} descuentos pedidos y todavía sin contestar.`}
+                {" "}La venta no se puede confirmar hasta que respondan. Si el
+                cliente no quiere esperar, cobrala con tu tope de {descuentoMaximo}%.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  // Se descarta el pedido en esta pantalla y la línea queda con
+                  // el descuento recortado, que es el que ya está cargado. El
+                  // pedido vence solo a los 15 minutos, así que no queda nada
+                  // vivo si el administrador lo contesta tarde.
+                  setPedidos((prev) => {
+                    const next = { ...prev };
+                    for (const l of lineasEsperando) delete next[l.idx];
+                    return next;
+                  });
+                }}
+                className="mt-2 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              >
+                Cobrar con el tope de {descuentoMaximo}% y no esperar
+              </button>
+            </div>
+          )}
+
           {/* Acciones — stack vertical full-width en mobile (mas facil de tappear),
               fila en sm+. Confirmar en orden visual primero (primary). */}
           <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3">
@@ -2264,6 +2318,9 @@ export default function NuevaVentaPage() {
               type="submit"
               disabled={!ventaValida || guardando}
               aria-busy={guardando}
+              title={lineasEsperando.length > 0
+                ? "Hay un descuento esperando la autorización del administrador."
+                : undefined}
               className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 min-h-[48px] w-full sm:w-auto"
             >
               {guardando ? "Guardando…" : "Confirmar venta"}

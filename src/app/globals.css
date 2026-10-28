@@ -304,6 +304,18 @@ body {
   100% { clip-path: inset(0 100% 0 0); }
 }
 
+/* La campanita de descuentos para autorizar: se sacude al aparecer y para.
+   Un ícono que se mueve para siempre deja de llamar la atención y molesta a
+   quien tiene la pantalla abierta todo el día. */
+@keyframes campanita {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%  { transform: rotate(14deg); }
+  20%  { transform: rotate(-12deg); }
+  30%  { transform: rotate(9deg); }
+  40%  { transform: rotate(-6deg); }
+  50%  { transform: rotate(3deg); }
+}
+
 .zentra-dashboard-shell {
   background:
     radial-gradient(ellipse 80% 40% at 50% 0%, rgba(79, 174, 178, 0.06), transparent 60%),

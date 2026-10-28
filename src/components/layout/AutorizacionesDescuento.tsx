@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BadgePercent, Check, X } from "lucide-react";
+import { Bell, Check, X } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import ModalCampo from "@/components/ui/ModalCampo";
 
@@ -119,7 +119,7 @@ export default function AutorizacionesDescuento() {
         aria-label={`${solicitudes.length} pedido(s) de descuento esperando`}
         title="Pedidos de descuento esperando tu respuesta"
       >
-        <BadgePercent className="h-5 w-5" />
+        <Bell className="h-5 w-5 origin-top animate-[campanita_1.2s_ease-in-out_2]" />
         <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] animate-pulse items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
           {solicitudes.length}
         </span>
