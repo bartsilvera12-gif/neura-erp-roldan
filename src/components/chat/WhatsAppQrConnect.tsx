@@ -106,14 +106,11 @@ export function WhatsAppQrConnect({
   if (step === "form") {
     return (
       <div className="space-y-6">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Tipo de conexión</p>
-          <p className="text-sm font-semibold text-emerald-950">WhatsApp por QR (número propio)</p>
-          <p className="mt-1 text-xs text-emerald-900/80">
-            Vinculás tu número escaneando un QR (como WhatsApp Web). La conexión la mantiene el
-            &quot;puente&quot; (servicio externo). Ideal para atención 1:1; no usar para campañas.
-          </p>
-        </div>
+        <p className="text-sm text-slate-600">
+          Vinculás tu número escaneando un QR, como WhatsApp Web. Cada número
+          necesita su propio puente: si vas a conectar dos, son dos contenedores
+          y dos canales.
+        </p>
 
         <div className="space-y-4">
           <label className="block">
