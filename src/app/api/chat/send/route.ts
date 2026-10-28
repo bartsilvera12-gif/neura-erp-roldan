@@ -10,7 +10,9 @@ import {
 import { markFirstHumanOperatorReply } from "@/lib/chat/conversation-sla-markers";
 import {
   resolveOutboundTextContextFromIds,
+  resolveBaileysContextFromIds,
   sendOutboundTextMessage,
+  sendTextViaBaileysBridge,
 } from "@/lib/chat/outbound-send-dispatch";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { getChatPostgresPool } from "@/lib/supabase/chat-pg-pool";
@@ -91,30 +93,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 403 });
     }
 
-    let outbound;
+    // Canal WhatsApp por QR: el mensaje sale por el puente. Si el canal no es
+    // de ese tipo, el resolver devuelve null y se sigue por Meta/YCloud.
+    let sendResult;
+    let salioPorElPuente = false;
     try {
-      outbound = await resolveOutboundTextContextFromIds(
+      const baileys = await resolveBaileysContextFromIds(
         supabase,
-        {
-          contactId: conv.contact_id,
-          channelId: conv.channel_id,
-        },
+        { contactId: conv.contact_id, channelId: conv.channel_id },
         { dataSchema, empresaId: conv.empresa_id }
       );
+      if (baileys) {
+        sendResult = await sendTextViaBaileysBridge(baileys.bridgeUrl, baileys.toDigits, message, baileys.toJid);
+        salioPorElPuente = true;
+      } else {
+        const outbound = await resolveOutboundTextContextFromIds(
+          supabase,
+          {
+            contactId: conv.contact_id,
+            channelId: conv.channel_id,
+          },
+          { dataSchema, empresaId: conv.empresa_id }
+        );
+        if (outbound.provider === "ycloud") {
+          console.info("[api/chat/send] ycloud_outbound", { conversationId });
+        }
+        sendResult = await sendOutboundTextMessage(outbound, message);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Datos de envío incompletos";
       let status = 400;
       if (msg.includes("desactivado")) status = 403;
       else if (msg.includes("configuración completa")) status = 400;
       else if (msg.includes("token") || msg.includes("ycloud_api_key")) status = 500;
+      else if (msg.includes("puente")) status = 502;
       return NextResponse.json({ ok: false, error: msg }, { status });
     }
-
-    if (outbound.provider === "ycloud") {
-      console.info("[api/chat/send] ycloud_outbound", { conversationId });
-    }
-
-    const sendResult = await sendOutboundTextMessage(outbound, message);
 
     if (!sendResult.ok) {
       return NextResponse.json(
@@ -139,7 +153,10 @@ export async function POST(request: NextRequest) {
           automation_source: automationSource || (senderType === "ai" ? "automation" : null),
           message_type: "text",
           content: message,
-          raw_payload: (sendResult.raw ?? {}) as Record<string, unknown>,
+          raw_payload: {
+            ...((sendResult.raw ?? {}) as Record<string, unknown>),
+            ...(salioPorElPuente ? { source: "baileys" } : {}),
+          },
         });
       } catch (insE) {
         const msg = insE instanceof Error ? insE.message : String(insE);
@@ -165,7 +182,10 @@ export async function POST(request: NextRequest) {
         automation_source: automationSource || (senderType === "ai" ? "automation" : null),
         message_type: "text",
         content: message,
-        raw_payload: (sendResult.raw ?? {}) as Record<string, unknown>,
+        raw_payload: {
+            ...((sendResult.raw ?? {}) as Record<string, unknown>),
+            ...(salioPorElPuente ? { source: "baileys" } : {}),
+          },
       });
 
       if (insErr) {
