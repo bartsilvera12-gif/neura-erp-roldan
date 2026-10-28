@@ -53,23 +53,37 @@ type MappedKind =
  */
 function mapKind(kind: string): MappedKind {
   switch (kind) {
+    // Los puentes no hablan todos el mismo idioma. Los más nuevos mandan el
+    // nombre crudo de Baileys (`imageMessage`); los que están andando desde
+    // antes mandan el tipo ya resumido (`image`). Se aceptan los dos: si el
+    // ERP entendiera solo uno, con el otro puente NO ENTRA NINGÚN MENSAJE
+    // —caen todos al default y se saltean— y el único rastro es una línea de
+    // log que nadie mira.
+    case "text":
     case "conversation":
     case "extendedTextMessage":
       return { message_type: "text", placeholder: "" };
+    case "image":
     case "imageMessage":
       return { message_type: "image", placeholder: "[imagen]" };
+    case "video":
     case "videoMessage":
       return { message_type: "video", placeholder: "[video]" };
+    case "audio":
     case "audioMessage":
       return { message_type: "audio", placeholder: "[audio]" };
+    case "document":
     case "documentMessage":
     case "documentWithCaptionMessage":
       return { message_type: "document", placeholder: "[documento]" };
+    case "sticker":
     case "stickerMessage":
       return { message_type: "sticker", placeholder: "[sticker]" };
+    case "location":
     case "locationMessage":
     case "liveLocationMessage":
       return { message_type: "location", placeholder: "[ubicación]" };
+    case "contact":
     case "contactMessage":
     case "contactsArrayMessage":
       return { message_type: "contacts", placeholder: "[contacto]" };
@@ -81,6 +95,7 @@ function mapKind(kind: string): MappedKind {
     // protocolMessage incluye revokes, syncs, keys, acks de protocolo: nada
     // de esto es conversación. Antes caían al default y aparecían como
     // burbujas vacías. Se saltean a propósito.
+    case "unknown":
     case "protocolMessage":
     case "senderKeyDistributionMessage":
     case "messageContextInfo":
