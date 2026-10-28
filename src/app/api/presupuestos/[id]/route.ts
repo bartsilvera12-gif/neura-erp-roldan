@@ -8,7 +8,21 @@ const PRESU_COLS =
   "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
   "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
   "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
+  "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre, " +
+  // Nota interna y marca de falta de material (script 38). NO van al PDF.
+  "nota_interna, falta_material";
+
+/** Las mismas columnas sin las del script 38, por si no está corrido. */
+const PRESU_COLS_BASE =
+  "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
+  "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
+  "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
   "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre";
+
+/** ¿Falló porque la base todavía no tiene las columnas del script 38? */
+function faltaScript38(msg: string): boolean {
+  return /nota_interna|falta_material/.test(msg) && /does not exist|42703|schema cache/i.test(msg);
+}
 
 const ITEM_COLS =
   "id, producto_id, producto_nombre, sku, cantidad, unidad_medida, precio_unitario, iva_tipo, subtotal, monto_iva, descuento, total";
@@ -216,6 +230,9 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         forma_pago: body.forma_pago ? String(body.forma_pago) : null,
         plazo_entrega: body.plazo_entrega ? String(body.plazo_entrega) : null,
         observaciones: body.observaciones ? String(body.observaciones).slice(0, 4000) : null,
+        // Para adentro. El PDF no las toca a propósito: ver el script 38.
+        nota_interna: body.nota_interna ? String(body.nota_interna).slice(0, 4000) : null,
+        falta_material: body.falta_material === true,
         condiciones_comerciales: body.condiciones_comerciales
           ? String(body.condiciones_comerciales).slice(0, 4000)
           : null,

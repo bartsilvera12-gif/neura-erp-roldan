@@ -23,6 +23,8 @@ type PresupuestoRow = {
   fecha_vencimiento?: string | null;
   /** Quién lo cotizó. No va en el PDF: el cliente no necesita ese dato. */
   usuario_nombre?: string | null;
+  /** Falta material para cumplirlo. Tampoco va en el PDF (script 38). */
+  falta_material?: boolean;
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
@@ -296,7 +298,16 @@ export default function PresupuestosPage() {
                 {filtradas.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50">
                     <td className="py-3 px-4 font-mono font-medium text-gray-800">{r.numero_control}</td>
-                    <td className="py-3 px-4 text-gray-700">{r.cliente_nombre}</td>
+                    <td className="py-3 px-4 text-gray-700">
+                      {r.cliente_nombre}
+                      {/* Que falte material cambia qué se le puede prometer al
+                          cliente: se ve en la lista y no abriendo uno por uno. */}
+                      {r.falta_material && (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                          Falta material
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-gray-600">{fmtFecha(r.fecha)}</td>
                     {/* Un presupuesto vencido sigue valiendo como historia, pero
                         su precio ya no rige: conviene verlo en la lista y no

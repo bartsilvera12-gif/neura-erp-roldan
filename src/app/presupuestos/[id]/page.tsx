@@ -28,6 +28,9 @@ type Presu = {
   plazo_entrega: string | null;
   observaciones: string | null;
   condiciones_comerciales?: string | null;
+  /** Nota para adentro: no se imprime nunca (script 38). */
+  nota_interna?: string | null;
+  falta_material?: boolean;
   usuario_nombre?: string | null;
   convertido_pedido_id: string | null;
 };
@@ -284,6 +287,23 @@ export default function PresupuestoDetallePage() {
       )}
 
       {/* Cliente + datos */}
+      {/* Lo de adentro va arriba y en ámbar: si falta material hay que
+          enterarse ANTES de mandarle el PDF al cliente, no al final de la
+          ficha. El PDF no lleva nada de esto. */}
+      {(presu.falta_material || presu.nota_interna) && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          {presu.falta_material && (
+            <p className="text-sm font-semibold text-amber-900">Falta material para cumplir este presupuesto.</p>
+          )}
+          {presu.nota_interna && (
+            <p className="mt-1 whitespace-pre-line text-sm text-amber-900">{presu.nota_interna}</p>
+          )}
+          <p className="mt-2 text-[11px] text-amber-700">
+            Nota interna: no sale en el PDF ni la ve el cliente.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Cliente</h3>

@@ -84,6 +84,8 @@ export default function EditarPresupuestoPage() {
   const [formaPago, setFormaPago] = useState("");
   const [plazoEntrega, setPlazoEntrega] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [notaInterna, setNotaInterna] = useState("");
+  const [faltaMaterial, setFaltaMaterial] = useState(false);
   // Punto 9.4: el texto que obliga, aparte de las notas del producto.
   const [condiciones, setCondiciones] = useState("");
 
@@ -163,6 +165,8 @@ export default function EditarPresupuestoPage() {
         setFormaPago(p.forma_pago ? String(p.forma_pago) : "");
         setPlazoEntrega(p.plazo_entrega ? String(p.plazo_entrega) : "");
         setObservaciones(p.observaciones ? String(p.observaciones) : "");
+        setNotaInterna(p.nota_interna ? String(p.nota_interna) : "");
+        setFaltaMaterial(p.falta_material === true);
         setCondiciones(p.condiciones_comerciales ? String(p.condiciones_comerciales) : "");
         const its = (body.data.items ?? []) as Record<string, unknown>[];
         setItems(
@@ -276,6 +280,8 @@ export default function EditarPresupuestoPage() {
           forma_pago: formaPago.trim() || null,
           plazo_entrega: plazoEntrega.trim() || null,
           observaciones: observaciones.trim() || null,
+          nota_interna: notaInterna.trim() || null,
+          falta_material: faltaMaterial,
           condiciones_comerciales: condiciones.trim() || null,
           items: items.map((it) => ({
             producto_id: it.producto_id,
@@ -476,6 +482,33 @@ export default function EditarPresupuestoPage() {
             />
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
               Sale en el presupuesto, bajo el total.
+            </p>
+          </div>
+          {/* ── Lo único que NO se imprime ──────────────────────────────
+              Las observaciones y las condiciones van las dos en el PDF que se
+              le manda al cliente. Entonces no había dónde anotar lo que es
+              asunto de la casa —que falta material, a quién se le pidió—, y
+              escribirlo arriba era mandárselo al cliente. */}
+          <div className="sm:col-span-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
+              <input
+                type="checkbox"
+                checked={faltaMaterial}
+                onChange={(e) => setFaltaMaterial(e.target.checked)}
+                className="h-4 w-4 rounded border-amber-300"
+              />
+              Falta material para cumplir este presupuesto
+            </label>
+            <label className={`${labelClass} mt-3`}>Nota interna</label>
+            <textarea
+              value={notaInterna}
+              onChange={(e) => setNotaInterna(e.target.value)}
+              rows={2}
+              placeholder="Ej: faltan 40 m de cinta, pedido al proveedor el 28/10"
+              className={inputClass}
+            />
+            <p className="mt-1 text-[11px] font-medium leading-snug text-amber-800">
+              Esto queda para adentro: no sale en el PDF ni lo ve el cliente.
             </p>
           </div>
           <div className="sm:col-span-3">

@@ -26,6 +26,10 @@ export interface CrearPresupuestoInput {
   observaciones: string | null;
   /** Punto 9.4. Opcional: en una base sin el script 27 se ignora. */
   condiciones_comerciales?: string | null;
+  /** Nota para adentro. No se imprime nunca en el PDF del cliente. */
+  nota_interna?: string | null;
+  /** Este presupuesto no se puede cumplir con lo que hay. Tampoco se imprime. */
+  falta_material?: boolean;
   /** Emisor: usuario que crea el presupuesto (para "Emitido por" en el PDF). */
   usuario_id?: string | null;
   usuario_nombre?: string | null;
@@ -136,6 +140,9 @@ export async function crearPresupuesto(
     plazo_entrega: input.plazo_entrega?.trim() || null,
     observaciones: input.observaciones?.trim() || null,
     condiciones_comerciales: input.condiciones_comerciales?.trim() || null,
+    // Para adentro (script 38). El PDF no las lee a propósito.
+    nota_interna: input.nota_interna?.trim() || null,
+    falta_material: input.falta_material === true,
     usuario_id: input.usuario_id ?? null,
     usuario_nombre: input.usuario_nombre ?? null,
   };
@@ -146,6 +153,12 @@ export async function crearPresupuesto(
   if (ins.error && /condiciones_comerciales/.test(ins.error.message ?? "")) {
     const { condiciones_comerciales: _omitido, ...sinCondiciones } = cabecera;
     ins = await sb.from("presupuestos").insert(sinCondiciones).select("id, numero_control").single();
+  }
+  // Mismo criterio para el script 38: sin esas columnas se guarda igual, sin
+  // la nota interna. Una anotación de la casa no vale una oferta perdida.
+  if (ins.error && /nota_interna|falta_material/.test(ins.error.message ?? "")) {
+    const { nota_interna: _n, falta_material: _f, ...sinNota } = cabecera;
+    ins = await sb.from("presupuestos").insert(sinNota).select("id, numero_control").single();
   }
   if (ins.error) throw new Error(ins.error.message);
   const presupuestoId = String((ins.data as { id: string }).id);
