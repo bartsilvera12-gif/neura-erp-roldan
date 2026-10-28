@@ -8,6 +8,7 @@ import { GenericOmnichannelChannelForm } from "@/components/chat/GenericOmnichan
 import { ChannelQuickRepliesStandaloneBlock } from "@/components/chat/ChannelQuickRepliesStandaloneBlock";
 import { WhatsAppChannelForm } from "@/components/chat/WhatsAppChannelForm";
 import { BaileysConnectPanel } from "@/components/chat/BaileysConnectPanel";
+import { BaileysChannelSettings } from "@/components/chat/BaileysChannelSettings";
 import { OMNICHANNEL_CARD_DEFINITIONS } from "@/lib/chat/omnichannel-catalog";
 import { normalizeChannelType } from "@/lib/chat/channel-type-utils";
 import {
@@ -170,7 +171,15 @@ export default function EditarCanalPage() {
           {isBaileys ? "Conexión" : "Credenciales y opciones"}
         </h2>
         {isBaileys ? (
-          <BaileysConnectPanel channelId={row.id} />
+          <div className="space-y-5">
+            <BaileysChannelSettings
+              channelId={row.id}
+              nombreInicial={String(row.nombre ?? "")}
+              bridgeUrlInicial={String((row.config as Record<string, unknown> | null)?.baileys_bridge_url ?? "")}
+              onSaved={() => void load()}
+            />
+            <BaileysConnectPanel channelId={row.id} />
+          </div>
         ) : isWhatsapp ? (
           <WhatsAppChannelForm
             mode="edit"
