@@ -750,9 +750,37 @@ export default function NuevaVentaPage() {
     [items]
   );
 
+  // El cliente anterior, para distinguir "nunca hubo cliente" (una venta recién
+  // abierta, o traída de un presupuesto) de "le sacaron el cliente", que son
+  // dos cosas distintas: en el segundo caso hay que volver al precio de lista.
+  const clienteAnteriorRef = useRef<string>("");
+
   useEffect(() => {
+    const previo = clienteAnteriorRef.current;
+    clienteAnteriorRef.current = clienteId;
     const ids = idsEnVenta ? idsEnVenta.split(",") : [];
-    if (!clienteId || ids.length === 0) { setPreciosRubro({}); return; }
+
+    if (!clienteId) {
+      setPreciosRubro({});
+      // Se le sacó el cliente a una venta que tenía precio de rubro: las
+      // líneas vuelven a lista, con el descuento que tuvieran encima.
+      if (previo && ids.length > 0) {
+        setItems((prev) => prev.map((it) => {
+          const prod = productos.find((x) => x.id === it.producto_id);
+          if (!prod) return it;
+          const lista = precioPorTipo(prod, it.tipo_precio ?? "minorista", tcVenta);
+          if (lista <= 0 || lista === it.precio_venta_original) return it;
+          const pct = descuentoPctDe(it);
+          return recomputeLinea({
+            ...it,
+            precio_venta_original: lista,
+            precio_venta: Math.round(lista * (1 - pct / 100)),
+          });
+        }));
+      }
+      return;
+    }
+    if (ids.length === 0) { setPreciosRubro({}); return; }
     let cancel = false;
     fetchWithSupabaseSession("/api/productos/precios-para-cliente", {
       method: "POST",
@@ -784,7 +812,7 @@ export default function NuevaVentaPage() {
       let cambio = false;
       const next = prev.map((it) => {
         const r = preciosRubro[it.producto_id];
-        if (!r || r.fuente === "lista") return it;
+        if (!r) return it;
         if (r.precio <= 0 || r.precio === it.precio_venta_original) return it;
         cambio = true;
         const pct = descuentoPctDe(it);
