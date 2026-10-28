@@ -22,3 +22,37 @@ export function esLidWhatsapp(phone: string | null | undefined): boolean {
   if (!digits) return false;
   return digits.length > 13;
 }
+
+/**
+ * Teléfono mostrable: devuelve el número si es real, "" si es un LID.
+ * El que llama decide qué poner en su lugar.
+ */
+export function telefonoLegibleOVacio(phone: string | null | undefined): string {
+  const p = (phone ?? "").trim();
+  if (!p) return "";
+  return esLidWhatsapp(p) ? "" : p;
+}
+
+/**
+ * Qué mostrar como título de un chat: el nombre si lo hay, el teléfono si es
+ * uno real, y si solo tenemos un LID, un texto genérico.
+ *
+ * Existe para no repetir `nombre || telefono || "Contacto"`, que es lo que
+ * hacía aparecer códigos de quince dígitos como si fueran el nombre del
+ * cliente.
+ */
+export function nombreParaMostrar(
+  nombre: string | null | undefined,
+  telefono: string | null | undefined,
+  telefonoReal?: string | null,
+  fallback = "Sin nombre"
+): string {
+  const n = (nombre ?? "").trim();
+  // Un "nombre" que es el mismo LID no es un nombre.
+  if (n && !esLidWhatsapp(n)) return n;
+  const real = (telefonoReal ?? "").trim();
+  if (real) return real;
+  const t = telefonoLegibleOVacio(telefono);
+  if (t) return t;
+  return fallback;
+}

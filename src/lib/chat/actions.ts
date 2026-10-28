@@ -137,6 +137,8 @@ export type InboxConversation = {
     id: string;
     name: string | null;
     phone_number: string;
+    /** Teléfono de verdad cuando phone_number es un @lid de WhatsApp. */
+    telefono_real?: string | null;
     cliente_id: string | null;
     crm_prospecto_id: string | null;
   };
@@ -924,16 +926,27 @@ async function fetchChatConversationsUnsafe(
   ];
   let byId: Record<string, Record<string, unknown>> = {};
   if (contactIds.length > 0) {
-    const { data: contacts, error: e2 } = await supabase
-      .from("chat_contacts")
-      .select("id, name, phone_number, cliente_id, crm_prospecto_id")
-      .eq("empresa_id", empresa_id)
-      .in("id", contactIds);
+    const traer = (cols: string) =>
+      supabase.from("chat_contacts").select(cols).eq("empresa_id", empresa_id).in("id", contactIds);
+
+    let { data: contacts, error: e2 } = await traer(
+      "id, name, phone_number, telefono_real, cliente_id, crm_prospecto_id"
+    );
+    // Sin el script 40 la columna no existe y PostgREST rechaza TODA la
+    // consulta, no devuelve null: sin este reintento el inbox se quedaría sin
+    // un solo contacto.
+    if (e2 && /telefono_real/.test(e2.message ?? "")) {
+      ({ data: contacts, error: e2 } = await traer(
+        "id, name, phone_number, cliente_id, crm_prospecto_id"
+      ));
+    }
 
     if (e2) {
       console.warn("[fetchChatConversations] chat_contacts:", e2.message);
     } else {
-      byId = Object.fromEntries((contacts ?? []).map((c) => [c.id, c as Record<string, unknown>]));
+      byId = Object.fromEntries(
+        ((contacts ?? []) as unknown as Record<string, unknown>[]).map((c) => [String(c.id), c])
+      );
     }
   }
 
@@ -1024,6 +1037,7 @@ async function fetchChatConversationsUnsafe(
         id: c?.id ?? (row.contact_id as string),
         name: c?.name ?? null,
         phone_number: c?.phone_number ?? "",
+        telefono_real: (c as { telefono_real?: string | null } | undefined)?.telefono_real ?? null,
         cliente_id: c?.cliente_id ?? null,
         crm_prospecto_id: c?.crm_prospecto_id ?? null,
       },

@@ -11,7 +11,7 @@ import { createWhatsappConversationWithActiveFlow } from "@/lib/chat/whatsapp-co
 import { markCampaignReplyFromInbound } from "@/lib/campaigns/campaign-inbound-hook";
 import { executeCampaignButtonActionForMatchedRecipient } from "@/lib/campaigns/campaign-button-action-service";
 import type { SupabaseAdmin } from "@/lib/chat/types";
-import { normalizeWaPhone } from "@/lib/chat/wa-phone";
+import { normalizeWaPhone, esLidWhatsapp } from "@/lib/chat/wa-phone";
 import { getChatPostgresPool } from "@/lib/supabase/chat-pg-pool";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 
@@ -248,7 +248,15 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
   const address = normalizeContactAddress(channel.type, contact_data.address);
   if (!address) return { ok: false, error: "contact_data.address inválido" };
 
-  const displayName = contact_data.display_name?.trim() || address;
+  // Sin nombre, se usaba la dirección. Para WhatsApp eso puede ser un @lid
+  // —el código interno de los contactos que no están agendados— y el inbox
+  // terminaba mostrando "22669458174192" como si fuera el nombre del cliente.
+  // Mejor dejarlo vacío: la pantalla ya sabe decir "Sin nombre".
+  const nombreDado = contact_data.display_name?.trim() || "";
+  const displayName = nombreDado || (esLidWhatsapp(address) ? "" : address);
+  // El nombre solo se escribe cuando tenemos uno. Mandarlo vacío en el upsert
+  // le borraría el nombre al contacto cada vez que llega un mensaje sin
+  // pushName, que es la mayoría.
   const empresaId = channel.empresa_id;
   const channelId = channel.id;
 
@@ -259,7 +267,7 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
         empresa_id: empresaId,
         phone_number: address,
         phone_normalized: address,
-        name: displayName,
+        ...(displayName ? { name: displayName } : {}),
       },
       { onConflict: "empresa_id,phone_number" }
     )

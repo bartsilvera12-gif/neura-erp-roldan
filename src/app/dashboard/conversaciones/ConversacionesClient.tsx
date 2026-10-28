@@ -58,6 +58,7 @@ import type { ChatMessage } from "./_components/types";
 import { ImageLightbox } from "./_components/ImageLightbox";
 import { LiveElapsedLabel } from "./_components/LiveElapsedLabel";
 import { InboxReplyTurnBadges } from "./_components/InboxReplyTurnBadges";
+import { nombreParaMostrar, telefonoLegibleOVacio } from "@/lib/chat/wa-phone";
 import {
   badgeEstadoClass,
   chatListUiLog,
@@ -1214,10 +1215,15 @@ export function ConversacionesClient({
     const qDigits = q.replace(/\D/g, "");
     return conversations.filter((c) => {
       const name = (c.contact.name || "").toLowerCase();
+      const telReal = (c.contact.telefono_real || "").toLowerCase();
       const phone = String(c.contact.phone_number || "");
       const phoneDigits = phone.replace(/\D/g, "");
       if (name.includes(q)) return true;
+      if (telReal.includes(q)) return true;
       if (phone.toLowerCase().includes(q)) return true;
+      // Buscar por el número real: con un @lid, el phone_number no es el
+      // teléfono y buscarlo ahí no encuentra nada.
+      if (qDigits.length > 0 && telReal.replace(/\D/g, "").includes(qDigits)) return true;
       if (qDigits.length > 0 && phoneDigits.includes(qDigits)) return true;
       return false;
     });
@@ -2017,10 +2023,13 @@ export function ConversacionesClient({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-slate-800 truncate">
-                        {c.contact.name?.trim() ? c.contact.name.trim() : "Sin nombre"}
+                        {nombreParaMostrar(c.contact.name, c.contact.phone_number, c.contact.telefono_real)}
                       </div>
+                      {/* El número: el real si lo conocemos. Un @lid es un
+                          código interno de WhatsApp y no le sirve a nadie, así
+                          que no se muestra. */}
                       <div className="text-xs text-slate-500 font-mono truncate">
-                        {c.contact.phone_number || "—"}
+                        {c.contact.telefono_real || telefonoLegibleOVacio(c.contact.phone_number) || "Número no visible"}
                       </div>
                       <div className="mt-1">
                         <ChannelBadge type={c.channel.type} nombre={c.channel.nombre} />
@@ -2129,10 +2138,10 @@ export function ConversacionesClient({
                         </button>
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 min-w-0">
                           <span className="font-semibold text-slate-900 text-sm leading-tight truncate max-w-[min(100%,14rem)]">
-                            {selected.contact.name?.trim() ? selected.contact.name.trim() : "Sin nombre"}
+                            {nombreParaMostrar(selected.contact.name, selected.contact.phone_number, selected.contact.telefono_real)}
                           </span>
                           <span className="text-[10px] text-slate-500 font-mono tabular-nums shrink-0">
-                            {selected.contact.phone_number || "—"}
+                            {selected.contact.telefono_real || telefonoLegibleOVacio(selected.contact.phone_number) || "Número no visible"}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-0.5 shrink-0">

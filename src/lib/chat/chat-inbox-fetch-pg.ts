@@ -792,14 +792,30 @@ export async function fetchChatConversationsFromTenantPg(
     try {
       const cq = quoteSchemaTable(sch, "chat_contacts");
       const cr = await pool.query(
-        `SELECT id::text, name::text, phone_number::text, cliente_id::uuid, crm_prospecto_id::uuid
+        `SELECT id::text, name::text, phone_number::text, telefono_real::text,
+                cliente_id::uuid, crm_prospecto_id::uuid
          FROM ${cq}
          WHERE empresa_id = $1::uuid AND id = ANY($2::uuid[])`,
         [empresa_id, contactIds]
       );
       byId = Object.fromEntries((cr.rows ?? []).map((c) => [String(c.id), c as Record<string, unknown>]));
-    } catch {
-      console.warn("[fetchChatConversations] chat_contacts pg batch falló");
+    } catch (e) {
+      // Sin el script 40 no existe telefono_real y la consulta entera falla.
+      // Se reintenta sin esa columna: el inbox prefiere no mostrar el teléfono
+      // real antes que quedarse sin ningún contacto.
+      try {
+        const cq = quoteSchemaTable(sch, "chat_contacts");
+        const cr = await pool.query(
+          `SELECT id::text, name::text, phone_number::text,
+                  cliente_id::uuid, crm_prospecto_id::uuid
+           FROM ${cq}
+           WHERE empresa_id = $1::uuid AND id = ANY($2::uuid[])`,
+          [empresa_id, contactIds]
+        );
+        byId = Object.fromEntries((cr.rows ?? []).map((c) => [String(c.id), c as Record<string, unknown>]));
+      } catch {
+        console.warn("[fetchChatConversations] chat_contacts pg batch falló:", e instanceof Error ? e.message : e);
+      }
     }
   }
 
@@ -847,6 +863,7 @@ export async function fetchChatConversationsFromTenantPg(
           id?: string;
           name?: string | null;
           phone_number?: string;
+          telefono_real?: string | null;
           cliente_id?: string | null;
           crm_prospecto_id?: string | null;
         }
@@ -900,6 +917,7 @@ export async function fetchChatConversationsFromTenantPg(
         id: c?.id ?? (row.contact_id as string),
         name: c?.name ?? null,
         phone_number: c?.phone_number ?? "",
+        telefono_real: c?.telefono_real ?? null,
         cliente_id: c?.cliente_id != null ? String(c.cliente_id) : null,
         crm_prospecto_id: c?.crm_prospecto_id != null ? String(c.crm_prospecto_id) : null,
       },

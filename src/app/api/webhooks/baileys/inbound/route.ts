@@ -131,6 +131,9 @@ export async function POST(request: NextRequest) {
   const channelId = String(body?.channelId ?? "").trim();
   const empresaId = String(body?.empresaId ?? "").trim();
   const fromDigits = normalizeWaPhone(String(body?.fromDigits ?? ""));
+  // Teléfono de verdad cuando el chat entra con un @lid (el código interno de
+  // WhatsApp para los contactos que no están agendados en el celular).
+  const fromPhone = normalizeWaPhone(String(body?.fromPhone ?? ""));
   // A qué mensaje responde éste. Sin esto, una respuesta del cliente —incluso un "."— llegaba
   // al inbox como una burbuja suelta y nadie sabía a qué contestaba.
   const quotedWaMessageId = String(body?.quotedWaMessageId ?? "").trim();
@@ -240,6 +243,21 @@ export async function POST(request: NextRequest) {
     }
 
     const conversationId = result.conversation_id;
+
+    // El teléfono real va en una columna aparte, solo para mostrar. NO se
+    // renombra phone_number: esa es la clave con la que se encuentra la
+    // conversación, y cambiarla parte el chat en dos (el historial queda bajo
+    // el código y los mensajes nuevos abren otra conversación).
+    if (fromPhone && fromPhone !== fromDigits) {
+      const up = await supabase
+        .from("chat_contacts")
+        .update({ telefono_real: fromPhone })
+        .eq("empresa_id", empresaId)
+        .eq("phone_number", direccionContacto);
+      // Sin el script 40 la columna no existe: se anota y se sigue, que el
+      // mensaje ya quedó guardado y es lo que importa.
+      if (up.error) console.warn(LOG, "telefono_real", up.error.message);
+    }
 
     // El sistema propio guarda acá el JID original y fusiona los chats que
     // entran con un @lid (el identificador interno de WhatsApp) con el
