@@ -174,9 +174,16 @@ export function WhatsAppQrConnect({
           Poné estos dos valores en las variables del contenedor del puente en Coolify y encendelo:
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <CopyField label="ERP_CHANNEL_ID" value={channelId} />
-          <CopyField label="ERP_EMPRESA_ID" value={status?.empresaId ?? ""} />
+          <CopyField label="CHANNEL_ID" value={channelId} />
+          <CopyField label="EMPRESA_ID" value={status?.empresaId ?? ""} />
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          El puente necesita además <code className="font-mono">ERP_WEBHOOK_URL</code> apuntando
+          a este ERP, <code className="font-mono">BRIDGE_SECRET</code> (el mismo valor que
+          <code className="font-mono"> BAILEYS_BRIDGE_SECRET</code> acá) y
+          <code className="font-mono"> AUTH_DIR</code> sobre un volumen propio, que es donde
+          guarda la sesión del número.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
