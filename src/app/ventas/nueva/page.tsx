@@ -16,6 +16,7 @@ import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
+import { formatFecha } from "@/lib/fecha/asuncion";
 import type { Producto, MetodoValuacion } from "@/lib/inventario/types";
 
 /** Miniatura de producto con fallback a un placeholder si no hay imagen o falla. */
@@ -319,6 +320,8 @@ export default function NuevaVentaPage() {
   const [categorias,     setCategorias]     = useState<{ id: string; nombre: string; descuento_pct: number }[]>([]);
   /** Cotización de venta del día, para los productos con precio en dólares. */
   const [tcVenta, setTcVenta] = useState<number | null>(null);
+  /** Desde cuándo rige esa cotización: una de hace diez días no es "la de hoy". */
+  const [tcDesde, setTcDesde] = useState<string | null>(null);
 
   /**
    * El crédito del cliente elegido: cuánto puede deber, cuánto debe ya y qué
@@ -719,6 +722,19 @@ export default function NuevaVentaPage() {
     }));
   }, [tcVenta, productos]);
 
+  /**
+   * ¿Alguna línea de esta venta tiene su precio atado al dólar? Si la hay, el
+   * vendedor necesita ver con qué cotización se armó el guaraní que está
+   * cobrando: la venta se cobra en Gs., pero el número vino de otra parte.
+   */
+  const hayLineaEnDolares = useMemo(
+    () => items.some((it) => {
+      const prod = productos.find((x) => x.id === it.producto_id);
+      return !!prod && precioEnDolares(prod);
+    }),
+    [items, productos]
+  );
+
   // La cotización del día. Sin ella, un producto en dólares cae a su último
   // precio en guaraníes conocido: está cerca y deja seguir vendiendo.
   useEffect(() => {
@@ -728,7 +744,11 @@ export default function NuevaVentaPage() {
       .then((j) => {
         if (cancel) return;
         const v = Number(j?.data?.vigente?.venta);
-        if (Number.isFinite(v) && v > 0) setTcVenta(v);
+        if (Number.isFinite(v) && v > 0) {
+          setTcVenta(v);
+          const d = j?.data?.vigente?.vigente_desde;
+          setTcDesde(typeof d === "string" ? d : null);
+        }
       })
       .catch(() => undefined);
     return () => { cancel = true; };
@@ -1371,6 +1391,30 @@ export default function NuevaVentaPage() {
         {/* ── SECCIÓN 0: Datos de la venta (cliente opcional + condición) ────── */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
           <SectionTitle>Datos de la venta</SectionTitle>
+
+          {/* La venta se cobra siempre en guaraníes. Lo que cambia es de dónde
+              sale el precio: si el producto tiene precio en dólares, el guaraní
+              es el dólar por la cotización del día. Decirlo acá evita la
+              pregunta de por qué hoy el mismo producto cuesta distinto. */}
+          {hayLineaEnDolares && (
+            tcVenta ? (
+              <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                Hay productos con precio en <strong>dólares</strong>. Se cobra en
+                guaraníes al cambio de <strong>{formatGs(tcVenta)}</strong> por US$ 1
+                {tcDesde ? <> (cotización cargada el {formatFecha(tcDesde)})</> : null}.
+              </div>
+            ) : (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Hay productos con precio en <strong>dólares</strong> y no hay
+                cotización cargada: se está usando el último precio en guaraníes
+                de cada ficha, que puede estar viejo.{" "}
+                <a href="/tipos-cambio" className="font-semibold underline" target="_blank" rel="noreferrer">
+                  Cargar la cotización de hoy
+                </a>
+              </div>
+            )
+          )}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
             {/* Cliente (opcional) */}
@@ -1731,11 +1775,18 @@ export default function NuevaVentaPage() {
                                     hoy. Se dice de dónde sale el número: sin
                                     eso, el vendedor no puede explicarle al
                                     cliente por qué hoy cuesta distinto. */}
-                                {prod && precioEnDolares(prod) && tcVenta && (
-                                  <p className="text-[11px] leading-snug text-sky-700">
-                                    US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                                    {" × "}{formatGs(tcVenta).replace("Gs. ", "")}{" = "}{formatGs(precioListaGs(prod, tcVenta))}
-                                  </p>
+                                {prod && precioEnDolares(prod) && (
+                                  tcVenta ? (
+                                    <p className="text-[11px] leading-snug text-sky-700">
+                                      US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                      {" × "}{formatGs(tcVenta).replace("Gs. ", "")}{" = "}{formatGs(precioListaGs(prod, tcVenta))}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[11px] leading-snug text-amber-700">
+                                      Precio en US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ·
+                                      sin cotización: se usa el último precio en guaraníes
+                                    </p>
+                                  )
                                 )}
                                 {verMargenes && costoMin > 0 && (() => {
                                   const m = margenSobreVenta(costoMin, item.precio_venta);
