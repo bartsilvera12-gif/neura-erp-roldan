@@ -3,26 +3,11 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/types";
-
-const PRESU_COLS =
-  "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
-  "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
-  "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
-  "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre, " +
-  // Nota interna y marca de falta de material (script 38). NO van al PDF.
-  "nota_interna, falta_material";
-
-/** Las mismas columnas sin las del script 38, por si no está corrido. */
-const PRESU_COLS_BASE =
-  "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
-  "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
-  "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
-  "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre";
-
-/** ¿Falló porque la base todavía no tiene las columnas del script 38? */
-function faltaScript38(msg: string): boolean {
-  return /nota_interna|falta_material/.test(msg) && /does not exist|42703|schema cache/i.test(msg);
-}
+import {
+  conCamposScript38,
+  faltaScript38,
+  leerPresupuestosConFallback,
+} from "@/lib/presupuestos/server/presupuestos-select";
 
 const ITEM_COLS =
   "id, producto_id, producto_nombre, sku, cantidad, unidad_medida, precio_unitario, iva_tipo, subtotal, monto_iva, descuento, total";
@@ -34,14 +19,20 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 
-    const pq = await ctx.supabase
-      .from("presupuestos")
-      .select(PRESU_COLS)
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .eq("id", id)
-      .maybeSingle();
+    const pq = await leerPresupuestosConFallback<Record<string, unknown>>((cols) =>
+      ctx.supabase
+        .from("presupuestos")
+        .select(cols)
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("id", id)
+        .maybeSingle() as unknown as PromiseLike<{
+          data: Record<string, unknown> | null;
+          error: { message: string } | null;
+        }>
+    );
     if (pq.error) throw new Error(pq.error.message);
     if (!pq.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
+    const cabecera = conCamposScript38(pq.data, pq.script38);
 
     const itq = await ctx.supabase
       .from("presupuesto_items")
@@ -67,12 +58,13 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     }
 
     return NextResponse.json(successResponse({
-      presupuesto: { ...(pq.data as unknown as Record<string, unknown>), condiciones_comerciales: condiciones },
+      presupuesto: { ...cabecera, condiciones_comerciales: condiciones },
       items: itq.data ?? [],
     }));
   } catch (err) {
-    console.error("[/api/presupuestos/[id] GET]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo cargar el presupuesto."), { status: 500 });
+    const msg = err instanceof Error ? err.message : "Error";
+    console.error("[/api/presupuestos/[id] GET]", msg);
+    return NextResponse.json(errorResponse(`No se pudo cargar el presupuesto. ${msg}`), { status: 500 });
   }
 }
 
@@ -240,11 +232,16 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       };
 
       const guardarCabecera = (patch: Record<string, unknown>) =>
-        ctx.supabase.from("presupuestos").update(patch)
-          .eq("empresa_id", ctx.auth.empresa_id)
-          .eq("id", id)
-          .select(PRESU_COLS)
-          .maybeSingle();
+        leerPresupuestosConFallback<Record<string, unknown>>((cols) =>
+          ctx.supabase.from("presupuestos").update(patch)
+            .eq("empresa_id", ctx.auth.empresa_id)
+            .eq("id", id)
+            .select(cols)
+            .maybeSingle() as unknown as PromiseLike<{
+              data: Record<string, unknown> | null;
+              error: { message: string } | null;
+            }>
+        );
 
       let updHead = await guardarCabecera(parcheCabecera);
       // Sin el script 27 se guarda el resto de la edición igual que antes, en
@@ -253,8 +250,18 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         const { condiciones_comerciales: _omitido, ...sinCondiciones } = parcheCabecera;
         updHead = await guardarCabecera(sinCondiciones);
       }
+      // Mismo criterio para el script 38: la nota interna se pierde, pero la
+      // edición se guarda.
+      if (updHead.error && faltaScript38(updHead.error.message)) {
+        const { nota_interna: _n, falta_material: _f, ...sinScript38 } = parcheCabecera;
+        updHead = await guardarCabecera(sinScript38);
+      }
       if (updHead.error) throw new Error(updHead.error.message);
-      return NextResponse.json(successResponse({ presupuesto: updHead.data }));
+      return NextResponse.json(
+        successResponse({
+          presupuesto: updHead.data ? conCamposScript38(updHead.data, updHead.script38) : null,
+        })
+      );
     }
 
     // ═══════ MODO 1: cambio de estado ═══════
@@ -269,19 +276,27 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       );
     }
 
-    const upd = await ctx.supabase
-      .from("presupuestos")
-      .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .eq("id", id)
-      .select(PRESU_COLS)
-      .maybeSingle();
+    const upd = await leerPresupuestosConFallback<Record<string, unknown>>((cols) =>
+      ctx.supabase
+        .from("presupuestos")
+        .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("id", id)
+        .select(cols)
+        .maybeSingle() as unknown as PromiseLike<{
+          data: Record<string, unknown> | null;
+          error: { message: string } | null;
+        }>
+    );
     if (upd.error) throw new Error(upd.error.message);
     if (!upd.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
 
-    return NextResponse.json(successResponse({ presupuesto: upd.data }));
+    return NextResponse.json(
+      successResponse({ presupuesto: conCamposScript38(upd.data, upd.script38) })
+    );
   } catch (err) {
-    console.error("[/api/presupuestos/[id] PATCH]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo actualizar el presupuesto."), { status: 500 });
+    const msg = err instanceof Error ? err.message : "Error";
+    console.error("[/api/presupuestos/[id] PATCH]", msg);
+    return NextResponse.json(errorResponse(`No se pudo actualizar el presupuesto. ${msg}`), { status: 500 });
   }
 }

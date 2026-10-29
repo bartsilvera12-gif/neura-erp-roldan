@@ -4,26 +4,10 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
-
-const PRESU_COLS =
-  "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
-  "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
-  "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
-  "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre, " +
-  // Nota interna y marca de falta de material (script 38). NO van al PDF.
-  "nota_interna, falta_material";
-
-/** Las mismas columnas sin las del script 38, por si no está corrido. */
-const PRESU_COLS_BASE =
-  "id, cliente_id, cliente_nombre, cliente_ruc, cliente_telefono, cliente_direccion, " +
-  "numero_control, estado, moneda, subtotal, monto_iva, descuento_total, total, validez_dias, " +
-  "fecha, fecha_vencimiento, forma_pago, plazo_entrega, observaciones, " +
-  "convertido_pedido_id, convertido_venta_id, created_at, updated_at, usuario_nombre";
-
-/** ¿Falló porque la base todavía no tiene las columnas del script 38? */
-function faltaScript38(msg: string): boolean {
-  return /nota_interna|falta_material/.test(msg) && /does not exist|42703|schema cache/i.test(msg);
-}
+import {
+  conCamposScript38,
+  leerPresupuestosConFallback,
+} from "@/lib/presupuestos/server/presupuestos-select";
 
 function asIva(v: unknown): "EXENTA" | "5%" | "10%" {
   return v === "EXENTA" || v === "5%" || v === "10%" ? v : "10%";
@@ -59,19 +43,33 @@ export async function GET(request: NextRequest) {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const estado = new URL(request.url).searchParams.get("estado");
-    let q = ctx.supabase
-      .from("presupuestos")
-      .select(PRESU_COLS)
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .order("fecha", { ascending: false })
-      .limit(500);
-    if (estado) q = q.eq("estado", estado);
-    const { data, error } = await q;
+    const { data, error, script38 } = await leerPresupuestosConFallback<Record<string, unknown>[]>(
+      (cols) => {
+        let q = ctx.supabase
+          .from("presupuestos")
+          .select(cols)
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .order("fecha", { ascending: false })
+          .limit(500);
+        if (estado) q = q.eq("estado", estado);
+        return q as unknown as PromiseLike<{
+          data: Record<string, unknown>[] | null;
+          error: { message: string } | null;
+        }>;
+      }
+    );
     if (error) throw new Error(error.message);
-    return NextResponse.json(successResponse({ presupuestos: data ?? [] }));
+    const presupuestos = (data ?? []).map((r) => conCamposScript38(r, script38));
+    return NextResponse.json(successResponse({ presupuestos }));
   } catch (err) {
-    console.error("[/api/presupuestos GET]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudieron cargar los presupuestos."), { status: 500 });
+    const msg = err instanceof Error ? err.message : "Error";
+    console.error("[/api/presupuestos GET]", msg);
+    // El detalle va al cliente: un "no se pudieron cargar" a secas no le dice
+    // nada a nadie, y acá el único que lo ve es gente de la casa.
+    return NextResponse.json(
+      errorResponse(`No se pudieron cargar los presupuestos. ${msg}`),
+      { status: 500 }
+    );
   }
 }
 
