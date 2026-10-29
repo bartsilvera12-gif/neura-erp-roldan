@@ -35,7 +35,7 @@ import {
 } from "@/lib/chat/chat-ops-actions";
 import { INBOX_HEARTBEAT_INTERVAL_MS } from "@/lib/chat/agent-presence";
 import { listActiveQuickRepliesForChannel } from "@/lib/chat/quick-replies-actions";
-import { ArrowLeftRight, Mic, Paperclip, RefreshCw, Square, Zap } from "lucide-react";
+import { ArrowLeftRight, Mic, Paperclip, Plus, RefreshCw, Square, Zap } from "lucide-react";
 import {
   finalizeConversationWithClosure,
   loadFinalizeOptionsForConversation,
@@ -168,6 +168,13 @@ export function ConversacionesClient({
   const [listColumnHidden, setListColumnHidden] = useState(false);
   /** Filtro local del listado (nombre o teléfono); no altera la carga desde servidor. */
   const [listSearch, setListSearch] = useState("");
+  /** Modal "Nuevo chat": abrir una conversación con un número que todavía no escribió. */
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState("");
+  const [newChatName, setNewChatName] = useState("");
+  const [newChatChannel, setNewChatChannel] = useState("");
+  const [newChatBusy, setNewChatBusy] = useState(false);
+  const [newChatError, setNewChatError] = useState<string | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [finalizeLoading, setFinalizeLoading] = useState(false);
   const [opPresenceLoaded, setOpPresenceLoaded] = useState(
@@ -986,6 +993,62 @@ export function ConversacionesClient({
     [loadMessages, conversations]
   );
 
+  function openNewChat() {
+    setNewChatError(null);
+    setNewChatPhone("");
+    setNewChatName("");
+    // Si hay un canal filtrado se respeta; si no, el único activo (lo normal).
+    const preset =
+      inboxChannels.find((c) => c.id === displayCanal)?.id ??
+      (inboxChannels.length === 1 ? inboxChannels[0].id : "");
+    setNewChatChannel(preset);
+    setNewChatOpen(true);
+  }
+
+  async function handleCreateChat(e: React.FormEvent) {
+    e.preventDefault();
+    if (newChatBusy) return;
+    const phone = newChatPhone.replace(/\D+/g, "");
+    if (!phone) {
+      setNewChatError("Escribí el número con código de país, por ejemplo 595981123456.");
+      return;
+    }
+    if (!newChatChannel) {
+      setNewChatError("Elegí el canal por el que vas a escribir.");
+      return;
+    }
+    setNewChatBusy(true);
+    setNewChatError(null);
+    try {
+      const res = await fetchWithSupabaseSession("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          phone,
+          channel_id: newChatChannel,
+          name: newChatName.trim() || undefined,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        conversation_id?: string;
+      };
+      if (!res.ok || !json.ok || !json.conversation_id) {
+        throw new Error(typeof json.error === "string" && json.error ? json.error : `Error HTTP ${res.status}`);
+      }
+      setNewChatOpen(false);
+      setListSearch("");
+      await loadConversations({ silent: true });
+      await handleSelect(json.conversation_id);
+    } catch (err) {
+      setNewChatError(err instanceof Error ? err.message : "No se pudo abrir el chat");
+    } finally {
+      setNewChatBusy(false);
+    }
+  }
+
   async function handleSendFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -1554,6 +1617,123 @@ export function ConversacionesClient({
         </div>
       ) : null}
 
+      {newChatOpen ? (
+        <div
+          className="fixed inset-0 z-[115] flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={() => (newChatBusy ? null : setNewChatOpen(false))}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="nuevo-chat-title"
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl"
+            onClick={(ev) => ev.stopPropagation()}
+            onSubmit={handleCreateChat}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 id="nuevo-chat-title" className="text-lg font-semibold text-slate-900">
+                  Nuevo chat
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Abrí la conversación con un número y escribile desde el inbox.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50 shrink-0"
+                onClick={() => setNewChatOpen(false)}
+                disabled={newChatBusy}
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              <label className="block">
+                <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Número (con código de país)
+                </span>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoFocus
+                  value={newChatPhone}
+                  onChange={(e) => setNewChatPhone(e.target.value)}
+                  placeholder="595981123456"
+                  disabled={newChatBusy}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-sky-400/50 focus:border-sky-300"
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Nombre (opcional)
+                </span>
+                <input
+                  type="text"
+                  value={newChatName}
+                  onChange={(e) => setNewChatName(e.target.value)}
+                  placeholder="Cómo querés ver el contacto en el inbox"
+                  disabled={newChatBusy}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-sky-400/50 focus:border-sky-300"
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Canal
+                </span>
+                <select
+                  value={newChatChannel}
+                  onChange={(e) => setNewChatChannel(e.target.value)}
+                  disabled={newChatBusy}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white"
+                >
+                  <option value="">Elegí un canal</option>
+                  {inboxChannels.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {formatChannelOptionLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <p className="text-[11px] text-slate-500 leading-snug">
+                En WhatsApp, si el cliente no escribió en las últimas 24 horas el mensaje libre
+                puede ser rechazado: en ese caso hay que usar una plantilla aprobada.
+              </p>
+
+              {newChatError ? (
+                <p className="text-xs rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800" role="alert">
+                  {newChatError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setNewChatOpen(false)}
+                disabled={newChatBusy}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={newChatBusy}
+                className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {newChatBusy ? "Abriendo…" : "Abrir chat"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       {transferModalOpen && selected && vista !== "bot" ? (
         <div
           className="fixed inset-0 z-[115] flex items-center justify-center bg-black/40 p-4"
@@ -1863,6 +2043,20 @@ export function ConversacionesClient({
             className="flex-1 min-w-[12rem] border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 bg-white placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
             aria-label="Buscar por nombre o número"
           />
+          <button
+            type="button"
+            onClick={openNewChat}
+            disabled={inboxChannels.length === 0}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50 disabled:pointer-events-none"
+            title={
+              inboxChannels.length === 0
+                ? "No hay canales activos para iniciar un chat"
+                : "Escribir a un número nuevo"
+            }
+          >
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+            Nuevo chat
+          </button>
         </div>
       ) : null}
 
