@@ -204,3 +204,28 @@ export function chatListUiLog(
   if (!CHAT_LIST_DEBUG) return;
   console.info(`[chat-ui][${sub}]`, { ...payload, timestamp: new Date().toISOString() });
 }
+
+/** Inicial del avatar del chat: la primera letra útil del nombre, o "·". */
+export function chatAvatarInitial(label: string): string {
+  const ch = label.trim().replace(/[^\p{L}\p{N}]/gu, "").charAt(0);
+  return ch ? ch.toUpperCase() : "·";
+}
+
+/**
+ * Color estable del avatar a partir del id del chat: el mismo contacto siempre
+ * se ve igual, y la lista no queda monocromática.
+ */
+const CHAT_AVATAR_PALETTE = [
+  "bg-sky-100 text-sky-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-violet-100 text-violet-700",
+  "bg-amber-100 text-amber-800",
+  "bg-rose-100 text-rose-700",
+  "bg-teal-100 text-teal-700",
+  "bg-indigo-100 text-indigo-700",
+];
+export function chatAvatarClass(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return CHAT_AVATAR_PALETTE[h % CHAT_AVATAR_PALETTE.length];
+}

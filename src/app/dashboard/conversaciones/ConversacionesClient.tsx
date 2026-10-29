@@ -35,7 +35,7 @@ import {
 } from "@/lib/chat/chat-ops-actions";
 import { INBOX_HEARTBEAT_INTERVAL_MS } from "@/lib/chat/agent-presence";
 import { listActiveQuickRepliesForChannel } from "@/lib/chat/quick-replies-actions";
-import { ArrowLeftRight, Mic, Paperclip, Plus, RefreshCw, Square, Zap } from "lucide-react";
+import { ArrowLeftRight, CheckCheck, Mic, Paperclip, Plus, RefreshCw, Square, Zap } from "lucide-react";
 import {
   finalizeConversationWithClosure,
   loadFinalizeOptionsForConversation,
@@ -61,6 +61,8 @@ import { InboxReplyTurnBadges } from "./_components/InboxReplyTurnBadges";
 import { nombreParaMostrar, telefonoLegibleOVacio } from "@/lib/chat/wa-phone";
 import {
   badgeEstadoClass,
+  chatAvatarClass,
+  chatAvatarInitial,
   chatListUiLog,
   displayFilenameForAttachment,
   formatChannelOptionLabel,
@@ -78,6 +80,9 @@ import {
 } from "./_components/utils";
 
 export type ConversacionesClientMode = "inbox" | "historial";
+
+/** Chips sobre la lista de chats: atajos a lo que el operador mira todo el día. */
+type ChatListQuickFilter = "todos" | "sin_responder" | "no_leidos";
 
 /** Presencia operativa precargada en el servidor (evita parpadeo y fallos solo-cliente). */
 export type ConversacionesInitialOperationalPresence =
@@ -168,6 +173,8 @@ export function ConversacionesClient({
   const [listColumnHidden, setListColumnHidden] = useState(false);
   /** Filtro local del listado (nombre o teléfono); no altera la carga desde servidor. */
   const [listSearch, setListSearch] = useState("");
+  /** Filtro rápido del listado: todos / sin responder / no leídos. */
+  const [listQuickFilter, setListQuickFilter] = useState<ChatListQuickFilter>("todos");
   /** Modal "Nuevo chat": abrir una conversación con un número que todavía no escribió. */
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newChatPhone, setNewChatPhone] = useState("");
@@ -1273,10 +1280,16 @@ export function ConversacionesClient({
   }
 
   const visibleConversations = useMemo(() => {
+    const base =
+      listQuickFilter === "sin_responder"
+        ? conversations.filter((c) => Boolean(c.awaiting_agent_reply_since))
+        : listQuickFilter === "no_leidos"
+          ? conversations.filter((c) => c.unread_count > 0)
+          : conversations;
     const q = listSearch.trim().toLowerCase();
-    if (!q) return conversations;
+    if (!q) return base;
     const qDigits = q.replace(/\D/g, "");
-    return conversations.filter((c) => {
+    return base.filter((c) => {
       const name = (c.contact.name || "").toLowerCase();
       const telReal = (c.contact.telefono_real || "").toLowerCase();
       const phone = String(c.contact.phone_number || "");
@@ -1290,7 +1303,16 @@ export function ConversacionesClient({
       if (qDigits.length > 0 && phoneDigits.includes(qDigits)) return true;
       return false;
     });
-  }, [conversations, listSearch]);
+  }, [conversations, listSearch, listQuickFilter]);
+
+  const pendingReplyCount = useMemo(
+    () => conversations.filter((c) => Boolean(c.awaiting_agent_reply_since)).length,
+    [conversations]
+  );
+  const unreadChatsCount = useMemo(
+    () => conversations.filter((c) => c.unread_count > 0).length,
+    [conversations]
+  );
 
   const selected = conversations.find((c) => c.id === selectedId);
   const canResendCurrentFlowStep = Boolean(
@@ -2180,7 +2202,7 @@ export function ConversacionesClient({
               Logica combinada: selectedId controla mobile, listColumnHidden controla desktop.
         */}
         <div className={`${selectedId ? "hidden" : "flex"} ${listColumnHidden ? "lg:hidden" : "lg:flex"} w-full lg:max-w-[min(360px,40vw)] shrink-0 lg:border-r border-slate-200 flex-col min-h-0 bg-slate-50/80`}>
-          <div className="px-2 py-1.5 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
+          <div className="px-3 py-2 border-b border-slate-200 bg-white/70 flex items-center justify-between gap-2 shrink-0">
             <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Chats</span>
             {/* Solo desktop: en mobile la lista se auto-oculta al seleccionar un chat,
                 no hace falta toggle manual. */}
@@ -2193,6 +2215,41 @@ export function ConversacionesClient({
               Ocultar
             </button>
           </div>
+          {/* Atajos a lo que el operador mira todo el día: lo que espera respuesta
+              y lo que todavía no abrió. Filtran en cliente, sin recargar. */}
+          <div className="px-2.5 py-2 border-b border-slate-200 bg-white/70 flex flex-wrap gap-1.5 shrink-0">
+            {(
+              [
+                { key: "todos", label: "Todos", count: conversations.length },
+                { key: "sin_responder", label: "Sin responder", count: pendingReplyCount },
+                { key: "no_leidos", label: "No leídos", count: unreadChatsCount },
+              ] as Array<{ key: ChatListQuickFilter; label: string; count: number }>
+            ).map((f) => {
+              const active = listQuickFilter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setListQuickFilter(f.key)}
+                  aria-pressed={active}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
+                    active
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {f.label}
+                  {f.count > 0 ? (
+                    <span
+                      className={`tabular-nums text-[10px] ${active ? "text-white/80" : "text-slate-500"}`}
+                    >
+                      {f.count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             {loadingList ? (
               <div className="p-4 text-xs text-slate-400 text-center animate-pulse">Cargando…</div>
@@ -2202,91 +2259,132 @@ export function ConversacionesClient({
               </div>
             ) : visibleConversations.length === 0 ? (
               <div className="p-4 text-xs text-slate-500 text-center space-y-1">
-                <p>Ningún chat coincide con la búsqueda</p>
+                <p>
+                  {listQuickFilter === "sin_responder"
+                    ? "No hay chats esperando respuesta"
+                    : listQuickFilter === "no_leidos"
+                      ? "No hay chats sin leer"
+                      : "Ningún chat coincide con la búsqueda"}
+                </p>
               </div>
             ) : (
-              visibleConversations.map((c) => (
+              visibleConversations.map((c) => {
+                const titulo = nombreParaMostrar(
+                  c.contact.name,
+                  c.contact.phone_number,
+                  c.contact.telefono_real
+                );
+                const telefono =
+                  c.contact.telefono_real ||
+                  telefonoLegibleOVacio(c.contact.phone_number) ||
+                  "Número no visible";
+                /* El último mensaje es nuestro: se marca con el doble check,
+                   como en cualquier app de mensajería. */
+                const ultimoSaliente = Boolean(c.awaiting_client_reply_since);
+                const activo = selectedId === c.id;
+                return (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => handleSelect(c.id)}
-                  className={`w-full text-left px-2.5 py-2 border-b border-slate-100 hover:bg-white transition-colors ${
-                    selectedId === c.id ? "bg-white border-l-[3px] border-l-[#0EA5E9]" : ""
+                  className={`relative w-full text-left px-3 py-3 border-b border-slate-100 transition-colors ${
+                    activo ? "bg-white" : "hover:bg-white/70"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  {activo ? (
+                    <span className="absolute inset-y-0 left-0 w-[3px] bg-[#0EA5E9]" aria-hidden="true" />
+                  ) : null}
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className={`shrink-0 mt-0.5 w-9 h-9 rounded-full grid place-items-center text-sm font-bold ${chatAvatarClass(c.contact.id || c.id)}`}
+                      aria-hidden="true"
+                    >
+                      {chatAvatarInitial(titulo)}
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-slate-800 truncate">
-                        {nombreParaMostrar(c.contact.name, c.contact.phone_number, c.contact.telefono_real)}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-semibold text-slate-900 text-sm leading-snug truncate">
+                          {titulo}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1">
+                          {vista === "bot" ? (
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md">
+                              Bot
+                            </span>
+                          ) : c.human_taken_over || c.flow_status === "human" ? (
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                              Humano
+                            </span>
+                          ) : null}
+                          {c.unread_count > 0 ? (
+                            <span className="min-w-[20px] h-5 px-1.5 grid place-items-center bg-[#0EA5E9] text-white text-[11px] font-bold rounded-full tabular-nums">
+                              {c.unread_count}
+                            </span>
+                          ) : null}
+                        </span>
                       </div>
                       {/* El número: el real si lo conocemos. Un @lid es un
                           código interno de WhatsApp y no le sirve a nadie, así
                           que no se muestra. */}
-                      <div className="text-xs text-slate-500 font-mono truncate">
-                        {c.contact.telefono_real || telefonoLegibleOVacio(c.contact.phone_number) || "Número no visible"}
+                      <div className="text-[11px] text-slate-500 font-mono truncate mt-0.5">
+                        {telefono}
                       </div>
-                      <div className="mt-1">
-                        <ChannelBadge type={c.channel.type} nombre={c.channel.nombre} />
-                      </div>
-                      <p className="text-xs text-slate-500 truncate mt-1">{c.last_message_preview || "—"}</p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <div className="flex items-center gap-1">
-                        {vista === "bot" ? (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">
-                            Bot
-                          </span>
-                        ) : c.human_taken_over || c.flow_status === "human" ? (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                            Humano
+                      <p
+                        className={`flex items-center gap-1 text-xs truncate mt-1.5 ${
+                          c.unread_count > 0 ? "text-slate-800 font-medium" : "text-slate-500"
+                        }`}
+                      >
+                        {ultimoSaliente ? (
+                          <CheckCheck className="w-3.5 h-3.5 shrink-0 text-sky-500" aria-label="Enviado por la empresa" />
+                        ) : null}
+                        <span className="truncate">{c.last_message_preview || "—"}</span>
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1 mt-2">
+                        <span
+                          className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md border ${badgeEstadoClass(c.status)}`}
+                        >
+                          {labelEstado(c.status)}
+                        </span>
+                        {c.queue_name ? (
+                          <span
+                            className="text-[9px] font-medium text-indigo-800 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md truncate max-w-full"
+                            title={`Cola: ${c.queue_name}`}
+                          >
+                            Cola · {c.queue_name}
                           </span>
                         ) : null}
-                        {c.unread_count > 0 && (
-                          <span className="bg-[#0EA5E9] text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                            {c.unread_count}
+                        {vista !== "bot" ? <InboxReplyTurnBadges c={c} dense /> : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {c.assigned_agent_name ? (
+                          <span
+                            className="text-[9px] font-semibold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md truncate max-w-full"
+                            title={`Agente asignado: ${c.assigned_agent_name}`}
+                          >
+                            Agente · {c.assigned_agent_name}
                           </span>
+                        ) : (
+                          (() => {
+                            const w = assignmentWaitBadge(c.assignment_wait_code, Boolean(c.queue_id));
+                            return (
+                              <span
+                                className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md border truncate max-w-full ${assignmentWaitBadgeClass(w.tone)}`}
+                                title="Sin agente asignado"
+                              >
+                                {w.label}
+                              </span>
+                            );
+                          })()
                         )}
+                        <span className="ml-auto">
+                          <ChannelBadge type={c.channel.type} nombre={c.channel.nombre} />
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    <span
-                      className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border ${badgeEstadoClass(c.status)}`}
-                    >
-                      {labelEstado(c.status)}
-                    </span>
-                    {c.queue_name ? (
-                      <span
-                        className="text-[9px] font-medium text-indigo-800 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded truncate max-w-full"
-                        title={`Cola: ${c.queue_name}`}
-                      >
-                        Cola · {c.queue_name}
-                      </span>
-                    ) : null}
-                    {vista !== "bot" ? <InboxReplyTurnBadges c={c} dense /> : null}
-                    {c.assigned_agent_name ? (
-                      <span
-                        className="text-[9px] font-semibold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded truncate max-w-full"
-                        title={`Agente asignado: ${c.assigned_agent_name}`}
-                      >
-                        Agente · {c.assigned_agent_name}
-                      </span>
-                    ) : (
-                      (() => {
-                        const w = assignmentWaitBadge(c.assignment_wait_code, Boolean(c.queue_id));
-                        return (
-                          <span
-                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border truncate max-w-full ${assignmentWaitBadgeClass(w.tone)}`}
-                            title="Sin agente asignado"
-                          >
-                            {w.label}
-                          </span>
-                        );
-                      })()
-                    )}
-                  </div>
                 </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>
