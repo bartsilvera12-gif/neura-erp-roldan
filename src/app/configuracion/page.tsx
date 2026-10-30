@@ -107,6 +107,16 @@ export default function ConfiguracionPage() {
           )}
           <li>
             <SettingsModuleCard
+              title="Textos del presupuesto"
+              subtitle="GLOBAL · DOCUMENTOS"
+              description="Forma de pago, validez de la oferta y las condiciones que salen impresas al pie de todos los presupuestos."
+              icon={FileText}
+              badge={editorBadge}
+              href="/configuracion/presupuesto"
+            />
+          </li>
+          <li>
+            <SettingsModuleCard
               title="Facturación"
               subtitle="GLOBAL · DOCUMENTOS"
               description="Numeración, condiciones de pago y acceso a SIFEN / facturación electrónica."

@@ -8,14 +8,13 @@
  */
 
 export const EMPRESA_DOC = {
-  nombre: "ACEROS METAL ROLDÁN E HIJOS",
+  nombre: "Aceros Metal Roldán e Hijos",
   propietario: "",
-  /** RUC del emisor. Completar con la constancia de la empresa. */
-  ruc: "",
+  ruc: "4538617-0",
   actividad: [] as string[],
-  telefono: "",
-  email: "",
-  direccion: [] as string[],
+  telefono: "+595 984 792 917 / +595 984 753 986",
+  email: "joaquin@acerosmetalroldanehijos.com.py",
+  direccion: ["Avda. Acceso Sur c/ Primero de Marzo"],
   /** Logo del cliente. Reemplazar los archivos en /public/brand/roldan-*.png. */
   logoUrl: "/brand/roldan-doc-logo.png",
 };
