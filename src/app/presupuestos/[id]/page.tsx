@@ -33,6 +33,9 @@ type Presu = {
   falta_material?: boolean;
   usuario_nombre?: string | null;
   vendedor_nombre?: string | null;
+  convertido_venta_id?: string | null;
+  enviado_a_caja_at?: string | null;
+  enviado_a_caja_por?: string | null;
   convertido_pedido_id: string | null;
 };
 type ItemRow = {
@@ -125,6 +128,29 @@ export default function PresupuestoDetallePage() {
       setError("Error de red al cambiar el estado.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  const [enviando, setEnviando] = useState(false);
+
+  /** Pone (o saca) el presupuesto en la cola de cobro del cajero. */
+  async function mandarACaja(mandar: boolean) {
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await fetchWithSupabaseSession(`/api/presupuestos/${id}/enviar-a-caja`, {
+        method: mandar ? "POST" : "DELETE",
+      });
+      const body = await res.json();
+      if (!res.ok || !body?.success) {
+        setError(body?.error ?? "No se pudo mandar a la caja.");
+        return;
+      }
+      await cargar();
+    } catch {
+      setError("Error de red al mandar a la caja.");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -246,6 +272,31 @@ export default function PresupuestoDetallePage() {
             >
               <Trash2 className="h-4 w-4" /> Eliminar
             </button>
+          )}
+          {/* Mandarlo a cobrar: el vendedor lo empuja y al cajero le aparece
+              en su lista. Antes había que avisarle de palabra o ir hasta la
+              caja, y el presupuesto aprobado se quedaba esperando. */}
+          {presu.estado === "aprobado" && !presu.convertido_venta_id && (
+            presu.enviado_a_caja_at ? (
+              <button
+                type="button"
+                onClick={() => void mandarACaja(false)}
+                disabled={enviando}
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                title={`Mandado por ${presu.enviado_a_caja_por ?? "—"}`}
+              >
+                En la caja — sacar de la lista
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void mandarACaja(true)}
+                disabled={enviando}
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {enviando ? "Mandando…" : "Mandar a cobrar"}
+              </button>
+            )
           )}
           {presu.estado === "aprobado" && (
             <Link

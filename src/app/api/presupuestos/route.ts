@@ -41,9 +41,17 @@ function parseItems(raw: unknown): PresupuestoItemInput[] | null {
 /** GET /api/presupuestos — listado (opcional ?estado=). */
 export async function GET(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    const estado = new URL(request.url).searchParams.get("estado");
+    const sp = new URL(request.url).searchParams;
+    const estado = sp.get("estado");
+    // Cada vendedor ve sus presupuestos y nada más. El administrador ve todos,
+    // y puede filtrar por persona con ?vendedor=.
+    const esAdminLista = isAdmin(ctx.auth);
+    const propioId = ctx.auth.usuarioCatalogId ?? ctx.auth.user?.id ?? null;
+    const vendedorFiltro = esAdminLista ? (sp.get("vendedor") || "").trim() : "";
+    // Solo los mandados a la caja y sin cobrar: es la cola del cajero.
+    const soloCola = sp.get("cola_caja") === "1";
     const { data, error, script38 } = await leerPresupuestosConFallback<Record<string, unknown>[]>(
       (cols) => {
         let q = ctx.supabase
@@ -53,6 +61,16 @@ export async function GET(request: NextRequest) {
           .order("fecha", { ascending: false })
           .limit(500);
         if (estado) q = q.eq("estado", estado);
+        if (vendedorFiltro) q = q.eq("vendedor_usuario_id", vendedorFiltro);
+        else if (!esAdminLista && propioId) {
+          // `or` y no `eq`: los presupuestos viejos no tienen vendedor cargado
+          // y son de quien los hizo. Sin esto, el vendedor dejaría de ver todo
+          // lo que cargó antes del script 41.
+          q = q.or(`vendedor_usuario_id.eq.${propioId},usuario_id.eq.${propioId}`);
+        }
+        if (soloCola) {
+          q = q.eq("estado", "aprobado").not("enviado_a_caja_at", "is", null).is("convertido_venta_id", null);
+        }
         return q as unknown as PromiseLike<{
           data: Record<string, unknown>[] | null;
           error: { message: string } | null;

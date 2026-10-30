@@ -723,6 +723,40 @@ export default function NuevaVentaPage() {
   }, [tcVenta, productos]);
 
   /**
+   * Presupuestos que el vendedor mandó a cobrar y todavía nadie cobró.
+   *
+   * Antes el vendedor aprobaba y tenía que avisarle al cajero de palabra; si
+   * no se cruzaban, el presupuesto quedaba esperando sin que nadie supiera.
+   * Acá aparecen solos, con un clic para cargarlos.
+   */
+  const [colaCaja, setColaCaja] = useState<
+    { id: string; numero_control: string; cliente_nombre: string; total: number; enviado_a_caja_por: string | null }[]
+  >([]);
+
+  useEffect(() => {
+    // Si ya se está facturando algo, el aviso estorba más de lo que ayuda.
+    if (items.length > 0) return;
+    let cancel = false;
+    fetchWithSupabaseSession("/api/presupuestos?cola_caja=1", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel || !j?.success) return;
+        const filas = (j.data?.presupuestos ?? []) as Record<string, unknown>[];
+        setColaCaja(
+          filas.map((p) => ({
+            id: String(p.id),
+            numero_control: String(p.numero_control ?? ""),
+            cliente_nombre: String(p.cliente_nombre ?? "Cliente"),
+            total: Number(p.total) || 0,
+            enviado_a_caja_por: typeof p.enviado_a_caja_por === "string" ? p.enviado_a_caja_por : null,
+          }))
+        );
+      })
+      .catch(() => { /* el aviso es de cortesía: si falla, no molesta */ });
+    return () => { cancel = true; };
+  }, [items.length]);
+
+  /**
    * El precio que le corresponde al cliente por su rubro.
    *
    * La política de cada rubro es un porcentaje sobre el precio de lista
@@ -1505,6 +1539,39 @@ export default function NuevaVentaPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl">
+
+        {/* Lo que los vendedores mandaron a cobrar y nadie cobró todavía. */}
+        {colaCaja.length > 0 && (
+          <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
+            <p className="text-base font-bold text-emerald-900">
+              {colaCaja.length === 1
+                ? "Hay un presupuesto aprobado esperando cobro"
+                : `Hay ${colaCaja.length} presupuestos aprobados esperando cobro`}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {colaCaja.map((p) => (
+                <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+                  <span className="text-sm text-slate-800">
+                    <span className="font-mono font-semibold">{p.numero_control}</span>{" "}
+                    — {p.cliente_nombre}
+                    {p.enviado_a_caja_por && (
+                      <span className="ml-2 text-xs text-slate-500">lo mandó {p.enviado_a_caja_por}</span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-sm font-bold tabular-nums text-slate-800">{formatGs(p.total)}</span>
+                    <a
+                      href={`/ventas/nueva?presupuesto_id=${p.id}`}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                    >
+                      Cobrar
+                    </a>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ── SECCIÓN 0: Datos de la venta (cliente opcional + condición) ────── */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
