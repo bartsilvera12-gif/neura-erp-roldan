@@ -1312,8 +1312,8 @@ export default function NuevaVentaPage() {
 
   const cajaActivaFinal = cajaActivaId || (cajasAbiertas.length === 1 ? cajasAbiertas[0].id : "");
 
-  /** Envía la venta. Con `permitirSinStock=true` autoriza vender aunque falte stock. */
-  async function enviarVenta(permitirSinStock: boolean) {
+  /** Envía la venta. Si falta stock, el servidor la rechaza: no hay forma de forzarla. */
+  async function enviarVenta() {
     // Multi-caja: exigir una caja abierta activa antes de registrar la venta.
     if (cajasAbiertas.length === 0) {
       setErrorVenta("Debe abrir una caja para registrar la venta. Abrí una caja en la pantalla de Caja.");
@@ -1376,7 +1376,6 @@ export default function NuevaVentaPage() {
           observacion: pagoObservacion.trim() || null,
         },
         {
-          permitirSinStock,
           pedidoId,
           cajaId: cajaActivaFinal,
           pagos: pagosArrayFinal,
@@ -1440,14 +1439,9 @@ export default function NuevaVentaPage() {
     e.preventDefault();
     setErrorVenta(null);
     if (!ventaValida) return;
-    await enviarVenta(false);
+    await enviarVenta();
   }
 
-  async function confirmarVentaSinStock() {
-    setConfirmSinStockOpen(false);
-    setErrorVenta(null);
-    await enviarVenta(true);
-  }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -2428,8 +2422,8 @@ export default function NuevaVentaPage() {
             <div className="flex items-start gap-2">
               <span className="text-amber-500 text-xl leading-none">⚠</span>
               <div>
-                <h3 className="text-sm font-semibold text-slate-800">Hay productos/insumos sin stock suficiente</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Revisá el detalle. Podés vender igual: el stock quedará negativo y se registrará el movimiento de salida.</p>
+                <h3 className="text-sm font-semibold text-slate-800">No hay stock para facturar</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Ajustá la cantidad, sacá la línea, o cargá el stock y volvé a intentar.</p>
               </div>
             </div>
 
@@ -2461,12 +2455,9 @@ export default function NuevaVentaPage() {
               </table>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
-              <button type="button" onClick={() => setConfirmSinStockOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50">
-                Cancelar
-              </button>
-              <button type="button" disabled={guardando} aria-busy={guardando} onClick={() => void confirmarVentaSinStock()} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                {guardando ? "Guardando…" : "Confirmar venta de todos modos"}
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setConfirmSinStockOpen(false)} className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white hover:bg-[#0284C7]">
+                Entendido
               </button>
             </div>
           </div>

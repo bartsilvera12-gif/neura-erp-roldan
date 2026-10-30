@@ -182,7 +182,14 @@ export async function POST(request: NextRequest) {
       o.observaciones === null || o.observaciones === undefined
         ? null
         : String(o.observaciones).slice(0, 4000);
-    const permitirSinStock = o.permitir_sin_stock === true;
+    // No se factura sin stock, y punto. Antes la caja mostraba un modal de
+    // confirmación y reintentaba con `permitir_sin_stock: true`: eso dejaba
+    // salir mercadería que no estaba, y el stock quedaba en negativo
+    // arrastrando el error a la compra siguiente y al inventario valorizado.
+    //
+    // El campo se sigue leyendo para no romper a quien lo mande, pero ya no
+    // habilita nada: la decisión es del servidor, no del navegador.
+    const permitirSinStock = false;
     const emitirFacturaFlag = o.emitir_factura !== false;
 
     // Defensa en profundidad: estas dos reglas hoy solo viven en el frontend
@@ -557,8 +564,14 @@ export async function POST(request: NextRequest) {
     // Falta de stock sin autorizar: 409 con el detalle de faltantes para que la UI
     // muestre el modal de confirmación y reintente con permitir_sin_stock=true.
     if (err instanceof StockInsuficienteError) {
+      const lista = err.faltantes
+        .map((f) => `${f.nombre} (hay ${f.stock_actual}, pedís ${f.solicitado})`)
+        .join("; ");
       return NextResponse.json(
-        { ...errorResponse("Stock insuficiente: requiere confirmación."), faltantes: err.faltantes },
+        {
+          ...errorResponse(`No hay stock para facturar: ${lista}. Ajustá la cantidad o cargá el stock antes de vender.`),
+          faltantes: err.faltantes,
+        },
         { status: 409 }
       );
     }
