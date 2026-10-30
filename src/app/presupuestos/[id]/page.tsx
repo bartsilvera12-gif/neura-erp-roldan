@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, ArrowLeft, Loader2, Download, FileCheck2, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Download, FileCheck2, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
@@ -32,6 +32,7 @@ type Presu = {
   nota_interna?: string | null;
   falta_material?: boolean;
   usuario_nombre?: string | null;
+  vendedor_nombre?: string | null;
   convertido_pedido_id: string | null;
 };
 type ItemRow = {
@@ -291,9 +292,16 @@ export default function PresupuestoDetallePage() {
           enterarse ANTES de mandarle el PDF al cliente, no al final de la
           ficha. El PDF no lleva nada de esto. */}
       {(presu.falta_material || presu.nota_interna) && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className={`rounded-xl p-5 ${
+          presu.falta_material
+            ? "border-2 border-amber-400 bg-amber-50"
+            : "border border-amber-300 bg-amber-50"
+        }`}>
           {presu.falta_material && (
-            <p className="text-sm font-semibold text-amber-900">Falta material para cumplir este presupuesto.</p>
+            <p className="flex items-center gap-2 text-xl font-bold leading-tight text-amber-900">
+              <AlertTriangle className="h-6 w-6 shrink-0" />
+              Falta material para cumplir este presupuesto
+            </p>
           )}
           {presu.nota_interna && (
             <p className="mt-1 whitespace-pre-line text-sm text-amber-900">{presu.nota_interna}</p>
@@ -345,6 +353,11 @@ export default function PresupuestoDetallePage() {
               a quién preguntarle; al cliente no le dice nada. */}
           {presu.usuario_nombre && (
             <p className="text-sm text-gray-600">Emitió: {presu.usuario_nombre}</p>
+          )}
+          {/* De quién es el presupuesto. Solo se dice cuando no coincide con
+              quien lo cargó: repetir el mismo nombre dos veces no informa. */}
+          {presu.vendedor_nombre && presu.vendedor_nombre !== presu.usuario_nombre && (
+            <p className="text-sm font-medium text-gray-700">Vendedor: {presu.vendedor_nombre}</p>
           )}
         </div>
       </div>

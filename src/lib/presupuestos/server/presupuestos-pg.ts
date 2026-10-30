@@ -33,6 +33,10 @@ export interface CrearPresupuestoInput {
   /** Emisor: usuario que crea el presupuesto (para "Emitido por" en el PDF). */
   usuario_id?: string | null;
   usuario_nombre?: string | null;
+  /** De quién es el presupuesto. Puede no ser quien lo carga: el
+   *  administrador arma presupuestos para que los atienda otro. */
+  vendedor_usuario_id?: string | null;
+  vendedor_nombre?: string | null;
   items: PresupuestoItemInput[];
 }
 
@@ -145,6 +149,9 @@ export async function crearPresupuesto(
     falta_material: input.falta_material === true,
     usuario_id: input.usuario_id ?? null,
     usuario_nombre: input.usuario_nombre ?? null,
+    // Sin vendedor elegido, el presupuesto es de quien lo carga.
+    vendedor_usuario_id: input.vendedor_usuario_id ?? input.usuario_id ?? null,
+    vendedor_nombre: input.vendedor_nombre ?? input.usuario_nombre ?? null,
   };
 
   let ins = await sb.from("presupuestos").insert(cabecera).select("id, numero_control").single();
@@ -156,6 +163,13 @@ export async function crearPresupuesto(
   }
   // Mismo criterio para el script 38: sin esas columnas se guarda igual, sin
   // la nota interna. Una anotación de la casa no vale una oferta perdida.
+  // Sin el script 41 no existen las columnas del vendedor: se reintenta sin
+  // ellas para no dejar de guardar presupuestos por un campo nuevo.
+  if (ins.error && /vendedor_usuario_id|vendedor_nombre/.test(ins.error.message ?? "")) {
+    const { vendedor_usuario_id: _v, vendedor_nombre: _vn, ...sinVendedor } = cabecera;
+    ins = await sb.from("presupuestos").insert(sinVendedor).select("id, numero_control").single();
+  }
+
   if (ins.error && /nota_interna|falta_material/.test(ins.error.message ?? "")) {
     const { nota_interna: _n, falta_material: _f, ...sinNota } = cabecera;
     ins = await sb.from("presupuestos").insert(sinNota).select("id, numero_control").single();

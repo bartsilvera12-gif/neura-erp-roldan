@@ -17,9 +17,23 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json(errorResponse("No autenticado"), { status: 401 });
 
   let descuentoMaximo: number | null = null;
+  // El nombre de la sucursal del usuario, para que las pantallas puedan decir
+  // de dónde salen los precios que están mostrando. Cada usuario ve solo su
+  // sucursal, pero eso no se veía en ningún lado.
+  let sucursalNombre: string | null = null;
   try {
     const sb = await createServiceRoleClientForEmpresa(auth.empresa_id);
     descuentoMaximo = await descuentoMaximoDe(sb, auth.empresa_id, auth.usuarioCatalogId);
+    if (auth.sucursal_id) {
+      const r = await sb
+        .from("sucursales")
+        .select("nombre")
+        .eq("empresa_id", auth.empresa_id)
+        .eq("id", auth.sucursal_id)
+        .maybeSingle();
+      const n = (r.data as { nombre?: string } | null)?.nombre;
+      if (typeof n === "string" && n.trim()) sucursalNombre = n.trim();
+    }
   } catch {
     // Sin el dato la UI no limita nada y el servidor sigue validando igual.
   }
@@ -28,5 +42,6 @@ export async function GET(request: NextRequest) {
     rol: auth.rol ?? null,
     isAdmin: isAdmin(auth),
     descuentoMaximo,
+    sucursal_nombre: sucursalNombre,
   }));
 }

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { isAdmin } from "@/lib/middleware/auth";
 import {
   conCamposScript38,
   leerPresupuestosConFallback,
@@ -76,7 +77,9 @@ export async function GET(request: NextRequest) {
 /** POST /api/presupuestos — crear. NO descuenta stock. */
 export async function POST(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    // Con el rol: hace falta para saber si puede poner el presupuesto a
+    // nombre de otra persona.
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 
     let body: Record<string, unknown>;
@@ -144,6 +147,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const firma = await firmaUsuario(ctx.supabase, ctx.auth);
+    const esAdmin = isAdmin(ctx.auth);
+    const vendedorId = typeof body.vendedor_usuario_id === "string" && body.vendedor_usuario_id.trim()
+      ? body.vendedor_usuario_id.trim()
+      : null;
+    const vendedorNombre = typeof body.vendedor_nombre === "string" && body.vendedor_nombre.trim()
+      ? body.vendedor_nombre.trim()
+      : null;
+
     const { id, numero_control } = await crearPresupuesto(ctx.supabase, ctx.auth.empresa_id, {
       cliente_id: clienteId,
       cliente_nombre: clienteNombre,
@@ -165,7 +177,13 @@ export async function POST(request: NextRequest) {
       // El nombre y no el correo: es lo que se muestra en el listado y en la
       // ficha cuando alguien pregunta quién hizo la cotización. Si el usuario
       // no tiene nombre cargado, firmaUsuario cae al correo igual.
-      usuario_nombre: (await firmaUsuario(ctx.supabase, ctx.auth)).nombre,
+      usuario_nombre: firma.nombre,
+      // Asignarle el presupuesto a otro es decisión del administrador. Un
+      // vendedor que mandara este campo por fuera de la pantalla se estaría
+      // poniendo ventas ajenas en su cartera, así que se ignora salvo que
+      // tenga el rol.
+      vendedor_usuario_id: esAdmin && vendedorId ? vendedorId : null,
+      vendedor_nombre: esAdmin && vendedorId ? vendedorNombre : null,
       items,
     });
 

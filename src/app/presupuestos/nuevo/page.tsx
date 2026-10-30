@@ -9,6 +9,7 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -80,6 +81,51 @@ export default function NuevoPresupuestoPage() {
   const [observaciones, setObservaciones] = useState("");
   const [notaInterna, setNotaInterna] = useState("");
   const [faltaMaterial, setFaltaMaterial] = useState(false);
+
+  /**
+   * Quién mira la pantalla.
+   *
+   * El precio lo escribe el administrador, no el vendedor: un precio escrito
+   * a mano es un descuento sin pedirlo a nadie. El vendedor arma el
+   * presupuesto con los precios de su sucursal y, si hace falta otro número,
+   * lo pide.
+   */
+  const { isAdmin, loaded: rolCargado } = useIsAdmin();
+
+  /** La sucursal del usuario, para que se vea de dónde salen los precios. */
+  const [sucursalNombre, setSucursalNombre] = useState<string | null>(null);
+
+  /** De quién va a ser el presupuesto. Solo el administrador puede cambiarlo. */
+  const [vendedorId, setVendedorId] = useState("");
+  const [vendedores, setVendedores] = useState<{ id: string; nombre: string }[]>([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/usuarios/empresa-activos", { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((j) => {
+        const filas = (Array.isArray(j) ? j : j?.usuarios ?? j?.data ?? []) as Record<string, unknown>[];
+        setVendedores(
+          filas
+            .map((u) => ({
+              id: String(u.id ?? ""),
+              nombre: String(u.nombre || u.email || "").trim(),
+            }))
+            .filter((u) => u.id && u.nombre)
+        );
+      })
+      .catch(() => { /* si falla, queda a nombre de quien lo carga */ });
+  }, [isAdmin]);
+
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/me/rol", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const n = j?.data?.sucursal_nombre ?? j?.sucursal_nombre ?? null;
+        if (typeof n === "string" && n.trim()) setSucursalNombre(n.trim());
+      })
+      .catch(() => { /* el nombre es informativo */ });
+  }, []);
   // Punto 9.4: el texto que obliga (garantía, flete, validez del precio). Es
   // otra cosa que las observaciones, que son las notas del producto.
   const [condiciones, setCondiciones] = useState("");
@@ -261,6 +307,8 @@ export default function NuevoPresupuestoPage() {
           observaciones: observaciones.trim() || null,
           nota_interna: notaInterna.trim() || null,
           falta_material: faltaMaterial,
+          vendedor_usuario_id: vendedorId || null,
+          vendedor_nombre: vendedores.find((v) => v.id === vendedorId)?.nombre ?? null,
           condiciones_comerciales: condiciones.trim() || null,
           items: items.map((it) => ({
             producto_id: it.producto_id,
@@ -311,6 +359,39 @@ export default function NuevoPresupuestoPage() {
       </div>
 
       {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+
+      {/* De dónde salen los precios. Cada usuario ve el catálogo de su
+          sucursal y nada más, pero eso no se veía en ninguna parte: dos
+          personas comparando un mismo producto con precios distintos no
+          tenían cómo darse cuenta de por qué. */}
+      {(sucursalNombre || isAdmin) && (
+        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          {sucursalNombre && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Precios de</p>
+              <p className="text-sm font-semibold text-slate-800">{sucursalNombre}</p>
+            </div>
+          )}
+          {isAdmin && vendedores.length > 0 && (
+            <div className="min-w-[220px]">
+              <label className={labelClass}>Presupuesto a nombre de</label>
+              <select
+                value={vendedorId}
+                onChange={(e) => setVendedorId(e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="">Mío</option>
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nombre}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Para armarle el presupuesto a una vendedora y que le figure a ella.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cliente */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
@@ -407,7 +488,19 @@ export default function NuevoPresupuestoPage() {
                         />
                       </td>
                       <td className="py-2 px-2">
-                        <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                        {/* El vendedor ve el precio que sale de la lista de su
+                            sucursal, pero no lo escribe: eso es un descuento
+                            que nadie autorizó. */}
+                        {isAdmin || !rolCargado ? (
+                          <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                        ) : (
+                          <div
+                            className={`${inputClass} bg-slate-50 text-slate-700 tabular-nums cursor-not-allowed`}
+                            title="El precio sale de la lista. Para cambiarlo, pedíselo a un administrador."
+                          >
+                            {(it.precio_unitario || 0).toLocaleString("es-PY")}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2 px-2">
                         <select value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
@@ -474,13 +567,15 @@ export default function NuevoPresupuestoPage() {
               le manda al cliente. Entonces no había dónde anotar lo que es
               asunto de la casa —que falta material, a quién se le pidió—, y
               escribirlo arriba era mandárselo al cliente. */}
-          <div className="sm:col-span-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
+          <div className={`sm:col-span-3 rounded-xl border-2 p-4 transition-colors ${
+            faltaMaterial ? "border-amber-400 bg-amber-50" : "border-amber-200 bg-amber-50/50"
+          }`}>
+            <label className="flex items-center gap-3 text-base font-bold text-amber-900 cursor-pointer">
               <input
                 type="checkbox"
                 checked={faltaMaterial}
                 onChange={(e) => setFaltaMaterial(e.target.checked)}
-                className="h-4 w-4 rounded border-amber-300"
+                className="h-5 w-5 rounded border-amber-400"
               />
               Falta material para cumplir este presupuesto
             </label>
