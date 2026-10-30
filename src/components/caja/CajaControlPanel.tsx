@@ -575,8 +575,6 @@ function ModalAbrir({
   numeroSugerido: number;
   numerosOcupados: number[];
 }) {
-  const [modo, setModo] = useState<"arqueo" | "monto">("arqueo");
-  const [monto, setMonto] = useState("0");
   const [cant, setCant] = useState<ArqueoCantidades>(arqueoVacio());
   const [obs, setObs] = useState("");
   const [numero, setNumero] = useState(numeroSugerido);
@@ -588,19 +586,8 @@ function ModalAbrir({
       setErr(`La Caja ${numero} ya está activa. Elegí otro número.`);
       return;
     }
-    let montoFinal: number;
-    let arqueo: ArqueoItem[] | null = null;
-    if (modo === "arqueo") {
-      arqueo = cantidadesAArqueo(cant);
-      montoFinal = totalArq;
-    } else {
-      const n = Number(monto);
-      if (!Number.isFinite(n) || n < 0) {
-        setErr("Ingresá un monto válido.");
-        return;
-      }
-      montoFinal = n;
-    }
+    const arqueo: ArqueoItem[] = cantidadesAArqueo(cant);
+    const montoFinal = totalArq;
     setBusy(true);
     setErr(null);
     try {
@@ -617,7 +604,7 @@ function ModalAbrir({
       title="Abrir caja"
       subtitle="Elegí el número de caja y cargá el efectivo inicial del turno."
       onClose={busy ? () => {} : onClose}
-      maxWidthClass={modo === "arqueo" ? "max-w-2xl" : "max-w-md"}
+      maxWidthClass="max-w-2xl"
     >
       <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
         <div>
@@ -647,39 +634,19 @@ function ModalAbrir({
           </div>
         </div>
 
-        {/* El conteo por denominación estaba escondido con un `false &&`, por
-            una decisión de Ferrecolor —otro cliente de este mismo código—,
-            que cerraba la caja escribiendo el monto de una. Acá se cuenta
-            billete por billete: escribir un total de memoria es justamente
-            donde se cuela el error que después aparece como diferencia de
-            caja sin explicación. El selector queda igual, para el que prefiera
-            el monto directo. */}
-        <ModoArqueoToggle modo={modo} onChange={setModo} />
-
-        {modo === "arqueo" ? (
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Conteo de efectivo inicial
-            </label>
-            <ArqueoDenominaciones value={cant} onChange={setCant} disabled={busy} />
-            <p className="mt-1.5 text-[11px] text-slate-400">
-              El saldo inicial se calcula automáticamente desde el conteo: {fmtGs(totalArq)}.
-            </p>
-          </div>
-        ) : (
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Monto inicial (Gs.)
-            </label>
-            <MontoInput
-              value={monto}
-              onChange={(n) => setMonto(String(n))}
-              decimals={false}
-              autoFocus
-              className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-semibold tabular-nums focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none"
-            />
-          </div>
-        )}
+        {/* Se cuenta billete por billete y no se puede escribir el total de
+            una. Un total escrito de memoria es justamente donde se cuela el
+            error que después aparece como diferencia de caja sin explicación:
+            el que carga 500.000 porque "siempre hay eso" no está contando. */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+            Conteo de efectivo inicial
+          </label>
+          <ArqueoDenominaciones value={cant} onChange={setCant} disabled={busy} />
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            El saldo inicial sale del conteo: {fmtGs(totalArq)}.
+          </p>
+        </div>
 
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
@@ -719,34 +686,6 @@ function ModalAbrir({
   );
 }
 
-/** Toggle entre "Contar por denominaciones" (arqueo) y "Monto directo". */
-function ModoArqueoToggle({
-  modo,
-  onChange,
-}: {
-  modo: "arqueo" | "monto";
-  onChange: (m: "arqueo" | "monto") => void;
-}) {
-  return (
-    <div className="flex rounded-lg border-2 border-slate-200 overflow-hidden text-xs font-bold">
-      <button
-        type="button"
-        onClick={() => onChange("arqueo")}
-        className={`flex-1 py-2 transition-colors ${modo === "arqueo" ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-      >
-        Contar por denominaciones
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("monto")}
-        className={`flex-1 py-2 transition-colors border-l-2 border-slate-200 ${modo === "monto" ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-      >
-        Monto directo
-      </button>
-    </div>
-  );
-}
-
 function ModalCerrar({
   resumen,
   onClose,
@@ -756,24 +695,16 @@ function ModalCerrar({
   onClose: () => void;
   onConfirm: (monto: number, obs: string | null, arqueo: ArqueoItem[] | null) => Promise<void>;
 }) {
-  const [modo, setModo] = useState<"arqueo" | "monto">("arqueo");
-  const [monto, setMonto] = useState(String(Math.round(resumen.efectivo_esperado)));
   const [cant, setCant] = useState<ArqueoCantidades>(arqueoVacio());
   const [obs, setObs] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const esperado = Math.round(resumen.efectivo_esperado);
-  const contado = modo === "arqueo" ? totalArqueo(cant) : Number(monto) || 0;
+  const contado = totalArqueo(cant);
   const diferencia = contado - esperado;
 
   async function submit() {
-    let arqueo: ArqueoItem[] | null = null;
-    if (modo === "arqueo") {
-      arqueo = cantidadesAArqueo(cant);
-    } else if (!Number.isFinite(contado) || contado < 0) {
-      setErr("Ingresá un monto válido.");
-      return;
-    }
+    const arqueo: ArqueoItem[] = cantidadesAArqueo(cant);
     setBusy(true);
     setErr(null);
     try {
@@ -789,7 +720,7 @@ function ModalCerrar({
       title="Cerrar caja"
       subtitle="Contá el efectivo en mano. El sistema calcula la diferencia."
       onClose={busy ? () => {} : onClose}
-      maxWidthClass={modo === "arqueo" ? "max-w-2xl" : "max-w-md"}
+      maxWidthClass="max-w-2xl"
     >
       <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
         {/* Resumen del arqueo */}
@@ -835,36 +766,16 @@ function ModalCerrar({
           </div>
         </div>
 
-        {/* El conteo por denominación estaba escondido con un `false &&`, por
-            una decisión de Ferrecolor —otro cliente de este mismo código—,
-            que cerraba la caja escribiendo el monto de una. Acá se cuenta
-            billete por billete: escribir un total de memoria es justamente
-            donde se cuela el error que después aparece como diferencia de
-            caja sin explicación. El selector queda igual, para el que prefiera
-            el monto directo. */}
-        <ModoArqueoToggle modo={modo} onChange={setModo} />
-
-        {modo === "arqueo" ? (
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Conteo del efectivo en mano
-            </label>
-            <ArqueoDenominaciones value={cant} onChange={setCant} disabled={busy} />
-          </div>
-        ) : (
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Efectivo contado (Gs.)
-            </label>
-            <MontoInput
-              value={monto}
-              onChange={(n) => setMonto(String(n))}
-              decimals={false}
-              autoFocus
-              className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-semibold tabular-nums focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none"
-            />
-          </div>
-        )}
+        {/* Se cuenta billete por billete y no se puede escribir el total de
+            una. Escribir el esperado para que la diferencia dé cero no es
+            cerrar la caja: es tapar el faltante, y el que lo paga es el cajero
+            del turno siguiente. */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+            Conteo del efectivo en mano
+          </label>
+          <ArqueoDenominaciones value={cant} onChange={setCant} disabled={busy} />
+        </div>
 
         {/* Vista previa de diferencia */}
         <div
