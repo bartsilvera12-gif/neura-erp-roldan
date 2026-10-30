@@ -69,8 +69,19 @@ export async function GET(request: NextRequest) {
         .select("id, tipo_vendedor_id, categoria_id, porcentaje, activo")
         .eq("empresa_id", auth.empresa_id),
       supabase.from("comisiones_config")
-        .select("dias_cartera, base_calculo")
-        .eq("empresa_id", auth.empresa_id).maybeSingle(),
+        .select("dias_cartera, base_calculo, penaliza_descuento, penalizacion_maxima_pct")
+        .eq("empresa_id", auth.empresa_id).maybeSingle()
+        .then(async (r) => {
+          // Sin el script 43 esas dos columnas no existen y PostgREST rechaza
+          // la consulta entera: sin este reintento, la pantalla de
+          // configuración no cargaría nada.
+          if (r.error && /penaliza_descuento|penalizacion_maxima_pct/.test(r.error.message ?? "")) {
+            return await supabase.from("comisiones_config")
+              .select("dias_cartera, base_calculo")
+              .eq("empresa_id", auth.empresa_id).maybeSingle();
+          }
+          return r;
+        }),
       supabase.from("usuarios")
         .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct, porcentaje_comision")
         .eq("empresa_id", auth.empresa_id).order("nombre")
@@ -97,7 +108,7 @@ export async function GET(request: NextRequest) {
       tipos: tipos.data ?? [],
       reglas: reglas.data ?? [],
       // Si la fila de config no existe todavía, los valores que pide el pedido.
-      config: config.data ?? { dias_cartera: 30, base_calculo: "margen" },
+      config: config.data ?? { dias_cartera: 30, base_calculo: "margen", penaliza_descuento: false, penalizacion_maxima_pct: null },
       vendedores: vendedores.data ?? [],
       rubros: rubros.data ?? [],
     }));
@@ -311,13 +322,44 @@ export async function POST(request: NextRequest) {
         );
       }
       const base = b.base_calculo === "facturacion" ? "facturacion" : "margen";
-      const r = await supabase.from("comisiones_config")
-        .upsert({
-          empresa_id: auth.empresa_id,
-          dias_cartera: Math.trunc(dias),
-          base_calculo: base,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "empresa_id" });
+
+      // Cuánto puede recortarse la comisión por descuento. Vacío = sin tope.
+      let topeDescuento: number | null = null;
+      if (b.penalizacion_maxima_pct !== undefined && b.penalizacion_maxima_pct !== null
+          && String(b.penalizacion_maxima_pct).trim() !== "") {
+        const n = Number(b.penalizacion_maxima_pct);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          return NextResponse.json(
+            errorResponse("El tope de recorte por descuento va entre 0 y 100."),
+            { status: 400 }
+          );
+        }
+        topeDescuento = n;
+      }
+
+      const fila: Record<string, unknown> = {
+        empresa_id: auth.empresa_id,
+        dias_cartera: Math.trunc(dias),
+        base_calculo: base,
+        updated_at: new Date().toISOString(),
+      };
+      const conDescuento = {
+        ...fila,
+        penaliza_descuento: b.penaliza_descuento === true,
+        penalizacion_maxima_pct: topeDescuento,
+      };
+
+      let r = await supabase.from("comisiones_config")
+        .upsert(conDescuento, { onConflict: "empresa_id" });
+      // Sin el script 43 esas dos columnas no existen: se guarda el resto y se
+      // avisa, en vez de dejar creyendo que el recorte quedó configurado.
+      if (r.error && /penaliza_descuento|penalizacion_maxima_pct/.test(r.error.message)) {
+        await supabase.from("comisiones_config").upsert(fila, { onConflict: "empresa_id" });
+        return NextResponse.json(
+          errorResponse("Falta correr 43_comision_descuento.sql para que el descuento afecte la comisión."),
+          { status: 409 }
+        );
+      }
       if (r.error) {
         if (esTablaFaltante(r.error.message)) {
           return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });

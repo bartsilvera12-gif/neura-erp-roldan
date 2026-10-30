@@ -69,6 +69,9 @@ export interface InformeComisiones {
     comision: number;
   };
   base_calculo: BaseCalculo;
+  /** Si el descuento recortó comisiones en este período. */
+  penaliza_descuento?: boolean;
+  penalizacion_maxima_pct?: number | null;
 }
 
 /** Paraguay es UTC−3 todo el año; la tzdata del servidor puede estar vieja. */
@@ -119,11 +122,31 @@ export async function informeComisiones(
   const p = pool();
 
   // ── Configuración ──────────────────────────────────────────────────────
+  // Las columnas del script 43 pueden no estar: se pide aparte y si falla se
+  // sigue con el comportamiento anterior, que es no recortar nada.
   const cfgQ = await p.query<{ base_calculo: string }>(
     `SELECT base_calculo FROM ${tC} WHERE empresa_id = $1::uuid`,
     [empresaId]
   );
   const base: BaseCalculo = cfgQ.rows[0]?.base_calculo === "facturacion" ? "facturacion" : "margen";
+
+  let penalizaDescuento = false;
+  let penalizacionMaximaPct: number | null = null;
+  try {
+    const penQ = await p.query<{ penaliza_descuento: boolean; penalizacion_maxima_pct: string | null }>(
+      `SELECT penaliza_descuento, penalizacion_maxima_pct FROM ${tC} WHERE empresa_id = $1::uuid`,
+      [empresaId]
+    );
+    const row = penQ.rows[0];
+    if (row) {
+      penalizaDescuento = row.penaliza_descuento === true;
+      penalizacionMaximaPct =
+        row.penalizacion_maxima_pct == null ? null : Number(row.penalizacion_maxima_pct);
+    }
+  } catch {
+    // Script 43 sin correr: el descuento no recorta comisión, como antes.
+  }
+  const opcionesComision = { penalizaDescuento, penalizacionMaximaPct };
 
   // ── Reglas ─────────────────────────────────────────────────────────────
   const rQ = await p.query<{
@@ -207,7 +230,8 @@ export async function informeComisiones(
       f.tipo_vendedor_id,
       Number(f.porcentaje_base) || 0,
       base,
-      f.porcentaje_propio == null ? null : Number(f.porcentaje_propio)
+      f.porcentaje_propio == null ? null : Number(f.porcentaje_propio),
+      opcionesComision
     );
 
     const vendedorNombre = f.vendedor_nombre || "Sin vendedor";
@@ -265,5 +289,7 @@ export async function informeComisiones(
       comision: ventas.reduce((s, v) => s + v.comision, 0),
     },
     base_calculo: base,
+    penaliza_descuento: penalizaDescuento,
+    penalizacion_maxima_pct: penalizacionMaximaPct,
   };
 }

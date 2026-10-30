@@ -64,7 +64,13 @@ type UsuarioLite = {
 type RubroLite = { id: string; nombre: string };
 type Config = {
   tipos: Tipo[]; reglas: Regla[]; vendedores: UsuarioLite[]; rubros: RubroLite[];
-  config: { dias_cartera: number; base_calculo: "margen" | "facturacion" };
+  config: {
+    dias_cartera: number;
+    base_calculo: "margen" | "facturacion";
+    /** Script 43: puede no estar en bases que no lo corrieron. */
+    penaliza_descuento?: boolean;
+    penalizacion_maxima_pct?: number | null;
+  };
 };
 
 type ClienteCartera = {
@@ -580,7 +586,11 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
               onBlur={(e) => {
                 const v = Number(e.target.value);
                 if (v !== cfg.config.dias_cartera) {
-                  void enviar({ accion: "config", dias_cartera: v, base_calculo: cfg.config.base_calculo });
+                  void enviar({
+                    accion: "config", dias_cartera: v, base_calculo: cfg.config.base_calculo,
+                    penaliza_descuento: cfg.config.penaliza_descuento,
+                    penalizacion_maxima_pct: cfg.config.penalizacion_maxima_pct,
+                  });
                 }
               }}
               className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums"
@@ -591,6 +601,8 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
               value={cfg.config.base_calculo}
               onChange={(e) => void enviar({
                 accion: "config", dias_cartera: cfg.config.dias_cartera, base_calculo: e.target.value,
+                penaliza_descuento: cfg.config.penaliza_descuento,
+                penalizacion_maxima_pct: cfg.config.penalizacion_maxima_pct,
               })}
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
             >
@@ -600,10 +612,56 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
           </Campo>
           <p className="max-w-md pb-1 text-[11px] leading-snug text-slate-400">
             Sobre la ganancia, un descuento baja la comisión en la misma proporción en que baja la
-            rentabilidad. Sobre el importe vendido, casi no la afecta: se termina premiando vender
-            barato.
+            rentabilidad. Sobre el importe vendido no la afecta sola: para eso está la opción de
+            abajo.
           </p>
         </div>
+
+        {/* El recorte por descuento. Solo tiene sentido sobre el importe
+            vendido: sobre la ganancia el descuento ya pega solo, y aplicarlo
+            dos veces sería castigar dos veces lo mismo. */}
+        {cfg.config.base_calculo === "facturacion" && (
+          <div className="mt-4 flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={cfg.config.penaliza_descuento === true}
+                onChange={(e) => void enviar({
+                  accion: "config", dias_cartera: cfg.config.dias_cartera,
+                  base_calculo: cfg.config.base_calculo,
+                  penaliza_descuento: e.target.checked,
+                  penalizacion_maxima_pct: cfg.config.penalizacion_maxima_pct,
+                })}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              El descuento recorta la comisión
+            </label>
+            {cfg.config.penaliza_descuento && (
+              <Campo label="Recorte máximo (%)">
+                <input
+                  type="number" min={0} max={100}
+                  defaultValue={cfg.config.penalizacion_maxima_pct ?? ""}
+                  placeholder="sin tope"
+                  onBlur={(e) => {
+                    const t = e.target.value.trim();
+                    void enviar({
+                      accion: "config", dias_cartera: cfg.config.dias_cartera,
+                      base_calculo: cfg.config.base_calculo,
+                      penaliza_descuento: true,
+                      penalizacion_maxima_pct: t === "" ? null : Number(t),
+                    });
+                  }}
+                  className="w-28 rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums"
+                />
+              </Campo>
+            )}
+            <p className="max-w-lg pb-1 text-[11px] leading-snug text-slate-500">
+              La comisión baja en la misma proporción en que el descuento se comió la utilidad: si
+              se llevó el 30%, se cobra 30% menos. Sin descuento se comisiona normal. El recorte
+              máximo limita cuánto se puede descontar por este concepto; vacío, puede llegar a cero.
+            </p>
+          </div>
+        )}
       </Caja>
 
       {/* Tipos de vendedor */}

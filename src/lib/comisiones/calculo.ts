@@ -5,6 +5,21 @@
  * mano, que es lo único que da confianza cuando de esto sale lo que cobra cada
  * vendedor a fin de mes.
  *
+ * ── EL DESCUENTO RECORTA LA COMISIÓN ──────────────────────────────────────
+ *   Con `base_calculo = facturacion` la comisión sale de lo facturado, pero un
+ *   porcentaje plano premia vender barato: el que regala margen para cerrar
+ *   rápido cobra lo mismo que el que defendió el precio.
+ *
+ *   Por eso el descuento la recorta en la misma proporción en que se comió la
+ *   utilidad:
+ *
+ *       factor   = utilidad_real / utilidad_de_lista      (entre 0 y 1)
+ *       comisión = porcentaje × facturado × factor
+ *
+ *   Sin descuento el factor es 1 y se comisiona normal. Si el descuento se
+ *   llevó el 30% de la utilidad, la comisión baja 30%. Si la venta quedó sin
+ *   utilidad, el factor es 0: no se comisiona una venta que no dejó nada.
+ *
  * ── POR QUÉ SOBRE LA GANANCIA Y NO SOBRE LA FACTURACIÓN ────────────────────
  *   El pedido (4.4) dice "calcular comisiones proporcionalmente a la
  *   remarcación o margen. Si hay descuento que reduce la rentabilidad, ajustar
@@ -54,6 +69,8 @@ export interface LineaVentaComision {
 
 export interface ResultadoLinea {
   facturado: number;
+  /** Cuánto se recortó la comisión por el descuento. 1 = sin recorte. */
+  factor_descuento: number;
   /** Lo que se dejó de cobrar respecto del precio de lista. */
   descuento: number;
   costo: number;
@@ -122,6 +139,48 @@ export function porcentajeAplicable(
   return Number(porcentajeBaseDelTipo) || 0;
 }
 
+/** Cómo se ajusta la comisión cuando hubo descuento. */
+export interface OpcionesComision {
+  /** Si el descuento recorta la comisión. Solo aplica sobre la facturación. */
+  penalizaDescuento?: boolean;
+  /** Tope del recorte, en puntos porcentuales. null = sin tope (puede ser 0). */
+  penalizacionMaximaPct?: number | null;
+}
+
+/**
+ * Qué proporción de la comisión sobrevive al descuento.
+ *
+ * Es la utilidad que quedó dividida por la que había a precio de lista. Todo
+ * en importes ya sin IVA.
+ *
+ *   - Sin descuento → 1 (se comisiona normal).
+ *   - Descuento que se comió media utilidad → 0,5.
+ *   - Venta sin utilidad, o a pérdida → 0.
+ *
+ * `topePct` limita cuánto se puede recortar: con 50, nunca se le saca más de
+ * la mitad de la comisión por más grande que haya sido el descuento.
+ */
+export function factorPorDescuento(
+  listaSinIva: number,
+  costoSinIva: number,
+  facturadoSinIva: number,
+  topePct: number | null = null
+): number {
+  const utilidadLista = listaSinIva - costoSinIva;
+  const utilidadReal = facturadoSinIva - costoSinIva;
+
+  // Sin utilidad de referencia no hay proporción que calcular. Si además la
+  // venta quedó a pérdida, no se comisiona.
+  if (utilidadLista <= 0) return utilidadReal > 0 ? 1 : 0;
+
+  const crudo = Math.min(1, Math.max(0, utilidadReal / utilidadLista));
+  if (topePct == null) return crudo;
+
+  // El tope se expresa como "cuánto se le puede sacar como máximo".
+  const pisoFactor = Math.max(0, 1 - (Number(topePct) || 0) / 100);
+  return Math.max(crudo, pisoFactor);
+}
+
 /** Comisión de una línea de venta. */
 export function comisionDeLinea(
   linea: LineaVentaComision,
@@ -130,7 +189,8 @@ export function comisionDeLinea(
   porcentajeBaseDelTipo: number,
   base: BaseCalculo = "margen",
   /** Porcentaje propio del vendedor; le gana a las reglas. */
-  porcentajePropio: number | null = null
+  porcentajePropio: number | null = null,
+  opciones?: OpcionesComision
 ): ResultadoLinea {
   const cantidad = Number(linea.cantidad) || 0;
   const iva = linea.tipo_iva;
@@ -155,13 +215,23 @@ export function comisionDeLinea(
   );
 
   const sobre = base === "facturacion" ? facturado : ganancia;
-  // Ver el comentario de arriba: a pérdida no se comisiona en contra.
-  const comision = sobre > 0 ? (sobre * porcentaje) / 100 : 0;
 
-  return { facturado, descuento, costo, ganancia, porcentaje, comision };
+  // El recorte por descuento solo tiene sentido sobre la facturación: sobre el
+  // margen el descuento ya pega solo, y aplicarlo dos veces sería castigar
+  // dos veces lo mismo.
+  const factor_descuento =
+    base === "facturacion" && opciones?.penalizaDescuento
+      ? factorPorDescuento(lista, costo, facturado, opciones?.penalizacionMaximaPct ?? null)
+      : 1;
+
+  // Ver el comentario de arriba: a pérdida no se comisiona en contra.
+  const comision = sobre > 0 ? (sobre * porcentaje * factor_descuento) / 100 : 0;
+
+  return { facturado, factor_descuento, descuento, costo, ganancia, porcentaje, comision };
 }
 
 export interface ResultadoVenta extends Omit<ResultadoLinea, "porcentaje"> {
+  /** Recorte promedio por descuento, ponderado por lo facturado. */
   /** Porcentaje efectivo de toda la venta: comisión / base. Puede no coincidir
    *  con ninguna regla si la venta mezcla rubros con porcentajes distintos. */
   porcentaje_efectivo: number;
@@ -173,20 +243,27 @@ export function comisionDeVenta(
   reglas: ReglaComision[],
   tipoVendedorId: string | null,
   porcentajeBaseDelTipo: number,
-  base: BaseCalculo = "margen"
+  base: BaseCalculo = "margen",
+  opciones?: OpcionesComision
 ): ResultadoVenta {
   let facturado = 0, descuento = 0, costo = 0, ganancia = 0, comision = 0;
+  // El recorte de toda la venta, ponderado por lo que facturó cada línea: una
+  // línea chica muy descontada no puede arrastrar el promedio de una grande.
+  let factorPonderado = 0;
   for (const l of lineas) {
-    const r = comisionDeLinea(l, reglas, tipoVendedorId, porcentajeBaseDelTipo, base);
+    const r = comisionDeLinea(l, reglas, tipoVendedorId, porcentajeBaseDelTipo, base, null, opciones);
     facturado += r.facturado;
     descuento += r.descuento;
     costo += r.costo;
     ganancia += r.ganancia;
     comision += r.comision;
+    factorPonderado += r.factor_descuento * r.facturado;
   }
   const sobre = base === "facturacion" ? facturado : ganancia;
   return {
     facturado, descuento, costo, ganancia, comision,
+    // Cuánto se recortó en total por los descuentos de toda la venta.
+    factor_descuento: facturado > 0 ? factorPonderado / facturado : 1,
     porcentaje_efectivo: sobre > 0 ? (comision / sobre) * 100 : 0,
   };
 }
