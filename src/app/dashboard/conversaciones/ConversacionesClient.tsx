@@ -1906,13 +1906,24 @@ export function ConversacionesClient({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 leading-tight truncate">
+      {/* Una sola línea en vez de un título grande con subtítulo abajo: el
+          inbox se mira todo el día y lo que importa es la lista de chats, no
+          el nombre de quien atiende. Antes el encabezado se comía dos
+          renglones de pantalla para decir algo que ya se sabe. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 shrink-0">
+        <div className="min-w-0 flex flex-1 items-center gap-2 flex-wrap">
+          <span
+            aria-hidden="true"
+            className="inline-block h-2 w-2 shrink-0 rounded-full bg-[#4FAEB2] shadow-[0_0_0_3px_rgba(79,174,178,0.18)]"
+          />
+          <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4FAEB2] sm:inline">
+            Omnicanal
+          </span>
+          <h1 className="truncate text-base font-semibold leading-tight tracking-tight text-slate-900">
             {agentDisplayName}
           </h1>
-          <p className="text-xs text-slate-500 leading-snug mt-0.5">
-            Omnicanal ·{" "}
+          <span className="text-xs leading-snug text-slate-500">
+            {"· "}
             {mode === "historial"
               ? "Historial omnicanal"
               : vista === "inbox"
@@ -1926,12 +1937,12 @@ export function ConversacionesClient({
                 </Link>
               </>
             ) : null}
-          </p>
+          </span>
         </div>
         {mode === "inbox" && opPresenceLoaded && !opInQueues ? (
           initialCabeceraInsignia === "admin" ? (
-            <div className="flex flex-col items-end gap-1 shrink-0 max-w-[20rem] text-right">
-              <span className="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                 Administrador
               </span>
               <span className="text-[10px] text-slate-600 leading-snug">
@@ -1942,8 +1953,8 @@ export function ConversacionesClient({
               </span>
             </div>
           ) : initialCabeceraInsignia === "supervisor" ? (
-            <div className="flex flex-col items-end gap-1 shrink-0 max-w-[20rem] text-right">
-              <span className="inline-flex items-center rounded-full bg-indigo-800 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center rounded-full bg-indigo-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                 Supervisor
               </span>
               <span className="text-[10px] text-slate-600 leading-snug">
@@ -2096,11 +2107,10 @@ export function ConversacionesClient({
       ) : null}
 
       {(mode === "historial" || vista === "inbox") ? (
-        <div className="flex flex-wrap items-end gap-3 shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-          <label className="flex flex-col gap-1 min-w-[12rem]">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Canal</span>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <label className="min-w-[11rem]">
             <select
-              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[12rem] max-w-[min(22rem,90vw)]"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white text-slate-700 max-w-[min(22rem,90vw)] outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
               value={displayCanal}
               onChange={(e) => {
                 const v = e.target.value.trim();
@@ -2117,10 +2127,9 @@ export function ConversacionesClient({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 min-w-[11rem]">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Cola</span>
+          <label className="min-w-[11rem]">
             <select
-              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[11rem]"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
               value={displayCola}
               onChange={(e) => {
                 const v = e.target.value.trim();
@@ -2139,10 +2148,9 @@ export function ConversacionesClient({
                 ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 min-w-[11rem]">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Asignación</span>
+          <label className="min-w-[11rem]">
             <select
-              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[11rem]"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
               value={displayAsignacion}
               onChange={(e) => {
                 const v = e.target.value;
