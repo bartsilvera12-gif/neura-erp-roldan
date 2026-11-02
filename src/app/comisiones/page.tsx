@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 /**
@@ -98,11 +99,22 @@ export default function ComisionesPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Vendedores y comisiones</h1>
-        <p className="text-sm text-slate-500">
-          Cuánto vendió cada uno, cuánto le corresponde y de quién es cada cliente.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Vendedores y comisiones</h1>
+          <p className="text-sm text-slate-500">
+            Cuánto vendió cada uno, cuánto le corresponde y de quién es cada cliente.
+          </p>
+        </div>
+        {/* La comisión dice cuánto cobra cada uno; el otro reporte dice QUÉ
+            vende. Son las dos mitades de la misma conversación, así que se
+            llega de una a la otra. */}
+        <Link
+          href="/reportes/vendedores"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]"
+        >
+          Ver qué vende cada uno →
+        </Link>
       </div>
 
       <div className="flex gap-1 border-b border-slate-200">

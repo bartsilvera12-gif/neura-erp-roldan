@@ -2,6 +2,7 @@ import type { EstadoCuentaReporte, ProveedoresReporte, ComprasReporte, VentasRep
 import type { GananciasReporte, Segmento } from "./ganancias-types";
 import type { TipoPeriodo } from "./periodos";
 import type { RentabilidadReporte, AgruparRentabilidad } from "./rentabilidad-types";
+import type { VendedoresReporte, AgruparVendedor } from "./vendedores-types";
 import type { FlujoCajaReporte } from "./flujo-caja-types";
 import type { TesoreriaReporte } from "./tesoreria-types";
 
@@ -84,6 +85,23 @@ export const getRentabilidadReporte = (
   const p = periodoParams(tipo, opts);
   p.set("agrupar", agrupar);
   return getReporte<RentabilidadReporte>(`/api/reportes/rentabilidad?${p.toString()}`);
+};
+
+/**
+ * Qué vende cada vendedor. `vendedor` opcional: cuando viene, la respuesta
+ * trae además el detalle completo de ESE vendedor (todos sus productos), que
+ * es lo que se abre al tocar su tarjeta.
+ */
+export const getVendedoresReporte = (
+  tipo: TipoPeriodo,
+  agrupar: AgruparVendedor,
+  vendedor: string | null,
+  opts?: { ref?: string; desde?: string; hasta?: string }
+) => {
+  const p = periodoParams(tipo, opts);
+  p.set("agrupar", agrupar);
+  if (vendedor) p.set("vendedor", vendedor);
+  return getReporte<VendedoresReporte>(`/api/reportes/vendedores?${p.toString()}`);
 };
 
 export const getFlujoCajaReporte = (

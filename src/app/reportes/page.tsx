@@ -2,7 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { ArrowLeftRight, Banknote, FileArchive, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Wallet } from "lucide-react";
+import { ArrowLeftRight, Banknote, FileArchive, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Users, Wallet } from "lucide-react";
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
   return (
@@ -57,6 +57,15 @@ export default function ReportesPage() {
             icon={Target}
             description="Qué producto y qué línea dejan más ganancia (no solo cuál factura más): unidades, costo, margen y participación en la utilidad."
             href="/reportes/rentabilidad"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Ventas por vendedor"
+            subtitle="Qué vende cada uno"
+            icon={Users}
+            description="Una tarjeta por vendedor con lo que más vende, cuánto factura y cuánta utilidad deja; y el detalle completo de cada uno, producto por producto, con Excel e imprimir."
+            href="/reportes/vendedores"
           />
         </li>
         <li>
