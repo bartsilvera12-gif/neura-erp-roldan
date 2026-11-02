@@ -328,6 +328,17 @@ export default function NuevaVentaPage() {
    * plazo tiene acordado. Se pide al elegirlo, para poder avisar mientras se
    * arma la venta y no al confirmarla, que es enterarse tarde.
    */
+  /**
+   * Anticipo del cliente (punto 5.6).
+   *
+   * `saldo` es lo que el cliente tiene a favor en esta sucursal; `usar` es
+   * cuánto de eso se aplica a ESTA venta. Se separan porque el cajero puede
+   * querer usar una parte y dejar el resto a cuenta.
+   */
+  const [anticipoSaldo, setAnticipoSaldo] = useState(0);
+  const [anticipoAviso, setAnticipoAviso] = useState<string | null>(null);
+  const [anticipoUsar, setAnticipoUsar] = useState("");
+
   const [credito, setCredito] = useState<{
     limite: number | null; dias: number | null; deuda: number; disponible: number | null;
   } | null>(null);
@@ -678,6 +689,43 @@ export default function NuevaVentaPage() {
       .catch(() => { if (!cancel) setCredito(null); });
     return () => { cancel = true; };
   }, [clienteId]);
+
+  /**
+   * Al elegir el cliente se pregunta si dejó algo a cuenta.
+   *
+   * La pregunta "¿este señor tiene anticipo?" se hacía yendo a otra pantalla,
+   * con el cliente esperando, así que en la práctica no se hacía: el anticipo
+   * quedaba sin usar y el cliente pagaba dos veces la misma mercadería.
+   */
+  useEffect(() => {
+    if (!clienteId) {
+      setAnticipoSaldo(0);
+      setAnticipoUsar("");
+      setAnticipoAviso(null);
+      return;
+    }
+    let cancel = false;
+    fetchWithSupabaseSession(`/api/anticipos/disponibles?cliente=${encodeURIComponent(clienteId)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel) return;
+        const saldo = Number(j?.data?.saldo);
+        setAnticipoSaldo(j?.success && Number.isFinite(saldo) ? saldo : 0);
+        setAnticipoAviso(typeof j?.data?.aviso === "string" ? j.data.aviso : null);
+        // Al cambiar de cliente, lo tipeado para el anterior no vale más.
+        setAnticipoUsar("");
+      })
+      .catch(() => {
+        if (!cancel) { setAnticipoSaldo(0); setAnticipoUsar(""); setAnticipoAviso(null); }
+      });
+    return () => { cancel = true; };
+  }, [clienteId]);
+
+  // El anticipo baja lo que entra hoy al cajón; en una venta a crédito hoy no
+  // entra nada, así que no aplica (el camino es un cobro con el anticipo).
+  useEffect(() => {
+    if (tipoVenta === "CREDITO" && anticipoUsar !== "") setAnticipoUsar("");
+  }, [tipoVenta, anticipoUsar]);
 
   // El plazo acordado se propone solo. Que el que atiende tenga que acordarse
   // de que a este cliente son 15 días y al otro 30 es pedirle que haga de
@@ -1077,6 +1125,23 @@ export default function NuevaVentaPage() {
   const totalIva      = items.reduce((s, i) => s + i.monto_iva, 0);
   const totalGeneral  = items.reduce((s, i) => s + i.total_linea, 0);
 
+  /**
+   * Anticipo realmente aplicable a esta venta.
+   *
+   * Se recorta contra dos topes a la vez: lo que el cliente tiene a favor y el
+   * total de la venta. Sin el segundo tope, un anticipo de 1.000.000 en una
+   * venta de 300.000 dejaría un "a pagar" negativo y un vuelto fantasma.
+   * El servidor vuelve a validar los dos: esto es para que se vea bien, no
+   * para que sea cierto.
+   */
+  const anticipoAplicado = (() => {
+    if (tipoVenta !== "CONTADO") return 0;
+    const pedido = Math.max(0, Math.round(Number(anticipoUsar) || 0));
+    return Math.min(pedido, Math.round(anticipoSaldo), Math.round(totalGeneral));
+  })();
+  /** Lo que el cliente pone hoy, de su bolsillo. */
+  const aPagar = Math.max(0, totalGeneral - anticipoAplicado);
+
   // Condición de venta: si es Crédito, exigir plazo de al menos 1 día y un cliente.
   const plazoDiasNum = parseInt(plazoDias) || 0;
   const creditoValido = tipoVenta === "CONTADO" || (plazoDiasNum >= 1 && !!clienteId);
@@ -1084,7 +1149,9 @@ export default function NuevaVentaPage() {
   const pagoMixtoValido =
     !pagoMixto ||
     tipoVenta !== "CONTADO" ||
-    Math.abs(pagosMixto.reduce((s, p) => s + (Number(p.monto) || 0), 0) - totalGeneral) < 1;
+    // Contra `aPagar`, no contra el total: la parte del anticipo no se
+    // reparte entre medios de pago, ya se cobró en su día.
+    Math.abs(pagosMixto.reduce((s, p) => s + (Number(p.monto) || 0), 0) - aPagar) < 1;
   /**
    * Líneas con un pedido de descuento esperando respuesta del administrador.
    *
@@ -1125,7 +1192,7 @@ export default function NuevaVentaPage() {
 
   // Vuelto (solo informativo, no se persiste)
   const montoRecibidoNum = parseFloat(montoRecibido) || 0;
-  const vuelto           = montoRecibidoNum - totalGeneral;
+  const vuelto           = montoRecibidoNum - aPagar;
 
   // ── Productos filtrados para el combobox ──────────────────────────────────
   // Solo vendibles (Reventa + Menú). Excluye materia prima / insumos.
@@ -1413,6 +1480,7 @@ export default function NuevaVentaPage() {
           pedidoId,
           cajaId: cajaActivaFinal,
           pagos: pagosArrayFinal,
+          anticipoAplicado: anticipoAplicado > 0 ? anticipoAplicado : null,
         }
       );
 
@@ -2195,6 +2263,79 @@ export default function NuevaVentaPage() {
                       <span className="tabular-nums">{formatGs(totalGeneral)}</span>
                     </div>
 
+                    {/* ── Anticipo del cliente (punto 5.6) ──────────────────
+                        Aparece solo si este cliente dejó plata a cuenta. La
+                        plata ya entró al cajón en su día: lo que baja es lo
+                        que el cliente paga HOY, no el valor de la venta. */}
+                    {tipoVenta === "CONTADO" && anticipoSaldo > 0 && (
+                      <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
+                            Anticipo a favor
+                          </p>
+                          <span className="text-[11px] font-bold tabular-nums text-emerald-800">
+                            {formatGs(anticipoSaldo)}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={anticipoUsar}
+                            onChange={(e) => setAnticipoUsar(e.target.value)}
+                            placeholder="Usar 0"
+                            className="w-28 rounded-md border border-emerald-300 bg-white px-2 py-1 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAnticipoUsar(
+                                String(Math.min(Math.round(anticipoSaldo), Math.round(totalGeneral)))
+                              )
+                            }
+                            className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                          >
+                            Usar todo
+                          </button>
+                          {anticipoUsar !== "" && (
+                            <button
+                              type="button"
+                              onClick={() => setAnticipoUsar("")}
+                              className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-800 underline hover:text-emerald-900"
+                            >
+                              Quitar
+                            </button>
+                          )}
+                        </div>
+                        {anticipoAplicado > 0 ? (
+                          <p className="mt-1 text-[11px] leading-snug text-emerald-800">
+                            Se descuentan {formatGs(anticipoAplicado)} de esta venta.
+                            {anticipoSaldo - anticipoAplicado > 0
+                              ? ` Le quedan ${formatGs(anticipoSaldo - anticipoAplicado)} a favor.`
+                              : " Con esto se usa todo su anticipo."}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-[11px] leading-snug text-emerald-700">
+                            Dejó esta plata a cuenta. Poné cuánto usar en esta venta.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {anticipoAplicado > 0 && (
+                      <div className="flex justify-between border-t border-emerald-200 pt-2 text-base font-bold text-emerald-800">
+                        <span>A PAGAR HOY</span>
+                        <span className="tabular-nums">{formatGs(aPagar)}</span>
+                      </div>
+                    )}
+
+                    {/* Si falta la migración, el anticipo no se puede usar
+                        todavía. Se dice una vez, donde se iba a usar. */}
+                    {anticipoAviso && clienteId && (
+                      <p className="mt-1 text-[11px] leading-snug text-amber-600">{anticipoAviso}</p>
+                    )}
+
                     {/* Rentabilidad de la venta (punto 1.7). Solo admin. */}
                     {verMargenes && items.length > 0 && resumenMargen.costo > 0 && (
                       <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
@@ -2246,7 +2387,9 @@ export default function NuevaVentaPage() {
                         <PagosMixtoEditor
                           pagos={pagosMixto}
                           onChange={setPagosMixto}
-                          total={totalGeneral}
+                          // Lo que se reparte entre medios es lo que se cobra
+                          // hoy: la parte del anticipo ya se cobró en su día.
+                          total={aPagar}
                           entidades={entidades}
                           formatGs={formatGs}
                         />

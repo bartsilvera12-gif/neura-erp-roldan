@@ -16,6 +16,8 @@ import { API_ERRORS } from "@/lib/api/errors";
 import type { Venta, LineaVenta } from "@/lib/ventas/types";
 import { createServiceRoleClientWithDbSchema } from "@/lib/supabase/empresa-data-schema";
 import { estaFacturado, marcarFacturado } from "@/lib/caja/facturacion";
+import { saldoDeCliente, consumirAnticipos } from "@/lib/anticipos/server/aplicar";
+import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
 
 /** Error tipado: el pedido que se intenta facturar ya tiene venta. */
 class PedidoYaFacturadoError extends Error {
@@ -360,6 +362,70 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Anticipo del cliente aplicado a esta venta (punto 5.6) ───────────
+    //
+    //   El cliente dejó plata a cuenta hace días; hoy se lleva la mercadería
+    //   y paga la diferencia. La venta vale lo mismo: lo que cambia es cuánto
+    //   efectivo entra HOY al cajón, y para eso la venta guarda cuánto salió
+    //   del anticipo.
+    //
+    //   Se valida ACÁ, antes de tocar stock o numeración: una venta rechazada
+    //   no tiene que dejar nada a medio hacer. El descuento real del saldo se
+    //   hace después de que la venta exista — ver el bloque de más abajo.
+    const anticipoPedido = Math.round(Number(o.anticipo_aplicado) || 0);
+    if (anticipoPedido > 0) {
+      if (!clienteId) {
+        return NextResponse.json(
+          errorResponse("Para usar un anticipo hay que elegir el cliente: el anticipo es de alguien."),
+          { status: 400 }
+        );
+      }
+      if (tipoVenta === "CREDITO") {
+        // En una venta a crédito no entra plata hoy: lo que habría que bajar
+        // es la cuenta por cobrar, y eso es otro camino (un cobro con el
+        // anticipo). Mezclarlo acá dejaría la deuda del cliente mal.
+        return NextResponse.json(
+          errorResponse(
+            "El anticipo se aplica a ventas al contado. Para una venta a crédito, registrá el cobro con el anticipo desde Cobros."
+          ),
+          { status: 400 }
+        );
+      }
+      if (anticipoPedido > totalDeclarado) {
+        return NextResponse.json(
+          errorResponse("El anticipo a usar no puede ser mayor que el total de la venta."),
+          { status: 400 }
+        );
+      }
+      const sbAnt = await createServiceRoleClientForEmpresa(auth.empresa_id);
+      let saldo = { saldo: 0, aviso: null as string | null };
+      try {
+        saldo = await saldoDeCliente(
+          sbAnt,
+          auth.empresa_id,
+          exigirSucursal(auth.sucursal_id),
+          clienteId
+        );
+      } catch (e) {
+        console.error("[ventas/create] no se pudo leer el saldo de anticipos", e);
+        return NextResponse.json(
+          errorResponse("No se pudo verificar el anticipo del cliente. Probá de nuevo."),
+          { status: 500 }
+        );
+      }
+      if (saldo.aviso) {
+        return NextResponse.json(errorResponse(saldo.aviso), { status: 400 });
+      }
+      if (saldo.saldo < anticipoPedido) {
+        return NextResponse.json(
+          errorResponse(
+            `El cliente tiene Gs. ${Math.round(saldo.saldo).toLocaleString("es-PY")} de anticipo disponible.`
+          ),
+          { status: 409 }
+        );
+      }
+    }
+
     const { ventaId, numeroControl, fechaIso, notaRemisionNumero, facturaId, numeroFactura, facturaWarning } = await createVentaTransaccionalPg({
       schema,
       empresaId: auth.empresa_id,
@@ -392,6 +458,7 @@ export async function POST(request: NextRequest) {
       // bloque de más abajo al renovar `cartera_desde` sin cambiar el dueño.
       vendedorUsuarioId: auth.usuarioCatalogId ?? null,
       vendedorNombre: firma.nombre,
+      anticipoAplicado: anticipoPedido > 0 ? anticipoPedido : null,
     });
 
     // Vincular el pedido facturado con la venta creada (Caja). Trazabilidad:
@@ -417,6 +484,60 @@ export async function POST(request: NextRequest) {
         }
       } catch (e) {
         console.error("[ventas/create] link pedido->venta fallo (venta OK):", e instanceof Error ? e.message : e);
+      }
+    }
+
+    // ── Descontar el anticipo usado ───────────────────────────────────────
+    //
+    //   Va DESPUÉS de que la venta exista, y no antes, a propósito: si se
+    //   descontara primero y la venta fallara (falta de stock, por ejemplo),
+    //   el cliente se quedaría sin su plata y sin mercadería, que es el peor
+    //   de los dos errores posibles.
+    //
+    //   La contracara: si la venta sale bien y este descuento falla, el
+    //   anticipo queda figurando como disponible aunque ya se usó. Por eso no
+    //   se loguea y listo — queda registrado en modificaciones
+    //   administrativas, que es donde alguien lo va a ver, con el número de
+    //   la venta y el monto para poder corregirlo a mano.
+    let anticipoNumeros: string[] = [];
+    if (anticipoPedido > 0 && clienteId) {
+      try {
+        const sbAnt = await createServiceRoleClientForEmpresa(auth.empresa_id);
+        const res = await consumirAnticipos(
+          sbAnt,
+          auth.empresa_id,
+          exigirSucursal(auth.sucursal_id),
+          clienteId,
+          anticipoPedido,
+          ventaId
+        );
+        anticipoNumeros = res.numeros;
+        if (!res.ok) {
+          console.error("[ventas/create] el anticipo no se descontó completo", {
+            ventaId,
+            numeroControl,
+            pedido: anticipoPedido,
+            aplicado: res.aplicado,
+            error: res.error,
+          });
+          await registrarModificacionAdministrativa(sbAnt, auth.empresa_id, {
+            entidad: "caja",
+            entidad_id: ventaId,
+            referencia: numeroControl,
+            accion: "configurar",
+            detalle:
+              `La venta se cobró usando Gs. ${anticipoPedido.toLocaleString("es-PY")} de anticipo, ` +
+              `pero solo se pudo descontar Gs. ${Math.round(res.aplicado).toLocaleString("es-PY")}. ` +
+              "Revisar el saldo del cliente a mano.",
+            motivo: res.error,
+            usuario_id: auth.usuarioCatalogId ?? auth.user?.id ?? null,
+            usuario_nombre: firma.nombre,
+            es_admin: false,
+            sucursal_id: auth.sucursal_id ?? null,
+          });
+        }
+      } catch (e) {
+        console.error("[ventas/create] excepción descontando el anticipo", e);
       }
     }
 
@@ -470,13 +591,17 @@ export async function POST(request: NextRequest) {
             );
           }
         }
-      } else {
+      } else if (totalDeclarado - anticipoPedido > 0) {
+        // Si el anticipo cubrió el total, hoy no se cobró nada: no hay cobro
+        // que registrar (y un cobro de 0 solo ensucia la conciliación).
         const pd = (o.pago_detalle ?? null) as Record<string, unknown> | null;
         await insertVentaPagoDetalle(schema, auth.empresa_id, ventaId, {
           metodo_pago: metodoPago,
           entidad_bancaria_id: pd?.entidad_bancaria_id ? String(pd.entidad_bancaria_id) : null,
           entidad_nombre_snapshot: str(pd?.entidad_nombre_snapshot),
-          monto: totalDeclarado,
+          // Lo que se cobró HOY: si parte la puso un anticipo, esa parte ya
+          // se cobró en su día y no se vuelve a registrar como ingreso.
+          monto: totalDeclarado - anticipoPedido,
           referencia: str(pd?.referencia),
           titular: str(pd?.titular),
           fecha_acreditacion: fechaDe(pd?.fecha_acreditacion),
@@ -559,6 +684,10 @@ export async function POST(request: NextRequest) {
       // redirigir al detalle /facturas/[id] donde vive el panel SIFEN.
       factura: facturaId ? { id: facturaId, numero_factura: numeroFactura } : null,
       factura_warning: facturaWarning ?? null,
+      // Para el ticket: cuánto puso el anticipo y de qué anticipos salió.
+      anticipo: anticipoPedido > 0
+        ? { aplicado: anticipoPedido, numeros: anticipoNumeros, a_pagar: totalDeclarado - anticipoPedido }
+        : null,
     }));
   } catch (err) {
     // Falta de stock sin autorizar: 409 con el detalle de faltantes para que la UI

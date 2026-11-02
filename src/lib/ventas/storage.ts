@@ -107,6 +107,12 @@ export async function saveVenta(
     cajaId?: string | null;
     /** Si trae 2+ líneas es pago mixto: reemplaza a `pagoDetalle`. */
     pagos?: PagoLinea[] | null;
+    /**
+     * Parte del total que paga un anticipo del cliente (plata que ya dejó a
+     * cuenta). El servidor valida el saldo y descuenta los anticipos más
+     * viejos primero; acá va solo cuánto usar.
+     */
+    anticipoAplicado?: number | null;
   }
 ): Promise<ResultadoGuardarVenta> {
   if (!datos.items || datos.items.length === 0) {
@@ -137,6 +143,7 @@ export async function saveVenta(
         genera_nota_remision: datos.genera_nota_remision === true,
         emitir_factura: datos.emitir_factura !== false,
         pedido_id: opts?.pedidoId ?? null,
+        anticipo_aplicado: Number(opts?.anticipoAplicado) > 0 ? Number(opts?.anticipoAplicado) : 0,
       }),
     });
 

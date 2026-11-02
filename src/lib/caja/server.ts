@@ -23,6 +23,38 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Lee `ventas` pidiendo además `anticipo_aplicado`, y si la base todavía no
+ * tiene esa columna (script 50 sin correr) repite la consulta sin ella.
+ *
+ * POR QUÉ ES NECESARIO Y NO PARANOIA: PostgREST rechaza la consulta COMPLETA
+ * cuando una columna del select no existe (42703) — no devuelve null en ese
+ * campo. Sin este reintento, agregar la columna al select dejaría el arqueo y
+ * el reporte de cajas sin NINGUNA venta hasta que alguien corra el script.
+ */
+async function leerVentasConAnticipo<T>(
+  consultar: (columnas: string) => PromiseLike<{ data: unknown; error: { message?: string } | null }>,
+  columnasBase: string
+): Promise<{ data: T[]; error: { message?: string } | null }> {
+  const r = await consultar(`${columnasBase}, anticipo_aplicado`);
+  if (!r.error) return { data: (r.data ?? []) as T[], error: null };
+  if (/anticipo_aplicado/.test(r.error.message ?? "")) {
+    const r2 = await consultar(columnasBase);
+    return { data: (r2.data ?? []) as T[], error: r2.error };
+  }
+  return { data: [], error: r.error };
+}
+
+/**
+ * Cuánto de esta venta lo puso un anticipo del cliente: plata que entró al
+ * cajón en un turno ANTERIOR, que ese arqueo ya contó. No se vuelve a contar
+ * hoy — si no, el cajero cerraría con un faltante que no cometió.
+ */
+function anticipoDe(v: { anticipo_aplicado?: number | string | null }): number {
+  const n = num(v.anticipo_aplicado);
+  return n > 0 ? n : 0;
+}
+
 const CAJA_COLS =
   "id, numero_caja, estado, abierta_por, cerrada_por, fecha_apertura, fecha_cierre, " +
   "monto_apertura, monto_cierre_contado, monto_esperado_efectivo, diferencia, " +
@@ -229,20 +261,20 @@ export async function getReporteCajas(
   const cajaIds = cajas.map((c) => c.id);
 
   // 2) Ventas de esas cajas (en lote).
-  const vQ = await sb
-    .from("ventas")
-    .select("id, caja_id, total, metodo_pago, tipo_venta, estado")
-    .eq("empresa_id", empresaId)
-    .in("caja_id", cajaIds);
-  if (vQ.error) throw new Error(vQ.error.message);
-  const ventas = (vQ.data ?? []) as unknown as Array<{
+  const vQ = await leerVentasConAnticipo<{
     id: string;
     caja_id: string | null;
     total: number | string;
     metodo_pago: string | null;
     tipo_venta: string | null;
     estado: string | null;
-  }>;
+    anticipo_aplicado?: number | string | null;
+  }>(
+    (cols) => sb.from("ventas").select(cols).eq("empresa_id", empresaId).in("caja_id", cajaIds),
+    "id, caja_id, total, metodo_pago, tipo_venta, estado"
+  );
+  if (vQ.error) throw new Error(vQ.error.message ?? "No se pudieron leer las ventas del turno.");
+  const ventas = vQ.data;
 
   // 2b) Desglose por metodo desde ventas_pagos_detalle (pago mixto).
   //     Solo lo cargamos para las ventas de estos turnos.
@@ -358,14 +390,17 @@ export async function getReporteCajas(
     if ((v.tipo_venta ?? "").toLowerCase() === "credito") continue;
     // Si es mixto (o hay pagos_detalle registrados), usar el desglose real.
     const bk = pagosByVenta.get(v.id);
+    // Lo cobrado HOY: el total menos la parte que puso un anticipo viejo. En
+    // el pago mixto no hace falta restar: el desglose ya tiene solo lo de hoy.
+    const cobradoHoy = t - anticipoDe(v);
     if (v.metodo_pago === "mixto" && bk) {
       a.total_efectivo += bk.efectivo;
       a.total_tarjeta += bk.tarjeta;
       a.total_transferencia += bk.transferencia;
-    } else if (v.metodo_pago === "tarjeta") a.total_tarjeta += t;
-    else if (v.metodo_pago === "cheque") a.total_cheque += t;
-    else if (v.metodo_pago === "transferencia") a.total_transferencia += t;
-    else a.total_efectivo += t;
+    } else if (v.metodo_pago === "tarjeta") a.total_tarjeta += cobradoHoy;
+    else if (v.metodo_pago === "cheque") a.total_cheque += cobradoHoy;
+    else if (v.metodo_pago === "transferencia") a.total_transferencia += cobradoHoy;
+    else a.total_efectivo += cobradoHoy;
   }
 
   for (const m of movs) {
@@ -464,14 +499,7 @@ export async function getDetalleCaja(
   const caja = mapCaja(cQ.data as unknown as CajaRow);
 
   // Ventas individuales del turno (cronológico).
-  const vQ = await sb
-    .from("ventas")
-    .select("id, numero_control, fecha, metodo_pago, tipo_venta, total, estado, usuario_nombre, vendedor_nombre, cliente_id, anulacion_motivo")
-    .eq("empresa_id", empresaId)
-    .eq("caja_id", cajaId)
-    .order("fecha", { ascending: true });
-  if (vQ.error) throw new Error(vQ.error.message);
-  const ventasRaw = (vQ.data ?? []) as unknown as Array<{
+  const vQ = await leerVentasConAnticipo<{
     id: string;
     numero_control: string | null;
     fecha: string;
@@ -483,7 +511,19 @@ export async function getDetalleCaja(
     vendedor_nombre: string | null;
     cliente_id: string | null;
     anulacion_motivo: string | null;
-  }>;
+    anticipo_aplicado?: number | string | null;
+  }>(
+    (cols) =>
+      sb
+        .from("ventas")
+        .select(cols)
+        .eq("empresa_id", empresaId)
+        .eq("caja_id", cajaId)
+        .order("fecha", { ascending: true }),
+    "id, numero_control, fecha, metodo_pago, tipo_venta, total, estado, usuario_nombre, vendedor_nombre, cliente_id, anulacion_motivo"
+  );
+  if (vQ.error) throw new Error(vQ.error.message ?? "No se pudieron leer las ventas del turno.");
+  const ventasRaw = vQ.data;
 
   // Nombres de los clientes del turno (punto 5.2). Una sola consulta para
   // todos: un cierre con cincuenta ventas no puede hacer cincuenta consultas.
@@ -519,6 +559,7 @@ export async function getDetalleCaja(
     cliente_nombre: v.cliente_id ? (nombreCliente.get(v.cliente_id) || null) : null,
     anulacion_motivo: v.anulacion_motivo,
     desglose_pago: null, // se rellena mas abajo cuando la venta es mixto
+    anticipo_aplicado: anticipoDe(v),
   }));
 
   // Movimientos manuales activos del turno (cronológico).
@@ -593,15 +634,18 @@ export async function getDetalleCaja(
     // Ventas a credito: no impactan la caja hasta que se cobren via cobros_clientes.
     if ((v.tipo_venta ?? "").toLowerCase() === "credito") continue;
     const bk = detallePagos.get(v.id);
+    // Lo cobrado HOY: el total menos lo que puso un anticipo de un turno
+    // anterior. En el pago mixto el desglose ya trae solo lo de hoy.
+    const cobradoHoy = v.total - anticipoDe(v);
     if (v.metodo_pago === "mixto" && bk) {
       totalEfectivo += bk.efectivo;
       totalTarjeta += bk.tarjeta;
       totalTransferencia += bk.transferencia;
-    } else if (v.metodo_pago === "tarjeta") totalTarjeta += v.total;
-    else if (v.metodo_pago === "transferencia") totalTransferencia += v.total;
+    } else if (v.metodo_pago === "tarjeta") totalTarjeta += cobradoHoy;
+    else if (v.metodo_pago === "transferencia") totalTransferencia += cobradoHoy;
     // El cheque no es efectivo: queda fuera del arqueo del cajón.
-    else if (v.metodo_pago === "cheque") totalCheque += v.total;
-    else totalEfectivo += v.total;
+    else if (v.metodo_pago === "cheque") totalCheque += cobradoHoy;
+    else totalEfectivo += cobradoHoy;
   }
   let ingresosEf = 0,
     egresosEf = 0,
@@ -1052,19 +1096,19 @@ async function computeResumen(
   caja: Caja
 ): Promise<CajaResumen> {
   // Ventas asociadas (excluye anuladas si la columna estado existe).
-  const vQ = await sb
-    .from("ventas")
-    .select("id, total, metodo_pago, tipo_venta, estado")
-    .eq("empresa_id", empresaId)
-    .eq("caja_id", caja.id);
-  if (vQ.error) throw new Error(vQ.error.message);
-  const ventas = (vQ.data ?? []) as unknown as Array<{
+  const vQ = await leerVentasConAnticipo<{
     id: string;
     total: number | string;
     metodo_pago: string | null;
     tipo_venta: string | null;
     estado: string | null;
-  }>;
+    anticipo_aplicado?: number | string | null;
+  }>(
+    (cols) => sb.from("ventas").select(cols).eq("empresa_id", empresaId).eq("caja_id", caja.id),
+    "id, total, metodo_pago, tipo_venta, estado"
+  );
+  if (vQ.error) throw new Error(vQ.error.message ?? "No se pudieron leer las ventas del turno.");
+  const ventas = vQ.data;
 
   // Desglose por metodo desde ventas_pagos_detalle (pago mixto).
   const ventaIdsR = ventas.map((v) => v.id);
@@ -1107,15 +1151,18 @@ async function computeResumen(
     if ((v.tipo_venta ?? "").toLowerCase() === "credito") { totalCredito += t; continue; }
     totalContado += t;
     const bk = detalleByVenta.get(v.id);
+    // Lo cobrado HOY: el total menos lo que puso un anticipo de un turno
+    // anterior. En el pago mixto el desglose ya trae solo lo de hoy.
+    const cobradoHoy = t - anticipoDe(v);
     if (v.metodo_pago === "mixto" && bk) {
       totalEfectivo += bk.efectivo;
       totalTarjeta += bk.tarjeta;
       totalTransferencia += bk.transferencia;
-    } else if (v.metodo_pago === "tarjeta") totalTarjeta += t;
-    else if (v.metodo_pago === "transferencia") totalTransferencia += t;
+    } else if (v.metodo_pago === "tarjeta") totalTarjeta += cobradoHoy;
+    else if (v.metodo_pago === "transferencia") totalTransferencia += cobradoHoy;
     // El cheque no entra al cajón: no suma al efectivo esperado.
-    else if (v.metodo_pago === "cheque") totalCheque += t;
-    else totalEfectivo += t; // efectivo o sin especificar
+    else if (v.metodo_pago === "cheque") totalCheque += cobradoHoy;
+    else totalEfectivo += cobradoHoy; // efectivo o sin especificar
   }
 
   // Movimientos manuales ACTIVOS (excluye anulados — soft delete del modulo

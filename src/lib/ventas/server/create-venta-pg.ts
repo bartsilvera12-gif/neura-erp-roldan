@@ -91,6 +91,16 @@ export interface CreateVentaPgParams {
   createdBy?: string | null;
   usuarioNombre?: string | null;
   /**
+   * Parte del total que se paga con un anticipo del cliente (plata que entró
+   * al cajón en un turno anterior). El total de la venta NO cambia: cambia
+   * cuánto efectivo entra hoy, y el arqueo lo descuenta por esta columna.
+   *
+   * Se incluye en el INSERT solo si es > 0. Así, en una base donde todavía no
+   * se corrió el script 50, las ventas normales siguen entrando igual — la
+   * columna recién hace falta cuando alguien usa un anticipo de verdad.
+   */
+  anticipoAplicado?: number | null;
+  /**
    * Vendedor al que se le acredita la venta y su comisión (punto 4.3).
    *
    * Por omisión es quien cerró la venta, que es la regla del cliente: "se le
@@ -548,6 +558,9 @@ export async function createVentaTransaccionalPg(
         // acreditarle nada.
         vendedor_usuario_id: params.vendedorUsuarioId ?? params.createdBy ?? null,
         vendedor_nombre: params.vendedorNombre ?? params.usuarioNombre ?? null,
+        ...(Number(params.anticipoAplicado) > 0
+          ? { anticipo_aplicado: Number(params.anticipoAplicado) }
+          : {}),
       })
       .select("id")
       .single();
@@ -556,6 +569,14 @@ export async function createVentaTransaccionalPg(
       break;
     }
     const msg = insVenta.error.message ?? "";
+    // Sin el script 50 la columna no existe. El cajero no tiene por qué leer
+    // un error de PostgREST para enterarse de que falta una migración.
+    if (/anticipo_aplicado/.test(msg)) {
+      throw new Error(
+        "Para cobrar con anticipo falta correr 50_anticipos_aplicados.sql en la base. " +
+          "Mientras tanto, cobrá la venta completa y aplicá el anticipo desde la pantalla de Anticipos."
+      );
+    }
     const esConflictoNumero =
       (insVenta.error as { code?: string }).code === "23505" || /duplicate key|unique/i.test(msg);
     if (!esConflictoNumero || intentos >= 3) throw new Error(msg);

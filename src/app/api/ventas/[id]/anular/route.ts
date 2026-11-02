@@ -247,6 +247,14 @@ export async function POST(
         accion: "anular",
         detalle: [
           res.stockReintegrado ? "Se reintegró el stock de la venta." : null,
+          (res.anticipoDevuelto ?? 0) > 0
+            ? `Se le devolvieron Gs. ${Math.round(res.anticipoDevuelto!).toLocaleString("es-PY")} de anticipo al cliente.`
+            : null,
+          // Si quedó plata del cliente sin devolver, el aviso tiene que estar
+          // acá: es el único lugar donde alguien lo va a leer.
+          (res.anticipoSinDevolver ?? 0) > 0
+            ? `ATENCIÓN: quedaron Gs. ${Math.round(res.anticipoSinDevolver!).toLocaleString("es-PY")} de anticipo SIN devolver. Revisar el saldo del cliente a mano.`
+            : null,
           esSupervisor(ctx.auth) && !isAdmin(ctx.auth) ? "Anulada por un supervisor." : null,
         ].filter(Boolean).join(" ") || null,
         motivo,
@@ -261,6 +269,8 @@ export async function POST(
       successResponse({
         venta: { id: ventaId, estado: "anulada", numero_control: res.numeroControl },
         stock_reintegrado: res.stockReintegrado,
+        anticipo_devuelto: res.anticipoDevuelto ?? 0,
+        anticipo_sin_devolver: res.anticipoSinDevolver ?? 0,
         ya_estaba_anulada: res.alreadyAnulada,
         factura_descartada,
         pedido_reactivado_id,

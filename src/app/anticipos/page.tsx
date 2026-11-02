@@ -18,6 +18,8 @@ import AccionesTabla from "@/components/ui/AccionesTabla";
 type Anticipo = {
   id: string; numero: string | null; cliente_id: string | null; cliente_nombre: string;
   fecha: string; monto: number; medio_pago: string; estado: string;
+  /** Lo ya aplicado a ventas y lo que queda a favor del cliente (script 50). */
+  monto_utilizado?: number; saldo?: number;
   usuario_nombre: string; observacion: string;
   anulado_motivo: string | null; anulado_por: string | null;
 };
@@ -251,7 +253,16 @@ export default function AnticiposPage() {
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-bold tabular-nums text-slate-900">{gs(a.monto)}</td>
+                  <td className="px-4 py-2.5 text-right font-bold tabular-nums text-slate-900">
+                    {gs(a.monto)}
+                    {/* Un anticipo usado a medias tiene que decirlo acá: es la
+                        pantalla donde se contesta cuánto le queda al cliente. */}
+                    {Number(a.monto_utilizado) > 0 && a.estado === "activo" && (
+                      <span className="block text-[11px] font-normal text-emerald-700">
+                        queda {gs(Number(a.saldo) || 0)}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 capitalize text-slate-500">{a.medio_pago}</td>
                   <td className="px-4 py-2.5">
                     <span className={`rounded px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ${BADGE[a.estado] ?? BADGE.utilizado}`}>

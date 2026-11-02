@@ -157,6 +157,8 @@ interface VentaRow {
   total: number | string;
   observaciones: string | null;
   metodo_pago: string | null;
+  /** Parte del total que pagó un anticipo del cliente (0 si no hubo). */
+  anticipo_aplicado?: number | string | null;
   cliente_id: string | null;
   sucursal_id: string | null;
   usuario_nombre: string | null;
@@ -239,6 +241,9 @@ function renderCopia(opts: {
   const subtotal = Number(venta.subtotal);
   const ivaTotal = Number(venta.monto_iva);
   const total = Number(venta.total);
+  // Parte del total que puso un anticipo del cliente: el ticket lo muestra
+  // para que no parezca que se cobró de menos.
+  const anticipoAplicado = Math.max(0, Number(venta.anticipo_aplicado) || 0);
 
   const datosPedido: string[] = [];
   if (modalidad) {
@@ -261,6 +266,12 @@ function renderCopia(opts: {
            <tr><td class="lbl">Subtotal</td><td class="val">${formatGs(subtotal)}</td></tr>
            ${ivaTotal > 0 ? `<tr><td class="lbl">IVA</td><td class="val">${formatGs(ivaTotal)}</td></tr>` : ""}
            <tr class="total-row"><td class="lbl">TOTAL</td><td class="val">${formatGs(total)}</td></tr>
+           ${
+             anticipoAplicado > 0
+               ? `<tr><td class="lbl">Anticipo</td><td class="val">- ${formatGs(anticipoAplicado)}</td></tr>
+                  <tr class="total-row"><td class="lbl">A PAGAR</td><td class="val">${formatGs(Math.max(0, Number(total) - anticipoAplicado))}</td></tr>`
+               : ""
+           }
            <tr><td class="lbl">Pago</td><td class="val">${metodoPagoLabel(venta.metodo_pago)}</td></tr>
          </tbody>
        </table>`
@@ -413,12 +424,16 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   const empresaId = ctx.auth.empresa_id;
 
   // Venta
-  const vQ = await ctx.supabase
-    .from("ventas")
-    .select("id, numero_control, fecha, subtotal, monto_iva, total, observaciones, metodo_pago, cliente_id, sucursal_id, usuario_nombre, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, nr_chofer_nombre, nr_chofer_ci, nr_chofer_telefono, nr_transporte_marca, nr_transporte_chapa, nr_transporte_color")
-    .eq("id", id)
-    .eq("empresa_id", empresaId)
-    .maybeSingle();
+  const COLS_VENTA =
+    "id, numero_control, fecha, subtotal, monto_iva, total, observaciones, metodo_pago, cliente_id, sucursal_id, usuario_nombre, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, nr_chofer_nombre, nr_chofer_ci, nr_chofer_telefono, nr_transporte_marca, nr_transporte_chapa, nr_transporte_color";
+  const leerVenta = (cols: string) =>
+    ctx.supabase.from("ventas").select(cols).eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+  // `anticipo_aplicado` lo agrega el script 50. Sin el reintento, una base sin
+  // ese script no podría imprimir NINGÚN ticket.
+  let vQ = await leerVenta(`${COLS_VENTA}, anticipo_aplicado`);
+  if (vQ.error && /anticipo_aplicado/.test(vQ.error.message ?? "")) {
+    vQ = await leerVenta(COLS_VENTA);
+  }
   if (vQ.error) return new NextResponse(`Error: ${vQ.error.message}`, { status: 500 });
   if (!vQ.data) return new NextResponse("Venta no encontrada", { status: 404 });
   const venta = vQ.data as unknown as VentaRow;

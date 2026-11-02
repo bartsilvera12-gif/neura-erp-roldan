@@ -44,24 +44,35 @@ export async function GET(request: NextRequest) {
     const hasta = RE_FECHA.test(sp.get("hasta") ?? "") ? sp.get("hasta")! : null;
     const q = (sp.get("q") ?? "").trim();
 
-    let qb = aplicarFiltroSucursal(
-      ctx.supabase
-        .from("anticipos")
-        .select("id, numero, cliente_id, cliente_nombre, fecha, monto, medio_pago, estado, venta_id, usuario_nombre, observacion, anulado_at, anulado_por, anulado_motivo")
-        .eq("empresa_id", empresaId),
-      sucursalId
-    );
-    if (estado) qb = qb.eq("estado", estado);
-    if (clienteId) qb = qb.eq("cliente_id", clienteId);
-    // El día "hasta" entra entero.
-    if (desde) qb = qb.gte("fecha", `${desde}T00:00:00${OFFSET_PY}`);
-    if (hasta) qb = qb.lte("fecha", `${hasta}T23:59:59.999${OFFSET_PY}`);
-    if (q) {
-      const t = q.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
-      if (t) qb = qb.or(`numero.ilike.%${t}%,cliente_nombre.ilike.%${t}%,observacion.ilike.%${t}%`);
-    }
+    const COLS_BASE =
+      "id, numero, cliente_id, cliente_nombre, fecha, monto, medio_pago, estado, venta_id, usuario_nombre, observacion, anulado_at, anulado_por, anulado_motivo";
 
-    const r = await qb.order("fecha", { ascending: false }).limit(500);
+    /**
+     * `monto_utilizado` lo agrega el script 50. Si todavía no se corrió,
+     * PostgREST rechaza la consulta entera (42703) y la pantalla quedaría sin
+     * ningún anticipo: por eso se reintenta sin esa columna.
+     */
+    const consultar = (cols: string) => {
+      let qb = aplicarFiltroSucursal(
+        ctx.supabase.from("anticipos").select(cols).eq("empresa_id", empresaId),
+        sucursalId
+      );
+      if (estado) qb = qb.eq("estado", estado);
+      if (clienteId) qb = qb.eq("cliente_id", clienteId);
+      // El día "hasta" entra entero.
+      if (desde) qb = qb.gte("fecha", `${desde}T00:00:00${OFFSET_PY}`);
+      if (hasta) qb = qb.lte("fecha", `${hasta}T23:59:59.999${OFFSET_PY}`);
+      if (q) {
+        const t = q.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
+        if (t) qb = qb.or(`numero.ilike.%${t}%,cliente_nombre.ilike.%${t}%,observacion.ilike.%${t}%`);
+      }
+      return qb.order("fecha", { ascending: false }).limit(500);
+    };
+
+    let r = await consultar(`${COLS_BASE}, monto_utilizado`);
+    if (r.error && /monto_utilizado/.test(r.error.message ?? "")) {
+      r = await consultar(COLS_BASE);
+    }
     if (r.error) {
       if (esTablaFaltante(r.error.message ?? "")) {
         return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
@@ -69,13 +80,18 @@ export async function GET(request: NextRequest) {
       throw new Error(r.error.message);
     }
 
-    const filas = ((r.data ?? []) as Array<Record<string, unknown>>).map((a) => ({
+    const filas = ((r.data ?? []) as unknown as Array<Record<string, unknown>>).map((a) => ({
       id: String(a.id),
       numero: a.numero == null ? null : String(a.numero),
       cliente_id: a.cliente_id == null ? null : String(a.cliente_id),
       cliente_nombre: a.cliente_nombre == null ? "" : String(a.cliente_nombre),
       fecha: String(a.fecha ?? ""),
       monto: Number(a.monto) || 0,
+      // Lo ya aplicado a ventas y lo que todavía le queda a favor. Sin esto,
+      // un anticipo usado a medias figuraba por su monto completo justo en la
+      // pantalla que contesta "cuánto tiene este cliente".
+      monto_utilizado: Number(a.monto_utilizado) || 0,
+      saldo: Math.max(0, (Number(a.monto) || 0) - (Number(a.monto_utilizado) || 0)),
       medio_pago: String(a.medio_pago ?? "efectivo"),
       estado: String(a.estado ?? "activo"),
       venta_id: a.venta_id == null ? null : String(a.venta_id),
@@ -93,7 +109,7 @@ export async function GET(request: NextRequest) {
       if (a.estado !== "activo") continue;
       const k = a.cliente_id ?? `__${a.cliente_nombre}`;
       const act = acumulado.get(k) ?? { nombre: a.cliente_nombre || "Sin cliente", total: 0, cantidad: 0 };
-      act.total += a.monto;
+      act.total += a.saldo;
       act.cantidad += 1;
       acumulado.set(k, act);
     }
@@ -107,7 +123,8 @@ export async function GET(request: NextRequest) {
       resumen: {
         total: filas.length,
         activos: activos.length,
-        monto_activo: activos.reduce((s, a) => s + a.monto, 0),
+        // El disponible de verdad: lo que entró menos lo ya aplicado.
+        monto_activo: activos.reduce((s, a) => s + a.saldo, 0),
         utilizados: filas.filter((a) => a.estado === "utilizado").length,
         anulados: filas.filter((a) => a.estado === "anulado").length,
       },

@@ -251,6 +251,14 @@ export default function DetalleCierreCajaPage() {
                     <td className="px-4 py-3 text-slate-600">{MEDIO[v.metodo_pago ?? ""] ?? v.metodo_pago ?? ""}</td>
                     <td className={`px-4 py-3 text-right font-semibold tabular-nums ${anul ? "text-slate-400 line-through" : "text-slate-800"}`}>
                       {gs(v.total)}
+                      {/* Si parte la puso un anticipo, el turno de hoy no
+                          recibió esa plata: sin esta línea el cierre parece
+                          tener menos efectivo del que debería. */}
+                      {(v.anticipo_aplicado ?? 0) > 0 && (
+                        <span className="block text-[11px] font-normal text-emerald-700">
+                          {gs(v.anticipo_aplicado ?? 0)} con anticipo
+                        </span>
+                      )}
                     </td>
                     {puedeAnular && (
                       <td className="px-4 py-3 text-right">

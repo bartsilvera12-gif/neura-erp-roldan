@@ -37,6 +37,14 @@ export interface AnularVentaCoreResult {
   alreadyAnulada: boolean;
   stockReintegrado: number;
   numeroControl: string | null;
+  /** Anticipo que la venta había consumido y se le devolvió al cliente. */
+  anticipoDevuelto?: number;
+  /**
+   * Parte del anticipo que NO se pudo devolver automáticamente. Si es > 0, hay
+   * plata del cliente que quedó figurando como gastada: el caller lo registra
+   * para que alguien lo arregle a mano.
+   */
+  anticipoSinDevolver?: number;
 }
 
 export interface AnularVentaCoreError {
@@ -64,21 +72,25 @@ export async function anularVentaCore(
 ): Promise<AnularVentaCoreResult | AnularVentaCoreError> {
   const { sb, empresaId, ventaId, motivo, userId, movCreatedBy, movUsuarioNombre } = args;
 
-  const ventaQ = await sb
-    .from("ventas")
-    .select("id, estado, numero_control, fecha, tipo_venta")
-    .eq("id", ventaId)
-    .eq("empresa_id", empresaId)
-    .maybeSingle();
+  const COLS = "id, estado, numero_control, fecha, tipo_venta";
+  const leerVenta = (cols: string) =>
+    sb.from("ventas").select(cols).eq("id", ventaId).eq("empresa_id", empresaId).maybeSingle();
+  // `anticipo_aplicado` lo agrega el script 50: sin el reintento, una base sin
+  // ese script no podría anular ninguna venta.
+  let ventaQ = await leerVenta(`${COLS}, anticipo_aplicado`);
+  if (ventaQ.error && /anticipo_aplicado/.test(ventaQ.error.message ?? "")) {
+    ventaQ = await leerVenta(COLS);
+  }
   if (ventaQ.error) return { ok: false, message: ventaQ.error.message, status: 400 };
   if (!ventaQ.data) return { ok: false, message: "Venta no encontrada.", status: 404 };
 
-  const venta = ventaQ.data as {
+  const venta = ventaQ.data as unknown as {
     id: string;
     estado: string;
     numero_control: string;
     fecha: string;
     tipo_venta: string;
+    anticipo_aplicado?: number | string | null;
   };
 
   if (venta.estado === "anulada") {
@@ -235,11 +247,72 @@ export async function anularVentaCore(
       .eq("empresa_id", empresaId);
     if (updVenta.error) throw new Error(updVenta.error.message);
 
+    /**
+     * Devolver el anticipo que esta venta había consumido.
+     *
+     * Si la venta se anula, la mercadería vuelve al stock y la plata tiene que
+     * volver al cliente: si no, le queda un anticipo gastado por una venta que
+     * ya no existe. Se devuelve sobre los anticipos que quedaron atados a esta
+     * venta, del último al primero.
+     *
+     * Lo que no se pueda devolver se informa en `anticipoSinDevolver` en vez de
+     * quedar en silencio. Pasa en un caso real: un anticipo que alimentó DOS
+     * ventas guarda solo la última, así que al anular la primera no se lo
+     * encuentra. Es raro y es plata: tiene que avisar.
+     */
+    let anticipoDevuelto = 0;
+    let anticipoSinDevolver = 0;
+    const anticipoVenta = Math.max(0, Number(venta.anticipo_aplicado) || 0);
+    if (anticipoVenta > 0) {
+      try {
+        const aQ = await sb
+          .from("anticipos")
+          .select("id, monto, monto_utilizado, estado")
+          .eq("empresa_id", empresaId)
+          .eq("venta_id", ventaId)
+          .order("fecha", { ascending: false });
+        if (aQ.error) throw new Error(aQ.error.message);
+        let restante = anticipoVenta;
+        for (const row of (aQ.data ?? []) as Array<Record<string, unknown>>) {
+          if (restante <= 0) break;
+          const usado = Number(row.monto_utilizado) || 0;
+          const devolver = Math.min(usado, restante);
+          if (devolver <= 0) continue;
+          const upd = await sb
+            .from("anticipos")
+            .update({
+              monto_utilizado: usado - devolver,
+              // Vuelve a estar disponible: el estado tiene que acompañar al saldo.
+              estado: "activo",
+              updated_at: nowIso,
+            })
+            .eq("empresa_id", empresaId)
+            .eq("id", String(row.id))
+            .eq("monto_utilizado", usado)
+            .select("id");
+          if (upd.error) throw new Error(upd.error.message);
+          if (!upd.data || (upd.data as unknown[]).length === 0) continue;
+          restante -= devolver;
+          anticipoDevuelto += devolver;
+        }
+        anticipoSinDevolver = Math.max(0, restante);
+      } catch (e) {
+        console.error("[anular venta] no se pudo devolver el anticipo", {
+          ventaId,
+          anticipoVenta,
+          error: e instanceof Error ? e.message : e,
+        });
+        anticipoSinDevolver = anticipoVenta - anticipoDevuelto;
+      }
+    }
+
     return {
       ok: true,
       alreadyAnulada: false,
       stockReintegrado: entradasInsertadas.length,
       numeroControl: venta.numero_control,
+      anticipoDevuelto,
+      anticipoSinDevolver,
     };
   } catch (e) {
     // Rollback best-effort: revertir stock, lotes e inserciones.

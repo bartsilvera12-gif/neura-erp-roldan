@@ -170,6 +170,12 @@ export interface CajaDetalleVenta {
   anulacion_motivo?: string | null;
   /** Si fue pago mixto, desglose real por metodo (desde ventas_pagos_detalle). */
   desglose_pago?: { efectivo: number; tarjeta: number; transferencia: number } | null;
+  /**
+   * Parte del total que pagó un anticipo del cliente: plata que entró al
+   * cajón en un turno anterior. El arqueo de HOY no la cuenta — si la contara,
+   * esperaría una plata que no está en el cajón.
+   */
+  anticipo_aplicado?: number;
 }
 
 /** Un movimiento manual del turno, con el autor resuelto (nombre/email). */
