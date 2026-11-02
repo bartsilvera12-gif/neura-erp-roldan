@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/middleware/auth";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
 import {
   editarVentaPg,
   EdicionRechazada,
@@ -125,6 +126,22 @@ export async function PUT(
       plazoDias: body.plazo_dias === undefined || body.plazo_dias === null || body.plazo_dias === ""
         ? null
         : parseInt(String(body.plazo_dias), 10) || null,
+    });
+
+    // El detalle campo por campo ya queda en `ventas_ediciones`. Acá va el
+    // rastro transversal, para poder ver de un vistazo qué tocó el
+    // administrador sin entrar venta por venta.
+    await registrarModificacionAdministrativa(ctx.supabase, ctx.auth.empresa_id, {
+      entidad: "venta",
+      entidad_id: ventaId,
+      referencia: (r as { numero_control?: string | null })?.numero_control ?? null,
+      accion: "editar",
+      detalle: "Ver el detalle de los cambios en el historial de la venta.",
+      motivo,
+      usuario_id: ctx.auth.usuarioCatalogId ?? ctx.auth.user?.id ?? null,
+      usuario_nombre: (await firmaUsuario(ctx.supabase, ctx.auth)).nombre,
+      es_admin: isAdmin(ctx.auth),
+      sucursal_id: ctx.auth.sucursal_id ?? null,
     });
 
     return NextResponse.json(successResponse(r));

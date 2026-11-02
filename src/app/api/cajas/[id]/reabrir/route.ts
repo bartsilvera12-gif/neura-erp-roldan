@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/middleware/auth";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 
+import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
 /**
  * POST /api/cajas/[id]/reabrir — reabre un turno cerrado (punto 5.1).
  *
@@ -124,6 +125,20 @@ export async function POST(
         { status: 409 }
       );
     }
+
+    // Reabrir un turno cerrado cambia números ya rendidos: queda asentado.
+    await registrarModificacionAdministrativa(ctx.supabase, ctx.auth.empresa_id, {
+      entidad: "caja",
+      entidad_id: cajaId,
+      referencia: `Caja ${caja.numero_caja}`,
+      accion: "reabrir",
+      detalle: caja.fecha_cierre ? `Estaba cerrada desde ${caja.fecha_cierre}.` : null,
+      motivo,
+      usuario_id: ctx.auth.usuarioCatalogId ?? ctx.auth.user?.id ?? null,
+      usuario_nombre: (await firmaUsuario(ctx.supabase, ctx.auth)).nombre,
+      es_admin: isAdmin(ctx.auth),
+      sucursal_id: ctx.auth.sucursal_id ?? null,
+    });
 
     return NextResponse.json(successResponse({
       ok: true,

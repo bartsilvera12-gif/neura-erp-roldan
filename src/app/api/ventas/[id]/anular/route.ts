@@ -7,6 +7,8 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { anularVentaCore, ventaTieneCobrosAplicados } from "@/lib/ventas/server/anular-venta-core";
 import { marcarDesfacturadoPorAnulacion } from "@/lib/caja/facturacion";
 
+import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
+import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 /**
  * POST /api/ventas/[id]/anular
  *
@@ -234,6 +236,23 @@ export async function POST(
       }
     } catch (e) {
       console.error("[anular venta] excepción reactivando pedido", { e });
+    }
+
+    // Anular una venta es de las cosas que después se preguntan: queda el
+    // rastro con nombre, aunque el detalle fino ya viva en la propia venta.
+    if (!res.alreadyAnulada) {
+      await registrarModificacionAdministrativa(ctx.supabase, ctx.auth.empresa_id, {
+        entidad: "venta",
+        entidad_id: ventaId,
+        referencia: res.numeroControl ?? null,
+        accion: "anular",
+        detalle: res.stockReintegrado ? "Se reintegró el stock de la venta." : null,
+        motivo,
+        usuario_id: ctx.auth.usuarioCatalogId ?? ctx.auth.user?.id ?? null,
+        usuario_nombre: (await firmaUsuario(ctx.supabase, ctx.auth)).nombre,
+        es_admin: isAdmin(ctx.auth),
+        sucursal_id: ctx.auth.sucursal_id ?? null,
+      });
     }
 
     return NextResponse.json(

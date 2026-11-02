@@ -2,8 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { Wallet, Truck, Package, ShoppingCart, ArrowLeftRight, TrendingUp, Target, Banknote, Landmark, HandCoins, FileArchive, History } from "lucide-react";
-
+import { ArrowLeftRight, Banknote, FileArchive, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Wallet } from "lucide-react";
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
   return (
@@ -31,6 +30,15 @@ export default function ReportesPage() {
             icon={History}
             description="Para buscar una venta vieja y para mandar el listado: rango de fechas, filtros por cliente, vendedor, medio y estado, con Excel e imprimir."
             href="/reportes/historial-ventas"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Modificaciones administrativas"
+            subtitle="Qué tocó el administrador"
+            icon={ShieldAlert}
+            description="Anulaciones, ediciones de ventas y turnos de caja reabiertos: quién lo hizo, cuándo y con qué motivo. Solo lo ve un administrador."
+            href="/reportes/modificaciones"
           />
         </li>
         <li>
