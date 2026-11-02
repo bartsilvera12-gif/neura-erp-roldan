@@ -113,6 +113,8 @@ export async function saveVenta(
      * viejos primero; acá va solo cuánto usar.
      */
     anticipoAplicado?: number | null;
+    /** Depósito del que sale la mercadería (precio y stock salen de ahí). */
+    ubicacionId?: string | null;
   }
 ): Promise<ResultadoGuardarVenta> {
   if (!datos.items || datos.items.length === 0) {
@@ -144,6 +146,7 @@ export async function saveVenta(
         emitir_factura: datos.emitir_factura !== false,
         pedido_id: opts?.pedidoId ?? null,
         anticipo_aplicado: Number(opts?.anticipoAplicado) > 0 ? Number(opts?.anticipoAplicado) : 0,
+        ubicacion_id: opts?.ubicacionId ?? null,
       }),
     });
 

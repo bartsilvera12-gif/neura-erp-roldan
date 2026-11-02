@@ -1,3 +1,4 @@
+import { ajustarStockUbicacion } from "@/lib/multideposito/server";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 
 /**
@@ -77,9 +78,13 @@ export async function anularVentaCore(
     sb.from("ventas").select(cols).eq("id", ventaId).eq("empresa_id", empresaId).maybeSingle();
   // `anticipo_aplicado` lo agrega el script 50: sin el reintento, una base sin
   // ese script no podría anular ninguna venta.
-  let ventaQ = await leerVenta(`${COLS}, anticipo_aplicado`);
-  if (ventaQ.error && /anticipo_aplicado/.test(ventaQ.error.message ?? "")) {
-    ventaQ = await leerVenta(COLS);
+  let ventaQ = await leerVenta(`${COLS}, anticipo_aplicado, ubicacion_id`);
+  if (ventaQ.error && /anticipo_aplicado|ubicacion_id/.test(ventaQ.error.message ?? "")) {
+    // Una de las dos columnas opcionales falta: se prueba solo con la otra y,
+    // si tampoco, con lo mínimo. Así la anulación nunca queda bloqueada por
+    // una migración pendiente.
+    ventaQ = await leerVenta(`${COLS}, anticipo_aplicado`);
+    if (ventaQ.error) ventaQ = await leerVenta(COLS);
   }
   if (ventaQ.error) return { ok: false, message: ventaQ.error.message, status: 400 };
   if (!ventaQ.data) return { ok: false, message: "Venta no encontrada.", status: 404 };
@@ -91,6 +96,7 @@ export async function anularVentaCore(
     fecha: string;
     tipo_venta: string;
     anticipo_aplicado?: number | string | null;
+    ubicacion_id?: string | null;
   };
 
   if (venta.estado === "anulada") {
@@ -186,6 +192,39 @@ export async function anularVentaCore(
         .single();
       if (ins.error) throw new Error(ins.error.message);
       entradasInsertadas.push(String((ins.data as { id: string }).id));
+
+      /**
+       * El stock también vuelve al DEPÓSITO del que salió.
+       *
+       * Sin esto, anular una venta devolvía el total del producto pero dejaba
+       * el desglose por depósito descontado: el sistema decía que en el
+       * depósito había 6 cuando en la práctica había 10, y la diferencia no
+       * aparecía en ningún lado hasta el siguiente conteo físico.
+       *
+       * Es best-effort a propósito: la anulación ya pasó y no se va a frenar
+       * por el desglose. Si falla queda en el log y el conteo lo corrige.
+       */
+      if (venta.ubicacion_id) {
+        try {
+          const errUbi = await ajustarStockUbicacion(
+            sb,
+            empresaId,
+            venta.ubicacion_id,
+            m.producto_id,
+            cantidad
+          );
+          if (errUbi) {
+            console.error("[anular venta] no se pudo devolver stock al depósito", {
+              ventaId,
+              productoId: m.producto_id,
+              ubicacionId: venta.ubicacion_id,
+              error: errUbi,
+            });
+          }
+        } catch (e) {
+          console.error("[anular venta] excepción devolviendo stock al depósito", e);
+        }
+      }
     }
 
     // Reponer las unidades a sus lotes de origen. El stock global se repuso arriba

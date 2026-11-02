@@ -459,6 +459,10 @@ export async function POST(request: NextRequest) {
       vendedorUsuarioId: auth.usuarioCatalogId ?? null,
       vendedorNombre: firma.nombre,
       anticipoAplicado: anticipoPedido > 0 ? anticipoPedido : null,
+      // Depósito del que sale la mercadería: de ahí se descuenta el stock y
+      // de ahí salió el precio que Caja mostró.
+      ubicacionId:
+        typeof o.ubicacion_id === "string" && o.ubicacion_id.trim() ? o.ubicacion_id.trim() : null,
     });
 
     // Vincular el pedido facturado con la venta creada (Caja). Trazabilidad:

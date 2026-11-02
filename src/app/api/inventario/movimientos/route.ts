@@ -166,25 +166,31 @@ export async function POST(request: NextRequest) {
     const firma = await firmaUsuario(supabase, ctx.auth);
 
     // Insertar la fila del movimiento.
-    const insert = await supabase
-      .from("movimientos_inventario")
-      .insert({
-        empresa_id: empresaId,
-        sucursal_id: sucursalId,
-        producto_id,
-        producto_nombre: prod.nombre,
-        producto_sku: prod.sku,
-        tipo,
-        cantidad: Math.abs(cantidad),
-        costo_unitario,
-        origen,
-        referencia,
-        fecha: new Date().toISOString(),
-        created_by: firma.id,
-        usuario_nombre: firma.nombre,
-      })
-      .select()
-      .single();
+    const filaMov: Record<string, unknown> = {
+      empresa_id: empresaId,
+      sucursal_id: sucursalId,
+      producto_id,
+      producto_nombre: prod.nombre,
+      producto_sku: prod.sku,
+      tipo,
+      cantidad: Math.abs(cantidad),
+      costo_unitario,
+      origen,
+      referencia,
+      fecha: new Date().toISOString(),
+      created_by: firma.id,
+      usuario_nombre: firma.nombre,
+    };
+    // En qué depósito pasó. El stock de la ubicación ya se ajustó arriba, pero
+    // el movimiento no lo guardaba: después, mirando el historial, no había
+    // forma de saber en qué depósito se había hecho el ajuste.
+    if (ubicacionId) filaMov.ubicacion_id = ubicacionId;
+    let insert = await supabase.from("movimientos_inventario").insert(filaMov).select().single();
+    if (insert.error && /ubicacion_id/.test(insert.error.message ?? "")) {
+      // Sin el script 51 la columna no existe: el movimiento se registra igual.
+      delete filaMov.ubicacion_id;
+      insert = await supabase.from("movimientos_inventario").insert(filaMov).select().single();
+    }
     if (insert.error) {
       return NextResponse.json(errorResponse(insert.error.message), { status: 400 });
     }

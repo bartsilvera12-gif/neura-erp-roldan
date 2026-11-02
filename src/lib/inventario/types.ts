@@ -29,6 +29,19 @@ export interface Producto {
   markup_pct?: number | null;
   /** Descuento propio del articulo. Reemplaza al del rubro, no se suma. */
   descuento_pct?: number | null;
+  /**
+   * El precio de arriba lo puso un depósito, no el producto (script 51).
+   * Solo viene cuando la consulta pidió un depósito.
+   */
+  precio_de_deposito?: boolean;
+  /** Stock en ese depósito. null = el producto no está desglosado por depósito. */
+  stock_en_deposito?: number | null;
+  /** Stock total del producto, para poder compararlo con el del depósito. */
+  stock_global?: number | null;
+  /**
+   * Stock con el que trabaja la pantalla. Con un depósito elegido es el de
+   * ESE depósito (ver `stock_en_deposito`); si no, el total del producto.
+   */
   stock_actual: number;
   stock_minimo: number;
   unidad_medida: string;

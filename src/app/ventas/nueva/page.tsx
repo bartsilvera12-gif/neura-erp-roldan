@@ -240,6 +240,21 @@ export default function NuevaVentaPage() {
   // ── Caja activa (múltiples cajas) ─────────────────────────────────────────
   // La venta se asocia a la caja abierta activa del cajero. Si hay varias, elige.
   const [cajasAbiertas, setCajasAbiertas] = useState<{ id: string; numero_caja: number }[]>([]);
+
+  /**
+   * Depósito del que sale la mercadería (script 51).
+   *
+   * De acá salen DOS cosas: el precio (un depósito puede tener su propio
+   * precio para un producto) y el stock que se descuenta. Por eso no es un
+   * dato decorativo: elegir mal el depósito cobra otro precio y descuenta de
+   * otro lado.
+   *
+   * Si hay uno solo se elige solo y no se pregunta nada. Si hay varios hay
+   * que elegir antes de poder confirmar: adivinar uno sería adivinar de dónde
+   * sale la mercadería.
+   */
+  const [depositos, setDepositos] = useState<{ id: string; nombre: string; codigo: string | null }[]>([]);
+  const [depositoId, setDepositoId] = useState("");
   const [cajaActivaId, setCajaActivaId] = useState<string>("");
 
   // ── Condiciones de la venta ───────────────────────────────────────────────
@@ -428,11 +443,33 @@ export default function NuevaVentaPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getProductos().then((data) => {
+    fetchWithSupabaseSession("/api/inventario/ubicaciones", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.success) return;
+        const list = ((j.data?.ubicaciones ?? []) as Array<{ id: string; nombre: string; codigo: string | null }>)
+          .map((u) => ({ id: String(u.id), nombre: String(u.nombre ?? ""), codigo: u.codigo ?? null }));
+        setDepositos(list);
+        if (list.length === 1) setDepositoId(list[0]!.id);
+      })
+      .catch(() => { /* sin depósitos se trabaja como antes: precio y stock del producto */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * El catálogo se vuelve a pedir cuando cambia el depósito.
+   *
+   * El precio y el stock que se usan en toda la pantalla vienen resueltos del
+   * servidor para ESE depósito, así que los niveles B y C, los márgenes y el
+   * control de stock siguen funcionando sin tocar nada más.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    getProductos(depositoId || null).then((data) => {
       if (!cancelled) setProductos(data);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [depositoId]);
 
   // Modo de facturación de la empresa. Si es 'sifen', mostramos el selector
   // Factura|Ticket y por defecto proponemos "Factura". En cualquier otro modo,
@@ -1424,6 +1461,12 @@ export default function NuevaVentaPage() {
       setErrorVenta("Hay varias cajas abiertas: seleccioná la caja activa antes de confirmar.");
       return;
     }
+    // Con varios depósitos hay que decir de cuál sale: el stock se descuenta
+    // de ahí. Adivinar uno descontaría de un depósito que quizá no tiene nada.
+    if (depositos.length > 1 && !depositoId) {
+      setErrorVenta("Elegí el depósito del que sale la mercadería antes de confirmar.");
+      return;
+    }
     // Guard duro contra doble submit: si ya hay una confirmación en vuelo, cortar
     // inmediatamente. El ref se evalúa de forma síncrona (no espera al re-render de React),
     // así que un segundo click/Enter casi simultáneo no puede disparar otra venta.
@@ -1481,6 +1524,7 @@ export default function NuevaVentaPage() {
           cajaId: cajaActivaFinal,
           pagos: pagosArrayFinal,
           anticipoAplicado: anticipoAplicado > 0 ? anticipoAplicado : null,
+          ubicacionId: depositoId || null,
         }
       );
 
@@ -1557,6 +1601,32 @@ export default function NuevaVentaPage() {
             Buscá un producto y se agrega al instante. Revisá cantidades y precios en la tabla.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {/* Depósito del que sale la mercadería: de acá salen el precio y el
+            stock, así que va al lado de la caja y no escondido abajo. */}
+        {depositos.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <span className="text-xs font-semibold text-slate-500">Depósito</span>
+            {depositos.length === 1 ? (
+              <span className="text-sm font-bold text-slate-800">{depositos[0]!.nombre}</span>
+            ) : (
+              <select
+                value={depositoId}
+                onChange={(e) => setDepositoId(e.target.value)}
+                className={`rounded-md border px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4FAEB2]/30 ${
+                  depositoId ? "border-slate-200 bg-white text-slate-800" : "border-amber-300 bg-amber-50 text-amber-900"
+                }`}
+              >
+                <option value="">— Elegí depósito —</option>
+                {depositos.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nombre}{d.codigo ? ` — ${d.codigo}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
         {/* Caja activa (múltiples cajas) */}
         {cajasAbiertas.length === 0 ? (
           <a href="/ventas" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">
@@ -1581,7 +1651,19 @@ export default function NuevaVentaPage() {
             )}
           </div>
         )}
+        </div>
       </div>
+
+      {/* Con varios depósitos y ninguno elegido, se dice qué falta y por qué
+          importa: los precios que se están viendo pueden no ser los que
+          corresponden. */}
+      {depositos.length > 1 && !depositoId && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="font-semibold">Elegí el depósito del que sale la mercadería.</span>{" "}
+          De ahí salen el precio y el stock que se descuenta. Hasta que lo elijas se muestran los
+          precios y el stock generales del producto.
+        </div>
+      )}
 
       {pedidoId && (
         <div className="rounded-lg border border-[#4FAEB2]/40 bg-[#4FAEB2]/[0.08] px-4 py-3 text-sm text-slate-700">

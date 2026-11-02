@@ -5,6 +5,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText, normalizeUpperCodigoBarras } from "@/lib/text/normalize";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { preciosDeDeposito, stockDeDeposito, aplicarDeposito } from "@/lib/precios/server/precio-deposito";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
 import { applyTokenSearch } from "@/lib/productos/token-search";
@@ -139,6 +140,16 @@ export async function GET(request: NextRequest) {
 
     const q = searchParams.get("q")?.trim() ?? "";
     const categoria = searchParams.get("categoria");
+    /**
+     * Depósito desde el que se está trabajando (Caja, sobre todo).
+     *
+     * Cuando viene, el precio y el stock de cada producto se reemplazan por
+     * los de ESE depósito. Se hace acá, en el borde, y no en cada pantalla:
+     * Caja calcula los niveles B y C y los márgenes sobre el precio de lista,
+     * así que pisándolo una vez funciona todo lo que ya estaba, incluido lo
+     * que se agregue después.
+     */
+    const depositoId = (searchParams.get("deposito") ?? "").trim();
     // Default sin paginar para no romper a los callers que esperan la lista
     // completa (ventas, compras, recetas); el listado de inventario pide límite.
     const limitParam = searchParams.get("limit");
@@ -168,6 +179,19 @@ export async function GET(request: NextRequest) {
       return base.order("nombre");
     };
 
+    /** Pisa precio y stock con los del depósito, si se pidió uno. */
+    const conDeposito = async (filas: Record<string, unknown>[]) => {
+      if (!depositoId || filas.length === 0) return filas;
+      const [precios, stock] = await Promise.all([
+        preciosDeDeposito(ctx.supabase, ctx.auth.empresa_id, depositoId),
+        stockDeDeposito(ctx.supabase, ctx.auth.empresa_id, depositoId),
+      ]);
+      return filas.map((f) => {
+        const id = String(f.id ?? "");
+        return aplicarDeposito(f, precios.mapa.get(id), stock.mapa.get(id));
+      });
+    };
+
     if (limit > 0) {
       let { data, error, count } = await buildBase().range(offset, offset + limit - 1);
       if (error && esColumnaFaltante(error.message ?? "")) {
@@ -176,7 +200,7 @@ export async function GET(request: NextRequest) {
       if (error) throw new Error(error.message);
       const rows = await conImagenesFirmadas(
         ctx.supabase,
-        ((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi)
+        await conDeposito(((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi))
       );
       return NextResponse.json(
         successResponse({ productos: rows, total: count ?? 0, limit, offset })
@@ -203,7 +227,7 @@ export async function GET(request: NextRequest) {
       if (count != null) totalCount = count;
       if (batch.length < CHUNK) break;
     }
-    const rows = await conImagenesFirmadas(ctx.supabase, allRows.map(rowToApi));
+    const rows = await conImagenesFirmadas(ctx.supabase, await conDeposito(allRows.map(rowToApi)));
     return NextResponse.json(
       successResponse({ productos: rows, total: totalCount || rows.length, limit, offset })
     );

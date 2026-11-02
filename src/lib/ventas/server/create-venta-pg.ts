@@ -1,4 +1,5 @@
 import { createServiceRoleClientWithDbSchema } from "@/lib/supabase/empresa-data-schema";
+import { ajustarStockUbicacion } from "@/lib/multideposito/server";
 import { convertirCantidad } from "@/lib/unidades/convert";
 
 /** Un faltante de stock detectado al validar la venta. */
@@ -100,6 +101,15 @@ export interface CreateVentaPgParams {
    * columna recién hace falta cuando alguien usa un anticipo de verdad.
    */
   anticipoAplicado?: number | null;
+  /**
+   * Depósito del que sale la mercadería (script 51).
+   *
+   * Cuando viene, además del stock global se descuenta el de ESE depósito en
+   * `inventario_stock_ubicacion`. Sin esto, el total del producto bajaba pero
+   * el desglose por depósito quedaba intacto: el sistema decía que había 10 en
+   * el depósito cuando ya se habían vendido 4.
+   */
+  ubicacionId?: string | null;
   /**
    * Vendedor al que se le acredita la venta y su comisión (punto 4.3).
    *
@@ -561,6 +571,9 @@ export async function createVentaTransaccionalPg(
         ...(Number(params.anticipoAplicado) > 0
           ? { anticipo_aplicado: Number(params.anticipoAplicado) }
           : {}),
+        // Igual que arriba: solo se nombra la columna si hay algo que guardar,
+        // así una base sin el script 51 sigue registrando ventas.
+        ...(params.ubicacionId ? { ubicacion_id: params.ubicacionId } : {}),
       })
       .select("id")
       .single();
@@ -571,6 +584,11 @@ export async function createVentaTransaccionalPg(
     const msg = insVenta.error.message ?? "";
     // Sin el script 50 la columna no existe. El cajero no tiene por qué leer
     // un error de PostgREST para enterarse de que falta una migración.
+    if (/ubicacion_id/.test(msg)) {
+      throw new Error(
+        "Para vender desde un depósito falta correr 51_precios_por_deposito.sql en la base."
+      );
+    }
     if (/anticipo_aplicado/.test(msg)) {
       throw new Error(
         "Para cobrar con anticipo falta correr 50_anticipos_aplicados.sql en la base. " +
@@ -588,6 +606,8 @@ export async function createVentaTransaccionalPg(
   // anular-venta-core.ts: se guarda el valor ANTES de escribir el nuevo, así
   // el rollback es una simple restauración, no un cálculo de delta.
   const stockPrevio: Array<{ producto_id: string; stock_actual: number }> = [];
+  /** Descuentos ya aplicados al desglose por depósito, para poder devolverlos. */
+  const ubicacionPrevio: Array<{ producto_id: string; cantidad: number }> = [];
 
   // Helper de rollback best-effort
   const rollback = async () => {
@@ -602,6 +622,21 @@ export async function createVentaTransaccionalPg(
           .eq("id", s.producto_id)
           .eq("empresa_id", params.empresaId);
       } catch {}
+    }
+    // Y el desglose por depósito: si se devuelve el stock global y no este,
+    // los dos números quedan diciendo cosas distintas para siempre.
+    if (params.ubicacionId) {
+      for (const u of ubicacionPrevio) {
+        try {
+          await ajustarStockUbicacion(
+            sb,
+            params.empresaId,
+            params.ubicacionId,
+            u.producto_id,
+            u.cantidad
+          );
+        } catch {}
+      }
     }
     try {
       await sb.from("cuentas_por_cobrar").delete().eq("venta_id", ventaId).eq("empresa_id", params.empresaId);
@@ -677,7 +712,23 @@ export async function createVentaTransaccionalPg(
       if (upd.error) throw new Error(upd.error.message);
       p.stock = nuevoStock;
 
-      const mov = await sb.from("movimientos_inventario").insert({
+      // El mismo descuento, en el desglose del depósito. `ajustarStockUbicacion`
+      // ya sabe distinguir "no hay fila porque nunca se desglosó" (lo acepta y
+      // crea el desglose) de "no hay fila porque está en otro depósito" (falla),
+      // que es justo la diferencia que no hay que adivinar acá.
+      if (params.ubicacionId) {
+        const errUbi = await ajustarStockUbicacion(
+          sb,
+          params.empresaId,
+          params.ubicacionId,
+          line.producto_id,
+          -line.cantidad
+        );
+        if (errUbi) throw new Error(`Stock del depósito: ${errUbi}`);
+        ubicacionPrevio.push({ producto_id: line.producto_id, cantidad: line.cantidad });
+      }
+
+      const movFila: Record<string, unknown> = {
         empresa_id: params.empresaId,
         sucursal_id: params.sucursalId,
         producto_id: line.producto_id,
@@ -692,7 +743,9 @@ export async function createVentaTransaccionalPg(
         venta_id: ventaId,
         created_by: params.createdBy ?? null,
         usuario_nombre: params.usuarioNombre ?? null,
-      });
+      };
+      if (params.ubicacionId) movFila.ubicacion_id = params.ubicacionId;
+      const mov = await sb.from("movimientos_inventario").insert(movFila);
       if (mov.error) throw new Error(mov.error.message);
     }
 

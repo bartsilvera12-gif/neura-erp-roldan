@@ -112,6 +112,17 @@ function rowToProducto(row: ProductoRow): Producto {
     precio_usd: row.precio_usd != null ? Number(row.precio_usd) : null,
     markup_pct: row.markup_pct != null ? Number(row.markup_pct) : null,
     descuento_pct: row.descuento_pct != null ? Number(row.descuento_pct) : 0,
+    // De dónde salió el precio y cuánto hay en el depósito: la pantalla tiene
+    // que poder decirlo, o un precio distinto al de la lista parece un error.
+    precio_de_deposito: (row as unknown as { precio_de_deposito?: boolean }).precio_de_deposito === true,
+    stock_en_deposito: (() => {
+      const v = (row as unknown as { stock_en_deposito?: unknown }).stock_en_deposito;
+      return v == null ? null : Number(v);
+    })(),
+    stock_global: (() => {
+      const v = (row as unknown as { stock_global?: unknown }).stock_global;
+      return v == null ? null : Number(v);
+    })(),
   };
 }
 
@@ -135,9 +146,17 @@ function rowToMovimiento(row: MovimientoRow): MovimientoInventario {
 // ─── Productos ─────────────────────────────────────────────────────────────────
 
 /** Lista productos via API server-side (PG directo, soporta tenants erp_* no expuestos). */
-export async function getProductos(): Promise<Producto[]> {
+/**
+ * Catálogo de productos.
+ *
+ * `deposito` opcional: cuando se pasa, el precio y el stock que vuelven son
+ * los de ESE depósito (ver /api/productos y `precio-deposito.ts`). Es lo que
+ * usa Caja para cobrar lo que corresponde al depósito desde el que vende.
+ */
+export async function getProductos(deposito?: string | null): Promise<Producto[]> {
   try {
-    const r = await fetch("/api/productos", { credentials: "include", cache: "no-store" });
+    const qs = deposito ? `?deposito=${encodeURIComponent(deposito)}` : "";
+    const r = await fetch(`/api/productos${qs}`, { credentials: "include", cache: "no-store" });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j?.success) {
       console.error("[inventario] getProductos:", (j as { error?: string })?.error ?? r.status);
