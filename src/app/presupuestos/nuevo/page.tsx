@@ -174,6 +174,40 @@ export default function NuevoPresupuestoPage() {
         }
       })
       .catch(() => {});
+    /**
+     * Las condiciones de la casa, precargadas.
+     *
+     * ── POR QUÉ FALTABA ────────────────────────────────────────────────
+     *   Al rehacer el PDF con el formato del cliente, las condiciones pasaron
+     *   a salir de la plantilla que se edita en Configuración. Este campo
+     *   quedó desconectado: el vendedor escribía acá y no salía impreso.
+     *
+     *   Ahora el formulario arranca con lo mismo que va a imprimirse. Si el
+     *   vendedor lo cambia, para ESE presupuesto manda lo que escribió; la
+     *   plantilla sigue siendo el texto por defecto de todos los demás.
+     */
+    fetchWithSupabaseSession("/api/configuracion/presupuesto-plantilla", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const pl = j?.data?.plantilla;
+        if (!j?.success || !pl) return;
+        if (typeof pl.observaciones === "string" && pl.observaciones.trim()) {
+          setCondiciones((prev) => (prev.trim() ? prev : pl.observaciones));
+        }
+        if (typeof pl.forma_pago === "string" && pl.forma_pago.trim()) {
+          // El {anticipo} de la plantilla se resuelve con el porcentaje
+          // configurado: en el campo tiene que verse el texto final, no la
+          // marca.
+          const pct = Number(pl.anticipo_pct);
+          const texto = pl.forma_pago.replace(
+            /\{anticipo\}/g,
+            Number.isFinite(pct) ? String(pct) : "0"
+          );
+          setFormaPago((prev) => (prev.trim() ? prev : texto));
+        }
+      })
+      .catch(() => { /* sin plantilla, el PDF igual imprime la suya */ });
+
     fetchWithSupabaseSession("/api/clientes", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
@@ -640,13 +674,15 @@ export default function NuevoPresupuestoPage() {
             <textarea
               value={condiciones}
               onChange={(e) => setCondiciones(e.target.value)}
-              rows={4}
+              rows={10}
               className={inputClass}
               placeholder={"Ej:\n- Precios válidos por la vigencia indicada.\n- Flete y descarga por cuenta del comprador.\n- Garantía de fábrica contra defectos."}
             />
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
-              Sale en el presupuesto, bajo el total. Es lo que se discute si
-              después hay un reclamo, así que conviene escribirlo completo.
+              Vienen cargadas las condiciones de la casa, que son las que salen
+              impresas bajo el total. Si acá se cambian, el cambio vale{" "}
+              <strong>solo para este presupuesto</strong>; para cambiarlas en todos,
+              se editan en Configuración → Presupuesto.
             </p>
           </div>
           {/* ── Lo único que NO se imprime ──────────────────────────────

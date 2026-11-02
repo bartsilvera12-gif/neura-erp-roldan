@@ -138,6 +138,27 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     /* sin plantilla cargada: quedan los textos por defecto */
   }
 
+  /**
+   * Lo que el vendedor escribió en ESTE presupuesto gana sobre la plantilla.
+   *
+   * ── POR QUÉ ────────────────────────────────────────────────────────────
+   *   El formulario tiene los campos "Forma de pago" y "Condiciones
+   *   comerciales", y antes de este cambio el documento los ignoraba: salía
+   *   siempre la plantilla. Alguien podía escribir una condición especial
+   *   para un cliente, guardar, imprimir, y encontrarse con el texto de
+   *   siempre sin ningún aviso.
+   *
+   *   La regla queda: la plantilla es el texto por defecto —el formulario
+   *   arranca con ella cargada— y si en un presupuesto dice otra cosa, se
+   *   imprime esa.
+   */
+  const txtPropio = (v: unknown) => {
+    const t = typeof v === "string" ? v.trim() : "";
+    return t.length > 0 ? t : null;
+  };
+  const formaPagoDoc = txtPropio(p.forma_pago) ?? formaPagoConAnticipo(plantilla.forma_pago, plantilla.anticipo_pct);
+  const condicionesDoc = txtPropio(p.condiciones_comerciales) ?? plantilla.observaciones;
+
   const e = EMPRESA_DOC;
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -256,8 +277,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   // ── Forma de pago y validez (izquierda) ───────────────────────────────────
   const yIzq = y;
   T("FORMA DE PAGO:", MARGIN, yIzq, 9.5, bold);
-  const formaPago = formaPagoConAnticipo(plantilla.forma_pago, plantilla.anticipo_pct);
-  wrap(formaPago, font, 8.5, 230).forEach((l, k) => T(l, MARGIN + 14, yIzq - 16 - k * 11, 8.5));
+  wrap(formaPagoDoc, font, 8.5, 230).forEach((l, k) => T(l, MARGIN + 14, yIzq - 16 - k * 11, 8.5));
   T("VALIDEZ DE LA OFERTA:", MARGIN, yIzq - 56, 9.5, bold);
   wrap(plantilla.validez, font, 8.5, 230).forEach((l, k) => T(l, MARGIN + 14, yIzq - 72 - k * 11, 8.5));
 
@@ -308,7 +328,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     hoja.drawText(san(l), { x: MARGIN + 14, y, size: 7.5, font, color: NEGRO });
     y -= 9.5;
   };
-  const observaciones = observacionesConPlazo(plantilla.observaciones, String(p.plazo_entrega ?? ""));
+  const observaciones = observacionesConPlazo(condicionesDoc, String(p.plazo_entrega ?? ""));
   for (const linea of observaciones.split(/\r?\n/)) {
     const texto = linea.trim();
     if (!texto) continue;
