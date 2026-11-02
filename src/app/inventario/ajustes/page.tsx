@@ -135,11 +135,20 @@ export default function AjustesPage() {
         <div className="flex flex-wrap items-center gap-2">
         {/* La pantalla mostraba los ajustes y no decía cómo hacer uno: el
             formulario está en Movimientos, que desde acá no se adivina. */}
+        {/* Dos botones y no uno: el sentido del ajuste es la decisión que
+            más se equivoca, así que se toma acá, con la cabeza en lo que se
+            vino a hacer, y el formulario abre ya puesto. */}
         <Link
-          href="/inventario/movimientos/nuevo?tipo=AJUSTE"
-          className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-xs font-semibold text-white hover:bg-[#3F8E91]"
+          href="/inventario/movimientos/nuevo?tipo=AJUSTE&signo=restar"
+          className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
         >
-          + Nuevo ajuste
+          − Faltó stock
+        </Link>
+        <Link
+          href="/inventario/movimientos/nuevo?tipo=AJUSTE&signo=sumar"
+          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+        >
+          + Sobró stock
         </Link>
         {/* Requisito 11.1: lo que se ve se puede sacar a Excel. */}
         <AccionesTabla

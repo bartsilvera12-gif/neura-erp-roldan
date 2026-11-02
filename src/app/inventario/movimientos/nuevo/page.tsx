@@ -24,6 +24,26 @@ export default function NuevoMovimientoPage() {
   const tipoInicial: TipoMovimiento =
     tipoPedido === "AJUSTE" || tipoPedido === "SALIDA" ? tipoPedido : "ENTRADA";
 
+  /**
+   * Hacia dónde va el ajuste: sumar al stock o restarle.
+   *
+   * ── POR QUÉ UN SELECTOR Y NO UN NÚMERO CON SIGNO ───────────────────────
+   *   Antes el ajuste se hacía escribiendo la cantidad con signo: "-3" para
+   *   descontar, "5" para sumar, y el cartelito "(negativo para disminuir)"
+   *   al lado. El que viene del depósito con el conteo en la mano escribe
+   *   "3" porque FALTAN tres, y el sistema le SUMA tres: el error de stock
+   *   no solo no se corrige, se duplica y encima queda registrado como si
+   *   alguien hubiera encontrado mercadería.
+   *
+   *   Arranca vacío a propósito. Un valor por omisión —cualquiera de los
+   *   dos— significa que un descuido se guarda con el sentido contrario y
+   *   nadie se entera. Acá hay que decirlo.
+   */
+  const signoPedido = (sp.get("signo") ?? "").toLowerCase();
+  const [ajusteSigno, setAjusteSigno] = useState<"" | "sumar" | "restar">(
+    signoPedido === "sumar" || signoPedido === "restar" ? signoPedido : ""
+  );
+
   const [form, setForm] = useState({
     producto_id: "",
     tipo: tipoInicial,
@@ -81,6 +101,10 @@ export default function NuevoMovimientoPage() {
     const tipo = e.target.value as TipoMovimiento;
     const origenSugerido: OrigenMovimiento =
       tipo === "ENTRADA" ? "compra" : tipo === "SALIDA" ? "venta" : "ajuste_manual";
+    // Al cambiar de tipo se borra el sentido elegido: si alguien eligió
+    // "faltó", pasó a ENTRADA y volvió a AJUSTE, esa elección vieja no tiene
+    // por qué seguir aplicada sin que la vuelva a mirar.
+    setAjusteSigno("");
     setForm((prev) => ({ ...prev, tipo, origen: origenSugerido }));
   }
 
@@ -92,9 +116,12 @@ export default function NuevoMovimientoPage() {
     const productoSeleccionado = productos.find((p) => p.id === form.producto_id);
     if (!productoSeleccionado) return;
 
+    // En un ajuste el signo lo pone el selector, no lo que se tipeó: la
+    // cantidad se toma siempre en positivo para que un "-3" escrito de más no
+    // invierta lo que el usuario eligió.
     const cantidadNum =
       form.tipo === "AJUSTE"
-        ? parseFloat(form.cantidad)
+        ? (ajusteSigno === "restar" ? -1 : 1) * Math.abs(parseFloat(form.cantidad))
         : Math.abs(parseFloat(form.cantidad));
 
     // Lote/vencimiento: solo en ENTRADA de un producto que controla lote.
@@ -117,6 +144,20 @@ export default function NuevoMovimientoPage() {
 
     if (ubicaciones.length > 0 && !form.ubicacion_id) {
       setError("Elegí un depósito.");
+      return;
+    }
+    if (form.tipo === "AJUSTE" && ajusteSigno === "") {
+      setError("Elegí si el ajuste suma o resta stock.");
+      return;
+    }
+    if (
+      form.tipo === "AJUSTE" &&
+      ajusteSigno === "restar" &&
+      productoSeleccionado.stock_actual < Math.abs(cantidadNum)
+    ) {
+      setError(
+        `No se puede restar ${Math.abs(cantidadNum)}: "${productoSeleccionado.nombre}" tiene ${productoSeleccionado.stock_actual} en el sistema. Si en el depósito no hay nada, restá ${productoSeleccionado.stock_actual} para dejarlo en cero.`
+      );
       return;
     }
     if (form.tipo === "AJUSTE" && !form.motivo.trim()) {
@@ -215,6 +256,15 @@ export default function NuevoMovimientoPage() {
   const productoSeleccionado = productos.find((p) => p.id === form.producto_id);
   const requiereLoteUI =
     productoSeleccionado?.controla_lote === true && form.tipo === "ENTRADA";
+
+  /** Cómo queda el stock si se guarda así. Null cuando todavía falta algo. */
+  const previsualizacionAjuste = (() => {
+    if (form.tipo !== "AJUSTE" || !productoSeleccionado || ajusteSigno === "") return null;
+    const cant = Math.abs(parseFloat(form.cantidad));
+    if (!Number.isFinite(cant) || cant === 0) return null;
+    const antes = Number(productoSeleccionado.stock_actual) || 0;
+    return { antes, despues: ajusteSigno === "restar" ? antes - cant : antes + cant };
+  })();
 
   const inputClass =
     "w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-gray-500 transition-colors text-sm";
@@ -336,14 +386,70 @@ export default function NuevoMovimientoPage() {
                 name="origen"
                 value={form.origen}
                 onChange={handleChange}
-                className={inputClass}
+                className={`${inputClass} ${form.tipo === "AJUSTE" ? "bg-slate-100 text-slate-500" : ""}`}
+                // En un ajuste el origen no es opcional: el historial de
+                // Ajustes se arma filtrando `origen = 'ajuste_manual'`, así
+                // que un ajuste guardado como "compra" no aparece en ninguna
+                // parte. Se deja fijo en vez de confiar en que nadie lo toque.
+                disabled={form.tipo === "AJUSTE"}
               >
                 <option value="compra">Compra</option>
                 <option value="venta">Venta</option>
                 <option value="ajuste_manual">Ajuste manual</option>
               </select>
+              {form.tipo === "AJUSTE" && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Fijo en “Ajuste manual”: es lo que lo hace aparecer en el historial de ajustes.
+                </p>
+              )}
             </div>
           </div>
+
+          {/* ── Sentido del ajuste ────────────────────────────────────────
+              La pregunta en los términos del depósito: ¿sobró o faltó? El
+              signo lo pone el sistema. */}
+          {form.tipo === "AJUSTE" && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4">
+              <label className={labelClass}>
+                ¿Qué pasó con el stock? <span className="text-red-500">*</span>
+              </label>
+              <div className="flex overflow-hidden rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setAjusteSigno("sumar")}
+                  className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    ajusteSigno === "sumar"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Sobró — sumar al stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAjusteSigno("restar")}
+                  className={`flex-1 border-l border-slate-200 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    ajusteSigno === "restar"
+                      ? "bg-rose-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Faltó — restar del stock
+                </button>
+              </div>
+              {ajusteSigno === "" ? (
+                <p className="mt-2 text-xs text-slate-600">
+                  Elegí una de las dos. La cantidad se escribe siempre en positivo: el signo lo
+                  pone esta elección.
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-slate-600">
+                  La cantidad va en positivo. {ajusteSigno === "restar" ? "Se va a descontar" : "Se va a sumar"} del
+                  stock del depósito elegido.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Motivo — obligatorio en los ajustes, porque es lo único que deja
               rastro de por qué alguien cambió el stock a mano. */}
@@ -375,9 +481,9 @@ export default function NuevoMovimientoPage() {
             <div>
               <label className={labelClass}>
                 Cantidad
-                {form.tipo === "AJUSTE" && (
-                  <span className="ml-2 text-xs text-gray-400 font-normal">
-                    (negativo para disminuir)
+                {form.tipo === "AJUSTE" && ajusteSigno !== "" && (
+                  <span className={`ml-2 text-xs font-semibold ${ajusteSigno === "restar" ? "text-rose-600" : "text-emerald-700"}`}>
+                    {ajusteSigno === "restar" ? "a restar" : "a sumar"}
                   </span>
                 )}
               </label>
@@ -386,11 +492,24 @@ export default function NuevoMovimientoPage() {
                 name="cantidad"
                 value={form.cantidad}
                 onChange={handleChange}
-                placeholder={form.tipo === "AJUSTE" ? "Ej: -3 o +5" : "Ej: 10"}
+                placeholder="Ej: 10"
                 className={inputClass}
                 step="1"
+                min={form.tipo === "AJUSTE" ? 0 : undefined}
                 required
               />
+              {/* Antes y después, en números, antes de guardar. Es la única
+                  forma de que el que ajusta vea si entendió al revés. */}
+              {previsualizacionAjuste && (
+                <p className="mt-1.5 text-xs text-slate-700">
+                  Stock{" "}
+                  <span className="font-semibold tabular-nums">{previsualizacionAjuste.antes}</span>
+                  {" → "}
+                  <span className={`font-bold tabular-nums ${previsualizacionAjuste.despues < previsualizacionAjuste.antes ? "text-rose-700" : "text-emerald-700"}`}>
+                    {previsualizacionAjuste.despues}
+                  </span>
+                </p>
+              )}
             </div>
 
             <div>
