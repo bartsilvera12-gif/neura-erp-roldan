@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { validarIdentificadorAlta } from "@/lib/clientes/identificador";
 import { emitEvent, EVENT_TYPES } from "@/lib/integrations/events";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { createServiceRoleClient } from "@/lib/supabase/service-admin";
@@ -341,19 +342,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse("Cargá la razón social o la persona de contacto."), { status: 400 });
     }
 
-    // Validación de formato de RUC paraguayo (dígitos-dígito verificador).
-    // Empresas siempre validan; personas sólo si es_contribuyente=true.
-    const rucRaw = typeof ruc === "string" ? ruc.trim() : "";
-    const debeValidarRuc =
-      rucRaw.length > 0 &&
-      (tipo_cliente === "empresa" || es_contribuyente === true);
-    if (debeValidarRuc && !/^\d{1,10}-\d$/.test(rucRaw)) {
-      return NextResponse.json(
-        errorResponse(
-          'Los datos no fueron cargados correctamente, seguir la estructura del RUC (números-dígito verificador, ej: 12345678-9).'
-        ),
-        { status: 400 }
-      );
+    /**
+     * RUC o cédula: uno de los dos es obligatorio para dar de alta un cliente.
+     *
+     * Va acá, en el POST, y NO en el PATCH: de los 21.344 clientes que vinieron
+     * del sistema anterior una parte no tiene RUC, y exigirlo al editar dejaría
+     * esas fichas congeladas —no se podría corregir ni un teléfono sin inventar
+     * un RUC—. Ver `validarIdentificadorAlta`.
+     *
+     * El formato del RUC se exige a empresas y contribuyentes, que son los que
+     * facturan electrónicamente.
+     */
+    const ident = validarIdentificadorAlta(
+      { ruc, documento },
+      tipo_cliente === "empresa" || es_contribuyente === true
+    );
+    if (!ident.ok) {
+      return NextResponse.json(errorResponse(ident.error ?? "Falta el RUC o la cédula."), { status: 400 });
     }
 
     const tipoServicio = tipo_servicio_cliente?.trim();

@@ -9,6 +9,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
+import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 type ProductoLite = {
@@ -572,7 +573,33 @@ export default function EditarPresupuestoPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Forma de pago</label>
-            <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} className={inputClass} placeholder="Ej: 50% anticipo, saldo contra entrega" />
+            {/* Lista cerrada: antes era texto libre y cada vendedor escribía la
+                suya ("50% anticipo", "mitad y mitad"), así que el documento que
+                firma el cliente decía algo distinto cada vez. Son condiciones
+                comerciales: las define la casa, no quien atiende. */}
+            <select
+              value={esFormaPagoConocida(formaPago) || formaPago === "" ? formaPago : "__otra__"}
+              onChange={(e) => setFormaPago(e.target.value === "__otra__" ? formaPago : e.target.value)}
+              className={`${inputClass} bg-white`}
+            >
+              <option value="">— Elegir —</option>
+              {FORMAS_PAGO.map((f) => (
+                <option key={f.valor} value={f.valor}>{f.etiqueta}</option>
+              ))}
+              {/* Un presupuesto viejo puede tener una forma escrita a mano: se
+                  muestra como está en vez de pisarla. Cambiarla a la fuerza
+                  cambiaría la condición de un documento que el cliente ya
+                  tiene. */}
+              {formaPago !== "" && !esFormaPagoConocida(formaPago) && (
+                <option value="__otra__">{formaPago} (cargada a mano)</option>
+              )}
+            </select>
+            {formaPago.includes("{anticipo}") && (
+              <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                El porcentaje sale de Configuración → Presupuesto, así cambiarlo no obliga a
+                rehacer cada presupuesto.
+              </p>
+            )}
           </div>
           <div>
             <label className={labelClass}>Plazo de entrega</label>

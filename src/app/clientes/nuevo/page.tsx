@@ -18,6 +18,7 @@ import {
   type TributarioFormState,
 } from "@/components/clientes/ClientePerfilTributarioForm";
 import { getProspecto, updateProspecto } from "@/lib/crm/storage";
+import { validarIdentificadorAlta } from "@/lib/clientes/identificador";
 import { getUsuariosActivosEmpresa, type UsuarioEmpresa } from "@/lib/usuarios/empresa";
 import MontoInput from "@/components/ui/MontoInput";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -268,6 +269,16 @@ function NuevoClienteForm() {
 
     if (form.tipo_cliente === "persona" && !form.nombre_contacto.trim()) return setError("El nombre completo es obligatorio.");
     if (form.tipo_cliente === "empresa" && !form.empresa.trim())   return setError("La razón social es obligatoria para empresas.");
+
+    // RUC o cédula: uno de los dos. Mismo criterio que el servidor, acá para
+    // que el aviso salga antes de mandar el formulario entero.
+    {
+      const ident = validarIdentificadorAlta(
+        { ruc: form.ruc, documento: form.documento },
+        form.tipo_cliente === "empresa" || form.es_contribuyente === true
+      );
+      if (!ident.ok) return setError(ident.error ?? "Falta el RUC o la cédula.");
+    }
 
     // Validación de formato de RUC paraguayo (dígitos-dígito verificador).
     // Empresa siempre lo guarda; persona sólo si es contribuyente.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { validarIdentificadorAlta } from "@/lib/clientes/identificador";
 import { apiCreateCliente } from "@/lib/api/client";
 
 export interface NuevoClienteCreado {
@@ -64,7 +65,17 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
   }, [onClose, enviando]);
 
   const nombreTrim = nombre.trim();
-  const puedeGuardar = nombreTrim.length >= 2 && !enviando;
+  /**
+   * El RUC o la cédula son obligatorios. Se valida acá además de en el
+   * servidor para que el aviso aparezca antes de mandar: con el cliente
+   * esperando en el mostrador, un error que vuelve del servidor son dos
+   * segundos más de silencio.
+   */
+  const identificador = validarIdentificadorAlta(
+    { ruc: tipo === "empresa" ? ruc : "", documento: tipo === "persona" ? documento : "" },
+    tipo === "empresa"
+  );
+  const puedeGuardar = nombreTrim.length >= 2 && identificador.ok && !enviando;
 
   async function handleSubmit() {
     if (!puedeGuardar) return;
@@ -153,6 +164,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
         {/* RUC / documento */}
         <label className="mt-3 block text-sm font-medium text-slate-800">
           {tipo === "empresa" ? "RUC" : "CI / Documento"}
+          <span className="ml-1 text-rose-600">*</span>
         </label>
         <input
           value={tipo === "empresa" ? ruc : documento}
@@ -161,8 +173,13 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
           }
           disabled={enviando}
           placeholder={tipo === "empresa" ? "Ej: 80011405-1" : "Ej: 4123456"}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
+          className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20 ${
+            identificador.ok ? "border-slate-300 focus:border-[#4FAEB2]" : "border-rose-300 focus:border-rose-400"
+          }`}
         />
+        {!identificador.ok && (
+          <p className="mt-1 text-[11px] leading-snug text-rose-600">{identificador.error}</p>
+        )}
 
         {/* Teléfono */}
         <label className="mt-3 block text-sm font-medium text-slate-800">

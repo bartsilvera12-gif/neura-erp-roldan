@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
+import { TIPOS_VENDEDOR, esTipoVendedorConocido } from "@/lib/comisiones/tipos-vendedor";
 
 /**
  * Configuración de comisiones (punto 4.5).
@@ -168,6 +169,24 @@ export async function POST(request: NextRequest) {
     if (accion === "tipo") {
       const nombre = String(b.nombre ?? "").trim().toUpperCase();
       if (!nombre) return NextResponse.json(errorResponse("Poné un nombre para el tipo."), { status: 400 });
+
+      /**
+       * Los tipos salen de una lista cerrada (ver `TIPOS_VENDEDOR`).
+       *
+       * Solo se exige AL CREAR: al editar llega el nombre que ya tiene la fila,
+       * y si en la base hay un tipo con otro nombre —cargado antes de esta
+       * regla— tiene que poder seguir cambiándole el porcentaje. Exigirlo
+       * también al editar dejaría esos tipos congelados.
+       */
+      if (!b.id && !esTipoVendedorConocido(nombre)) {
+        return NextResponse.json(
+          errorResponse(
+            `"${nombre}" no es uno de los tipos de vendedor previstos. ` +
+            `Elegí uno de: ${TIPOS_VENDEDOR.join(", ")}.`
+          ),
+          { status: 400 }
+        );
+      }
       const pct = Number(b.porcentaje_base);
       if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
         return NextResponse.json(
@@ -437,7 +456,7 @@ export async function POST(request: NextRequest) {
         penalizacion_maxima_pct: topeDescuento,
       };
 
-      let r = await supabase.from("comisiones_config")
+      const r = await supabase.from("comisiones_config")
         .upsert(conDescuento, { onConflict: "empresa_id" });
       // Sin el script 43 esas dos columnas no existen: se guarda el resto y se
       // avisa, en vez de dejar creyendo que el recorte quedó configurado.

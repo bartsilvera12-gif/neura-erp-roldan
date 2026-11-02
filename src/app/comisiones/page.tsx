@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { tiposDisponibles } from "@/lib/comisiones/tipos-vendedor";
 
 /**
  * Vendedores y comisiones (módulo 4).
@@ -780,15 +781,16 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
           </tbody>
         </table>
 
-        <FormaInline
-          campos={[
-            { name: "nombre", placeholder: "Ej: EXTERNO", tipo: "text" },
-            { name: "porcentaje_base", placeholder: "% base", tipo: "number" },
-          ]}
-          textoBoton="Agregar tipo"
+        {/* El nombre sale de una lista, no se escribe.
+            Con el campo abierto aparecían "CALL CENTER", "Call center" y
+            "CALLCENTER" como tres tipos distintos, cada uno con su porcentaje y
+            su mínimo, y las comisiones se repartían entre tres configuraciones
+            que nadie quiso crear. */}
+        <NuevoTipoVendedor
+          yaCargados={cfg.tipos}
           disabled={guardando}
-          onEnviar={(v) => void enviar({
-            accion: "tipo", nombre: v.nombre, porcentaje_base: Number(v.porcentaje_base) || 0,
+          onEnviar={(nombre, porcentajeBase) => void enviar({
+            accion: "tipo", nombre, porcentaje_base: porcentajeBase,
           })}
         />
       </Caja>
@@ -1251,33 +1253,68 @@ function Tarjeta({ label, valor, sub, tono, destacado = false }: {
   );
 }
 
-function FormaInline({ campos, textoBoton, disabled, onEnviar }: {
-  campos: { name: string; placeholder: string; tipo: string }[];
-  textoBoton: string;
+/**
+ * Alta de un tipo de vendedor, eligiendo el nombre de una lista cerrada.
+ *
+ * Los tipos que ya existen en la base siguen funcionando aunque no estén en la
+ * lista: esto limita lo que se puede CREAR, no lo que hay. Borrar un tipo
+ * cargado dejaría sin porcentaje a los vendedores que lo tienen asignado.
+ */
+function NuevoTipoVendedor({ yaCargados, disabled, onEnviar }: {
+  yaCargados: Tipo[];
   disabled?: boolean;
-  onEnviar: (v: Record<string, string>) => void;
+  onEnviar: (nombre: string, porcentajeBase: number) => void;
 }) {
-  const [v, setV] = useState<Record<string, string>>({});
+  const [nombre, setNombre] = useState("");
+  const [pctBase, setPctBase] = useState("");
+
+  const opciones = tiposDisponibles(yaCargados);
+
+  if (opciones.length === 0) {
+    return (
+      <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
+        Ya están cargados todos los tipos de vendedor previstos.
+      </p>
+    );
+  }
+
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-      {campos.map((c) => (
-        <input
-          key={c.name} type={c.tipo} placeholder={c.placeholder}
-          value={v[c.name] ?? ""}
-          onChange={(e) => setV((p) => ({ ...p, [c.name]: e.target.value }))}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
-        />
-      ))}
+      <select
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        disabled={disabled}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm"
+      >
+        <option value="">— Tipo de vendedor —</option>
+        {opciones.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <input
+        type="number" min={0} max={100} step="0.01"
+        placeholder="% base"
+        value={pctBase}
+        onChange={(e) => setPctBase(e.target.value)}
+        disabled={disabled}
+        className="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm tabular-nums"
+      />
       <button
-        type="button" disabled={disabled}
-        onClick={() => { onEnviar(v); setV({}); }}
+        type="button"
+        // Sin nombre no hay nada que crear. El % base puede quedar en cero: es
+        // un valor real (el que no comisiona si ninguna regla aplica).
+        disabled={disabled || nombre === ""}
+        onClick={() => {
+          onEnviar(nombre, Number(pctBase) || 0);
+          setNombre("");
+          setPctBase("");
+        }}
         className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
       >
-        {textoBoton}
+        Agregar tipo
       </button>
     </div>
   );
 }
+
 
 
 /* ──────────────────── Resumen de un vendedor, en pantalla ───────────────── */
