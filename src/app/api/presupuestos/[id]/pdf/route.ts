@@ -4,7 +4,7 @@ import { EMPRESA_DOC } from "@/lib/documentos/membrete";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { readFile } from "fs/promises";
 import path from "path";
-import { PLANTILLA_POR_DEFECTO, formaPagoConAnticipo } from "@/lib/presupuestos/plantilla";
+import { PLANTILLA_POR_DEFECTO, formaPagoConAnticipo, observacionesConPlazo } from "@/lib/presupuestos/plantilla";
 
 /**
  * GET /api/presupuestos/[id]/pdf
@@ -308,7 +308,8 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     hoja.drawText(san(l), { x: MARGIN + 14, y, size: 7.5, font, color: NEGRO });
     y -= 9.5;
   };
-  for (const linea of plantilla.observaciones.split(/\r?\n/)) {
+  const observaciones = observacionesConPlazo(plantilla.observaciones, String(p.plazo_entrega ?? ""));
+  for (const linea of observaciones.split(/\r?\n/)) {
     const texto = linea.trim();
     if (!texto) continue;
     for (const l of wrap(`- ${texto}`, font, 7.5, RIGHT - MARGIN - 14)) escribirCondicion(l);

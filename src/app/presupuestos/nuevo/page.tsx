@@ -547,6 +547,14 @@ export default function NuevoPresupuestoPage() {
           <div>
             <label className={labelClass}>Plazo de entrega</label>
             <input value={plazoEntrega} onChange={(e) => setPlazoEntrega(e.target.value)} className={inputClass} placeholder="Ej: 5 días hábiles" />
+            {/* Esto no es solo un dato interno: entra en una de las
+                condiciones impresas. Los días hábiles cambian según la
+                disponibilidad y el tipo de producto, así que se escribe por
+                presupuesto en vez de quedar fijo en el texto. */}
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              Sale impreso en las condiciones: “el plazo de procesamiento es de
+              <strong> {plazoEntrega.trim() || "el plazo acordado con el vendedor"}</strong>”.
+            </p>
           </div>
           <div className="sm:col-span-3">
             <label className={labelClass}>Condiciones comerciales</label>
