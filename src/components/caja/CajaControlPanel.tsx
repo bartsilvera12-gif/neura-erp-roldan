@@ -24,6 +24,7 @@ import {
   Clock,
   FileText,
 } from "lucide-react";
+import ComprobantesMovimiento from "@/components/caja/ComprobantesMovimiento";
 import MontoInput from "@/components/ui/MontoInput";
 import AdjuntosEgreso, { type AdjuntoEgreso } from "@/components/caja/AdjuntosEgreso";
 import ArqueoDenominaciones, {
@@ -379,6 +380,11 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                         <span className="truncate font-medium text-slate-700">{m.concepto}</span>
                         <span className="text-slate-400">·</span>
                         <span className="text-slate-500 capitalize">{m.medio_pago}</span>
+                        {/* El comprobante que se acaba de subir, para poder
+                            confirmar que entró sin salir de la pantalla. */}
+                        {(m.adjuntos ?? []).some((a) => (a.path ?? "").trim() !== "") && (
+                          <ComprobantesMovimiento adjuntos={m.adjuntos} />
+                        )}
                       </span>
                       <span className={`tabular-nums font-bold ${m.tipo === "ingreso" ? "text-emerald-700" : m.tipo === "egreso" || m.tipo === "retiro" ? "text-red-600" : "text-amber-700"}`}>
                         {m.tipo === "egreso" || m.tipo === "retiro" ? "−" : "+"}

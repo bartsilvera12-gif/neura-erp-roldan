@@ -1213,7 +1213,9 @@ async function computeResumen(
       usuario_id: m.usuario_id,
       observacion: m.observacion,
       tipo_egreso: (m as { tipo_egreso?: string | null }).tipo_egreso ?? null,
-      adjuntos: (m as { adjuntos?: Array<{ tipo: string; nombre: string }> | null }).adjuntos ?? null,
+      // El `path` viene en el jsonb y es lo que necesita la pantalla para pedir
+      // el enlace firmado: sin declararlo acá, el tipo decía que no existía.
+      adjuntos: (m as { adjuntos?: Array<{ tipo: string; nombre: string; path?: string | null }> | null }).adjuntos ?? null,
       created_at: m.created_at,
     };
   });

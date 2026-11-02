@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import ComprobantesMovimiento from "@/components/caja/ComprobantesMovimiento";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useRolErp } from "@/lib/auth/use-rol-erp";
 import { isErpRolSupervisor } from "@/lib/usuarios/erp-rol-normalize";
@@ -303,7 +304,7 @@ export default function DetalleCierreCajaPage() {
           <AccionesTabla
             titulo={`Movimientos de la caja ${c.numero_caja}`}
             archivo={`movimientos-caja-${c.numero_caja}-${(c.fecha_apertura ?? "").slice(0, 10)}`}
-            columnas={["Hora", "Tipo", "Clase de egreso", "Concepto", "Medio", "Usuario", "Observación", "Monto"]}
+            columnas={["Hora", "Tipo", "Clase de egreso", "Concepto", "Medio", "Usuario", "Observación", "Comprobantes", "Monto"]}
             filas={movimientos.map((m) => [
               fechaHora(m.created_at).slice(11),
               TIPO_MOV[m.tipo] ?? m.tipo,
@@ -312,9 +313,17 @@ export default function DetalleCierreCajaPage() {
               MEDIO[m.medio_pago ?? ""] ?? m.medio_pago ?? "",
               m.usuario_nombre ?? m.usuario_email ?? "",
               m.observacion ?? "",
+              // En el Excel no hay enlaces: va qué comprobantes tiene, que es
+              // lo que el contador necesita saber para pedir los que faltan.
+              (m.adjuntos ?? [])
+                .filter((a) => (a.path ?? "").trim() !== "")
+                .map((a) => (a.tipo === "factura" ? "Factura" : "Recibo"))
+                .join(" + ") || (m.tipo === "egreso" ? "Sin comprobante" : ""),
               m.monto,
             ])}
-            sumar={[7]}
+            // El monto se corrió un lugar al agregar la columna: sin mover esto
+            // el total del Excel sumaría la columna de comprobantes.
+            sumar={[8]}
           />
         </div>
         {movimientos.length === 0 ? (
@@ -327,6 +336,7 @@ export default function DetalleCierreCajaPage() {
                 <th className="px-4 py-3 font-semibold">Tipo</th>
                 <th className="px-4 py-3 font-semibold">Concepto</th>
                 <th className="px-4 py-3 font-semibold">Usuario</th>
+                <th className="px-4 py-3 font-semibold">Comprobante</th>
                 <th className="px-4 py-3 text-right font-semibold">Monto</th>
               </tr>
             </thead>
@@ -343,6 +353,15 @@ export default function DetalleCierreCajaPage() {
                     {m.observacion && <span className="block text-[11px] text-slate-400">{m.observacion}</span>}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{m.usuario_nombre || m.usuario_email || "—"}</td>
+                  {/* La factura y el recibo que se subieron al cargar el egreso.
+                      Se abren desde acá: antes el archivo entraba y no se podía
+                      volver a ver desde ninguna pantalla. */}
+                  <td className="px-4 py-3">
+                    <ComprobantesMovimiento
+                      adjuntos={m.adjuntos}
+                      marcarFalta={m.tipo === "egreso"}
+                    />
+                  </td>
                   <td className={`px-4 py-3 text-right font-semibold tabular-nums ${m.tipo === "ingreso" ? "text-emerald-700" : "text-slate-800"}`}>
                     {gs(m.monto)}
                   </td>
