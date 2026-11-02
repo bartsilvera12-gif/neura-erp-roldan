@@ -26,9 +26,11 @@ import json
 import os
 import sys
 import time
+import http.client
 import urllib.error
 import urllib.request
 import uuid
+import collections
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -73,7 +75,10 @@ def api(metodo, ruta, cuerpo=None, prefer=None, intentos=4):
                 time.sleep(2 * (n + 1))
                 continue
             raise RuntimeError(f"{metodo} {ruta} → {e.code}: {detalle}") from None
-        except (urllib.error.URLError, TimeoutError):
+        except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException):
+            # El servidor corta conexiones cuando se le mandan miles de
+            # pedidos seguidos (RemoteDisconnected). Es un corte de red, no un
+            # rechazo: se reintenta en vez de perder la corrida entera.
             if n < intentos - 1:
                 time.sleep(2 * (n + 1))
                 continue
@@ -136,10 +141,36 @@ def num(v, defecto=0.0):
 
 
 def txt(v, maximo=None):
+    """
+    Limpia un texto del sistema viejo.
+
+    Saca los caracteres de control: hay notas de egreso con un NUL (\x00)
+    adentro, y PostgreSQL rechaza la fila entera con "unsupported Unicode
+    escape sequence". Un carácter invisible en una nota de 2021 no puede
+    frenar la migración de 18.000 movimientos.
+    """
     s = (v or "").strip()
+    s = "".join(c for c in s if c == "\n" or c == "\t" or ord(c) >= 32)
+    s = s.strip()
     if s in ("", "-", "0"):
         return None
     return s[:maximo] if maximo else s
+
+
+def hora_ok(v, defecto="12:00:00"):
+    """
+    El sistema viejo guarda la hora como texto y a veces pone "0" o la deja
+    vacía. Sin validar el formato salían fechas como "2019-01-31T0-03:00",
+    que PostgreSQL rechaza.
+    """
+    s_ = (v or "").strip()
+    partes = s_.split(":")
+    if len(partes) >= 2 and all(p.isdigit() for p in partes[:3]):
+        h, m = int(partes[0]), int(partes[1])
+        sg = int(partes[2]) if len(partes) > 2 else 0
+        if 0 <= h < 24 and 0 <= m < 60 and 0 <= sg < 60:
+            return f"{h:02d}:{m:02d}:{sg:02d}"
+    return defecto
 
 
 def fecha_ok(v):
@@ -648,6 +679,184 @@ def fase_anticipos():
     print("  ", insertar("anticipos", filas, lote=300))
 
 
+# ══════════════════════════════════════════════════════════════════════════
+#  FASE 6 — Turnos de caja
+# ══════════════════════════════════════════════════════════════════════════
+def fase_cajas():
+    """
+    Los 2.137 turnos de caja de siete años, con sus movimientos.
+
+    ── TODOS ENTRAN CERRADOS ─────────────────────────────────────────────
+      El sistema viejo tiene un turno en estado 'Activo'. Si se migrara así,
+      el ERP nuevo creería que hay una caja abierta desde 2019 y Caja no
+      dejaría abrir la de hoy. Se fuerzan todos a 'cerrada'.
+
+    ── QUÉ MOVIMIENTOS SE TRAEN ──────────────────────────────────────────
+      El arqueo del turno se rearma sumando lo que entró y salió del cajón,
+      así que no alcanza con la cabecera: hacen falta los egresos (14.195),
+      las entregas de recaudación (3.952), las cobranzas con recibo y las
+      otras entradas. Sin ellos, cada turno viejo mostraría un faltante
+      enorme que nunca existió.
+
+    ── LO QUE NO SE PUEDE TRAER ──────────────────────────────────────────
+      El desglose por billete (`b1..b12` al abrir, `r1..r12` al cerrar). En
+      el sistema viejo esas columnas mezclan importes y cantidades —`b11` vale
+      752.000 y `r2` vale 11— y no hay tabla que diga qué denominación es
+      cada una. Inventar el desglose sería fabricar un arqueo que nadie contó:
+      se migran los totales, que son los que cuadran la caja.
+    """
+    print("\n── TURNOS DE CAJA ──")
+    resp = {r["rescodigo"]: txt(r["resdescrip"]) for r in dump.filas(F, "responsable")}
+    aperturas = {}
+    fecha_del_turno = {}
+    cajas = []
+    for a in dump.filas(F, "apertura"):
+        f = fecha_ok(a["apefecha"])
+        # El turno 0 es la misma basura que la venta 0: sin hora, sin montos y
+        # sin ninguna venta colgada. Un turno número 0 en el reporte de cierres
+        # solo genera la pregunta de qué es.
+        if not f or a["apecodigo"] == "0":
+            continue
+        ini = hora_ok(a["apehoraini"], "08:00:00")
+        # El cierre suele ser al otro día (abre 09:07 y cierra 07:00): la fecha
+        # real del cierre es la de liquidación, no la de apertura.
+        fcierre = fecha_ok(a["fecha_liquidacion"]) or f
+        fin = hora_ok(a["apehorafin"], "20:00:00")
+        esperado = num(a["monto_a_rendir"])
+        contado = num(a["monto_rendido"])
+        quien = resp.get(a["rescodigo"]) or "sin identificar"
+        cid = uid("apertura", a["apecodigo"])
+        aperturas[a["apecodigo"]] = cid
+        fecha_del_turno[a["apecodigo"]] = f
+        cajas.append({
+            "id": cid,
+            "empresa_id": EMPRESA,
+            "sucursal_id": SUCURSAL,
+            "numero_caja": int(num(a["apecodigo"])),
+            "estado": "cerrada",
+            "fecha_apertura": f"{f}T{ini}-03:00",
+            "fecha_cierre": f"{fcierre}T{fin}-03:00",
+            "monto_apertura": num(a["permonto"]),
+            "monto_esperado_efectivo": esperado,
+            "monto_cierre_contado": contado,
+            # Se calcula en vez de copiar `monto_diferencia`: el sistema viejo
+            # la guarda siempre en positivo y acá el signo es el que distingue
+            # un faltante de un sobrante.
+            "diferencia": round(contado - esperado, 2),
+            "diferencia_arrastrada": num(a["dife_caja_ante"]),
+            "diferencia_resuelta": True,
+            "observacion_apertura": f"{MIGRADO}. Abrió: {quien}.",
+            "observacion_cierre": (txt(a["comentario"], 400) or "")
+                                  + (f" [{MIGRADO}. Turno {a['apecodigo']} del sistema anterior.]"),
+        })
+    print(f"   {len(cajas):,} turnos")
+    print("  ", insertar("cajas", cajas, lote=300))
+
+    # ── Movimientos del cajón ───────────────────────────────────────────
+    movs = []
+
+    def mov(clase, codigo, caja_old, tipo, concepto, monto, medio="efectivo",
+            fecha=None, obs=None, tipo_egreso=None):
+        cid = aperturas.get(caja_old)
+        if not cid or monto <= 0:
+            return
+        # `created_at` es obligatoria, y `uniformar` le pone None a las filas
+        # que no la traen: sin esto, el lote entero se cae. Cuando el detalle
+        # no tiene fecha propia se usa la del turno, que es la correcta —
+        # el movimiento pasó dentro de ese turno.
+        if not fecha:
+            dia = fecha_del_turno.get(caja_old)
+            fecha = f"{dia}T12:00:00-03:00" if dia else None
+        movs.append({
+            "id": uid(clase, codigo),
+            "empresa_id": EMPRESA,
+            "sucursal_id": SUCURSAL,
+            "caja_id": cid,
+            "tipo": tipo,
+            "concepto": (concepto or tipo)[:200],
+            "monto": monto,
+            "medio_pago": medio,
+            "tipo_egreso": tipo_egreso,
+            "usuario_email": None,
+            "observacion": obs,
+            "adjuntos": [],
+            "created_at": fecha,
+        })
+
+    provs = {p["procodigo"]: txt(p["prodescrip"], 150) for p in dump.filas(F, "proveedor")}
+    for e in dump.filas(F, "egreso"):
+        f = fecha_ok(e["egrfecha"])
+        prov = provs.get(e["procodigo"])
+        mov("egreso", e["egrcodigo"], e["apecodigo"], "egreso",
+            txt(e["nota"], 200) or "Egreso de caja", num(e["egrmonto"]),
+            fecha=f"{f}T12:00:00-03:00" if f else None,
+            obs=f"{MIGRADO}." + (f" Proveedor: {prov}." if prov else "")
+                + (f" Factura {e['egrnrofact']}." if txt(str(e['egrnrofact'])) else ""),
+            tipo_egreso="otros")
+
+    for d in dump.filas(F, "apertura_deposito"):
+        # La recaudación que se saca del cajón y se entrega: en el modelo nuevo
+        # es un retiro, que es justo lo que el arqueo descuenta del esperado.
+        dia = None  # la fecha la pone el turno; el detalle solo trae la hora
+        mov("deposito", d["depcodigo"], d["apecodigo"], "retiro",
+            txt(d["depdescrip"], 200) or "Entrega de recaudación", num(d["depmonto"]),
+            fecha=(f"{fecha_del_turno[d['apecodigo']]}T{hora_ok(d['dephora'])}-03:00"
+                   if d["apecodigo"] in fecha_del_turno else None),
+            obs=MIGRADO)
+        del dia
+
+    for o in dump.filas(F, "aper_otra_entrada"):
+        f = fecha_ok(o["fecha"])
+        mov("otraentrada", o["otrcodigo"], o["apecodigo"], "ingreso",
+            txt(o["otrcomentario"], 200) or "Otra entrada", num(o["monto"]),
+            fecha=f"{f}T{hora_ok(o['hora'])}-03:00" if f else None,
+            obs=MIGRADO)
+
+    for c in dump.filas(F, "apertura_cobranza"):
+        # Una cobranza puede venir partida en efectivo, cheque y tarjeta. Solo
+        # la parte en efectivo mueve el cajón, y el medio queda guardado para
+        # que el arqueo sepa qué contar y qué no.
+        for medio, campo in (("efectivo", "efectivo"), ("cheque", "chemonto"), ("tarjeta", "tarmonto")):
+            monto = num(c[campo])
+            if monto <= 0:
+                continue
+            mov("cobranza", f"{c['Cobcodigo']}-{medio}", c["apecodigo"], "ingreso",
+                f"Cobranza {txt(c['cobdescrip'], 150) or ''}".strip(), monto, medio=medio,
+                obs=f"{MIGRADO}. Recibo {c['recnro']}.")
+
+    print(f"   {len(movs):,} movimientos de caja")
+    por_tipo = collections.Counter(m["tipo"] for m in movs)
+    print(f"   por tipo: {dict(por_tipo)}")
+    print("  ", insertar("caja_movimientos", movs, lote=400))
+
+    # ── Atar lo ya migrado a su turno ───────────────────────────────────
+    print("\n   atando las ventas a su turno...", flush=True)
+    por_caja = defaultdict(list)
+    for v in dump.filas(F, "venta"):
+        cid = aperturas.get(v["apecodigo"])
+        if cid:
+            por_caja[cid].append(uid("venta", v["vencodigo"]))
+    atadas = 0
+    for cid, ids in por_caja.items():
+        for i in range(0, len(ids), 150):
+            trozo = ids[i : i + 150]
+            lista = ",".join(trozo)
+            api("PATCH", f"ventas?id=in.({lista})", {"caja_id": cid}, prefer="return=minimal")
+            atadas += len(trozo)
+    print(f"   {atadas:,} ventas atadas a su turno")
+
+    print("   atando los anticipos a su turno...", flush=True)
+    n = 0
+    for a in dump.filas(F, "anticipo"):
+        cid = aperturas.get(a["apecodigo"])
+        if not cid:
+            continue
+        api("PATCH", f"anticipos?id=eq.{uid('anticipo', a['antcodigo'])}",
+            {"caja_id": cid}, prefer="return=minimal")
+        n += 1
+    print(f"   {n} anticipos atados")
+
+
 if __name__ == "__main__":
     fase = sys.argv[1] if len(sys.argv) > 1 else ""
     t0 = time.time()
@@ -657,6 +866,8 @@ if __name__ == "__main__":
         fase_articulos()
     elif fase == "clientes":
         fase_clientes()
+    elif fase == "cajas":
+        fase_cajas()
     elif fase == "compras":
         fase_compras()
     elif fase == "anticipos":

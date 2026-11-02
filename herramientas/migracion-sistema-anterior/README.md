@@ -17,6 +17,9 @@ python3 migrar.py clientes     # 21.344 clientes
 python3 migrar.py ventas       # 85.665 ventas + 187.785 líneas (~8 minutos)
 python3 migrar.py compras      # 17.017 filas de compra
 python3 migrar.py anticipos    # 948 anticipos
+python3 migrar.py cajas        # 2.136 turnos + 18.483 movimientos de caja
+python3 atar.py                # ata las ventas y anticipos a su turno (reintentable)
+python3 nota_turnos.py         # explica el esperado de los turnos con cobranzas no en efectivo
 python3 verificar.py           # contrasta las dos bases
 ```
 
@@ -38,6 +41,9 @@ Eso es lo que permite reintentar una tanda cortada sin limpiar nada a mano.
 | Anticipos | `utilizado` salvo los anulados | Son de 2019–2024; darlos por disponibles sería ofrecerle al cajero plata que el cliente ya retiró |
 | Compras sin proveedor | proveedor "SIN PROVEEDOR IDENTIFICADO" | `compras.proveedor_id` es obligatoria y el sistema viejo tenía compras con proveedor `-` |
 | Remarcación del rubro | en la descripción del rubro | `categorias_productos` no tiene campo de markup; el dato no se pierde |
+| Turnos de caja | todos `cerrada` | El sistema viejo tiene uno "Activo": migrarlo así haría creer al ERP que hay una caja abierta desde 2019 y no dejaría abrir la de hoy |
+| Quién abrió el turno | el nombre en `observacion_apertura` | `abierta_por` es un uuid de `usuarios` y los cajeros del sistema viejo no existen como usuarios acá |
+| Desglose por billete | **no se migra** | En el sistema viejo `b1..b12` y `r1..r12` mezclan importes y cantidades (`b11`=752.000, `r2`=11) y no hay tabla que diga qué denominación es cada una. Inventarlo sería fabricar un arqueo que nadie contó |
 
 ## Lo que NO se migró, a propósito
 
@@ -47,8 +53,7 @@ Eso es lo que permite reintentar una tanda cortada sin limpiar nada a mano.
   nuevo las calcula solo desde los movimientos.
 - `venta_pendiente` / `venta_detalle_pendiente` (96.823 / 246.165): pedidos sin
   cerrar del sistema viejo. Se puede hacer si el cliente los necesita.
-- `apertura` y `aper_*`: los turnos de caja de siete años. Se puede hacer, pero
-  mapear denominaciones, rendiciones y diferencias merece su propia vuelta.
+- Los 96.823 pedidos pendientes (`venta_pendiente`), si el cliente los pide.
 - Dos ventas de Gs. 0 sin líneas (una es la fila basura `vencodigo=0`, la otra
   está anulada y comentada "factura en cero").
 
@@ -65,4 +70,24 @@ STOCK: 996 SKUs comparados uno por uno        0 diferencias
 CLIENTES: 21.344                              completo
 ANTICIPOS: 948                                completo
 VENTAS: 82.625 activas / 3.040 anuladas       faltan las 2 de Gs. 0 sin líneas
+TURNOS DE CAJA: 2.136 con 18.483 movimientos  esperado/contado/diferencia del sistema viejo
 ```
+
+## Sobre el arqueo de los turnos migrados
+
+El esperado, el contado y la diferencia de cada turno son **los del sistema
+viejo**: son los números que el cajero firmó y que el cliente conoce.
+
+Pero el ERP nuevo, al abrir el detalle de un turno, **recalcula** el efectivo
+esperado sumando apertura + ventas en efectivo + anticipos + ingresos − egresos
+− retiros. Esas dos cuentas coinciden en **1.680 de los 2.136 turnos (78,7%)**.
+
+En los otros 456 no coinciden, y no es un error de la migración: el
+`monto_a_rendir` del sistema viejo es **todo lo que el cajero entrega**
+—efectivo MÁS los cheques y tarjetas de las cobranzas del día— mientras que el
+campo del ERP nuevo es solo efectivo. En el turno 1724, por ejemplo, la
+diferencia es exactamente la cobranza de Gs. 148.454.361 que entró en cheque.
+
+En los 173 turnos donde hubo cobranzas que no fueron en efectivo, la
+observación del cierre lo dice con el desglose, para que quien lea el cierre
+no tenga que deducirlo.
