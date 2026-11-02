@@ -1,21 +1,6 @@
 "use client";
 
-import {
-  BarChart3,
-  CalendarClock,
-  FileText,
-  GitBranch,
-  Inbox,
-  Landmark,
-  LayoutGrid,
-  MessageCircle,
-  Percent,
-  PieChart,
-  Receipt,
-  SlidersHorizontal,
-  Store,
-  UsersRound,
-} from "lucide-react";
+import { BarChart3, Briefcase, CalendarClock, FileText, GitBranch, Inbox, Landmark, LayoutGrid, MessageCircle, Percent, PieChart, Receipt, SlidersHorizontal, Store, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsModuleCard } from "@/components/config/SettingsModuleCard";
 import { getConfig } from "@/lib/config/storage";
@@ -105,6 +90,16 @@ export default function ConfiguracionPage() {
             />
           </li>
           )}
+          <li>
+            <SettingsModuleCard
+              title="Profesiones"
+              subtitle="GLOBAL · COMERCIAL"
+              description="Los oficios con los que se clasifica a los clientes (albañil, herrero, constructora). Se eligen de esta lista en la ficha y en los presupuestos."
+              icon={Briefcase}
+              badge={editorBadge}
+              href="/configuracion/profesiones"
+            />
+          </li>
           <li>
             <SettingsModuleCard
               title="Textos del presupuesto"

@@ -38,6 +38,7 @@ export interface CrearPresupuestoInput {
   vendedor_usuario_id?: string | null;
   vendedor_nombre?: string | null;
   cliente_ciudad?: string | null;
+  cliente_profesion?: string | null;
   items: PresupuestoItemInput[];
 }
 
@@ -154,6 +155,7 @@ export async function crearPresupuesto(
     vendedor_usuario_id: input.vendedor_usuario_id ?? input.usuario_id ?? null,
     vendedor_nombre: input.vendedor_nombre ?? input.usuario_nombre ?? null,
     cliente_ciudad: input.cliente_ciudad ?? null,
+    cliente_profesion: input.cliente_profesion ?? null,
   };
 
   let ins = await sb.from("presupuestos").insert(cabecera).select("id, numero_control").single();
@@ -168,9 +170,9 @@ export async function crearPresupuesto(
   // Sin el script 41 no existen las columnas del vendedor: se reintenta sin
   // ellas para no dejar de guardar presupuestos por un campo nuevo.
   // Sin el script 46 no existe la ciudad.
-  if (ins.error && /cliente_ciudad/.test(ins.error.message ?? "")) {
-    const { cliente_ciudad: _c, ...sinCiudad } = cabecera;
-    ins = await sb.from("presupuestos").insert(sinCiudad).select("id, numero_control").single();
+  if (ins.error && /cliente_ciudad|cliente_profesion/.test(ins.error.message ?? "")) {
+    const { cliente_ciudad: _c, cliente_profesion: _p, ...sinExtras } = cabecera;
+    ins = await sb.from("presupuestos").insert(sinExtras).select("id, numero_control").single();
   }
 
   if (ins.error && /vendedor_usuario_id|vendedor_nombre/.test(ins.error.message ?? "")) {

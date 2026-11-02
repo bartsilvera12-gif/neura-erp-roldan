@@ -24,14 +24,14 @@ const COLS_41 = `${COLS_38}, vendedor_usuario_id, vendedor_nombre`;
 const COLS_42 = `${COLS_41}, enviado_a_caja_at, enviado_a_caja_por`;
 
 /** Ciudad del cliente (script 46). */
-export const PRESU_COLS = `${COLS_42}, cliente_ciudad`;
+export const PRESU_COLS = `${COLS_42}, cliente_ciudad, cliente_profesion`;
 
 /** Las mismas columnas sin las del script 38, por si no está corrido. */
 export const PRESU_COLS_BASE = COLS_COMUNES;
 
 /** ¿Falló porque la base todavía no tiene la columna del script 46? */
 export function faltaScript46(msg: string): boolean {
-  return /cliente_ciudad/.test(msg) && /does not exist|42703|schema cache/i.test(msg);
+  return /cliente_ciudad|cliente_profesion/.test(msg) && /does not exist|42703|schema cache/i.test(msg);
 }
 
 /** ¿Falló porque la base todavía no tiene las columnas del script 42? */

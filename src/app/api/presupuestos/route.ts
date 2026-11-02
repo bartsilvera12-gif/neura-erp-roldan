@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
       cliente_ruc: body.cliente_ruc ? String(body.cliente_ruc) : null,
       cliente_telefono: telefonoCliente,
       cliente_ciudad: body.cliente_ciudad ? String(body.cliente_ciudad).slice(0, 120) : null,
+      cliente_profesion: body.cliente_profesion ? String(body.cliente_profesion).slice(0, 120) : null,
       cliente_direccion: body.cliente_direccion ? String(body.cliente_direccion) : null,
       moneda: body.moneda === "USD" ? "USD" : "PYG",
       validez_dias: validez,

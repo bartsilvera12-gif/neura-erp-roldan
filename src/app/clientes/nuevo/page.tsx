@@ -20,6 +20,7 @@ import {
 import { getProspecto, updateProspecto } from "@/lib/crm/storage";
 import { getUsuariosActivosEmpresa, type UsuarioEmpresa } from "@/lib/usuarios/empresa";
 import MontoInput from "@/components/ui/MontoInput";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { getPlanes } from "@/lib/planes/storage";
 import type { Cliente, TipoCliente, OrigenCliente } from "@/lib/clientes/types";
 import { ClienteDatosSifenReceptorForm } from "@/components/clientes/ClienteDatosSifenReceptorForm";
@@ -49,6 +50,22 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // ── Formulario interno ────────────────────────────────────────────────────────
 
 function NuevoClienteForm() {
+  /** Las profesiones cargadas, para sugerirlas en el campo. */
+  const [profesiones, setProfesiones] = useState<string[]>([]);
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/profesiones?solo_activas=1", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success) return;
+        setProfesiones(
+          ((j.data?.profesiones ?? []) as { nombre?: string }[])
+            .map((x) => String(x.nombre ?? "").trim())
+            .filter(Boolean)
+        );
+      })
+      .catch(() => { /* sin catálogo se escribe a mano, como antes */ });
+  }, []);
+
   const router       = useRouter();
   const searchParams = useSearchParams();
   const fromCrmId    = searchParams?.get("from_crm");
@@ -781,11 +798,23 @@ function NuevoClienteForm() {
                 <input
                   type="text"
                   name="profesion"
+                  list="profesiones-catalogo"
                   value={form.profesion}
                   onChange={handleChange}
                   placeholder="ALBAÑIL, ELECTRICISTA, HERRERO…"
                   className={`${inputClass} uppercase`}
                 />
+                {/* El catálogo sugiere, pero no bloquea: si hace falta un
+                    oficio que todavía no está en la lista, se escribe igual y
+                    después se agrega en Configuración → Profesiones. */}
+                <datalist id="profesiones-catalogo">
+                  {profesiones.map((n) => <option key={n} value={n} />)}
+                </datalist>
+                {profesiones.length === 0 && (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Podés cargar la lista en Configuración → Profesiones.
+                  </p>
+                )}
               </div>
               <div>
                 <label className={labelClass}>Límite de crédito</label>

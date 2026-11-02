@@ -67,6 +67,22 @@ export default function NuevoPresupuestoPage() {
   const [clienteTel, setClienteTel] = useState("");
   const [clienteDir, setClienteDir] = useState("");
   const [clienteCiudad, setClienteCiudad] = useState("");
+  const [clienteProfesion, setClienteProfesion] = useState("");
+  /** El catálogo de oficios, para sugerir y no escribir cualquier cosa. */
+  const [profesiones, setProfesiones] = useState<string[]>([]);
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/profesiones?solo_activas=1", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success) return;
+        setProfesiones(
+          ((j.data?.profesiones ?? []) as { nombre?: string }[])
+            .map((x) => String(x.nombre ?? "").trim())
+            .filter(Boolean)
+        );
+      })
+      .catch(() => { /* sin catálogo, se escribe a mano */ });
+  }, []);
   /** Alta de cliente sin salir del presupuesto, como ya se hace en Caja. */
   const [nuevoClienteOpen, setNuevoClienteOpen] = useState(false);
 
@@ -317,6 +333,7 @@ export default function NuevoPresupuestoPage() {
           cliente_telefono: clienteTel.trim() || null,
           cliente_direccion: clienteDir.trim() || null,
           cliente_ciudad: clienteCiudad.trim() || null,
+          cliente_profesion: clienteProfesion.trim() || null,
           moneda: "PYG",
           validez_dias: validezDias.trim() === "" ? null : parseInt(validezDias, 10),
           forma_pago: formaPago.trim() || null,
@@ -462,6 +479,19 @@ export default function NuevoPresupuestoPage() {
                 Sin teléfono no se puede hacer el seguimiento del presupuesto.
               </p>
             )}
+          </div>
+          <div>
+            <label className={labelClass}>Profesión</label>
+            <input
+              value={clienteProfesion}
+              list="profesiones-presupuesto"
+              onChange={(e) => setClienteProfesion(e.target.value.toUpperCase())}
+              className={`${inputClass} uppercase`}
+              placeholder="ALBAÑIL, HERRERO…"
+            />
+            <datalist id="profesiones-presupuesto">
+              {profesiones.map((n) => <option key={n} value={n} />)}
+            </datalist>
           </div>
           <div>
             <label className={labelClass}>Ciudad</label>
