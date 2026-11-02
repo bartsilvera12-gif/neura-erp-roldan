@@ -582,11 +582,6 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
   if (cargando) return <p className="py-10 text-center text-sm text-slate-400">Cargando…</p>;
   if (!cfg) return null;
 
-  const nombreTipo = (id: string | null) =>
-    id ? cfg.tipos.find((t) => t.id === id)?.nombre ?? "—" : "Cualquier tipo";
-  const nombreRubro = (id: string | null) =>
-    id ? cfg.rubros.find((r) => r.id === id)?.nombre ?? "—" : "Cualquier rubro";
-
   return (
     <div className="space-y-6">
       {/* General */}
@@ -743,50 +738,21 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
         />
       </Caja>
 
-      {/* Reglas */}
-      <Caja titulo="Porcentajes por rubro y tipo"
-        ayuda="Gana siempre la regla más específica: tipo + rubro, después solo rubro, después solo tipo, y al final el porcentaje base del tipo. Por encima de todo esto manda la comisión propia de la persona, si tiene una cargada.">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
-              <th className="py-2">Tipo de vendedor</th>
-              <th className="py-2">Rubro</th>
-              <th className="py-2 text-right">%</th>
-              <th className="py-2"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {cfg.reglas.map((r) => (
-              <tr key={r.id}>
-                <td className="py-2 text-slate-700">{nombreTipo(r.tipo_vendedor_id)}</td>
-                <td className="py-2 text-slate-700">{nombreRubro(r.categoria_id)}</td>
-                <td className="py-2 text-right">
-                  <PctEditable
-                    valor={Number(r.porcentaje) || 0}
-                    disabled={guardando}
-                    onGuardar={(n) => void enviar({
-                      accion: "regla", id: r.id,
-                      tipo_vendedor_id: r.tipo_vendedor_id, categoria_id: r.categoria_id,
-                      porcentaje: n,
-                    })}
-                  />
-                </td>
-                <td className="py-2 text-right">
-                  <button onClick={() => borrar("regla", r.id)} disabled={guardando}
-                    className="text-xs text-rose-600 underline-offset-2 hover:underline">Borrar</button>
-                </td>
-              </tr>
-            ))}
-            {cfg.reglas.length === 0 && (
-              <tr><td colSpan={4} className="py-4 text-center text-slate-400">
-                Sin reglas: se usa el porcentaje base de cada tipo.
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-
-        <ReglaNueva cfg={cfg} disabled={guardando}
-          onEnviar={(b) => void enviar({ accion: "regla", ...b })} />
+      {/* Porcentajes por rubro */}
+      <Caja titulo="Porcentajes por rubro"
+        ayuda="Están todos los rubros del catálogo: el que no tiene porcentaje cargado comisiona con el porcentaje base del tipo de vendedor, que casi nunca es lo que se quiso. Por encima de esto manda la comisión propia de la persona, si tiene una cargada.">
+        <ReglasPorRubro
+          cfg={cfg}
+          disabled={guardando}
+          onGuardar={(categoriaId, porcentaje, idExistente) => void enviar({
+            accion: "regla",
+            ...(idExistente ? { id: idExistente } : {}),
+            tipo_vendedor_id: null,
+            categoria_id: categoriaId,
+            porcentaje,
+          })}
+          onBorrar={(id) => borrar("regla", id)}
+        />
       </Caja>
 
       {/* Tipo de cada usuario */}
@@ -918,6 +884,161 @@ function PctEditable({
   );
 }
 
+/**
+ * Los porcentajes de comisión, un renglón por rubro.
+ *
+ * ── POR QUÉ ASÍ Y NO UNA LISTA DE REGLAS ──────────────────────────────────
+ * Antes había que agregar las reglas de a una, eligiendo el rubro en un
+ * desplegable. Con 55 rubros eso quiere decir que en la práctica se cargan
+ * tres o cuatro y el resto queda comisionando con el porcentaje base del tipo
+ * de vendedor sin que nadie se entere: la pantalla mostraba las reglas que
+ * existían, no las que faltaban, así que no había forma de ver el agujero.
+ *
+ * Acá están los rubros todos, y arriba dice cuántos faltan.
+ *
+ * ── VACÍO NO ES CERO ──────────────────────────────────────────────────────
+ * Un campo vacío significa "no hay regla para este rubro": comisiona con el
+ * porcentaje base del tipo. Un 0 escrito a mano significa "este rubro no
+ * comisiona". Son cosas distintas y por eso borrar el campo borra la regla en
+ * vez de guardar un cero.
+ */
+function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
+  cfg: Config;
+  disabled?: boolean;
+  /** `idExistente` vacío = la regla todavía no existe y hay que crearla. */
+  onGuardar: (categoriaId: string, porcentaje: number, idExistente?: string) => void;
+  onBorrar: (id: string) => void;
+}) {
+  const [busqueda, setBusqueda] = useState("");
+  const [soloFaltan, setSoloFaltan] = useState(false);
+
+  // Las reglas que edita esta pantalla: por rubro, sin tipo de vendedor.
+  const porRubro = new Map<string, Regla>();
+  const conTipo: Regla[] = [];
+  for (const r of cfg.reglas) {
+    if (r.tipo_vendedor_id == null && r.categoria_id != null) porRubro.set(r.categoria_id, r);
+    else conTipo.push(r);
+  }
+
+  const faltan = cfg.rubros.filter((r) => !porRubro.has(r.id)).length;
+  const t = busqueda.trim().toLowerCase();
+  const visibles = cfg.rubros.filter((r) => {
+    if (soloFaltan && porRubro.has(r.id)) return false;
+    return t === "" || r.nombre.toLowerCase().includes(t);
+  });
+
+  const nombreTipo = (id: string | null) =>
+    id == null ? "Cualquier tipo" : (cfg.tipos.find((x) => x.id === id)?.nombre ?? "—");
+  const nombreRubro = (id: string | null) =>
+    id == null ? "Cualquier rubro" : (cfg.rubros.find((x) => x.id === id)?.nombre ?? "—");
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar rubro…"
+          className="w-56 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+        />
+        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+          <input type="checkbox" checked={soloFaltan} onChange={(e) => setSoloFaltan(e.target.checked)} />
+          Solo los que faltan
+        </label>
+        <span className="ml-auto text-sm">
+          {faltan === 0 ? (
+            <span className="font-medium text-emerald-700">
+              Los {cfg.rubros.length} rubros tienen porcentaje cargado.
+            </span>
+          ) : (
+            <span className="font-medium text-amber-700">
+              Faltan {faltan} de {cfg.rubros.length} rubros por cargar.
+            </span>
+          )}
+        </span>
+      </div>
+
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
+            <th className="py-2">Rubro</th>
+            <th className="py-2 text-right">%</th>
+            <th className="py-2 pl-3"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {cfg.rubros.length === 0 && (
+            <tr><td colSpan={3} className="py-4 text-center text-slate-400">
+              No hay rubros cargados en el catálogo.
+            </td></tr>
+          )}
+          {cfg.rubros.length > 0 && visibles.length === 0 && (
+            <tr><td colSpan={3} className="py-4 text-center text-slate-400">
+              Ningún rubro coincide con la búsqueda.
+            </td></tr>
+          )}
+          {visibles.map((rubro) => {
+            const regla = porRubro.get(rubro.id);
+            return (
+              <tr key={rubro.id} className={regla ? "" : "bg-amber-50/40"}>
+                <td className="py-2 text-slate-700">{rubro.nombre}</td>
+                <td className="py-2 text-right">
+                  <PctEditable
+                    valor={regla ? Number(regla.porcentaje) || 0 : -1}
+                    disabled={disabled}
+                    permiteVacio
+                    etiquetaVacio="sin cargar"
+                    onGuardar={(n) => {
+                      if (n < 0) {
+                        if (regla) onBorrar(regla.id);
+                        return;
+                      }
+                      onGuardar(rubro.id, n, regla?.id);
+                    }}
+                  />
+                </td>
+                <td className="py-2 pl-3 text-xs text-amber-700">
+                  {regla ? "" : "sin cargar: usa el % base del tipo"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Las reglas que esta pantalla ya no edita, pero que siguen pesando. */}
+      {conTipo.length > 0 && (
+        <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <p className="text-sm font-medium text-amber-900">
+            Hay {conTipo.length} regla{conTipo.length === 1 ? "" : "s"} vieja
+            {conTipo.length === 1 ? "" : "s"} atada{conTipo.length === 1 ? "" : "s"} a un tipo de vendedor.
+          </p>
+          <p className="mt-0.5 text-xs leading-snug text-amber-800">
+            Le ganan a la lista de arriba, porque son más específicas: un vendedor de
+            ese tipo comisiona con esto y no con el porcentaje del rubro. Si ya no
+            hacen falta, borralas.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {conTipo.map((r) => (
+              <li key={r.id} className="flex items-center gap-2 text-sm text-amber-900">
+                <span className="tabular-nums font-medium">{pct(Number(r.porcentaje) || 0)}</span>
+                <span>· {nombreTipo(r.tipo_vendedor_id)} · {nombreRubro(r.categoria_id)}</span>
+                <button
+                  onClick={() => onBorrar(r.id)}
+                  disabled={disabled}
+                  className="ml-auto text-xs text-rose-700 underline-offset-2 hover:underline disabled:opacity-50"
+                >
+                  Borrar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
@@ -978,45 +1099,6 @@ function FormaInline({ campos, textoBoton, disabled, onEnviar }: {
   );
 }
 
-function ReglaNueva({ cfg, disabled, onEnviar }: {
-  cfg: Config; disabled?: boolean;
-  onEnviar: (b: Record<string, unknown>) => void;
-}) {
-  const [tipo, setTipo] = useState("");
-  const [rubro, setRubro] = useState("");
-  const [porcentaje, setPorcentaje] = useState("");
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-      <select value={tipo} onChange={(e) => setTipo(e.target.value)}
-        className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
-        <option value="">Cualquier tipo</option>
-        {cfg.tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-      </select>
-      <select value={rubro} onChange={(e) => setRubro(e.target.value)}
-        className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
-        <option value="">Cualquier rubro</option>
-        {cfg.rubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-      </select>
-      <input type="number" placeholder="%" value={porcentaje}
-        onChange={(e) => setPorcentaje(e.target.value)}
-        className="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-sm tabular-nums" />
-      <button
-        type="button" disabled={disabled}
-        onClick={() => {
-          onEnviar({
-            tipo_vendedor_id: tipo || null,
-            categoria_id: rubro || null,
-            porcentaje: Number(porcentaje) || 0,
-          });
-          setPorcentaje("");
-        }}
-        className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
-      >
-        Agregar regla
-      </button>
-    </div>
-  );
-}
 
 /* ──────────────────── Resumen de un vendedor, en pantalla ───────────────── */
 /**
