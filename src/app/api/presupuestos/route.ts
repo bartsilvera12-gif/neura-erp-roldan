@@ -203,9 +203,23 @@ export async function POST(request: NextRequest) {
       // Para adentro. El PDF no las toca a propósito: ver el script 38.
       nota_interna: body.nota_interna ? String(body.nota_interna).slice(0, 4000) : null,
       falta_material: body.falta_material === true,
-      condiciones_comerciales: body.condiciones_comerciales
-        ? String(body.condiciones_comerciales).slice(0, 4000)
-        : null,
+      /**
+       * Las condiciones comerciales las cambia SOLO un administrador.
+       *
+       * Son las que se discuten si después hay un reclamo: quién paga el
+       * flete, qué tolerancia tienen las chapas, en qué plazo se retira. Un
+       * vendedor que las ablanda para cerrar una venta compromete a la casa
+       * sin que nadie se entere hasta el reclamo.
+       *
+       * Para los demás se guarda `null` y el documento imprime la plantilla,
+       * que es exactamente lo que tiene que salir. Esconder el campo en la
+       * pantalla no alcanza: sin este guard, el mismo texto se puede mandar
+       * por fuera del formulario.
+       */
+      condiciones_comerciales:
+        isAdmin(ctx.auth) && body.condiciones_comerciales
+          ? String(body.condiciones_comerciales).slice(0, 4000)
+          : null,
       usuario_id: ctx.auth.user?.id ?? null,
       // El nombre y no el correo: es lo que se muestra en el listado y en la
       // ficha cuando alguien pregunta quién hizo la cotización. Si el usuario

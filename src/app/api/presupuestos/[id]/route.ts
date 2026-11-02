@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/types";
@@ -124,7 +125,8 @@ function asIva(v: unknown): "EXENTA" | "5%" | "10%" {
 export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctxParams.params;
-    const ctx = await getTenantSupabaseFromAuth(request);
+    // Con el rol: las condiciones comerciales las cambia solo un administrador.
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 
     let body: Record<string, unknown>;
@@ -225,9 +227,19 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         // Para adentro. El PDF no las toca a propósito: ver el script 38.
         nota_interna: body.nota_interna ? String(body.nota_interna).slice(0, 4000) : null,
         falta_material: body.falta_material === true,
-        condiciones_comerciales: body.condiciones_comerciales
-          ? String(body.condiciones_comerciales).slice(0, 4000)
-          : null,
+        // Las condiciones comerciales las cambia solo un administrador.
+        //
+        // Para el resto NO se escribe la columna, en vez de escribirle null:
+        // si un vendedor edita un presupuesto que el administrador había
+        // personalizado, poner null le borraría ese texto sin que nadie lo
+        // pida. Omitir la clave deja lo que ya estaba.
+        ...(isAdmin(ctx.auth)
+          ? {
+              condiciones_comerciales: body.condiciones_comerciales
+                ? String(body.condiciones_comerciales).slice(0, 4000)
+                : null,
+            }
+          : {}),
         updated_at: new Date().toISOString(),
       };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
@@ -59,6 +60,9 @@ export default function EditarPresupuestoPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params.id;
+
+  // Las condiciones comerciales las cambia solo un administrador.
+  const { isAdmin } = useIsAdmin();
 
   const [productos, setProductos] = useState<ProductoLite[]>([]);
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
@@ -472,16 +476,26 @@ export default function EditarPresupuestoPage() {
             <input value={plazoEntrega} onChange={(e) => setPlazoEntrega(e.target.value)} className={inputClass} placeholder="Ej: 5 días hábiles" />
           </div>
           <div className="sm:col-span-3">
-            <label className={labelClass}>Condiciones comerciales</label>
+            <label className={labelClass}>
+              Condiciones comerciales
+              {!isAdmin && (
+                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">
+                  las fija la casa
+                </span>
+              )}
+            </label>
             <textarea
               value={condiciones}
               onChange={(e) => setCondiciones(e.target.value)}
-              rows={4}
-              className={inputClass}
+              rows={10}
+              readOnly={!isAdmin}
+              className={`${inputClass} ${!isAdmin ? "cursor-default bg-slate-50 text-slate-600" : ""}`}
               placeholder={"Ej:\n- Precios válidos por la vigencia indicada.\n- Flete y descarga por cuenta del comprador."}
             />
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
-              Sale en el presupuesto, bajo el total.
+              {isAdmin
+                ? "Sale en el presupuesto, bajo el total."
+                : "Salen impresas tal cual en el presupuesto. Solo un administrador puede cambiarlas."}
             </p>
           </div>
           {/* ── Lo único que NO se imprime ──────────────────────────────

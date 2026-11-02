@@ -670,19 +670,45 @@ export default function NuevoPresupuestoPage() {
             </p>
           </div>
           <div className="sm:col-span-3">
-            <label className={labelClass}>Condiciones comerciales</label>
+            <label className={labelClass}>
+              Condiciones comerciales
+              {!isAdmin && (
+                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">
+                  las fija la casa
+                </span>
+              )}
+            </label>
+            {/* ── Quién puede tocarlas ──────────────────────────────────────
+                Son las que se discuten si después hay un reclamo: quién paga
+                el flete, qué tolerancia tienen las chapas, en qué plazo se
+                retira. Un vendedor que las ablanda para cerrar una venta
+                compromete a la casa sin que nadie se entere hasta el reclamo.
+
+                Al vendedor le salen cargadas y a la vista —tiene que saber qué
+                está firmando el cliente— pero no las puede editar. El candado
+                de verdad está en el servidor: esconder el campo no alcanza. */}
             <textarea
               value={condiciones}
               onChange={(e) => setCondiciones(e.target.value)}
               rows={10}
-              className={inputClass}
+              readOnly={!isAdmin}
+              className={`${inputClass} ${!isAdmin ? "cursor-default bg-slate-50 text-slate-600" : ""}`}
               placeholder={"Ej:\n- Precios válidos por la vigencia indicada.\n- Flete y descarga por cuenta del comprador.\n- Garantía de fábrica contra defectos."}
             />
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
-              Vienen cargadas las condiciones de la casa, que son las que salen
-              impresas bajo el total. Si acá se cambian, el cambio vale{" "}
-              <strong>solo para este presupuesto</strong>; para cambiarlas en todos,
-              se editan en Configuración → Presupuesto.
+              {isAdmin ? (
+                <>
+                  Vienen cargadas las condiciones de la casa, que son las que salen
+                  impresas bajo el total. Si acá se cambian, el cambio vale{" "}
+                  <strong>solo para este presupuesto</strong>; para cambiarlas en todos,
+                  se editan en Configuración → Presupuesto.
+                </>
+              ) : (
+                <>
+                  Estas son las condiciones de la casa y salen impresas tal cual en el
+                  presupuesto. <strong>Solo un administrador puede cambiarlas.</strong>
+                </>
+              )}
             </p>
           </div>
           {/* ── Lo único que NO se imprime ──────────────────────────────
