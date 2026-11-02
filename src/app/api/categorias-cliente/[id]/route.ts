@@ -8,6 +8,19 @@ function faltaScript39(msg: string): boolean {
   return /column .* does not exist|42703/i.test(msg) && /ajuste_pct/.test(msg);
 }
 
+/** El error cuando falta `categorias_cliente.monto_minimo_mensual` (script 55). */
+function faltaScript55(msg: string): boolean {
+  return /column .* does not exist|42703/i.test(msg) && /monto_minimo_mensual/.test(msg);
+}
+
+/** NULL = no participa del automático. Cero = el piso de la escalera. */
+function normalizarMinimo(v: unknown): number | null {
+  if (v === null || v === "" || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n);
+}
+
 function normalizarAjuste(v: unknown): number | null {
   if (v === null || v === "" || v === undefined) return null;
   const n = Number(v);
@@ -26,6 +39,17 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     if (body.orden !== undefined) patch.orden = Number(body.orden) || 0;
     if (body.activa !== undefined) patch.activa = body.activa === true;
 
+    /**
+     * El monto mínimo va en el mismo patch que el resto, pero su columna puede
+     * no existir (script 55). Como PostgREST rechaza el UPDATE entero cuando
+     * una columna falta, se intenta con él y se reintenta sin él: así un
+     * cambio de nombre no se pierde por una columna que todavía no está.
+     */
+    const tocaMinimo = body.monto_minimo_mensual !== undefined;
+    const patchConMinimo = tocaMinimo
+      ? { ...patch, monto_minimo_mensual: normalizarMinimo(body.monto_minimo_mensual) }
+      : patch;
+
     const aplicar = (fila: Record<string, unknown>, cols: string) =>
       ctx.supabase
         .from("categorias_cliente")
@@ -36,7 +60,24 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         .maybeSingle();
 
     let r;
-    if (body.ajuste_pct !== undefined) {
+    if (tocaMinimo) {
+      r = await aplicar(
+        body.ajuste_pct !== undefined
+          ? { ...patchConMinimo, ajuste_pct: normalizarAjuste(body.ajuste_pct) }
+          : patchConMinimo,
+        "id, nombre, orden, activa, ajuste_pct, monto_minimo_mensual"
+      );
+      if (r.error && faltaScript55(r.error.message ?? "")) {
+        await aplicar(patch, "id");
+        return NextResponse.json(
+          errorResponse("Falta correr 55_categorias_cliente_automaticas.sql para guardar el monto mínimo mensual."),
+          { status: 409 }
+        );
+      }
+      if (r.error && faltaScript39(r.error.message ?? "")) {
+        r = await aplicar(patchConMinimo, "id, nombre, orden, activa, monto_minimo_mensual");
+      }
+    } else if (body.ajuste_pct !== undefined) {
       r = await aplicar({ ...patch, ajuste_pct: normalizarAjuste(body.ajuste_pct) },
                         "id, nombre, orden, activa, ajuste_pct");
       if (r.error && faltaScript39(r.error.message ?? "")) {

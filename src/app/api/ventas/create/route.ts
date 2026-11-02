@@ -18,6 +18,8 @@ import { createServiceRoleClientWithDbSchema } from "@/lib/supabase/empresa-data
 import { estaFacturado, marcarFacturado } from "@/lib/caja/facturacion";
 import { saldoDeCliente, consumirAnticipos } from "@/lib/anticipos/server/aplicar";
 import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
+import { recalcularCategorias } from "@/lib/clientes/server/categorias-pg";
+import { periodoPy } from "@/lib/clientes/categoria-automatica";
 
 /** Error tipado: el pedido que se intenta facturar ya tiene venta. */
 class PedidoYaFacturadoError extends Error {
@@ -678,6 +680,35 @@ export async function POST(request: NextRequest) {
         }
       } catch (e) {
         console.warn("[ventas/create] cartera_desde:", e instanceof Error ? e.message : e);
+      }
+    }
+
+    // ── La categoría del cliente, por lo que lleva comprado este mes ───────
+    //
+    // Con esta venta el cliente puede haber cruzado el monto que lo pasa a la
+    // categoría siguiente, y eso tiene que valer para la próxima compra sin que
+    // nadie corra nada a mano.
+    //
+    // SOLO ESTE CLIENTE: recorrer el padrón entero después de cada venta sería
+    // absurdo. El DESCENSO no puede salir de acá —el que dejó de comprar no
+    // dispara ninguna venta— y queda para la pasada de fin de mes
+    // (/api/clientes/categorias/recalcular).
+    //
+    // Best-effort y al final, igual que la cartera: la venta ya está cerrada y
+    // no se cae porque no se haya podido mover una categoría. Si falta el
+    // script 55, o nadie cargó los montos mínimos, no hace nada.
+    if (clienteId) {
+      try {
+        const schemaCat = await fetchDataSchemaForEmpresaId(auth.empresa_id);
+        await recalcularCategorias(
+          schemaCat,
+          auth.empresa_id,
+          auth.sucursal_id ?? "",
+          periodoPy(),
+          { soloCliente: clienteId, usuarioNombre: "Automático por venta" }
+        );
+      } catch (e) {
+        console.warn("[ventas/create] categoria cliente:", e instanceof Error ? e.message : e);
       }
     }
 

@@ -8,6 +8,25 @@ function faltaScript39(msg: string): boolean {
   return /column .* does not exist|42703/i.test(msg) && /ajuste_pct/.test(msg);
 }
 
+/** El error cuando falta `categorias_cliente.monto_minimo_mensual` (script 55). */
+function faltaScript55(msg: string): boolean {
+  return /column .* does not exist|42703/i.test(msg) && /monto_minimo_mensual/.test(msg);
+}
+
+/**
+ * El monto mínimo mensual válido.
+ *
+ * NULL es un valor con sentido: "esta categoría no participa del ascenso
+ * automático, se asigna a mano". Cero también: es el piso de la escalera, la
+ * categoría del que compra poco o nada. Por eso no se confunden.
+ */
+function normalizarMinimo(v: unknown): number | null {
+  if (v === null || v === "" || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n);
+}
+
 /** El ajuste válido: NULL o un porcentaje que un humano pueda defender. */
 function normalizarAjuste(v: unknown): number | null {
   if (v === null || v === "" || v === undefined) return null;
@@ -35,14 +54,25 @@ export async function GET(request: NextRequest) {
     // Sin el script 39 la columna no existe y PostgREST rechaza toda la
     // consulta, no devuelve null: se reintenta sin ella para que la pantalla
     // siga funcionando como antes.
-    let r = await armar("id, nombre, orden, activa, ajuste_pct");
+    let r = await armar("id, nombre, orden, activa, ajuste_pct, monto_minimo_mensual");
     let ajuste_disponible = true;
+    let minimo_disponible = true;
+    if (r.error && faltaScript55(r.error.message ?? "")) {
+      minimo_disponible = false;
+      r = await armar("id, nombre, orden, activa, ajuste_pct");
+    }
     if (r.error && faltaScript39(r.error.message ?? "")) {
       ajuste_disponible = false;
+      r = await armar(minimo_disponible ? "id, nombre, orden, activa, monto_minimo_mensual" : "id, nombre, orden, activa");
+    }
+    if (r.error && faltaScript55(r.error.message ?? "")) {
+      minimo_disponible = false;
       r = await armar("id, nombre, orden, activa");
     }
     if (r.error) throw new Error(r.error.message);
-    return NextResponse.json(successResponse({ categorias: r.data ?? [], ajuste_disponible }));
+    return NextResponse.json(successResponse({
+      categorias: r.data ?? [], ajuste_disponible, minimo_disponible,
+    }));
   } catch (err) {
     console.error("[/api/categorias-cliente GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudieron cargar los rubros."), { status: 500 });
@@ -54,16 +84,27 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    const body = (await request.json().catch(() => ({}))) as { nombre?: unknown; orden?: unknown; ajuste_pct?: unknown };
+    const body = (await request.json().catch(() => ({}))) as { nombre?: unknown; orden?: unknown; ajuste_pct?: unknown; monto_minimo_mensual?: unknown };
     const nombre = String(body.nombre ?? "").trim();
     const orden = Number(body.orden ?? 0) || 0;
     const ajuste_pct = normalizarAjuste(body.ajuste_pct);
+    // Vacío (o ausente) = la categoría no participa del ascenso automático.
+    const monto_minimo_mensual = normalizarMinimo(body.monto_minimo_mensual);
     if (!nombre) return NextResponse.json(errorResponse("Nombre obligatorio."), { status: 400 });
 
     const insertar = (fila: Record<string, unknown>, cols: string) =>
       ctx.supabase.from("categorias_cliente").insert(fila).select(cols).maybeSingle();
     const fila = { empresa_id: ctx.auth.empresa_id, nombre, orden, activa: true };
-    let r = await insertar({ ...fila, ajuste_pct }, "id, nombre, orden, activa, ajuste_pct");
+    // Las dos columnas opcionales pueden faltar (scripts 39 y 55). PostgREST
+    // rechaza el INSERT entero si una no existe, así que se va sacando de a una
+    // en vez de perder el alta.
+    let r = await insertar(
+      { ...fila, ajuste_pct, monto_minimo_mensual },
+      "id, nombre, orden, activa, ajuste_pct, monto_minimo_mensual"
+    );
+    if (r.error && faltaScript55(r.error.message ?? "")) {
+      r = await insertar({ ...fila, ajuste_pct }, "id, nombre, orden, activa, ajuste_pct");
+    }
     if (r.error && faltaScript39(r.error.message ?? "")) {
       r = await insertar(fila, "id, nombre, orden, activa");
     }

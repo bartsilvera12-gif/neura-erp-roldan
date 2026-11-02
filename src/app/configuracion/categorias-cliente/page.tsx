@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
-type Categoria = { id: string; nombre: string; orden: number; activa: boolean; ajuste_pct?: number | null };
+type Categoria = {
+  id: string; nombre: string; orden: number; activa: boolean;
+  ajuste_pct?: number | null;
+  /** Compra mensual mínima para entrar. null = se asigna a mano (script 55). */
+  monto_minimo_mensual?: number | null;
+};
 
 /** "-8" para mostrar, "" cuando no hay política definida. */
 function pctTexto(v: number | null | undefined): string {
@@ -29,6 +34,7 @@ export default function CategoriasClientePage() {
   // false mientras no se corra el script 39: la columna no existe y el
   // porcentaje no se puede guardar. Se dice en pantalla en vez de fallar.
   const [ajusteDisponible, setAjusteDisponible] = useState(true);
+  const [minimoDisponible, setMinimoDisponible] = useState(true);
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +43,7 @@ export default function CategoriasClientePage() {
   const [editNombre, setEditNombre] = useState("");
   const [editOrden, setEditOrden] = useState("");
   const [editAjuste, setEditAjuste] = useState("");
+  const [editMinimo, setEditMinimo] = useState("");
   const [guardandoEdit, setGuardandoEdit] = useState(false);
 
   const proximoOrden = items.length > 0 ? Math.max(...items.map((i) => i.orden)) + 1 : 0;
@@ -49,6 +56,7 @@ export default function CategoriasClientePage() {
       if (r.ok && j.success) {
         setItems(j.data.categorias ?? []);
         setAjusteDisponible(j.data.ajuste_disponible !== false);
+        setMinimoDisponible(j.data.minimo_disponible !== false);
       }
       else setError(j.error ?? `Error ${r.status}`);
     } catch (e) {
@@ -89,10 +97,11 @@ export default function CategoriasClientePage() {
     setEditNombre(c.nombre);
     setEditOrden(String(c.orden));
     setEditAjuste(pctTexto(c.ajuste_pct));
+    setEditMinimo(c.monto_minimo_mensual == null ? "" : String(c.monto_minimo_mensual));
     setError(null);
   }
   function cancelarEdicion() {
-    setEditandoId(null); setEditNombre(""); setEditOrden(""); setEditAjuste("");
+    setEditandoId(null); setEditNombre(""); setEditOrden(""); setEditAjuste(""); setEditMinimo("");
   }
   async function guardarEdicion(c: Categoria) {
     const nombreNuevo = editNombre.trim();
@@ -108,8 +117,22 @@ export default function CategoriasClientePage() {
     }
     setGuardandoEdit(true);
     try {
+      // Vacío NO es cero: vacío significa "esta categoría se asigna a mano y el
+      // automático no la toca", y cero es el piso de la escalera, la categoría
+      // del que compra poco o nada.
+      let minimoNuevo: number | null = null;
+      if (editMinimo.trim() !== "") {
+        const n = Number(editMinimo.replace(/[.,\s]/g, ""));
+        if (!Number.isFinite(n) || n < 0) {
+          setError("El mínimo mensual tiene que ser un monto en guaraníes, o vacío.");
+          return;
+        }
+        minimoNuevo = Math.round(n);
+      }
+
       const body: Record<string, unknown> = { nombre: nombreNuevo, orden: ordenNuevo };
       if (ajusteDisponible) body.ajuste_pct = ajusteNuevo;
+      if (minimoDisponible) body.monto_minimo_mensual = minimoNuevo;
       const ok = await patch(c.id, body);
       if (ok) cancelarEdicion();
     } finally { setGuardandoEdit(false); }
@@ -170,6 +193,23 @@ export default function CategoriasClientePage() {
           sale de la lista (o de la excepción cargada en el producto).
         </div>
       )}
+      {!minimoDisponible && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          Falta correr <code className="font-mono">55_categorias_cliente_automaticas.sql</code>.
+          Hasta entonces no se puede cargar el mínimo mensual y ningún cliente
+          cambia de rubro solo.
+        </div>
+      )}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-[13px] leading-snug text-slate-600">
+        <b className="text-slate-800">Cómo funciona el mínimo mensual:</b> se suma todo lo que el
+        cliente compró en el mes y le toca el rubro con el mínimo más alto que ese monto alcanza. El
+        que deja de comprar baja, por eso conviene que el rubro más bajo tenga mínimo{" "}
+        <b>0</b> y no vacío. Un rubro con el mínimo <b>vacío</b> se asigna a mano y el automático
+        nunca lo toca: es para los acuerdos particulares.{" "}
+        <Link href="/clientes/categorias" className="text-sky-600 hover:underline">
+          Ver el historial de cambios
+        </Link>.
+      </div>
 
       <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-slate-800">Nuevo rubro</h2>
@@ -205,6 +245,7 @@ export default function CategoriasClientePage() {
               <tr>
                 <th className="text-left px-4 py-2">Nombre</th>
                 <th className="text-left px-4 py-2 w-48">% sobre lista</th>
+                <th className="text-left px-4 py-2 w-44">Mínimo mensual</th>
                 <th className="text-left px-4 py-2 w-24">Orden</th>
                 <th className="text-left px-4 py-2 w-32">Activa</th>
                 <th className="px-4 py-2"></th>
@@ -241,6 +282,27 @@ export default function CategoriasClientePage() {
                       <span className={`font-semibold tabular-nums ${c.ajuste_pct < 0 ? "text-emerald-700" : "text-amber-700"}`}>
                         {c.ajuste_pct > 0 ? "+" : ""}{c.ajuste_pct}%
                         <span className="ml-2 text-xs font-normal text-slate-500">{pctLeyenda(c.ajuste_pct)}</span>
+                      </span>
+                    )}
+                  </td>
+                  {/* Lo que hay que comprar en el mes para entrar en esta
+                      categoría. Vacío = la categoría se asigna a mano y el
+                      ascenso automático no la toca. */}
+                  <td className="px-4 py-2">
+                    {isEditing ? (
+                      <input
+                        type="number" min="0" step="1"
+                        value={editMinimo}
+                        onChange={(e) => setEditMinimo(e.target.value)}
+                        disabled={!minimoDisponible}
+                        placeholder="a mano"
+                        className="w-32 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm tabular-nums disabled:bg-slate-100"
+                      />
+                    ) : c.monto_minimo_mensual == null ? (
+                      <span className="text-slate-400">Se asigna a mano</span>
+                    ) : (
+                      <span className="font-semibold tabular-nums text-slate-700">
+                        Gs. {Math.round(c.monto_minimo_mensual).toLocaleString("es-PY")}
                       </span>
                     )}
                   </td>

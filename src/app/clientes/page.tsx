@@ -441,6 +441,13 @@ export default function ClientesPage() {
             permiteCrearFaltantes
             onCompleted={() => window.location.reload()}
           />
+          {/* Quién cambió de categoría y quién dejó de comprar. */}
+          <Link
+            href="/clientes/categorias"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-[#4FAEB2] hover:text-[#3F8E91]"
+          >
+            Categorías
+          </Link>
           <Link
             href="/clientes/nuevo"
             className="flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91] active:scale-95"
