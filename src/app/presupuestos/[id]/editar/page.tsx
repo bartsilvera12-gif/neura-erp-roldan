@@ -8,6 +8,7 @@ import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
+import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 type ProductoLite = {
@@ -34,8 +35,26 @@ type Item = {
   precio_unitario: number;
   iva_tipo: IvaTipoPresupuesto;
   descuento: number;
+  /** El % equivalente al descuento, para mostrarlo. */
+  descuento_pct: number;
+  /** Si se pactó un % o un monto fijo. Ver `descuento-linea.ts`. */
+  descuento_modo: "monto" | "pct";
+  /**
+   * El precio de lista con el que se compara.
+   *
+   * OJO: en un presupuesto guardado no sabemos a qué precio estaba el artículo
+   * el día que se armó — eso no se guarda. Se compara contra el precio de HOY,
+   * que es lo único disponible. Si la lista se remarcó desde entonces, el
+   * "descuento" que se muestre incluye esa remarcación. Para las líneas que se
+   * agreguen ahora el precio es el del momento y la comparación es exacta.
+   */
+  precio_lista: number;
 };
 
+function fmtPct(n: number) {
+  const x = Number(n) || 0;
+  return `${x.toLocaleString("es-PY", { maximumFractionDigits: 2 })}%`;
+}
 function fmtGs(n: number) {
   return "Gs. " + (Number(n) || 0).toLocaleString("es-PY", { maximumFractionDigits: 0 });
 }
@@ -183,7 +202,11 @@ export default function EditarPresupuestoPage() {
             precio_unitario: Number(it.precio_unitario) || 0,
             iva_tipo: asIva(it.iva_tipo),
             descuento: Number(it.descuento) || 0,
-          }))
+            // El presupuesto guarda el monto, no el %: se deriva al cargar.
+            descuento_pct: 0,
+            descuento_modo: "monto" as const,
+            precio_lista: 0,
+          })).map((it) => aplicarCambio(it, { descuento: it.descuento }))
         );
       } catch {
         if (!cancel) setError("Error de red al cargar el presupuesto.");
@@ -209,6 +232,29 @@ export default function EditarPresupuestoPage() {
     }
   }
 
+  /**
+   * El presupuesto guardado no trae el precio de lista: se completa desde el
+   * catálogo cuando termina de cargar, para poder decir cuánto se rebajó.
+   * Solo toca las líneas que todavía no lo tienen, así no pisa lo que se
+   * agregue a mano después.
+   */
+  useEffect(() => {
+    if (productos.length === 0) return;
+    setItems((prev) => {
+      let cambio = false;
+      const sig = prev.map((it) => {
+        if (it.precio_lista > 0 || !it.producto_id) return it;
+        const p = productos.find((x) => x.id === it.producto_id);
+        if (!p) return it;
+        const lista = usarMayorista && p.precio_mayorista > 0 ? p.precio_mayorista : p.precio_venta;
+        if (!(lista > 0)) return it;
+        cambio = true;
+        return { ...it, precio_lista: lista };
+      });
+      return cambio ? sig : prev;
+    });
+  }, [productos, usarMayorista]);
+
   function precioParaProducto(p: ProductoLite): number {
     if (usarMayorista && p.precio_mayorista > 0) return p.precio_mayorista;
     return p.precio_venta;
@@ -229,6 +275,9 @@ export default function EditarPresupuestoPage() {
         precio_unitario: precioParaProducto(p),
         iva_tipo: "10%",
         descuento: 0,
+        descuento_pct: 0,
+        descuento_modo: "monto" as const,
+        precio_lista: precioParaProducto(p),
       },
     ]);
     setSelProd("");
@@ -237,12 +286,14 @@ export default function EditarPresupuestoPage() {
   function agregarManual() {
     setItems((prev) => [
       ...prev,
-      { producto_id: null, producto_nombre: "", sku: null, cantidad: 1, unidad_medida: null, precio_unitario: 0, iva_tipo: "10%", descuento: 0 },
+      { producto_id: null, producto_nombre: "", sku: null, cantidad: 1, unidad_medida: null, precio_unitario: 0, iva_tipo: "10%", descuento: 0, descuento_pct: 0, descuento_modo: "monto", precio_lista: 0 },
     ]);
   }
 
   function updItem(i: number, patch: Partial<Item>) {
-    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+    // Ver `nuevo/page.tsx`: el % y el monto del descuento se mantienen
+    // coherentes entre sí.
+    setItems((prev) => prev.map((it, idx) => (idx === i ? aplicarCambio(it, patch) : it)));
   }
   function delItem(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
@@ -255,7 +306,7 @@ export default function EditarPresupuestoPage() {
       subtotal += t.subtotal;
       iva += t.iva;
       total += t.total;
-      desc += Number(it.descuento) || 0;
+      desc += descuentoTotalLinea(it).monto;
     }
     return { subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total) };
   }, [items]);
@@ -406,7 +457,7 @@ export default function EditarPresupuestoPage() {
                   <th className="py-2 px-2 w-32">Cant.</th>
                   <th className="py-2 px-2 w-32">Precio unit.</th>
                   <th className="py-2 px-2 w-24">IVA</th>
-                  <th className="py-2 px-2 w-28">Descuento</th>
+                  <th className="py-2 px-2 w-36">Descuento</th>
                   <th className="py-2 px-2 w-32 text-right">Total</th>
                   <th className="py-2 pl-2 w-10"></th>
                 </tr>
@@ -428,6 +479,15 @@ export default function EditarPresupuestoPage() {
                       </td>
                       <td className="py-2 px-2">
                         <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                        {(() => {
+                          const d = descuentoPorPrecio(it.precio_lista, it.precio_unitario, it.cantidad);
+                          if (!d) return null;
+                          return (
+                            <span className="mt-1 block text-[10px] leading-tight text-emerald-700">
+                              {fmtPct(d.pct)} menos que la lista de hoy ({fmtGs(it.precio_lista)})
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-2 px-2">
                         <select value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
@@ -435,9 +495,38 @@ export default function EditarPresupuestoPage() {
                         </select>
                       </td>
                       <td className="py-2 px-2">
-                        <input type="number" min="0" step="1" value={it.descuento || ""} onChange={(e) => updItem(i, { descuento: Number(e.target.value) })} className={inputClass} />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number" min="0" max="100" step="0.01"
+                            value={it.descuento_pct || ""}
+                            onChange={(e) => updItem(i, { descuento_pct: Number(e.target.value) })}
+                            className={`${inputClass} px-2 tabular-nums`}
+                            placeholder="%"
+                            aria-label="Descuento en porcentaje"
+                          />
+                          <span className="text-xs text-slate-400">%</span>
+                        </div>
+                        <input
+                          type="number" min="0" step="1"
+                          value={it.descuento || ""}
+                          onChange={(e) => updItem(i, { descuento: Number(e.target.value) })}
+                          className={`${inputClass} mt-1 px-2 tabular-nums`}
+                          placeholder="Gs."
+                          aria-label="Descuento en guaraníes"
+                        />
                       </td>
-                      <td className="py-2 px-2 text-right tabular-nums font-medium">{fmtGs(t.total)}</td>
+                      <td className="py-2 px-2 text-right tabular-nums font-medium">
+                        {fmtGs(t.total)}
+                        {(() => {
+                          const d = descuentoTotalLinea(it);
+                          if (d.monto <= 0) return null;
+                          return (
+                            <span className="mt-0.5 block text-[10px] font-normal leading-tight text-emerald-700">
+                              Le hiciste {fmtPct(d.pct)} · {fmtGs(d.monto)}
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="py-2 pl-2 text-right">
                         <button onClick={() => delItem(i)} className="text-red-600 hover:text-red-700" aria-label="Eliminar"><Trash2 className="h-4 w-4" /></button>
                       </td>
@@ -453,7 +542,14 @@ export default function EditarPresupuestoPage() {
           <div className="mt-4 ml-auto w-full sm:w-72 text-sm space-y-1">
             <div className="flex justify-between"><span className="text-gray-500">Subtotal (sin IVA)</span><span className="tabular-nums">{fmtGs(totales.subtotal)}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">IVA</span><span className="tabular-nums">{fmtGs(totales.iva)}</span></div>
-            {totales.desc > 0 && <div className="flex justify-between"><span className="text-gray-500">Descuentos</span><span className="tabular-nums">- {fmtGs(totales.desc)}</span></div>}
+            {totales.desc > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500" title="Incluye lo que se resignó bajando el precio unitario, que ya está dentro del total.">
+                  Descuentos otorgados
+                </span>
+                <span className="tabular-nums">{fmtGs(totales.desc)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-base"><span>Total</span><span className="tabular-nums text-[#4FAEB2]">{fmtGs(totales.total)}</span></div>
           </div>
         )}

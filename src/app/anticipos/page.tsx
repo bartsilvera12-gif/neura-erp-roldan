@@ -29,7 +29,7 @@ type Respuesta = {
   por_cliente: PorCliente[];
   resumen: { total: number; activos: number; monto_activo: number; utilizados: number; anulados: number };
 };
-type ClienteLite = { id: string; nombre: string };
+type ClienteLite = { id: string; nombre: string; ruc: string };
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
 
@@ -315,6 +315,7 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [clienteNombre, setClienteNombre] = useState("");
+  const [clienteRuc, setClienteRuc] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(false);
@@ -343,6 +344,10 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
           setClientes(lista.map((c) => ({
             id: String(c.id),
             nombre: String(c.nombre_facturacion ?? c.empresa ?? c.nombre_contacto ?? c.nombre ?? ""),
+            // El RUC es lo que desempata entre dos clientes que se llaman
+            // parecido: se muestra siempre, y "—" cuando la ficha no lo tiene
+            // cargada, que es distinto de no saber si tiene.
+            ruc: c.ruc == null ? "" : String(c.ruc).trim(),
           })).filter((c) => c.nombre));
         })
         .catch(() => { /* sin resultados: el aviso de abajo lo dice */ })
@@ -395,10 +400,15 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
             <span className="font-medium text-slate-800">Cliente</span>
             {clienteId ? (
               <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
-                <span className="min-w-0 truncate text-sm font-medium text-slate-800">{clienteNombre}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-800">{clienteNombre}</span>
+                  <span className="block truncate text-[11px] tabular-nums text-slate-500">
+                    RUC {clienteRuc || "—"}
+                  </span>
+                </span>
                 <button
                   type="button"
-                  onClick={() => { setClienteId(""); setClienteNombre(""); setBusqueda(""); setAbierto(false); }}
+                  onClick={() => { setClienteId(""); setClienteNombre(""); setClienteRuc(""); setBusqueda(""); setAbierto(false); }}
                   className="shrink-0 text-xs font-medium text-sky-700 hover:text-sky-900"
                 >
                   Cambiar
@@ -426,10 +436,18 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
                         <button
                           key={c.id}
                           type="button"
-                          onClick={() => { setClienteId(c.id); setClienteNombre(c.nombre); setAbierto(false); }}
-                          className="block w-full px-3 py-2 text-left text-sm hover:bg-sky-50"
+                          onClick={() => {
+                            setClienteId(c.id);
+                            setClienteNombre(c.nombre);
+                            setClienteRuc(c.ruc);
+                            setAbierto(false);
+                          }}
+                          className="block w-full px-3 py-2 text-left hover:bg-sky-50"
                         >
-                          {c.nombre}
+                          <span className="block truncate text-sm text-slate-800">{c.nombre}</span>
+                          <span className="block truncate text-[11px] tabular-nums text-slate-500">
+                            RUC {c.ruc || "—"}
+                          </span>
                         </button>
                       ))
                     )}

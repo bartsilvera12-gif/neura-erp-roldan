@@ -177,16 +177,37 @@ export async function GET(request: NextRequest) {
       // por qué traer medio padrón.
       const t = texto.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
       if (t) {
-        q = q.or(
-          [
-            `nombre.ilike.%${t}%`,
-            `nombre_facturacion.ilike.%${t}%`,
-            `empresa.ilike.%${t}%`,
-            `nombre_contacto.ilike.%${t}%`,
-            `ruc.ilike.%${t}%`,
-            `codigo.ilike.%${t}%`,
-          ].join(",")
-        );
+        const terminos = [
+          `nombre.ilike.%${t}%`,
+          `nombre_facturacion.ilike.%${t}%`,
+          `empresa.ilike.%${t}%`,
+          `nombre_contacto.ilike.%${t}%`,
+          `ruc.ilike.%${t}%`,
+          `codigo.ilike.%${t}%`,
+        ];
+
+        /**
+         * BUSCAR POR RUC SIN DEPENDER DE CÓMO SE ESCRIBIÓ.
+         *
+         * Los RUC no están guardados con un formato único: en la base conviven
+         * `1234567-8`, `1.234.567-8`, `1234567` y variantes con los puntos en
+         * otro lugar. Con un `ilike %1234567-8%` a secas, el cliente cuyo RUC
+         * quedó guardado con puntos NO aparece, y desde el mostrador parece que
+         * no existe.
+         *
+         * Se agrega un patrón con los dígitos intercalados por comodines
+         * (`%1%2%3%4%5%6%7%8%`), que encuentra el mismo número con puntos, con
+         * guion o pelado. Va solo contra `ruc`, que son trece caracteres a lo
+         * sumo: en un campo así un patrón laxo casi no tiene con qué
+         * confundirse. Se exige un mínimo de cuatro dígitos para que escribir
+         * "12" no traiga media base.
+         */
+        const digitos = t.replace(/\D/g, "");
+        if (digitos.length >= 4) {
+          terminos.push(`ruc.ilike.%${digitos.split("").join("%")}%`);
+        }
+
+        q = q.or(terminos.join(","));
       }
     }
     if (limite > 0) {

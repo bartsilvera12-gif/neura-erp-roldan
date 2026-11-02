@@ -7,6 +7,7 @@ import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
+import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -35,9 +36,24 @@ type Item = {
   precio_unitario: number;
   iva_tipo: IvaTipoPresupuesto;
   descuento: number;
+  /** El % equivalente al descuento, para mostrarlo. */
+  descuento_pct: number;
+  /** Si se pactó un % o un monto fijo. Ver `descuento-linea.ts`. */
+  descuento_modo: "monto" | "pct";
+  /**
+   * El precio que propuso el sistema al agregar la línea. Si el administrador
+   * escribe uno más bajo, la diferencia es el descuento que dio por precio y
+   * se puede mostrar. 0 en las líneas escritas a mano: no hay con qué
+   * comparar.
+   */
+  precio_lista: number;
   tipo_precio: "mayorista" | "minorista";
 };
 
+function fmtPct(n: number) {
+  const x = Number(n) || 0;
+  return `${x.toLocaleString("es-PY", { maximumFractionDigits: 2 })}%`;
+}
 function fmtGs(n: number) {
   return "Gs. " + (Number(n) || 0).toLocaleString("es-PY", { maximumFractionDigits: 0 });
 }
@@ -295,6 +311,9 @@ export default function NuevoPresupuestoPage() {
         precio_unitario: precio,
         iva_tipo: "10%",
         descuento: 0,
+        descuento_pct: 0,
+        descuento_modo: "monto",
+        precio_lista: precio,
         tipo_precio,
       },
     ]);
@@ -313,13 +332,19 @@ export default function NuevoPresupuestoPage() {
         precio_unitario: 0,
         iva_tipo: "10%",
         descuento: 0,
+        descuento_pct: 0,
+        descuento_modo: "monto",
+        precio_lista: 0,
         tipo_precio: usarMayorista ? "mayorista" : "minorista",
       },
     ]);
   }
 
   function updItem(i: number, patch: Partial<Item>) {
-    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+    // Pasa por `aplicarCambio` para que el % y el monto del descuento queden
+    // siempre coherentes: escribir uno recalcula el otro, y cambiar la
+    // cantidad o el precio respeta cómo se pactó el descuento.
+    setItems((prev) => prev.map((it, idx) => (idx === i ? aplicarCambio(it, patch) : it)));
   }
   function delItem(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
@@ -339,7 +364,7 @@ export default function NuevoPresupuestoPage() {
       subtotal += t.subtotal;
       iva += t.iva;
       total += t.total;
-      desc += Number(it.descuento) || 0;
+      desc += descuentoTotalLinea(it).monto;
     }
     return { subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total) };
   }, [items]);
@@ -577,7 +602,7 @@ export default function NuevoPresupuestoPage() {
                   <th className="py-2 px-2 w-32">Cant.</th>
                   <th className="py-2 px-2 w-32">Precio unit.</th>
                   <th className="py-2 px-2 w-24">IVA</th>
-                  <th className="py-2 px-2 w-28">Descuento</th>
+                  <th className="py-2 px-2 w-36">Descuento</th>
                   <th className="py-2 px-2 w-32 text-right">Total</th>
                   <th className="py-2 pl-2 w-10"></th>
                 </tr>
@@ -605,7 +630,22 @@ export default function NuevoPresupuestoPage() {
                             sucursal, pero no lo escribe: eso es un descuento
                             que nadie autorizó. */}
                         {isAdmin || !rolCargado ? (
-                          <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                          <>
+                            <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                            {/* Escribir un precio más bajo que el de lista ES un
+                                descuento, aunque no se cargue en la columna de
+                                descuentos. Acá se dice cuánto, al lado de donde
+                                se escribió. */}
+                            {(() => {
+                              const d = descuentoPorPrecio(it.precio_lista, it.precio_unitario, it.cantidad);
+                              if (!d) return null;
+                              return (
+                                <span className="mt-1 block text-[10px] leading-tight text-emerald-700">
+                                  {fmtPct(d.pct)} menos que la lista ({fmtGs(it.precio_lista)})
+                                </span>
+                              );
+                            })()}
+                          </>
                         ) : (
                           <div
                             className={`${inputClass} bg-slate-50 text-slate-700 tabular-nums cursor-not-allowed`}
@@ -621,9 +661,50 @@ export default function NuevoPresupuestoPage() {
                         </select>
                       </td>
                       <td className="py-2 px-2">
-                        <input type="number" min="0" step="1" value={it.descuento || ""} onChange={(e) => updItem(i, { descuento: Number(e.target.value) })} className={inputClass} />
+                        {/* Dos maneras de escribir lo mismo: el % y los
+                            guaraníes. Se escribe en cualquiera de las dos y la
+                            otra se actualiza sola. */}
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number" min="0" max="100" step="0.01"
+                            value={it.descuento_pct || ""}
+                            onChange={(e) => updItem(i, { descuento_pct: Number(e.target.value) })}
+                            className={`${inputClass} px-2 tabular-nums`}
+                            placeholder="%"
+                            aria-label="Descuento en porcentaje"
+                          />
+                          <span className="text-xs text-slate-400">%</span>
+                        </div>
+                        <input
+                          type="number" min="0" step="1"
+                          value={it.descuento || ""}
+                          onChange={(e) => updItem(i, { descuento: Number(e.target.value) })}
+                          className={`${inputClass} mt-1 px-2 tabular-nums`}
+                          placeholder="Gs."
+                          aria-label="Descuento en guaraníes"
+                        />
                       </td>
-                      <td className="py-2 px-2 text-right tabular-nums font-medium">{fmtGs(t.total)}</td>
+                      <td className="py-2 px-2 text-right tabular-nums font-medium">
+                        {fmtGs(t.total)}
+                        {(() => {
+                          // Lo que se le hizo en total: el precio rebajado más
+                          // el descuento cargado. El precio rebajado ya está
+                          // dentro del total, así que acá solo se informa.
+                          const d = descuentoTotalLinea(it);
+                          if (d.monto <= 0) return null;
+                          const porPrecio = descuentoPorPrecio(it.precio_lista, it.precio_unitario, it.cantidad);
+                          return (
+                            <span className="mt-0.5 block text-[10px] font-normal leading-tight text-emerald-700">
+                              Le hiciste {fmtPct(d.pct)} · {fmtGs(d.monto)}
+                              {porPrecio ? (
+                                <span className="block text-slate-500">
+                                  de lista {fmtGs(it.precio_lista)}
+                                </span>
+                              ) : null}
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="py-2 pl-2 text-right">
                         <button onClick={() => delItem(i)} className="text-red-600 hover:text-red-700" aria-label="Eliminar"><Trash2 className="h-4 w-4" /></button>
                       </td>
@@ -639,7 +720,14 @@ export default function NuevoPresupuestoPage() {
           <div className="mt-4 ml-auto w-full sm:w-72 text-sm space-y-1">
             <div className="flex justify-between"><span className="text-gray-500">Subtotal (sin IVA)</span><span className="tabular-nums">{fmtGs(totales.subtotal)}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">IVA</span><span className="tabular-nums">{fmtGs(totales.iva)}</span></div>
-            {totales.desc > 0 && <div className="flex justify-between"><span className="text-gray-500">Descuentos</span><span className="tabular-nums">- {fmtGs(totales.desc)}</span></div>}
+            {totales.desc > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500" title="Incluye lo que se resignó bajando el precio unitario, que ya está dentro del total.">
+                  Descuentos otorgados
+                </span>
+                <span className="tabular-nums">{fmtGs(totales.desc)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-base"><span>Total</span><span className="tabular-nums text-[#4FAEB2]">{fmtGs(totales.total)}</span></div>
           </div>
         )}
