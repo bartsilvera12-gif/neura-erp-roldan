@@ -274,6 +274,19 @@ export default function HistorialVentasPage() {
               Limpiar filtros
             </button>
           )}
+          {/* La hoja contra la que el cliente controla el día, con el formato
+              de su sistema de siempre. Va con el rango de fechas de arriba; no
+              toma los filtros de cliente o vendedor, porque ese papel se
+              controla contra el talonario y tiene que estar completo. */}
+          <a
+            href={`/api/reportes/detalle-venta-a4?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            title="Detalle de Venta en el formato de la casa, para imprimir"
+          >
+            Detalle de Venta (A4)
+          </a>
         </div>
       </div>
 
