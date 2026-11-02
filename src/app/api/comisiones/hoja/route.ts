@@ -132,6 +132,9 @@ export async function GET(request: NextRequest) {
   .totales { margin-top: 10px; width: 62%; margin-left: auto; }
   .totales td { border: 0; padding: 2px 5px; font-size: 11px; }
   .totales tr.destacada td { border-top: 1.5px solid #000; font-weight: 700; font-size: 12px; padding-top: 4px; }
+  /* El vendedor firma este papel: si cobra la mitad por no haber llegado al
+     mínimo, tiene que decirlo acá y no solo en la pantalla del administrador. */
+  .totales td.nota-minimo { font-size: 10px; line-height: 1.4; color: #92400e; padding-top: 1px; }
 
   .conforme { margin-top: 16px; font-size: 10px; line-height: 1.5; }
   .firmas { margin-top: 26px; display: flex; gap: 40px; }
@@ -179,6 +182,12 @@ export async function GET(request: NextRequest) {
       <tr><td>Vendido (sin IVA)</td><td class="m">${gs(informe.totales.facturado)}</td></tr>
       <tr><td>Descuentos otorgados</td><td class="m">${gs(informe.totales.descuento)}</td></tr>
       <tr><td>Ganancia generada</td><td class="m">${gs(informe.totales.ganancia)}</td></tr>
+      ${vd && vd.minimo_ventas != null ? (
+        vd.llego_al_minimo === false
+          ? `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — no alcanzado</td></tr>
+             <tr><td colspan="2" class="nota-minimo">Por no haber llegado al mínimo, la comisión liquidada es la mitad de la que surge de los porcentajes.</td></tr>`
+          : `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — alcanzado</td></tr>`
+      ) : ""}
       <tr class="destacada"><td>TOTAL A LIQUIDAR</td><td class="m">Gs. ${gs(informe.totales.comision)}</td></tr>
     </tbody>
   </table>

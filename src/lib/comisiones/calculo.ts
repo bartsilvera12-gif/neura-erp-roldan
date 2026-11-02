@@ -37,6 +37,18 @@
  *   calcula sacándoselo a ambos: el IVA no es del negocio, es del Estado, y
  *   comisionar sobre él sería pagar por plata que hay que entregar.
  *
+ * ── EL MÍNIMO DE VENTAS RECORTA AL FINAL ──────────────────────────────────
+ *   Si el vendedor no llega al mínimo de facturación del período, cobra la
+ *   mitad de su comisión (`factorPorMinimo`). Eso NO se puede aplicar venta por
+ *   venta: depende de todo lo que facturó, así que se aplica cuando las ventas
+ *   ya están sumadas (ver `comisiones-pg.ts`).
+ *
+ * ── LAS SUBCATEGORÍAS HEREDAN EL PORCENTAJE DEL RUBRO PADRE ────────────────
+ *   Un porcentaje cargado en "CAÑOS" vale para "CAÑOS REDONDOS", "CAÑOS
+ *   CUADRADOS" y lo que se cuelgue después, salvo que la subcategoría tenga el
+ *   suyo propio. Sin esto habría que repetir el mismo número en cada una y
+ *   acordarse de repetirlo también cada vez que se agrega un rubro nuevo.
+ *
  * ── UNA VENTA A PÉRDIDA NO GENERA COMISIÓN NEGATIVA ────────────────────────
  *   Si la ganancia da negativa, la comisión es cero, no un número en contra.
  *   Descontarle plata a un vendedor por una venta mal hecha es una decisión de
@@ -92,11 +104,50 @@ export function sinIva(montoConIva: number, tipoIva: string): number {
 }
 
 /**
+ * Los rubros desde uno hasta la raíz: él, su padre, el padre de su padre.
+ *
+ * Sirve para que un porcentaje cargado en "CAÑOS" alcance a "CAÑOS REDONDOS",
+ * "CAÑOS CUADRADOS" y a cualquier subcategoría que se cuelgue después, sin
+ * tener que repetirlo en cada una.
+ *
+ * `padres` mapea rubro → su padre (ausente o null = es raíz).
+ *
+ * El recorrido se corta si un rubro ya apareció: una cadena mal armada en la
+ * base (A hijo de B y B hijo de A) colgaría el informe de comisiones para
+ * siempre, y eso no puede depender de que nadie se equivoque cargando rubros.
+ */
+export function cadenaDeRubros(
+  categoriaId: string | null,
+  padres: ReadonlyMap<string, string | null>
+): string[] {
+  if (!categoriaId) return [];
+  const cadena: string[] = [];
+  const vistos = new Set<string>();
+  let actual: string | null = categoriaId;
+  while (actual && !vistos.has(actual)) {
+    vistos.add(actual);
+    cadena.push(actual);
+    actual = padres.get(actual) ?? null;
+  }
+  return cadena;
+}
+
+/**
  * Porcentaje que corresponde, de la regla más específica a la más general.
  *
  * El orden importa y es el del pedido: una regla para "externo + hierros" tiene
  * que ganarle a "hierros" y a "externo", porque es la que alguien escribió
  * pensando justo en ese caso.
+ *
+ * ── LAS SUBCATEGORÍAS HEREDAN DEL RUBRO PADRE ─────────────────────────────
+ * Con `padres` cargado, el rubro del producto no se busca solo: se busca él y
+ * después sus padres, de abajo hacia arriba. Un porcentaje en "CAÑOS" vale
+ * para todos los caños, y si alguna subcategoría tiene el suyo propio, ese le
+ * gana al del padre — por eso se recorre desde el más específico.
+ *
+ * Dentro de cada escalón de la cadena se prueba primero "tipo + rubro" y
+ * después "rubro": el rubro manda sobre el tipo de vendedor, que es el orden
+ * que ya tenía la función.
  */
 export function porcentajeAplicable(
   reglas: ReglaComision[],
@@ -113,7 +164,12 @@ export function porcentajeAplicable(
    * `null` es "no tiene uno propio", que no es lo mismo que cero. Cero es un
    * valor real: la persona que no comisiona.
    */
-  porcentajePropio: number | null = null
+  porcentajePropio: number | null = null,
+  /**
+   * Rubro → su rubro padre. Vacío = sin jerarquía, cada rubro se busca solo
+   * (el comportamiento anterior).
+   */
+  padres: ReadonlyMap<string, string | null> = new Map()
 ): number {
   if (porcentajePropio != null) return porcentajePropio;
 
@@ -121,12 +177,12 @@ export function porcentajeAplicable(
   const buscar = (t: string | null, c: string | null) =>
     activas.find((r) => r.tipo_vendedor_id === t && r.categoria_id === c);
 
-  if (tipoVendedorId && categoriaId) {
-    const exacta = buscar(tipoVendedorId, categoriaId);
-    if (exacta) return exacta.porcentaje;
-  }
-  if (categoriaId) {
-    const porRubro = buscar(null, categoriaId);
+  for (const rubro of cadenaDeRubros(categoriaId, padres)) {
+    if (tipoVendedorId) {
+      const exacta = buscar(tipoVendedorId, rubro);
+      if (exacta) return exacta.porcentaje;
+    }
+    const porRubro = buscar(null, rubro);
     if (porRubro) return porRubro.porcentaje;
   }
   if (tipoVendedorId) {
@@ -190,7 +246,9 @@ export function comisionDeLinea(
   base: BaseCalculo = "margen",
   /** Porcentaje propio del vendedor; le gana a las reglas. */
   porcentajePropio: number | null = null,
-  opciones?: OpcionesComision
+  opciones?: OpcionesComision,
+  /** Rubro → rubro padre, para que las subcategorías hereden el porcentaje. */
+  padres: ReadonlyMap<string, string | null> = new Map()
 ): ResultadoLinea {
   const cantidad = Number(linea.cantidad) || 0;
   const iva = linea.tipo_iva;
@@ -211,7 +269,8 @@ export function comisionDeLinea(
     tipoVendedorId,
     linea.categoria_id,
     porcentajeBaseDelTipo,
-    porcentajePropio
+    porcentajePropio,
+    padres
   );
 
   const sobre = base === "facturacion" ? facturado : ganancia;
@@ -228,6 +287,55 @@ export function comisionDeLinea(
   const comision = sobre > 0 ? (sobre * porcentaje * factor_descuento) / 100 : 0;
 
   return { facturado, factor_descuento, descuento, costo, ganancia, porcentaje, comision };
+}
+
+/**
+ * Lo que cobra el que no llegó a su mínimo de ventas: la mitad.
+ *
+ * Está acá y no escrito en medio de una cuenta para que se vea de dónde sale
+ * el número, y para que cambiarlo sea cambiar una línea.
+ */
+export const PROPORCION_BAJO_MINIMO = 0.5;
+
+/**
+ * Cuánto de su comisión cobra el vendedor según si llegó al mínimo del período.
+ *
+ *   Llegó       → 1   (cobra el porcentaje que tenga cargado)
+ *   No llegó    → 0,5 (la mitad)
+ *   Sin mínimo  → 1
+ *
+ * ── DETALLES QUE IMPORTAN ─────────────────────────────────────────────────
+ *   - `minimo = 0` es "no hay mínimo que superar", igual que null: nadie puede
+ *     quedar por debajo de cero, así que cobrar la mitad nunca correspondería.
+ *   - Llegar justo al mínimo cuenta como llegar (`>=`). "Mínimo de ventas" es
+ *     el piso que hay que alcanzar, no superar.
+ *   - Lo facturado se compara SIN IVA, igual que el resto del informe: con IVA
+ *     el mínimo se alcanzaría con un 10% menos de venta real.
+ */
+export function factorPorMinimo(
+  facturadoDelPeriodo: number,
+  minimo: number | null | undefined
+): number {
+  const m = Number(minimo);
+  if (minimo == null || !Number.isFinite(m) || m <= 0) return 1;
+  return (Number(facturadoDelPeriodo) || 0) >= m ? 1 : PROPORCION_BAJO_MINIMO;
+}
+
+/**
+ * El mínimo que le corresponde a una persona: el propio si tiene, si no el de
+ * su tipo de vendedor.
+ *
+ * `null` propio significa "no tiene uno propio", que no es lo mismo que cero.
+ * Un cero cargado a mano es un valor real: esta persona no tiene mínimo, aunque
+ * su tipo tenga uno.
+ */
+export function minimoDeVendedor(
+  minimoPropio: number | null | undefined,
+  minimoDelTipo: number | null | undefined
+): number | null {
+  if (minimoPropio != null && Number.isFinite(Number(minimoPropio))) return Number(minimoPropio);
+  if (minimoDelTipo != null && Number.isFinite(Number(minimoDelTipo))) return Number(minimoDelTipo);
+  return null;
 }
 
 export interface ResultadoVenta extends Omit<ResultadoLinea, "porcentaje"> {

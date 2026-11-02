@@ -3,6 +3,8 @@ import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-po
 import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
 import {
   comisionDeLinea,
+  factorPorMinimo,
+  minimoDeVendedor,
   type BaseCalculo,
   type ReglaComision,
 } from "@/lib/comisiones/calculo";
@@ -55,6 +57,12 @@ export interface VendedorComisionado {
   ganancia: number;
   comision: number;
   margen_pct: number;
+  /** Lo que tenía que facturar en el período. null = no tiene mínimo. */
+  minimo_ventas?: number | null;
+  /** Si llegó. Con `minimo_ventas` null siempre es true. */
+  llego_al_minimo?: boolean;
+  /** 1 si llegó, 0,5 si no. Ya está aplicado en `comision`. */
+  factor_minimo?: number;
 }
 
 export interface InformeComisiones {
@@ -72,6 +80,12 @@ export interface InformeComisiones {
   /** Si el descuento recortó comisiones en este período. */
   penaliza_descuento?: boolean;
   penalizacion_maxima_pct?: number | null;
+  /**
+   * Si el mínimo de ventas se tuvo en cuenta. false cuando el informe está
+   * filtrado por rubro: ahí lo facturado no es el del período y el mínimo no
+   * se puede medir (ver el comentario en `informeComisiones`).
+   */
+  minimo_aplicado?: boolean;
 }
 
 /** Paraguay es UTC−3 todo el año; la tzdata del servidor puede estar vieja. */
@@ -100,6 +114,9 @@ interface FilaCruda {
   precio_venta_original: string | null;
   tipo_iva: string | null;
   costo_unitario: string | null;
+  /** Null cuando todavía no se corrió el script 54. */
+  minimo_propio?: string | null;
+  minimo_del_tipo?: string | null;
 }
 
 export async function informeComisiones(
@@ -118,6 +135,7 @@ export async function informeComisiones(
   const tR = quoteSchemaTable(schema, "comisiones_reglas");
   const tC = quoteSchemaTable(schema, "comisiones_config");
   const tM = quoteSchemaTable(schema, "movimientos_inventario");
+  const tCat = quoteSchemaTable(schema, "categorias_productos");
   const SUC_V = andSucursal(sucursalId, "v.");
   const p = pool();
 
@@ -164,6 +182,22 @@ export async function informeComisiones(
     activo: r.activo,
   }));
 
+  // ── Jerarquía de rubros ────────────────────────────────────────────────
+  // Para que el porcentaje cargado en un rubro alcance a sus subcategorías.
+  // `parent_id` existe desde el principio, pero si por lo que fuera no se
+  // pudiera leer, el mapa queda vacío y cada rubro se busca solo: es el
+  // comportamiento anterior, no un error.
+  const padresRubro = new Map<string, string | null>();
+  try {
+    const catQ = await p.query<{ id: string; parent_id: string | null }>(
+      `SELECT id::text, parent_id::text FROM ${tCat} WHERE empresa_id = $1::uuid`,
+      [empresaId]
+    );
+    for (const c of catQ.rows) padresRubro.set(c.id, c.parent_id);
+  } catch {
+    /* sin jerarquía: cada rubro con su propia regla */
+  }
+
   // ── Líneas del período ─────────────────────────────────────────────────
   const args: unknown[] = [empresaId];
   const cond: string[] = [`v.empresa_id = $1::uuid${SUC_V}`,
@@ -174,7 +208,13 @@ export async function informeComisiones(
   if (filtro.vendedorId) { args.push(filtro.vendedorId); cond.push(`v.vendedor_usuario_id = $${args.length}::uuid`); }
   if (filtro.categoriaId) { args.push(filtro.categoriaId); cond.push(`pr.categoria_principal_id = $${args.length}::uuid`); }
 
-  const q = await p.query<FilaCruda>(
+  /**
+   * El mínimo de ventas vive en las columnas del script 54. Si no se corrió,
+   * el SELECT entero falla con 42703 y el informe quedaría caído: por eso se
+   * pide primero con las columnas y, si no están, se repite sin ellas. Sin
+   * mínimo nadie cobra la mitad, que es como venía funcionando.
+   */
+  const armarQuery = (conMinimos: boolean) =>
     `SELECT v.id::text            AS venta_id,
             v.numero_control,
             v.fecha,
@@ -185,6 +225,9 @@ export async function informeComisiones(
             tv.nombre                   AS tipo_vendedor_nombre,
             tv.porcentaje_base,
             u.porcentaje_comision AS porcentaje_propio,
+            ${conMinimos
+              ? "u.minimo_ventas AS minimo_propio, tv.minimo_ventas AS minimo_del_tipo,"
+              : "NULL::numeric AS minimo_propio, NULL::numeric AS minimo_del_tipo,"}
             pr.categoria_principal_id::text AS categoria_id,
             vi.cantidad,
             vi.precio_venta,
@@ -208,9 +251,16 @@ export async function informeComisiones(
           LIMIT 1
        ) m ON true
       WHERE ${cond.join(" AND ")}
-      ORDER BY v.fecha DESC, v.numero_control`,
-    args
-  );
+      ORDER BY v.fecha DESC, v.numero_control`;
+
+  let q;
+  try {
+    q = await p.query<FilaCruda>(armarQuery(true), args);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/minimo_ventas/.test(msg)) throw e;
+    q = await p.query<FilaCruda>(armarQuery(false), args);
+  }
 
   // ── Cuenta ─────────────────────────────────────────────────────────────
   const porVenta = new Map<string, VentaComisionada>();
@@ -231,7 +281,8 @@ export async function informeComisiones(
       Number(f.porcentaje_base) || 0,
       base,
       f.porcentaje_propio == null ? null : Number(f.porcentaje_propio),
-      opcionesComision
+      opcionesComision,
+      padresRubro
     );
 
     const vendedorNombre = f.vendedor_nombre || "Sin vendedor";
@@ -258,6 +309,12 @@ export async function informeComisiones(
       tipo_vendedor: f.tipo_vendedor_nombre,
       operaciones: 0, facturado: 0, descuento: 0, costo: 0,
       ganancia: 0, comision: 0, margen_pct: 0,
+      minimo_ventas: minimoDeVendedor(
+        f.minimo_propio == null ? null : Number(f.minimo_propio),
+        f.minimo_del_tipo == null ? null : Number(f.minimo_del_tipo)
+      ),
+      llego_al_minimo: true,
+      factor_minimo: 1,
     };
     vd.facturado += r.facturado; vd.descuento += r.descuento;
     vd.costo += r.costo; vd.ganancia += r.ganancia; vd.comision += r.comision;
@@ -272,6 +329,43 @@ export async function informeComisiones(
   }
   for (const vd of porVendedor.values()) {
     vd.margen_pct = vd.facturado > 0 ? (vd.ganancia / vd.facturado) * 100 : 0;
+  }
+
+  /**
+   * El mínimo de ventas recorta al final, no línea por línea.
+   *
+   * No puede aplicarse antes porque depende de TODO lo que facturó la persona
+   * en el período: recién cuando están sumadas sus ventas se sabe si llegó.
+   *
+   * El recorte se lleva también a las ventas de esa persona, para que la
+   * columna de comisión del detalle sume lo mismo que el resumen. Si una
+   * mostrara la comisión entera y la otra la mitad, el vendedor leería que le
+   * están descontando algo que nadie le explicó.
+   */
+  /**
+   * FILTRANDO POR RUBRO EL MÍNIMO NO SE PUEDE MEDIR.
+   *
+   * Con un rubro elegido, `facturado` es lo que la persona vendió DE ESE RUBRO,
+   * no lo que vendió en el período. Compararlo contra el mínimo haría que casi
+   * todos aparezcan por debajo y que el informe muestre comisiones a la mitad
+   * que no son las que se van a pagar. Mejor no recortar y que la pantalla
+   * avise, antes que mostrar un número que después hay que desmentir.
+   */
+  const minimoAplicado = !filtro.categoriaId;
+
+  const factorPorVendedor = new Map<string, number>();
+  for (const [clave, vd] of porVendedor) {
+    const factor = minimoAplicado
+      ? factorPorMinimo(vd.facturado, vd.minimo_ventas ?? null)
+      : 1;
+    factorPorVendedor.set(clave, factor);
+    vd.factor_minimo = factor;
+    vd.llego_al_minimo = factor === 1;
+    vd.comision *= factor;
+  }
+  for (const v of porVenta.values()) {
+    const factor = factorPorVendedor.get(v.vendedor_id ?? "__sin__") ?? 1;
+    if (factor !== 1) v.comision *= factor;
   }
 
   const ventas = [...porVenta.values()];
@@ -291,5 +385,6 @@ export async function informeComisiones(
     base_calculo: base,
     penaliza_descuento: penalizaDescuento,
     penalizacion_maxima_pct: penalizacionMaximaPct,
+    minimo_aplicado: minimoAplicado,
   };
 }

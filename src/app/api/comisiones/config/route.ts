@@ -29,6 +29,25 @@ const esTablaFaltante = (m: string) =>
 
 /** La columna del tope de descuento la agrega el script 34, que puede no estar. */
 const faltaColumnaTope = (m: string) => /descuento_maximo_pct/.test(m);
+/** El mínimo de ventas llega con el script 54. */
+const faltaColumnaMinimo = (m: string) => /minimo_ventas/.test(m);
+const FALTA_54 = "El mínimo de ventas necesita que corras el script 54 en la base.";
+
+/**
+ * Lee un mínimo de ventas del cuerpo del pedido.
+ *
+ * Devuelve `undefined` cuando el campo no vino (no se toca), `null` cuando vino
+ * vacío (se borra el mínimo) y el número en el resto de los casos. Vacío y cero
+ * son cosas distintas: vacío en una persona es "usa el de su tipo", y cero es
+ * "esta persona no tiene mínimo".
+ */
+function leerMinimo(v: unknown): number | null | undefined | "invalido" {
+  if (v === undefined) return undefined;
+  if (v === null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return "invalido";
+  return n;
+}
 
 type Ctx = NonNullable<Awaited<ReturnType<typeof getTenantSupabaseFromAuthWithRol>>>;
 
@@ -52,9 +71,17 @@ export async function GET(request: NextRequest) {
   try {
     const [tipos, reglas, config, vendedores, rubros] = await Promise.all([
       supabase.from("tipos_vendedor")
-        .select("id, nombre, porcentaje_base, activo, descuento_maximo_pct")
+        .select("id, nombre, porcentaje_base, activo, descuento_maximo_pct, minimo_ventas")
         .eq("empresa_id", auth.empresa_id).order("nombre")
         .then(async (r) => {
+          // Script 54 sin correr: se pide de nuevo sin el mínimo.
+          if (r.error && faltaColumnaMinimo(r.error.message ?? "")) {
+            const sinMinimo = await supabase.from("tipos_vendedor")
+              .select("id, nombre, porcentaje_base, activo, descuento_maximo_pct")
+              .eq("empresa_id", auth.empresa_id).order("nombre");
+            if (!sinMinimo.error) return sinMinimo;
+            r = sinMinimo;
+          }
           // Sin el script 34 corrido se reintenta sin esa columna: el tope de
           // descuento es una función de más, no una razón para dejar sin
           // configuración de comisiones a quien todavía no migró.
@@ -83,9 +110,16 @@ export async function GET(request: NextRequest) {
           return r;
         }),
       supabase.from("usuarios")
-        .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct, porcentaje_comision")
+        .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct, porcentaje_comision, minimo_ventas")
         .eq("empresa_id", auth.empresa_id).order("nombre")
         .then(async (r) => {
+          if (r.error && faltaColumnaMinimo(r.error.message ?? "")) {
+            const sinMinimo = await supabase.from("usuarios")
+              .select("id, nombre, email, tipo_vendedor_id, descuento_maximo_pct, porcentaje_comision")
+              .eq("empresa_id", auth.empresa_id).order("nombre");
+            if (!sinMinimo.error) return sinMinimo;
+            r = sinMinimo;
+          }
           if (r.error && faltaColumnaTope(r.error.message ?? "")) {
             return await supabase.from("usuarios")
               .select("id, nombre, email, tipo_vendedor_id, porcentaje_comision")
@@ -93,8 +127,11 @@ export async function GET(request: NextRequest) {
           }
           return r;
         }),
+      // `parent_id` para poder mostrar los rubros como árbol: el porcentaje de
+      // un rubro alcanza a sus subcategorías, así que la pantalla tiene que
+      // dejar ver cuál cuelga de cuál.
       supabase.from("categorias_productos")
-        .select("id, nombre").eq("empresa_id", auth.empresa_id)
+        .select("id, nombre, parent_id").eq("empresa_id", auth.empresa_id)
         .eq("activo", true).order("nombre"),
     ]);
 
@@ -157,6 +194,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const minTipo = leerMinimo(b.minimo_ventas);
+      if (minTipo === "invalido") {
+        return NextResponse.json(
+          errorResponse("El mínimo de ventas no puede ser negativo. Dejalo vacío si no hay mínimo."),
+          { status: 400 }
+        );
+      }
+
       const fila = {
         empresa_id: auth.empresa_id,
         nombre,
@@ -164,6 +209,7 @@ export async function POST(request: NextRequest) {
         activo: b.activo !== false,
         updated_at: new Date().toISOString(),
         ...(topeDesc !== undefined ? { descuento_maximo_pct: topeDesc } : {}),
+        ...(minTipo !== undefined ? { minimo_ventas: minTipo } : {}),
       };
       const guardar = (f: Record<string, unknown>) =>
         b.id
@@ -172,6 +218,19 @@ export async function POST(request: NextRequest) {
           : supabase.from("tipos_vendedor").insert(f).select("id").single();
 
       let r = await guardar(fila);
+      if (r.error && faltaColumnaMinimo(r.error.message ?? "")) {
+        // Igual que con el tope: se guarda el resto y se avisa qué faltó, en
+        // vez de perder también el nombre o el porcentaje.
+        const { minimo_ventas: _sinMin, ...sinMinimo } = fila as Record<string, unknown>;
+        void _sinMin;
+        r = await guardar(sinMinimo);
+        if (!r.error) {
+          return NextResponse.json(successResponse({
+            id: (r.data as { id: string }).id,
+            aviso: `Se guardó, pero ${FALTA_54.charAt(0).toLowerCase()}${FALTA_54.slice(1)}`,
+          }));
+        }
+      }
       if (r.error && faltaColumnaTope(r.error.message ?? "")) {
         // Se guarda el resto y se avisa qué quedó sin aplicar, en vez de
         // perder también el cambio de nombre o de porcentaje.
@@ -281,6 +340,35 @@ export async function POST(request: NextRequest) {
     // La excepción al tope de su tipo. Vive acá y no solo en RRHH porque es la
     // misma pantalla donde se le asigna el tipo: separar las dos mitades de la
     // misma decisión obliga a acordarse de la otra.
+    // ── Mínimo de ventas propio de una persona ────────────────────────────
+    // Vacío = usa el de su tipo. Cero = esta persona no tiene mínimo.
+    if (accion === "minimo_usuario") {
+      const usuarioId = String(b.usuario_id ?? "");
+      if (!usuarioId) return NextResponse.json(errorResponse("Falta el usuario."), { status: 400 });
+
+      const valor = leerMinimo(b.minimo_ventas);
+      if (valor === "invalido") {
+        return NextResponse.json(
+          errorResponse("El mínimo de ventas no puede ser negativo. Dejalo vacío para que use el de su tipo."),
+          { status: 400 }
+        );
+      }
+
+      const r = await supabase.from("usuarios")
+        .update({ minimo_ventas: valor === undefined ? null : valor })
+        .eq("empresa_id", auth.empresa_id).eq("id", usuarioId);
+      if (r.error) {
+        if (faltaColumnaMinimo(r.error.message ?? "")) {
+          return NextResponse.json(errorResponse(FALTA_54), { status: 400 });
+        }
+        if (esTablaFaltante(r.error.message)) {
+          return NextResponse.json(errorResponse(FALTA_TABLA), { status: 500 });
+        }
+        throw new Error(r.error.message);
+      }
+      return NextResponse.json(successResponse({ ok: true }));
+    }
+
     if (accion === "tope_usuario") {
       const usuarioId = String(b.usuario_id ?? "");
       if (!usuarioId) return NextResponse.json(errorResponse("Falta el usuario."), { status: 400 });

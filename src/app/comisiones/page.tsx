@@ -38,6 +38,11 @@ type Vendedor = {
   vendedor_id: string | null; vendedor_nombre: string; tipo_vendedor: string | null;
   operaciones: number; facturado: number; descuento: number; costo: number;
   ganancia: number; comision: number; margen_pct: number;
+  /** Lo que tenía que facturar. null = sin mínimo (o falta el script 54). */
+  minimo_ventas?: number | null;
+  /** Si llegó. Cuando no llegó, la comisión ya viene a la mitad. */
+  llego_al_minimo?: boolean;
+  factor_minimo?: number;
 };
 type VentaCom = {
   venta_id: string; numero_control: string; fecha: string; cliente_nombre: string | null;
@@ -47,12 +52,16 @@ type Informe = {
   ventas: VentaCom[]; vendedores: Vendedor[]; desde: string; hasta: string;
   base_calculo: "margen" | "facturacion";
   totales: { operaciones: number; facturado: number; descuento: number; costo: number; ganancia: number; comision: number };
+  /** false cuando el informe está filtrado por rubro: ahí no se puede medir. */
+  minimo_aplicado?: boolean;
 };
 
 type Tipo = {
   id: string; nombre: string; porcentaje_base: number; activo: boolean;
   /** Tope de descuento en Caja para todos los de este tipo. null = sin tope. */
   descuento_maximo_pct?: number | null;
+  /** Facturación a alcanzar en el período. null = sin mínimo (script 54). */
+  minimo_ventas?: number | null;
 };
 type Regla = { id: string; tipo_vendedor_id: string | null; categoria_id: string | null; porcentaje: number; activo: boolean };
 type UsuarioLite = {
@@ -61,8 +70,10 @@ type UsuarioLite = {
   descuento_maximo_pct?: number | null;
   /** Comisión propia. null = usa las reglas y el % base de su tipo. */
   porcentaje_comision?: number | null;
+  /** Mínimo propio. null = usa el de su tipo. */
+  minimo_ventas?: number | null;
 };
-type RubroLite = { id: string; nombre: string };
+type RubroLite = { id: string; nombre: string; parent_id?: string | null };
 type Config = {
   tipos: Tipo[]; reglas: Regla[]; vendedores: UsuarioLite[]; rubros: RubroLite[];
   config: {
@@ -240,6 +251,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3 text-right">Oper.</th>
                 <th className="px-4 py-3 text-right">Vendido</th>
+                <th className="px-4 py-3 text-right">Mínimo</th>
                 <th className="px-4 py-3 text-right">Descuentos</th>
                 <th className="px-4 py-3 text-right">Ganancia</th>
                 <th className="px-4 py-3 text-right">Margen</th>
@@ -249,9 +261,9 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {cargando ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">Calculando…</td></tr>
               ) : (data?.vendedores.length ?? 0) === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Sin ventas en el período.</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">Sin ventas en el período.</td></tr>
               ) : data!.vendedores.map((v) => (
                 <tr
                   key={v.vendedor_id ?? "sin"}
@@ -263,6 +275,24 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
                   <td className="px-4 py-2.5 text-slate-500">{v.tipo_vendedor ?? "—"}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{v.operaciones}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{gs(v.facturado)}</td>
+                  {/* Si no llegó al mínimo la comisión ya viene a la mitad: hay
+                      que poder verlo acá, o el vendedor lee un número más chico
+                      sin ninguna explicación. */}
+                  <td className="px-4 py-2.5 text-right text-xs tabular-nums">
+                    {v.minimo_ventas == null ? (
+                      <span className="text-slate-400">sin mínimo</span>
+                    ) : v.llego_al_minimo === false ? (
+                      <span className="font-medium text-amber-700" title={`No llegó al mínimo de ${gs(v.minimo_ventas)}: cobra la mitad de su comisión.`}>
+                        {gs(v.minimo_ventas)}
+                        <span className="block font-normal">no llegó · mitad</span>
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700" title={`Llegó al mínimo de ${gs(v.minimo_ventas)}.`}>
+                        {gs(v.minimo_ventas)}
+                        <span className="block text-slate-400">llegó</span>
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">
                     {v.descuento > 0 ? gs(v.descuento) : "—"}
                   </td>
@@ -348,6 +378,18 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
         )}{" "}
         Las ventas anuladas no entran. Una venta a pérdida da comisión cero, nunca negativa.
       </p>
+
+      {/* Filtrando por rubro, lo vendido no es lo del período y el mínimo no se
+          puede medir: el informe lo dice en vez de mostrar comisiones enteras
+          que después van a salir a la mitad. */}
+      {data && data.minimo_aplicado === false && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs leading-snug text-amber-900">
+          <strong>Este informe está filtrado por rubro,</strong> así que el mínimo de ventas no se
+          está teniendo en cuenta: lo que figura como vendido es solo lo de ese rubro y compararlo
+          contra el mínimo daría cualquier cosa. Las comisiones de acá son las enteras. Para ver lo
+          que se va a pagar de verdad, sacá el filtro de rubro.
+        </p>
+      )}
     </div>
   );
 }
@@ -673,12 +715,13 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Tipos de vendedor */}
       <Caja titulo="Tipos de vendedor"
-        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. La excepción de una persona se carga abajo, en “Tipo de cada vendedor”, y le gana a esto.">
+        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El mínimo de ventas es lo que tiene que facturar en el período para cobrar la comisión entera: si no llega, cobra la mitad (vacío = sin mínimo). El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. La excepción de una persona se carga abajo, en “Tipo de cada vendedor”, y le gana a esto.">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
               <th className="py-2">Nombre</th>
               <th className="py-2 text-right">% base</th>
+              <th className="py-2 text-right">Mínimo de ventas</th>
               <th className="py-2 text-right">Desc. máx.</th>
               <th className="py-2 text-center">Activo</th>
               <th className="py-2"></th>
@@ -694,6 +737,18 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
                     disabled={guardando}
                     onGuardar={(n) => void enviar({
                       accion: "tipo", id: t.id, nombre: t.nombre, porcentaje_base: n,
+                    })}
+                  />
+                </td>
+                <td className="py-2 text-right">
+                  <GsEditable
+                    valor={t.minimo_ventas == null ? null : Number(t.minimo_ventas)}
+                    disabled={guardando}
+                    etiquetaVacio="sin mínimo"
+                    onGuardar={(n) => void enviar({
+                      accion: "tipo", id: t.id, nombre: t.nombre,
+                      porcentaje_base: Number(t.porcentaje_base) || 0,
+                      minimo_ventas: n,
                     })}
                   />
                 </td>
@@ -718,7 +773,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
               </tr>
             ))}
             {cfg.tipos.length === 0 && (
-              <tr><td colSpan={5} className="py-4 text-center text-slate-400">
+              <tr><td colSpan={6} className="py-4 text-center text-slate-400">
                 Todavía no hay tipos. Cargá al menos uno para poder comisionar.
               </td></tr>
             )}
@@ -740,7 +795,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Porcentajes por rubro */}
       <Caja titulo="Porcentajes por rubro"
-        ayuda="Están todos los rubros del catálogo: el que no tiene porcentaje cargado comisiona con el porcentaje base del tipo de vendedor, que casi nunca es lo que se quiso. Por encima de esto manda la comisión propia de la persona, si tiene una cargada.">
+        ayuda="Están todos los rubros del catálogo. El que no tiene porcentaje cargado comisiona con el porcentaje base del tipo de vendedor, que casi nunca es lo que se quiso. Si un rubro tiene subcategorías, alcanza con cargar el porcentaje en el padre: lo heredan todas, salvo la que tenga uno propio. Por encima de todo esto manda la comisión propia de la persona.">
         <ReglasPorRubro
           cfg={cfg}
           disabled={guardando}
@@ -757,19 +812,20 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Tipo de cada usuario */}
       <Caja titulo="Tipo de cada vendedor"
-        ayuda="El tipo define cuánto comisiona y hasta cuánto puede descontar. Las dos columnas de la derecha son las excepciones de esa persona: vacías usa lo de su tipo. La comisión propia le gana incluso a la regla por rubro, y un 0 es un valor real (no comisiona / no puede descontar).">
+        ayuda="El tipo define cuánto comisiona, cuánto tiene que vender y hasta cuánto puede descontar. Las tres columnas de la derecha son las excepciones de esa persona: vacías usa lo de su tipo. La comisión propia le gana incluso a la regla por rubro, y un 0 es un valor real (no comisiona / no tiene mínimo / no puede descontar).">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
               <th className="py-2">Vendedor</th>
               <th className="py-2 text-right">Tipo</th>
               <th className="py-2 text-right">Comisión propia</th>
+              <th className="py-2 text-right">Mínimo propio</th>
               <th className="py-2 text-right">Desc. máx. propio</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {cfg.vendedores.length === 0 && (
-              <tr><td colSpan={4} className="py-4 text-center text-slate-400">
+              <tr><td colSpan={5} className="py-4 text-center text-slate-400">
                 No hay usuarios cargados en la empresa.
               </td></tr>
             )}
@@ -798,6 +854,16 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
                     onGuardar={(n) => void enviar({
                       accion: "comision_usuario", usuario_id: u.id,
                       porcentaje_comision: n < 0 ? null : n,
+                    })}
+                  />
+                </td>
+                <td className="py-2 text-right">
+                  <GsEditable
+                    valor={u.minimo_ventas == null ? null : Number(u.minimo_ventas)}
+                    disabled={guardando}
+                    etiquetaVacio="el de su tipo"
+                    onGuardar={(n) => void enviar({
+                      accion: "minimo_usuario", usuario_id: u.id, minimo_ventas: n,
                     })}
                   />
                 </td>
@@ -920,11 +986,70 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
     else conTipo.push(r);
   }
 
-  const faltan = cfg.rubros.filter((r) => !porRubro.has(r.id)).length;
+  /**
+   * El porcentaje que termina cobrando un rubro: el suyo, o el del primer
+   * padre que tenga uno. Es la misma cuenta que hace `porcentajeAplicable` en
+   * el servidor, y está acá para que la pantalla muestre exactamente lo que se
+   * va a pagar en vez de "sin cargar" sobre un rubro que sí cobra algo.
+   */
+  const padreDe = new Map<string, string | null>(
+    cfg.rubros.map((r) => [r.id, r.parent_id ?? null])
+  );
+  function heredado(rubroId: string): { pct: number; de: string } | null {
+    const vistos = new Set<string>([rubroId]);
+    let actual = padreDe.get(rubroId) ?? null;
+    while (actual && !vistos.has(actual)) {
+      vistos.add(actual);
+      const regla = porRubro.get(actual);
+      if (regla) {
+        return {
+          pct: Number(regla.porcentaje) || 0,
+          de: cfg.rubros.find((x) => x.id === actual)?.nombre ?? "su rubro padre",
+        };
+      }
+      actual = padreDe.get(actual) ?? null;
+    }
+    return null;
+  }
+
+  // Falta cargar el que no tiene regla propia NI hereda una.
+  const faltan = cfg.rubros.filter((r) => !porRubro.has(r.id) && !heredado(r.id)).length;
+
+  /**
+   * Los rubros ordenados como árbol: cada padre seguido de sus hijos.
+   *
+   * Un rubro cuyo padre no está en la lista (desactivado, o de otra sucursal)
+   * se trata como raíz en vez de desaparecer: no mostrarlo haría que su
+   * porcentaje no se pueda cargar desde ningún lado.
+   */
+  const hijosDe = new Map<string, RubroLite[]>();
+  const raices: RubroLite[] = [];
+  const existe = new Set(cfg.rubros.map((r) => r.id));
+  for (const r of cfg.rubros) {
+    const padre = r.parent_id && existe.has(r.parent_id) ? r.parent_id : null;
+    if (padre) {
+      const l = hijosDe.get(padre) ?? [];
+      l.push(r);
+      hijosDe.set(padre, l);
+    } else {
+      raices.push(r);
+    }
+  }
+  const enOrden: Array<{ rubro: RubroLite; nivel: number }> = [];
+  const aplanar = (lista: RubroLite[], nivel: number, vistos: Set<string>) => {
+    for (const r of lista) {
+      if (vistos.has(r.id)) continue;
+      vistos.add(r.id);
+      enOrden.push({ rubro: r, nivel });
+      aplanar(hijosDe.get(r.id) ?? [], nivel + 1, vistos);
+    }
+  };
+  aplanar(raices, 0, new Set<string>());
+
   const t = busqueda.trim().toLowerCase();
-  const visibles = cfg.rubros.filter((r) => {
-    if (soloFaltan && porRubro.has(r.id)) return false;
-    return t === "" || r.nombre.toLowerCase().includes(t);
+  const visibles = enOrden.filter(({ rubro }) => {
+    if (soloFaltan && (porRubro.has(rubro.id) || heredado(rubro.id))) return false;
+    return t === "" || rubro.nombre.toLowerCase().includes(t);
   });
 
   const nombreTipo = (id: string | null) =>
@@ -977,17 +1102,22 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
               Ningún rubro coincide con la búsqueda.
             </td></tr>
           )}
-          {visibles.map((rubro) => {
+          {visibles.map(({ rubro, nivel }) => {
             const regla = porRubro.get(rubro.id);
+            const hereda = regla ? null : heredado(rubro.id);
+            const cubierto = !!regla || !!hereda;
             return (
-              <tr key={rubro.id} className={regla ? "" : "bg-amber-50/40"}>
-                <td className="py-2 text-slate-700">{rubro.nombre}</td>
+              <tr key={rubro.id} className={cubierto ? "" : "bg-amber-50/40"}>
+                <td className="py-2 text-slate-700" style={{ paddingLeft: nivel * 18 }}>
+                  {nivel > 0 && <span className="mr-1 text-slate-300">└</span>}
+                  {rubro.nombre}
+                </td>
                 <td className="py-2 text-right">
                   <PctEditable
                     valor={regla ? Number(regla.porcentaje) || 0 : -1}
                     disabled={disabled}
                     permiteVacio
-                    etiquetaVacio="sin cargar"
+                    etiquetaVacio={hereda ? pct(hereda.pct) : "sin cargar"}
                     onGuardar={(n) => {
                       if (n < 0) {
                         if (regla) onBorrar(regla.id);
@@ -997,8 +1127,12 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
                     }}
                   />
                 </td>
-                <td className="py-2 pl-3 text-xs text-amber-700">
-                  {regla ? "" : "sin cargar: usa el % base del tipo"}
+                <td className="py-2 pl-3 text-xs">
+                  {regla ? null : hereda ? (
+                    <span className="text-slate-500">hereda el {pct(hereda.pct)} de {hereda.de}</span>
+                  ) : (
+                    <span className="text-amber-700">sin cargar: usa el % base del tipo</span>
+                  )}
                 </td>
               </tr>
             );
@@ -1036,6 +1170,52 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Un importe en guaraníes que se edita en la tabla, igual que `PctEditable`
+ * pero para plata.
+ *
+ * Vacío devuelve null y NO es cero: en el mínimo de ventas, vacío significa
+ * "no tiene uno propio" o "sin mínimo", y un cero cargado a mano significa
+ * "esta persona no tiene mínimo que alcanzar". Guardar un cero cuando alguien
+ * borró el campo cambiaría el sentido.
+ */
+function GsEditable({ valor, disabled, etiquetaVacio, onGuardar }: {
+  valor: number | null;
+  disabled?: boolean;
+  etiquetaVacio?: string;
+  onGuardar: (nuevo: number | null) => void;
+}) {
+  const aTexto = (v: number | null) => (v == null ? "" : String(v));
+  const [texto, setTexto] = useState(aTexto(valor));
+  useEffect(() => { setTexto(aTexto(valor)); }, [valor]);
+
+  return (
+    <input
+      type="number"
+      min={0}
+      step="1"
+      value={texto}
+      disabled={disabled}
+      placeholder={etiquetaVacio}
+      aria-label="Mínimo de ventas en guaraníes"
+      onChange={(e) => setTexto(e.target.value)}
+      onBlur={() => {
+        if (texto.trim() === "") {
+          if (valor == null) return;
+          onGuardar(null);
+          return;
+        }
+        const n = Number(texto.replace(/[.,\s]/g, ""));
+        if (!Number.isFinite(n) || n < 0) { setTexto(aTexto(valor)); return; }
+        if (n === valor) return;
+        onGuardar(n);
+      }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className="w-32 rounded border border-slate-200 px-2 py-1 text-right text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none disabled:opacity-50"
+    />
   );
 }
 
