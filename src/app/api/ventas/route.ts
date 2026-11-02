@@ -70,6 +70,40 @@ const OFFSET_PY = "-03:00";
  *   al navegador. Con el rango aplicado en la consulta, las 500 son las de ESE
  *   período y la venta vieja aparece.
  */
+/**
+ * Trae filas por una lista de ids, en tandas.
+ *
+ * ── POR QUÉ NO SE RECORRE LA TABLA ENTERA ─────────────────────────────────
+ *   Antes, para resolver los nombres de los clientes de las ventas listadas,
+ *   esta ruta paginaba TODA la tabla de clientes de a 1.000 y filtraba en
+ *   memoria. Con 6 clientes de prueba era un pedido. Al migrar los 21.344
+ *   clientes reales pasaron a ser 22 pedidos encadenados — y lo mismo con
+ *   facturas y con los estados de SIFEN. El Historial de ventas se quedaba
+ *   en "Cargando…" para siempre.
+ *
+ * ── POR QUÉ TAMPOCO UN `in()` GIGANTE ─────────────────────────────────────
+ *   Que era el problema que la paginación venía a esquivar: con cientos de
+ *   UUIDs la URL se pasa de los 5 KB y el gateway la rechaza, encima en
+ *   silencio.
+ *
+ *   La salida es pedir SOLO los ids que hacen falta, de a 100: la URL queda
+ *   en unos 4 KB y la cantidad de pedidos depende de las ventas listadas, no
+ *   del tamaño del padrón de clientes.
+ */
+async function porIds<T>(
+  consultar: (ids: string[]) => PromiseLike<{ data: unknown; error: { message?: string } | null }>,
+  ids: string[],
+  tanda = 100
+): Promise<{ filas: T[]; error: string | null }> {
+  const filas: T[] = [];
+  for (let i = 0; i < ids.length; i += tanda) {
+    const r = await consultar(ids.slice(i, i + tanda));
+    if (r.error) return { filas, error: r.error.message ?? "error" };
+    filas.push(...((r.data ?? []) as T[]));
+  }
+  return { filas, error: null };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -122,53 +156,41 @@ export async function GET(request: NextRequest) {
         nombre_facturacion?: string | null;
         nombre_comercial?: string | null;
       };
-      // Mismo criterio que facturas/ítems: NO se usa .in("id", clienteIds) — con
-      // cientos de UUIDs la URL de PostgREST se dispara y el gateway la rechaza.
-      // El error ademas se descartaba en silencio, asi que TODO el listado se
-      // mostraba como "Consumidor final". Se pagina y se filtra en memoria.
-      const idsCliente = new Set(clienteIds);
-      const PAGE_CLI = 1000;
-      // Un tenant `erp_*` puede no tener todavía las columnas más nuevas (p. ej.
-      // `nombre_facturacion`): PostgREST responde 42703. En ese caso se reintenta
-      // con el set mínimo que existe desde el schema inicial de clientes.
+      // Solo los clientes de las ventas listadas, de a 100 por pedido.
       let colsCliente = "id, empresa, nombre_contacto, nombre, nombre_facturacion, nombre_comercial";
-
-      for (let desde = 0; ; desde += PAGE_CLI) {
-        const pageQ = await ctx.supabase
-          .from("clientes")
-          .select(colsCliente)
-          .eq("empresa_id", empresaId)
-          .order("id", { ascending: true })
-          .range(desde, desde + PAGE_CLI - 1);
-        if (pageQ.error) {
-          console.error("[/api/ventas GET] clientes:", pageQ.error.message);
-          // Degradación por pasos: primero suelta nombre_comercial (columna nueva),
-          // luego el resto, hasta el set mínimo del schema inicial.
-          if (colsCliente.includes("nombre_comercial")) {
-            colsCliente = "id, empresa, nombre_contacto, nombre, nombre_facturacion";
-            desde -= PAGE_CLI;
-            continue;
-          }
-          if (colsCliente !== "id, empresa, nombre_contacto") {
-            colsCliente = "id, empresa, nombre_contacto";
-            desde -= PAGE_CLI; // reintentar esta misma página con menos columnas
-            continue;
-          }
-          break; // no fatal: el UI degrada al snapshot de la factura
-        }
-        const rows = (pageQ.data ?? []) as unknown as ClienteNombreRow[];
-        for (const row of rows) {
-          if (!idsCliente.has(row.id)) continue;
-          const disp =
-            (row.nombre_facturacion?.trim() || "") ||
-            (row.empresa?.trim() || "") ||
-            (row.nombre_contacto?.trim() || "") ||
-            (row.nombre?.trim() || "");
-          if (disp) clienteNombreByIdMap.set(row.id, disp);
-          const comercial = row.nombre_comercial?.trim() || "";
-          if (comercial) clienteComercialByIdMap.set(row.id, comercial);
-        }
-        if (rows.length < PAGE_CLI) break;
+      let resCli = await porIds<ClienteNombreRow>(
+        (ids) => ctx.supabase.from("clientes").select(colsCliente).eq("empresa_id", empresaId).in("id", ids),
+        clienteIds
+      );
+      // Un tenant puede no tener todavía las columnas más nuevas (PostgREST
+      // responde 42703): se baja al set que existe desde el schema inicial.
+      if (resCli.error && colsCliente.includes("nombre_comercial")) {
+        colsCliente = "id, empresa, nombre_contacto, nombre, nombre_facturacion";
+        resCli = await porIds<ClienteNombreRow>(
+          (ids) => ctx.supabase.from("clientes").select(colsCliente).eq("empresa_id", empresaId).in("id", ids),
+          clienteIds
+        );
+      }
+      if (resCli.error) {
+        colsCliente = "id, empresa, nombre_contacto";
+        resCli = await porIds<ClienteNombreRow>(
+          (ids) => ctx.supabase.from("clientes").select(colsCliente).eq("empresa_id", empresaId).in("id", ids),
+          clienteIds
+        );
+      }
+      if (resCli.error) {
+        // No es fatal: el UI degrada al nombre guardado en la factura.
+        console.error("[/api/ventas GET] clientes:", resCli.error);
+      }
+      for (const row of resCli.filas) {
+        const disp =
+          (row.nombre_facturacion?.trim() || "") ||
+          (row.empresa?.trim() || "") ||
+          (row.nombre_contacto?.trim() || "") ||
+          (row.nombre?.trim() || "");
+        if (disp) clienteNombreByIdMap.set(row.id, disp);
+        const comercial = row.nombre_comercial?.trim() || "";
+        if (comercial) clienteComercialByIdMap.set(row.id, comercial);
       }
     }
 
@@ -187,58 +209,46 @@ export async function GET(request: NextRequest) {
     // Cliente cuando la ficha ya no se puede leer (o el cliente fue eliminado).
     const razonSocialByFacturaMap = new Map<string, string>();
     if (facturaIds.length > 0) {
-      // NO se usa .in("id", facturaIds): con 155 facturas la URL de PostgREST
-      // supera los 5 KB solo en ese parámetro y el gateway la rechaza. El error
-      // ademas no se chequeaba, asi que fallaba EN SILENCIO — el mapa quedaba
-      // vacio y toda venta facturada se mostraba como ticket. Es el mismo modo
-      // de falla que ya habia roto el listado de items.
-      //
-      // Se pagina sobre empresa+sucursal (conjunto acotado) y se filtra en
-      // memoria contra las ventas cargadas.
-      const idsFactura = new Set(facturaIds);
-      const PAGE_FAC = 1000;
-
-      for (let desde = 0; ; desde += PAGE_FAC) {
-        const pageQ = await ctx.supabase
-          .from("facturas")
-          .select("id, numero_factura, cliente_razon_social")
-          .eq("empresa_id", empresaId)
-          .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
-          .order("id", { ascending: true })
-          .range(desde, desde + PAGE_FAC - 1);
-        if (pageQ.error) throw new Error(pageQ.error.message);
-        const rows = (pageQ.data ?? []) as Array<{
-          id: string;
-          numero_factura?: string | null;
-          cliente_razon_social?: string | null;
-        }>;
-        for (const row of rows) {
-          if (!idsFactura.has(row.id)) continue;
-          if (row.numero_factura) facturaByIdMap.set(row.id, row.numero_factura);
-          const rs = row.cliente_razon_social?.trim();
-          if (rs) razonSocialByFacturaMap.set(row.id, rs);
-        }
-        if (rows.length < PAGE_FAC) break;
+      // Mismo criterio que los clientes: solo las facturas de estas ventas,
+      // de a 100. Paginar la tabla entera de facturas hacía que el listado
+      // tardara en función de cuántas facturas tiene la empresa y no de
+      // cuántas ventas se están mirando.
+      const resFac = await porIds<{
+        id: string;
+        numero_factura?: string | null;
+        cliente_razon_social?: string | null;
+      }>(
+        (ids) =>
+          ctx.supabase
+            .from("facturas")
+            .select("id, numero_factura, cliente_razon_social")
+            .eq("empresa_id", empresaId)
+            .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
+            .in("id", ids),
+        facturaIds
+      );
+      if (resFac.error) throw new Error(resFac.error);
+      for (const row of resFac.filas) {
+        if (row.numero_factura) facturaByIdMap.set(row.id, row.numero_factura);
+        const rs = row.cliente_razon_social?.trim();
+        if (rs) razonSocialByFacturaMap.set(row.id, rs);
       }
 
       // Estado SIFEN por factura — el UI usa este dato para decidir si mostrar
       // el botón "Anular" cuando la factura quedó en error_envio/rechazado.
-      for (let desde = 0; ; desde += PAGE_FAC) {
-        const pageQ = await ctx.supabase
-          .from("factura_electronica")
-          .select("factura_id, estado_sifen")
-          .eq("empresa_id", empresaId)
-          .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
-          .order("factura_id", { ascending: true })
-          .range(desde, desde + PAGE_FAC - 1);
-        if (pageQ.error) break; // no fatal: sin estado SIFEN el UI degrada bien
-        const rows = (pageQ.data ?? []) as Array<{ factura_id: string; estado_sifen?: string | null }>;
-        for (const row of rows) {
-          if (idsFactura.has(row.factura_id) && row.estado_sifen) {
-            feEstadoByFacturaMap.set(row.factura_id, row.estado_sifen);
-          }
-        }
-        if (rows.length < PAGE_FAC) break;
+      const resFe = await porIds<{ factura_id: string; estado_sifen?: string | null }>(
+        (ids) =>
+          ctx.supabase
+            .from("factura_electronica")
+            .select("factura_id, estado_sifen")
+            .eq("empresa_id", empresaId)
+            .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id))
+            .in("factura_id", ids),
+        facturaIds
+      );
+      // No es fatal: sin el estado SIFEN el UI degrada bien.
+      for (const row of resFe.filas) {
+        if (row.estado_sifen) feEstadoByFacturaMap.set(row.factura_id, row.estado_sifen);
       }
     }
 
@@ -252,22 +262,33 @@ export async function GET(request: NextRequest) {
     // Nota: NO se filtra con `.in("venta_id", [ids])` — con cientos de UUIDs la
     // URL de PostgREST se dispara (~7 KB con 171 ventas) y el gateway la rechaza,
     // rompiendo TODO el listado. Se filtran en memoria contra las ventas cargadas.
-    const idsCargadas = new Set(ventasRows.map((v) => v.id));
+    // Los ítems de ESTAS ventas, de a 100 ventas por pedido.
+    //
+    // Antes se paginaba la tabla `ventas_items` completa y se filtraba en
+    // memoria, para esquivar dos trampas reales: el tope de 1.000 filas de
+    // PostgREST (que dejaba ventas "sin líneas cargadas") y la URL gigante de
+    // un `in()` con cientos de UUIDs (que el gateway rechaza, en silencio).
+    //
+    // El costo escondido era que el tiempo dependía del tamaño del histórico y
+    // no de lo que se está mirando: al migrar las 187.785 líneas reales
+    // pasaron a ser 188 pedidos encadenados y el Historial de ventas se
+    // quedaba cargando para siempre. Pedir por tandas de ids evita las dos
+    // trampas y además no crece con el histórico.
     const itemsRows: VentaItemRow[] = [];
-    const PAGE = 1000;
-    for (let desde = 0; ; desde += PAGE) {
-      const pageQ = await ctx.supabase
-        .from("ventas_items")
-        .select(
-          "venta_id, producto_id, producto_nombre, sku, cantidad, precio_venta_original, precio_venta, tipo_iva, tipo_precio, subtotal, monto_iva, total_linea"
-        )
-        .eq("empresa_id", empresaId)
-        .order("venta_id", { ascending: true })
-        .range(desde, desde + PAGE - 1);
-      if (pageQ.error) throw new Error(pageQ.error.message);
-      const rows = (pageQ.data ?? []) as VentaItemRow[];
-      for (const r of rows) if (idsCargadas.has(r.venta_id)) itemsRows.push(r);
-      if (rows.length < PAGE) break;
+    {
+      const res = await porIds<VentaItemRow>(
+        (ids) =>
+          ctx.supabase
+            .from("ventas_items")
+            .select(
+              "venta_id, producto_id, producto_nombre, sku, cantidad, precio_venta_original, precio_venta, tipo_iva, tipo_precio, subtotal, monto_iva, total_linea"
+            )
+            .eq("empresa_id", empresaId)
+            .in("venta_id", ids),
+        ventasRows.map((v) => v.id)
+      );
+      if (res.error) throw new Error(res.error);
+      itemsRows.push(...res.filas);
     }
 
     const byVenta = new Map<string, VentaItemRow[]>();
@@ -284,15 +305,23 @@ export async function GET(request: NextRequest) {
     const editadas = new Set<string>();
     const conDevolucion = new Set<string>();
     if (idsLista.length) {
+      // También por tandas: con 2.000 ventas, un solo `in()` arma una URL de
+      // unos 74 KB que el gateway rechaza.
       const [edQ, devQ] = await Promise.all([
-        ctx.supabase.from("ventas_ediciones").select("venta_id").eq("empresa_id", empresaId).in("venta_id", idsLista),
-        ctx.supabase.from("devoluciones_venta").select("venta_id").eq("empresa_id", empresaId).in("venta_id", idsLista),
+        porIds<{ venta_id: string }>(
+          (ids) => ctx.supabase.from("ventas_ediciones").select("venta_id").eq("empresa_id", empresaId).in("venta_id", ids),
+          idsLista
+        ),
+        porIds<{ venta_id: string }>(
+          (ids) => ctx.supabase.from("devoluciones_venta").select("venta_id").eq("empresa_id", empresaId).in("venta_id", ids),
+          idsLista
+        ),
       ]);
       // Si todavía no se corrió la migración que crea alguna de las dos, la
       // consulta falla: se ignora y el listado sale sin las banderas, en vez
       // de dejar la pantalla de ventas rota esperando un script.
-      for (const r of ((edQ.data ?? []) as Array<{ venta_id: string }>)) editadas.add(r.venta_id);
-      for (const r of ((devQ.data ?? []) as Array<{ venta_id: string }>)) conDevolucion.add(r.venta_id);
+      for (const r of edQ.filas) editadas.add(r.venta_id);
+      for (const r of devQ.filas) conDevolucion.add(r.venta_id);
     }
 
     const ventas: Venta[] = ventasRows.map((r) => {
