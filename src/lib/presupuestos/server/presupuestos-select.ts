@@ -21,10 +21,18 @@ const COLS_38 = `${COLS_COMUNES}, nota_interna, falta_material`;
 const COLS_41 = `${COLS_38}, vendedor_usuario_id, vendedor_nombre`;
 
 /** Mandado a cobrar y por quién (script 42). */
-export const PRESU_COLS = `${COLS_41}, enviado_a_caja_at, enviado_a_caja_por`;
+const COLS_42 = `${COLS_41}, enviado_a_caja_at, enviado_a_caja_por`;
+
+/** Ciudad del cliente (script 46). */
+export const PRESU_COLS = `${COLS_42}, cliente_ciudad`;
 
 /** Las mismas columnas sin las del script 38, por si no está corrido. */
 export const PRESU_COLS_BASE = COLS_COMUNES;
+
+/** ¿Falló porque la base todavía no tiene la columna del script 46? */
+export function faltaScript46(msg: string): boolean {
+  return /cliente_ciudad/.test(msg) && /does not exist|42703|schema cache/i.test(msg);
+}
 
 /** ¿Falló porque la base todavía no tiene las columnas del script 42? */
 export function faltaScript42(msg: string): boolean {
@@ -52,6 +60,11 @@ export async function leerPresupuestosConFallback<T>(
   run: (cols: string) => PromiseLike<QueryResult<T>>
 ): Promise<QueryResult<T> & { script38: boolean }> {
   let full = await run(PRESU_COLS);
+  // Sin el script 46 no está la ciudad.
+  if (full.error && faltaScript46(full.error.message)) {
+    console.warn("[presupuestos]", "script_46_no_aplicado", full.error.message);
+    full = await run(COLS_42);
+  }
   // Sin el script 42 no está la cola de caja.
   if (full.error && faltaScript42(full.error.message)) {
     console.warn("[presupuestos]", "script_42_no_aplicado", full.error.message);

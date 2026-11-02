@@ -165,6 +165,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // El teléfono es obligatorio: un presupuesto sin forma de contactar al
+    // cliente no se puede seguir, y el seguimiento es la mitad del trabajo.
+    // Se exige acá y no solo en la pantalla, que se puede saltear.
+    const telefonoCliente = typeof body.cliente_telefono === "string"
+      ? body.cliente_telefono.trim()
+      : "";
+    if (!telefonoCliente) {
+      return NextResponse.json(
+        errorResponse("Falta el teléfono del cliente: sin eso no se puede hacer el seguimiento."),
+        { status: 400 }
+      );
+    }
+
     const firma = await firmaUsuario(ctx.supabase, ctx.auth);
     const esAdmin = isAdmin(ctx.auth);
     const vendedorId = typeof body.vendedor_usuario_id === "string" && body.vendedor_usuario_id.trim()
@@ -178,7 +191,8 @@ export async function POST(request: NextRequest) {
       cliente_id: clienteId,
       cliente_nombre: clienteNombre,
       cliente_ruc: body.cliente_ruc ? String(body.cliente_ruc) : null,
-      cliente_telefono: body.cliente_telefono ? String(body.cliente_telefono) : null,
+      cliente_telefono: telefonoCliente,
+      cliente_ciudad: body.cliente_ciudad ? String(body.cliente_ciudad).slice(0, 120) : null,
       cliente_direccion: body.cliente_direccion ? String(body.cliente_direccion) : null,
       moneda: body.moneda === "USD" ? "USD" : "PYG",
       validez_dias: validez,

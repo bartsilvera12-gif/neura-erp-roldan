@@ -23,6 +23,7 @@ type PresupuestoRow = {
   fecha_vencimiento?: string | null;
   /** Quién lo cotizó. No va en el PDF: el cliente no necesita ese dato. */
   usuario_nombre?: string | null;
+  vendedor_nombre?: string | null;
   /** Falta material para cumplirlo. Tampoco va en el PDF (script 38). */
   falta_material?: boolean;
 };
@@ -66,6 +67,9 @@ export default function PresupuestosPage() {
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [buscar, setBuscar] = useState("");
+  /** Filtro por persona. Cada vendedor ya ve solo lo suyo; esto es para que el
+   *  administrador, que los ve todos, pueda mirar los de uno. */
+  const [fPersona, setFPersona] = useState("");
   const [toast, setToast] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null);
   const [actualizando, setActualizando] = useState<Set<string>>(new Set());
 
@@ -162,6 +166,7 @@ export default function PresupuestosPage() {
 
   const filtradas = useMemo(() => {
     const texto = buscar.trim().toLowerCase();
+    const persona = fPersona.trim().toLowerCase();
     return rows
       .filter((r) => filtro === "todos" || r.estado === filtro)
       .filter((r) => {
@@ -170,12 +175,29 @@ export default function PresupuestosPage() {
         if (hasta && f > hasta) return false;
         return true;
       })
+      .filter((r) => {
+        if (!persona) return true;
+        // Por vendedor o por quien lo cargó: los presupuestos viejos no tienen
+        // vendedor asignado y son de quien los hizo.
+        const quien = `${r.vendedor_nombre ?? ""} ${r.usuario_nombre ?? ""}`.toLowerCase();
+        return quien.includes(persona);
+      })
       .filter((r) =>
         !texto ||
         r.numero_control.toLowerCase().includes(texto) ||
         r.cliente_nombre.toLowerCase().includes(texto)
       );
-  }, [rows, filtro, desde, hasta, buscar]);
+  }, [rows, filtro, desde, hasta, buscar, fPersona]);
+
+  /** Las personas que tienen al menos un presupuesto en la lista. */
+  const personas = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const n = (r.vendedor_nombre ?? r.usuario_nombre ?? "").trim();
+      if (n) set.add(n);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "es"));
+  }, [rows]);
 
   return (
     <div className="space-y-6">
@@ -237,6 +259,17 @@ export default function PresupuestosPage() {
           <span className="text-[11px] font-medium text-slate-500">Hasta</span>
           <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-slate-500">Persona</span>
+          <select
+            value={fPersona}
+            onChange={(e) => setFPersona(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+          >
+            <option value="">Todas</option>
+            {personas.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Buscar</span>

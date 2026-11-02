@@ -10,6 +10,7 @@ import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuesto
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -65,6 +66,9 @@ export default function NuevoPresupuestoPage() {
   const [clienteRuc, setClienteRuc] = useState("");
   const [clienteTel, setClienteTel] = useState("");
   const [clienteDir, setClienteDir] = useState("");
+  const [clienteCiudad, setClienteCiudad] = useState("");
+  /** Alta de cliente sin salir del presupuesto, como ya se hace en Caja. */
+  const [nuevoClienteOpen, setNuevoClienteOpen] = useState(false);
 
   // Items
   const [items, setItems] = useState<Item[]>([]);
@@ -186,6 +190,15 @@ export default function NuevoPresupuestoPage() {
     }
   }
 
+  /** El cliente recién creado queda elegido, sin tener que buscarlo de nuevo. */
+  function clienteReciénCreado(c: NuevoClienteCreado) {
+    setNuevoClienteOpen(false);
+    setClientes((prev) => [{ id: c.id, nombre: c.nombre, ruc: c.ruc, telefono: null, direccion: null }, ...prev]);
+    setClienteId(c.id);
+    setClienteNombre(c.nombre);
+    setClienteRuc(c.ruc ?? "");
+  }
+
   function precioParaProducto(p: ProductoLite): number {
     if (usarMayorista && p.precio_mayorista > 0) return p.precio_mayorista;
     return p.precio_venta;
@@ -283,6 +296,9 @@ export default function NuevoPresupuestoPage() {
 
   const valido =
     clienteNombre.trim().length > 0 &&
+    // Sin teléfono no hay seguimiento posible, y el seguimiento es la mitad
+    // del trabajo de un presupuesto.
+    clienteTel.trim().length > 0 &&
     items.length > 0 &&
     items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
 
@@ -300,6 +316,7 @@ export default function NuevoPresupuestoPage() {
           cliente_ruc: clienteRuc.trim() || null,
           cliente_telefono: clienteTel.trim() || null,
           cliente_direccion: clienteDir.trim() || null,
+          cliente_ciudad: clienteCiudad.trim() || null,
           moneda: "PYG",
           validez_dias: validezDias.trim() === "" ? null : parseInt(validezDias, 10),
           forma_pago: formaPago.trim() || null,
@@ -409,7 +426,20 @@ export default function NuevoPresupuestoPage() {
                 hint: c.ruc ?? undefined,
               }))}
             />
-            <p className="mt-1 text-[11px] text-gray-400">O completá los campos de abajo manualmente si es un cliente nuevo.</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-[11px] text-gray-400">O completá los campos de abajo manualmente si es un cliente nuevo.</p>
+              {/* Dar de alta el cliente acá mismo: si solo se completan los
+                  campos de abajo, el presupuesto sale pero el cliente no queda
+                  en el sistema, y el seguimiento después no tiene a quién
+                  colgarse. */}
+              <button
+                type="button"
+                onClick={() => setNuevoClienteOpen(true)}
+                className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                + Crear cliente
+              </button>
+            </div>
           </div>
           <div>
             <label className={labelClass}>Nombre / Razón social *</label>
@@ -420,8 +450,27 @@ export default function NuevoPresupuestoPage() {
             <input value={clienteRuc} onChange={(e) => setClienteRuc(e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Teléfono</label>
-            <input value={clienteTel} onChange={(e) => setClienteTel(e.target.value)} className={inputClass} />
+            <label className={labelClass}>Teléfono *</label>
+            <input
+              value={clienteTel}
+              onChange={(e) => setClienteTel(e.target.value)}
+              className={`${inputClass} ${clienteTel.trim() ? "" : "border-amber-300"}`}
+              placeholder="Obligatorio"
+            />
+            {!clienteTel.trim() && (
+              <p className="mt-1 text-[11px] text-amber-700">
+                Sin teléfono no se puede hacer el seguimiento del presupuesto.
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={labelClass}>Ciudad</label>
+            <input
+              value={clienteCiudad}
+              onChange={(e) => setClienteCiudad(e.target.value)}
+              className={inputClass}
+              placeholder="Para saber si se entrega y con qué flete"
+            />
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>Dirección</label>
@@ -619,6 +668,13 @@ export default function NuevoPresupuestoPage() {
           {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar presupuesto"}
         </button>
       </div>
+    {nuevoClienteOpen && (
+        <NuevoClienteRapidoModal
+          nombreInicial={clienteNombre}
+          onClose={() => setNuevoClienteOpen(false)}
+          onCreado={clienteReciénCreado}
+        />
+      )}
     </div>
   );
 }
