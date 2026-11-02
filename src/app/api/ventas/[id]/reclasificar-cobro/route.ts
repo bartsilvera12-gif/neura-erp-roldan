@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
+import { puedeCambiarTipoDePago } from "@/lib/auth/roles-operativos";
 /**
  * POST /api/ventas/[id]/reclasificar-cobro — CJ-01.
  *
@@ -46,6 +47,15 @@ export async function POST(
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Cambiar el medio de pago mueve plata de una columna del arqueo a otra
+    // sin tocar el total: una caja que no cuadra se puede "arreglar" cambiando
+    // el medio en vez de buscar el error. Por eso, solo un administrador.
+    if (!puedeCambiarTipoDePago(ctx.auth)) {
+      return NextResponse.json(
+        errorResponse("Solo un administrador puede cambiar el tipo de pago de una venta."),
+        { status: 403 }
+      );
+    }
     const empresaId = ctx.auth.empresa_id;
     const { id: ventaId } = await context.params;
     const sb = ctx.supabase;

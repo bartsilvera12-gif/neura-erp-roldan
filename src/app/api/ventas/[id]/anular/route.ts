@@ -9,6 +9,7 @@ import { marcarDesfacturadoPorAnulacion } from "@/lib/caja/facturacion";
 
 import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { esSupervisor } from "@/lib/auth/roles-operativos";
 /**
  * POST /api/ventas/[id]/anular
  *
@@ -83,11 +84,9 @@ export async function POST(
 
     // Bloqueo 0: permisos (requisito 11.4). El cajero anula lo de su turno
     // abierto; lo de un turno ya cerrado y arqueado, solo un administrador.
-    const permiso = await puedeAnularVenta(sb, {
-      empresaId,
-      sucursalId: auth.sucursal_id ?? null,
+    const permiso = puedeAnularVenta({
       esAdmin: isAdmin(auth),
-      cajaIdVenta: head.caja_id,
+      esSupervisor: esSupervisor(auth),
     });
     if (!permiso.permitido) {
       return NextResponse.json(errorResponse(permiso.motivo), { status: 403 });
@@ -246,7 +245,10 @@ export async function POST(
         entidad_id: ventaId,
         referencia: res.numeroControl ?? null,
         accion: "anular",
-        detalle: res.stockReintegrado ? "Se reintegró el stock de la venta." : null,
+        detalle: [
+          res.stockReintegrado ? "Se reintegró el stock de la venta." : null,
+          esSupervisor(ctx.auth) && !isAdmin(ctx.auth) ? "Anulada por un supervisor." : null,
+        ].filter(Boolean).join(" ") || null,
         motivo,
         usuario_id: ctx.auth.usuarioCatalogId ?? ctx.auth.user?.id ?? null,
         usuario_nombre: (await firmaUsuario(ctx.supabase, ctx.auth)).nombre,
