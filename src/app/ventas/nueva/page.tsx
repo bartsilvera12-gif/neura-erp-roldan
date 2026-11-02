@@ -737,6 +737,11 @@ export default function NuevaVentaPage() {
    * quedaba sin usar y el cliente pagaba dos veces la misma mercadería.
    */
   useEffect(() => {
+    // Cambió el cliente: el autocargado se vuelve a armar. Sin esto, la cajera
+    // que abre un presupuesto y después corrige el cliente se queda sin el
+    // anticipo del cliente nuevo, porque el efecto de abajo ya se dio por
+    // cumplido con el anterior.
+    anticipoAutocargado.current = false;
     if (!clienteId) {
       setAnticipoSaldo(0);
       setAnticipoUsar("");
