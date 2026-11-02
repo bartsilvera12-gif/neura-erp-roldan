@@ -27,6 +27,17 @@ function esc(s: unknown): string {
 
 const gs = (n: number) => Math.round(Number(n) || 0).toLocaleString("es-PY");
 
+/** Solo la hora, en Paraguay. La columna del detalle no necesita la fecha:
+ *  todo el turno es del mismo día y repetirla llenaría la hoja de ruido. */
+function horaPy(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(String(iso));
+  if (Number.isNaN(d.getTime())) return "";
+  const py = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(py.getUTCHours())}:${p(py.getUTCMinutes())}:${p(py.getUTCSeconds())}`;
+}
+
 /** Fecha y hora de Paraguay (UTC−3), sin depender de la tzdata del servidor. */
 function fechaHoraPy(iso: string | null): string {
   if (!iso) return "—";
@@ -108,7 +119,7 @@ export async function GET(
     // justamente lo que se hace con esta hoja en la mano.
     type VentaCierre = {
       numero_control?: string | null; fecha?: string; total?: number;
-      estado?: string | null; metodo_pago?: string | null;
+      estado?: string | null; metodo_pago?: string | null; tipo_venta?: string | null;
       usuario_nombre?: string | null; cliente_nombre?: string | null;
       anulacion_motivo?: string | null;
     };
@@ -149,11 +160,45 @@ export async function GET(
       </tr>`;
     };
 
+    // ── Lo que el formato del cliente muestra y acá no se calculaba ────────
+    // Rango de facturas del turno: en la hoja impresa es lo primero que se
+    // controla contra el talonario.
+    const numeros = ventasDetalle
+      .map((v) => String(v.numero_control ?? "").replace(/\D/g, ""))
+      .filter(Boolean)
+      .sort();
+    const facturaDesde = numeros[0] ?? "";
+    const facturaHasta = numeros[numeros.length - 1] ?? "";
+
+    const esCredito = (v: VentaCierre) => String(v.tipo_venta ?? "").toUpperCase() === "CREDITO";
+    const ventaContado = vivas.filter((v) => !esCredito(v)).reduce((t, v) => t + (Number(v.total) || 0), 0);
+    const ventaCredito = vivas.filter(esCredito).reduce((t, v) => t + (Number(v.total) || 0), 0);
+    const ventaAnulada = anuladas.reduce((t, v) => t + (Number(v.total) || 0), 0);
+
+    const contado = arqueo.length > 0 ? totalContado : (c.monto_cierre_contado ?? 0);
+    const diferencia = Number(c.diferencia ?? 0);
+
+    /** Un renglón de las tres columnas del encabezado. */
+    const kv = (rotulo: string, valor: number | string, fuerte = false) => `
+      <tr${fuerte ? ' class="fuerte"' : ""}>
+        <td>${esc(rotulo)}</td>
+        <td class="m${fuerte ? " b" : ""}">${typeof valor === "number" ? gs(valor) : esc(valor)}</td>
+      </tr>`;
+
+    /** Una sección del detalle, con su subtotal, como en el formato del cliente. */
+    const seccion = (titulo: string, filas: string, rotuloTotal: string, total: number) => `
+      <tr class="secc"><td colspan="4">${esc(titulo)}</td></tr>
+      ${filas}
+      <tr class="subt">
+        <td colspan="3" class="m">${esc(rotuloTotal)}</td>
+        <td class="m b">${gs(total)}</td>
+      </tr>`;
+
     const html = `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Arqueo de caja ${esc(String(c.numero_caja))} — ${esc(EMPRESA_DOC.nombre)}</title>
+<title>Cierre de caja ${esc(String(c.numero_caja))} — ${esc(EMPRESA_DOC.nombre)}</title>
 <style>
   /* Margen 0: Chrome imprime su encabezado y su pie dentro del margen de
      @page, y sin margen no le queda lugar para dibujarlos. */
@@ -215,144 +260,183 @@ export async function GET(
   .firmas { margin-top: 20px; display: flex; gap: 30px; }
   .firma { flex: 1; border-top: 1px solid #000; padding-top: 3px; font-size: 10px; text-align: center; }
   .nota { margin-top: 10px; font-size: 9px; color: #555; line-height: 1.5; }
+
+  /* Formato de la casa: encabezado con la fecha de emisión a la derecha, tres
+     columnas de totales y el detalle por tipo con subtotales. */
+  .cab { display: flex; justify-content: space-between; align-items: baseline; }
+  .cab .momento { font-size: 10px; color: #333; }
+  .cab2 { display: flex; gap: 18px; flex-wrap: wrap; font-size: 10px;
+          border-bottom: 1.5px solid #000; padding-bottom: 5px; margin: 4px 0 8px; }
+  .cols3 { display: flex; gap: 6mm; align-items: flex-start; }
+  .col3 { flex: 1; min-width: 0; }
+  .col3 h2 { font-size: 10px; border-bottom: 1px solid #000; }
+  table.kv { width: 100%; }
+  table.kv td { border: 0; padding: 1px 2px; font-size: 10px; }
+  table.kv tr.fuerte td { border-top: 1.2px solid #000; font-weight: 700; padding-top: 3px; }
+  table.kv tr.hueco td { height: 8px; }
+  table.det { margin-top: 10px; }
+  table.det th { border: 0; border-bottom: 1.2px solid #000; }
+  table.det td { border: 0; padding: 1.5px 4px; }
+  table.det tr.secc td { font-weight: 700; padding-top: 6px; border-bottom: .5px solid #bbb; }
+  table.det tr.subt td { border-top: .5px solid #999; padding-bottom: 4px; }
+  table.det td.ind { padding-left: 14px; }
+  .ref { width: 150px; }
+  .resumen-t { margin-top: 12px; }
+  .resumen { display: flex; gap: 24px; flex-wrap: wrap; font-size: 11px; }
+  .obs-linea { margin-top: 14px; border-top: 1px solid #000; padding-top: 3px;
+               font-size: 10px; width: 45%; }
 </style>
 </head>
 <body>
   <button class="print-btn" onclick="window.print()">Imprimir</button>
 
   ${membreteLinea()}
-  <h1>Arqueo de caja ${esc(String(c.numero_caja))}</h1>
-  <div class="sub">
-    <div class="meta">
-      <div><b>Apertura:</b> ${esc(fechaHoraPy(c.fecha_apertura))}${
-        detalle?.caja ? ` · ${esc((detalle.caja as { abierta_por_nombre?: string | null }).abierta_por_nombre ?? "")}` : ""
-      }</div>
-      <div><b>Cierre:</b> ${esc(fechaHoraPy(c.fecha_cierre))}${
-        detalle?.caja ? ` · ${esc((detalle.caja as { cerrada_por_nombre?: string | null }).cerrada_por_nombre ?? "")}` : ""
-      }</div>
-    </div>
-    <div class="estado">${cerrada ? "CERRADA" : "ABIERTA"}</div>
+  <div class="cab">
+    <h1>Cierre de Caja</h1>
+    <div class="momento">${esc(fechaHoraPy(new Date().toISOString()))}</div>
+  </div>
+  <div class="cab2">
+    <div><b>Responsable:</b> ${esc(String(c.numero_caja))} - ${esc(
+      (detalle?.caja as { cerrada_por_nombre?: string | null; abierta_por_nombre?: string | null } | undefined)
+        ?.cerrada_por_nombre
+      ?? (detalle?.caja as { abierta_por_nombre?: string | null } | undefined)?.abierta_por_nombre
+      ?? ""
+    )}</div>
+    <div><b>Apertura:</b> ${esc(fechaHoraPy(c.fecha_apertura))}</div>
+    <div><b>Cierre:</b> ${esc(fechaHoraPy(c.fecha_cierre))} ${cerrada ? "" : "(abierta)"}</div>
   </div>
 
-  <h2>1 · Ingresos</h2>
-  <div class="cols">
-    <div class="col">
-      <table class="totales">
-        <tbody>
-          ${fila("Fondo de apertura", c.monto_apertura)}
-          ${fila("Ventas al contado", resumen.total_contado)}
-          ${fila("  · en efectivo", resumen.total_efectivo)}
-          ${fila("  · con tarjeta", resumen.total_tarjeta)}
-          ${fila("  · por transferencia", resumen.total_transferencia)}
-          ${fila("  · con cheque", resumen.total_cheque)}
-          ${fila("Ventas a crédito", resumen.total_credito, "sep")}
-          ${fila("Anticipos de clientes", resumen.total_anticipos)}
-          ${fila("Otros ingresos", resumen.ingresos_efectivo)}
-        </tbody>
+  <!-- Las tres columnas del formato de la casa: de dónde salió la plata, qué
+       se contó, y cómo se repartió la venta. -->
+  <div class="cols3">
+    <div class="col3">
+      <h2>Datos Principales</h2>
+      <table class="kv">
+        ${kv("Apertura:", c.monto_apertura)}
+        ${kv("Venta:", ventaContado)}
+        ${kv("Cobranza:", 0)}
+        ${kv("Egreso:", -resumen.egresos_efectivo)}
+        ${kv("Retiro p/ Deposito:", -resumen.retiros_efectivo)}
+        ${kv("Ant. de Facturación:", resumen.anticipos_efectivo ?? 0)}
+        ${kv("Otra Ent.:", 0)}
+        ${kv("Ant. Utilizado:", 0)}
+        ${kv("Dif. Caja Ant.:", resumen.diferencia_arrastrada)}
+        ${kv("Total", resumen.efectivo_esperado, true)}
       </table>
     </div>
-    <div class="col">
-      <table>
-        <thead><tr><th>Concepto</th><th class="med">Medio</th><th class="m">Monto</th></tr></thead>
-        <tbody>${listaMovs(ingresos)}</tbody>
+    <div class="col3">
+      <h2>Arqueo de Efectivo, Cheque, Tarjeta</h2>
+      <table class="kv">
+        ${kv("Efectivo", contado)}
+        ${kv("Cheque:", resumen.total_cheque)}
+        ${kv("Tarjeta:", resumen.total_tarjeta)}
+        ${kv("Deposito Bancario:", resumen.total_transferencia)}
+        ${kv("Nota Crédito:", 0)}
+        <tr class="hueco"><td colspan="2"></td></tr>
+        ${kv("Inicio Nro de Factura:", facturaDesde || "-")}
+        ${kv("Fin Nro de Factura:", facturaHasta || "-")}
+        ${kv("Total", contado + resumen.total_cheque + resumen.total_tarjeta + resumen.total_transferencia, true)}
       </table>
     </div>
-  </div>
-
-  <h2>2 · Egresos y retiros</h2>
-  <table>
-    <thead><tr><th>Concepto</th><th class="med">Medio</th><th class="m">Monto</th></tr></thead>
-    <tbody>${listaMovs(egresos)}</tbody>
-  </table>
-  <table class="totales" style="width:50%;margin-left:auto">
-    <tbody>
-      ${fila("Egresos", resumen.egresos_efectivo)}
-      ${fila("Retiros de efectivo", resumen.retiros_efectivo)}
-      ${fila("Total salidas", resumen.egresos_efectivo + resumen.retiros_efectivo, "fuerte")}
-    </tbody>
-  </table>
-
-  <h2>3 · Conteo del efectivo</h2>
-  <div class="cols">
-    <div class="col">
-      <table>
-        <thead><tr><th colspan="3">Billetes</th></tr>
-          <tr><th class="m">Denominación</th><th class="m">Cantidad</th><th class="m">Subtotal</th></tr></thead>
-        <tbody>${filasDenom("billete")}</tbody>
-      </table>
-    </div>
-    <div class="col">
-      <table>
-        <thead><tr><th colspan="3">Monedas</th></tr>
-          <tr><th class="m">Denominación</th><th class="m">Cantidad</th><th class="m">Subtotal</th></tr></thead>
-        <tbody>${filasDenom("moneda")}</tbody>
+    <div class="col3">
+      <h2>Desglose de la Venta</h2>
+      <table class="kv">
+        ${kv("Venta Contado:", ventaContado)}
+        ${kv("Venta Crédito:", ventaCredito)}
+        ${kv("Venta Anulada:", ventaAnulada)}
+        ${kv("Total Venta:", ventaContado + ventaCredito, true)}
+        ${kv("Efectivo:", resumen.total_efectivo)}
+        ${kv("Cheque:", resumen.total_cheque)}
+        ${kv("Tarjeta:", resumen.total_tarjeta)}
+        ${kv("D. Banc:", resumen.total_transferencia)}
+        ${kv("N. Cred.:", 0)}
+        ${kv("Ant. Usado:", 0)}
       </table>
     </div>
   </div>
 
-  <h2>4 · Resumen</h2>
-  <table class="totales" style="width:62%;margin-left:auto">
-    <tbody>
-      ${fila("Efectivo esperado en el cajón", resumen.efectivo_esperado)}
-      ${fila("Efectivo contado", arqueo.length > 0 ? totalContado : (c.monto_cierre_contado ?? 0))}
-      ${resumen.diferencia_arrastrada !== 0
-        ? fila("Diferencia que venía del turno anterior", resumen.diferencia_arrastrada, "sep")
-        : ""}
-      <tr class="dif">
-        <td>Diferencia de este turno</td>
-        <td class="m ${(c.diferencia ?? 0) < 0 ? "falta" : (c.diferencia ?? 0) > 0 ? "sobra" : ""}">
-          ${(c.diferencia ?? 0) > 0 ? "+" : ""}${gs(c.diferencia ?? 0)}
-          ${(c.diferencia ?? 0) < 0 ? " (faltante)" : (c.diferencia ?? 0) > 0 ? " (sobrante)" : ""}
-        </td>
-      </tr>
-      ${fila("Dinero a rendir", resumen.dinero_a_rendir, "fuerte")}
-    </tbody>
-  </table>
-
-  <h2>5 · Detalle de operaciones</h2>
-  <table>
+  <!-- El detalle, por tipo y con su subtotal: es el orden en el que se
+       controla la hoja contra los comprobantes en papel. -->
+  <table class="det">
     <thead>
       <tr>
+        <th>Tipo / Descripción</th>
+        <th class="ref">Sim/Nº de Cheque</th>
         <th class="hora">Hora</th>
-        <th>Comprobante</th>
-        <th>Cliente</th>
-        <th>Vendedor</th>
-        <th class="med">Medio</th>
-        <th class="m">Importe</th>
+        <th class="m">Monto</th>
       </tr>
     </thead>
     <tbody>
-      ${ventasDetalle.length === 0
-        ? '<tr><td colspan="6" class="vacio">No hubo ventas en este turno.</td></tr>'
-        : ventasDetalle.map(filaVenta).join("")}
+      ${seccion(
+        "Arqueo de Efectivo",
+        DENOMINACIONES.map((d) => {
+          const cant = porValor.get(d.valor) ?? 0;
+          return `<tr${cant === 0 ? ' class="cero"' : ""}>
+            <td class="ind">de ${gs(d.valor)} — ${cant} unid</td>
+            <td></td><td></td>
+            <td class="m">${gs(d.valor * cant)}</td>
+          </tr>`;
+        }).join(""),
+        "Total Arqueo de Efectivo",
+        contado
+      )}
+      ${seccion(
+        "Egreso",
+        egresos.filter((m) => m.tipo === "egreso").map((m) => `<tr>
+          <td class="ind">${esc(m.concepto)}${m.observacion ? ` <span class="obs">· ${esc(m.observacion)}</span>` : ""}</td>
+          <td class="ref">${(m.adjuntos ?? []).length ? "con comprobante" : "<span class=\"sinpapel\">sin comprobante</span>"}</td>
+          <td class="hora">${esc(horaPy(m.created_at))}</td>
+          <td class="m">${gs(m.monto)}</td>
+        </tr>`).join("") || '<tr><td colspan="4" class="vacio">Sin egresos.</td></tr>',
+        "Total Egreso",
+        resumen.egresos_efectivo
+      )}
+      ${seccion(
+        "Retiro p/ Deposito",
+        egresos.filter((m) => m.tipo === "retiro").map((m) => `<tr>
+          <td class="ind">${esc(m.concepto)}</td>
+          <td></td>
+          <td class="hora">${esc(horaPy(m.created_at))}</td>
+          <td class="m">${gs(m.monto)}</td>
+        </tr>`).join("") || '<tr><td colspan="4" class="vacio">Sin retiros.</td></tr>',
+        "Total Deposito",
+        resumen.retiros_efectivo
+      )}
+      ${seccion(
+        "Otra Entrada",
+        ingresos.map((m) => `<tr>
+          <td class="ind">${esc(m.concepto)}</td>
+          <td class="ref">${esc(m.medio_pago)}</td>
+          <td class="hora">${esc(horaPy(m.created_at))}</td>
+          <td class="m">${gs(m.monto)}</td>
+        </tr>`).join("") || '<tr><td colspan="4" class="vacio">Sin otras entradas.</td></tr>',
+        "T. O. Entrada",
+        resumen.ingresos_efectivo
+      )}
     </tbody>
-    ${ventasDetalle.length > 0 ? `<tfoot>
-      <tr class="b">
-        <td colspan="5">${vivas.length} operación(es) válida(s)${anuladas.length ? ` · ${anuladas.length} anulada(s)` : ""}</td>
-        <td class="m">${gs(totalVivas)}</td>
-      </tr>
-    </tfoot>` : ""}
   </table>
-  ${anuladas.length > 0 ? `<p class="nota">
-    Las anuladas figuran en gris, con su motivo, y su importe no suma en el
-    total: esa plata no entró. Se listan igual porque el comprobante existió y
-    alguien lo anuló.
-  </p>` : ""}
 
-  ${c.observacion_cierre ? `<p class="nota"><b>Observación del cierre:</b> ${esc(c.observacion_cierre)}</p>` : ""}
-
-  <div class="firmas">
-    <div class="firma">Cajero</div>
-    <div class="firma">Controló</div>
-    <div class="firma">Fecha y hora</div>
+  <h2 class="resumen-t">Resumen</h2>
+  <div class="resumen">
+    <span><b>Monto a Rendir:</b> ${gs(resumen.efectivo_esperado)}</span>
+    <span><b>Monto Rendido:</b> ${gs(contado)}</span>
+    <span class="${diferencia < 0 ? "falta" : diferencia > 0 ? "sobra" : ""}">
+      <b>Diferencia:</b> ${diferencia > 0 ? "+" : ""}${gs(diferencia)}${diferencia < 0 ? " (faltante)" : diferencia > 0 ? " (sobrante)" : ""}
+    </span>
   </div>
 
-  <p class="nota">
-    El <b>dinero a rendir</b> es el efectivo esperado menos el fondo de apertura: el fondo no se
-    entrega, queda para el turno siguiente. Las ventas a crédito figuran como facturación pero
-    no entran al cajón. Los cheques y las ventas con tarjeta o transferencia tampoco suman al
-    efectivo contado.
-  </p>
+  ${c.observacion_cierre ? `<p class="nota"><b>Observación:</b> ${esc(c.observacion_cierre)}</p>` : ""}
+
+  <div class="firmas">
+    <div class="firma">Recibo por</div>
+    <div class="firma">Responsable</div>
+  </div>
+  <div class="obs-linea">Observación</div>
+
+  ${anuladas.length > 0 ? `<p class="nota">
+    ${anuladas.length} comprobante(s) anulado(s) por ${gs(ventaAnulada)}: no suman en la venta
+    porque esa plata no entró, pero se declaran porque el comprobante existió.
+  </p>` : ""}
 
   ${sp.get("auto") === "1" ? "<script>window.addEventListener('load',()=>window.print())</script>" : ""}
 </body>
