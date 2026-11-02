@@ -118,10 +118,29 @@ export async function crearPresupuesto(
 
   const numero = await siguienteNumeroControl(sb, empresaId);
   const fechaIso = new Date().toISOString();
+  /**
+   * Fecha de vencimiento, contando el día de hoy.
+   *
+   *   validez_dias = 1  → vence hoy mismo, al cierre de la jornada.
+   *   validez_dias = 15 → vence a los quince días contando hoy.
+   *
+   * DOS COSAS QUE ESTABAN MAL ACÁ:
+   *
+   *   1. Se sumaban los días a `new Date()`, que en este server es UTC. Entre
+   *      las 21:00 y la medianoche de Paraguay ya es el día siguiente en UTC,
+   *      así que todo presupuesto cargado a esa hora vencía un día tarde. El
+   *      lado que compara (`reservas.ts`) sí usa la fecha paraguaya, de modo
+   *      que las dos puntas no hablaban del mismo día.
+   *
+   *   2. Se sumaba el total de días SIN contar hoy, con lo cual no había forma
+   *      de expresar "vence hoy": un día de validez vencía mañana. El
+   *      documento impreso dice "hasta el término de la jornada de la presente
+   *      fecha", así que esa era justamente la que hacía falta.
+   */
   let vencimiento: string | null = null;
   if (input.validez_dias && input.validez_dias > 0) {
-    const d = new Date();
-    d.setDate(d.getDate() + input.validez_dias);
+    const d = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    d.setUTCDate(d.getUTCDate() + (input.validez_dias - 1));
     vencimiento = d.toISOString().slice(0, 10);
   }
 

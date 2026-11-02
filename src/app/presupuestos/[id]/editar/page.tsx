@@ -71,6 +71,9 @@ function asIva(v: unknown): IvaTipoPresupuesto {
   return v === "EXENTA" || v === "5%" || v === "10%" ? v : "10%";
 }
 
+/** Ver el comentario en `src/app/presupuestos/nuevo/page.tsx`. */
+const VALIDEZ_DIAS = 1;
+
 const IVAS: IvaTipoPresupuesto[] = ["10%", "5%", "EXENTA"];
 const labelClass = "block text-xs font-medium text-gray-600 mb-1";
 const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm";
@@ -103,7 +106,13 @@ export default function EditarPresupuestoPage() {
 
   // Condiciones
   const [moneda, setMoneda] = useState<"PYG" | "USD">("PYG");
-  const [validezDias, setValidezDias] = useState("15");
+  /**
+   * Ya no se pregunta (ver `VALIDEZ_DIAS` en `presupuestos/nuevo`), pero al
+   * editar se respeta lo que el presupuesto tenía guardado: cambiarle el
+   * vencimiento a uno viejo movería qué stock está reservado. Solo los que no
+   * tienen nada guardado toman el valor fijo.
+   */
+  const [validezDias, setValidezDias] = useState(String(VALIDEZ_DIAS));
   const [formaPago, setFormaPago] = useState("");
   const [plazoEntrega, setPlazoEntrega] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -184,7 +193,7 @@ export default function EditarPresupuestoPage() {
         setClienteTel(p.cliente_telefono ? String(p.cliente_telefono) : "");
         setClienteDir(p.cliente_direccion ? String(p.cliente_direccion) : "");
         setMoneda(p.moneda === "USD" ? "USD" : "PYG");
-        setValidezDias(p.validez_dias == null ? "" : String(p.validez_dias));
+        setValidezDias(p.validez_dias == null ? String(VALIDEZ_DIAS) : String(p.validez_dias));
         setFormaPago(p.forma_pago ? String(p.forma_pago) : "");
         setPlazoEntrega(p.plazo_entrega ? String(p.plazo_entrega) : "");
         setObservaciones(p.observaciones ? String(p.observaciones) : "");
@@ -331,7 +340,7 @@ export default function EditarPresupuestoPage() {
           cliente_telefono: clienteTel.trim() || null,
           cliente_direccion: clienteDir.trim() || null,
           moneda,
-          validez_dias: validezDias.trim() === "" ? null : parseInt(validezDias, 10),
+          validez_dias: validezDias.trim() === "" ? VALIDEZ_DIAS : parseInt(validezDias, 10),
           forma_pago: formaPago.trim() || null,
           plazo_entrega: plazoEntrega.trim() || null,
           observaciones: observaciones.trim() || null,
@@ -558,11 +567,9 @@ export default function EditarPresupuestoPage() {
       {/* Condiciones */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Condiciones comerciales</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className={labelClass}>Validez (días)</label>
-            <input type="number" min="0" value={validezDias} onChange={(e) => setValidezDias(e.target.value)} className={inputClass} />
-          </div>
+        {/* Dos columnas desde que se sacó "Validez (días)": con tres quedaba un
+            hueco a la derecha. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Forma de pago</label>
             <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} className={inputClass} placeholder="Ej: 50% anticipo, saldo contra entrega" />
@@ -571,7 +578,7 @@ export default function EditarPresupuestoPage() {
             <label className={labelClass}>Plazo de entrega</label>
             <input value={plazoEntrega} onChange={(e) => setPlazoEntrega(e.target.value)} className={inputClass} placeholder="Ej: 5 días hábiles" />
           </div>
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-2">
             <label className={labelClass}>
               Condiciones comerciales
               {!isAdmin && (
@@ -599,7 +606,7 @@ export default function EditarPresupuestoPage() {
               le manda al cliente. Entonces no había dónde anotar lo que es
               asunto de la casa —que falta material, a quién se le pidió—, y
               escribirlo arriba era mandárselo al cliente. */}
-          <div className="sm:col-span-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
             <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
               <input
                 type="checkbox"
@@ -621,7 +628,7 @@ export default function EditarPresupuestoPage() {
               Esto queda para adentro: no sale en el PDF ni lo ve el cliente.
             </p>
           </div>
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-2">
             <label className={labelClass}>Observaciones</label>
             <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} className={inputClass} />
             <p className="mt-1 text-[11px] leading-snug text-slate-500">

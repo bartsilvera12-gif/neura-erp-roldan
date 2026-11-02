@@ -388,7 +388,9 @@ export default function PresupuestoDetallePage() {
             const vencido = !!v && v < hoy;
             return (
               <p className={`text-sm ${vencido ? "font-medium text-amber-700" : "text-gray-600"}`}>
-                Validez: {presu.validez_dias} día(s)
+                {presu.validez_dias === 1
+                  ? "Validez: hasta el cierre del día"
+                  : `Validez: ${presu.validez_dias} días`}
                 {v ? ` (${vencido ? "venció" : "vence"} ${fmtFecha(presu.fecha_vencimiento!)})` : ""}
                 {vencido && (
                   <span className="mt-1 block text-xs font-normal text-amber-700">

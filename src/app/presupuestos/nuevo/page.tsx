@@ -67,6 +67,26 @@ function itemTotals(it: Item) {
   return { total: round2(total), iva, subtotal: round2(total - iva) };
 }
 
+/**
+ * Todos los presupuestos valen lo mismo, así que no se pregunta: el campo se
+ * sacó de la pantalla y el valor sale de acá.
+ *
+ * ES UN DÍA, CONTANDO HOY. Es lo que ya decía el documento impreso: "hasta el
+ * término de la jornada de la presente fecha" (Configuración → Presupuesto).
+ * La pantalla, en cambio, venía con 15 días por defecto: el papel decía que la
+ * oferta vencía ese mismo día y el sistema la daba por vigente dos semanas,
+ * reservando stock todo ese tiempo.
+ *
+ * NO ES SOLO UN TEXTO: de este número sale la fecha de vencimiento, y del
+ * vencimiento depende qué presupuestos aprobados siguen reservando stock (ver
+ * `src/lib/presupuestos/server/reservas.ts`). Por eso se sigue mandando en vez
+ * de dejarlo en null, que dejaría los presupuestos sin vencer nunca.
+ *
+ * Si alguna vez se cambia, hay que cambiar también esa frase del documento, o
+ * el papel va a decir una cosa y el sistema otra.
+ */
+const VALIDEZ_DIAS = 1;
+
 const IVAS: IvaTipoPresupuesto[] = ["10%", "5%", "EXENTA"];
 const labelClass = "block text-xs font-medium text-gray-600 mb-1";
 const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm";
@@ -111,7 +131,6 @@ export default function NuevoPresupuestoPage() {
   const [usarMayorista, setUsarMayorista] = useState(false);
 
   // Condiciones
-  const [validezDias, setValidezDias] = useState("15");
   const [formaPago, setFormaPago] = useState("");
   const [plazoEntrega, setPlazoEntrega] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -394,7 +413,7 @@ export default function NuevoPresupuestoPage() {
           cliente_ciudad: clienteCiudad.trim() || null,
           cliente_profesion: clienteProfesion.trim() || null,
           moneda: "PYG",
-          validez_dias: validezDias.trim() === "" ? null : parseInt(validezDias, 10),
+          validez_dias: VALIDEZ_DIAS,
           forma_pago: formaPago.trim() || null,
           plazo_entrega: plazoEntrega.trim() || null,
           observaciones: observaciones.trim() || null,
@@ -736,11 +755,9 @@ export default function NuevoPresupuestoPage() {
       {/* Condiciones */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Condiciones comerciales</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className={labelClass}>Validez (días)</label>
-            <input type="number" min="0" value={validezDias} onChange={(e) => setValidezDias(e.target.value)} className={inputClass} />
-          </div>
+        {/* Dos columnas desde que se sacó "Validez (días)": con tres quedaba un
+            hueco a la derecha. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Forma de pago</label>
             <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} className={inputClass} placeholder="Ej: 50% anticipo, saldo contra entrega" />
@@ -757,7 +774,7 @@ export default function NuevoPresupuestoPage() {
               <strong> {plazoEntrega.trim() || "el plazo acordado con el vendedor"}</strong>”.
             </p>
           </div>
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-2">
             <label className={labelClass}>
               Condiciones comerciales
               {!isAdmin && (
@@ -804,7 +821,7 @@ export default function NuevoPresupuestoPage() {
               le manda al cliente. Entonces no había dónde anotar lo que es
               asunto de la casa —que falta material, a quién se le pidió—, y
               escribirlo arriba era mandárselo al cliente. */}
-          <div className={`sm:col-span-3 rounded-xl border-2 p-4 transition-colors ${
+          <div className={`sm:col-span-2 rounded-xl border-2 p-4 transition-colors ${
             faltaMaterial ? "border-amber-400 bg-amber-50" : "border-amber-200 bg-amber-50/50"
           }`}>
             <label className="flex items-center gap-3 text-base font-bold text-amber-900 cursor-pointer">
@@ -828,7 +845,7 @@ export default function NuevoPresupuestoPage() {
               Esto queda para adentro: no sale en el PDF ni lo ve el cliente.
             </p>
           </div>
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-2">
             <label className={labelClass}>Observaciones</label>
             <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} className={inputClass} />
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
