@@ -353,6 +353,8 @@ export default function NuevaVentaPage() {
   const [anticipoSaldo, setAnticipoSaldo] = useState(0);
   const [anticipoAviso, setAnticipoAviso] = useState<string | null>(null);
   const [anticipoUsar, setAnticipoUsar] = useState("");
+  /** Para no volver a cargarlo solo si la cajera lo sacó a propósito. */
+  const anticipoAutocargado = useRef(false);
 
   const [credito, setCredito] = useState<{
     limite: number | null; dias: number | null; deuda: number; disponible: number | null;
@@ -763,6 +765,39 @@ export default function NuevaVentaPage() {
   useEffect(() => {
     if (tipoVenta === "CREDITO" && anticipoUsar !== "") setAnticipoUsar("");
   }, [tipoVenta, anticipoUsar]);
+
+  /**
+   * Cobrando un presupuesto, el anticipo se aplica SOLO.
+   *
+   * ── POR QUÉ ACÁ SÍ Y EN UNA VENTA DE MOSTRADOR NO ─────────────────────
+   *   El anticipo de un presupuesto se dejó justamente para esa mercadería:
+   *   está escrito en las condiciones que el cliente firmó ("anticipo del X%
+   *   y saldo al retirar"). Cuando la cajera estira el presupuesto, hacerle
+   *   buscar el anticipo y tipear el monto es pedirle que se acuerde de algo
+   *   que el sistema ya sabe — y si se olvida, le cobra al cliente dos veces
+   *   la misma seña.
+   *
+   *   En una venta de mostrador no se toca: ahí el cliente puede querer dejar
+   *   su saldo a favor para otra compra, y esa decisión es suya.
+   *
+   * ── HASTA DÓNDE ───────────────────────────────────────────────────────
+   *   Se aplica lo que alcance: si el anticipo es menor que la venta, se usa
+   *   entero y el resto se cobra; si es mayor, se usa solo hasta el total y
+   *   LO QUE SOBRA LE QUEDA AL CLIENTE a favor, no se pierde.
+   */
+  useEffect(() => {
+    if (anticipoAutocargado.current) return;
+    if (!presupuestoId && !pedidoId) return;
+    if (tipoVenta !== "CONTADO") return;
+    // Espera a tener las dos puntas: el saldo del cliente y el total cargado.
+    // El total se calcula acá y no se toma de `totalGeneral`: esa constante se
+    // declara más abajo en el archivo y este efecto corre antes.
+    const total = items.reduce((acc, i) => acc + i.total_linea, 0);
+    if (anticipoSaldo <= 0 || total <= 0) return;
+    if (anticipoUsar.trim() !== "") return;
+    anticipoAutocargado.current = true;
+    setAnticipoUsar(String(Math.min(Math.round(anticipoSaldo), Math.round(total))));
+  }, [presupuestoId, pedidoId, tipoVenta, anticipoSaldo, items, anticipoUsar]);
 
   // El plazo acordado se propone solo. Que el que atiende tenga que acordarse
   // de que a este cliente son 15 días y al otro 30 es pedirle que haga de
@@ -2392,9 +2427,12 @@ export default function NuevaVentaPage() {
                         </div>
                         {anticipoAplicado > 0 ? (
                           <p className="mt-1 text-[11px] leading-snug text-emerald-800">
+                            {(presupuestoId || pedidoId) && anticipoAutocargado.current
+                              ? "Se aplicó solo el anticipo que el cliente dejó. "
+                              : ""}
                             Se descuentan {formatGs(anticipoAplicado)} de esta venta.
                             {anticipoSaldo - anticipoAplicado > 0
-                              ? ` Le quedan ${formatGs(anticipoSaldo - anticipoAplicado)} a favor.`
+                              ? ` Le sobran ${formatGs(anticipoSaldo - anticipoAplicado)} de anticipo, que le quedan a favor para otra compra.`
                               : " Con esto se usa todo su anticipo."}
                           </p>
                         ) : (
