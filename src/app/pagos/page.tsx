@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import { Banknote, Loader2 } from "lucide-react";
+import { Banknote, BarChart3, Check, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import { RegistrarCobroModalCxc } from "@/components/cobros/RegistrarCobroModalCxc";
@@ -225,7 +225,7 @@ export default function PagosPage() {
   return (
     <div className="w-full min-w-0 max-w-full space-y-6">
       {toast && (
-        <div className="fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">✓ {toast}</div>
+        <div className="inline-flex items-center gap-1.5 fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg"><Check className="h-4 w-4" /> {toast}</div>
       )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -551,7 +551,7 @@ export default function PagosPage() {
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cuentas por pagar a proveedores</p>
             <Link href="/pagos/proveedores" className="rounded-lg border border-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/10">
-              📊 Estado de cuenta proveedores
+              <BarChart3 className="h-4 w-4" /> Estado de cuenta proveedores
             </Link>
           </div>
           {porPagarVista.length === 0 ? (

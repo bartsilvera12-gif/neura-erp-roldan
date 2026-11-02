@@ -6,6 +6,8 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
 
+import { Pencil, Printer } from "lucide-react";
+
 type Item = { descripcion: string; cantidad: string; unidad: string; precio_unitario: string };
 type Orden = {
   id: string;
@@ -300,8 +302,8 @@ export default function OrdenesDeCompraPage() {
                       }`}>{o.estado}</span>
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      <button onClick={() => imprimir(o.id)} className="mr-3 text-xs font-medium text-sky-700 hover:underline">🖨 Imprimir</button>
-                      <button onClick={() => editar(o)} className="mr-3 text-xs font-medium text-slate-700 hover:underline">✎ Editar</button>
+                      <button onClick={() => imprimir(o.id)} className="mr-3 text-xs font-medium text-sky-700 hover:underline"><Printer className="h-4 w-4" /> Imprimir</button>
+                      <button onClick={() => editar(o)} className="mr-3 text-xs font-medium text-slate-700 hover:underline"><Pencil className="h-4 w-4" /> Editar</button>
                       <button onClick={() => marcarRecibida(o)} className="mr-3 text-xs font-medium text-emerald-700 hover:underline">{o.estado === "recibida" ? "Reabrir" : "Recibida"}</button>
                       <button onClick={() => eliminar(o)} className="text-xs font-medium text-rose-600 hover:underline">Eliminar</button>
                     </td>

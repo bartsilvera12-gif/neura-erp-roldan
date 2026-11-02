@@ -50,6 +50,7 @@ import { firstAccessibleHref } from "@/lib/modulos/route-slug-map";
 import { etiquetaVisibleTipoServicio } from "@/lib/clientes/tipo-servicio-catalogo";
 import { useMapNombreTipoServicioCatalogo } from "@/lib/clientes/use-map-nombre-tipo-servicio";
 import { getEtapas, getEtapaClasses, normalizeEtapaCodigo, type EtapaCrm } from "@/lib/crm/etapas";
+import { AlertTriangle, Banknote, BarChart3, Calendar, CalendarDays, CheckCircle2, Gem, Hash, Lock, MessageSquare, Package, ShoppingCart, Target, Ticket, TrendingUp, Wallet } from "lucide-react";
 import {
   isDashboardTabSlug,
   type DashboardTabSlug,
@@ -520,7 +521,7 @@ function KpiCard({
   value: string;
   sub?: string;
   color?: string;
-  icon: string;
+  icon: React.ReactNode;
   /**
    * Variación porcentual respecto al período anterior.
    *
@@ -815,22 +816,22 @@ const DashComercial = memo(function DashComercial({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           variant="zentra"
-          icon="🎯"
+          icon={<Target className="h-4 w-4" />}
           label="Leads nuevos"
           value={String(leadsNuevos)}
           color="text-[#60A5FA]"
         />
-        <KpiCard variant="zentra" icon="💬" label="En negociación" value={String(enNegociacion)} color="text-amber-400" />
+        <KpiCard variant="zentra" icon={<MessageSquare className="h-4 w-4" />} label="En negociación" value={String(enNegociacion)} color="text-amber-400" />
         <KpiCard
           variant="zentra"
-          icon="✅"
+          icon={<CheckCircle2 className="h-4 w-4" />}
           label="Clientes ganados (CRM)"
           value={String(clientesGanados)}
           color="text-[#60A5FA]"
         />
         <KpiCard
           variant="zentra"
-          icon="📈"
+          icon={<TrendingUp className="h-4 w-4" />}
           label="Tasa de conversión"
           value={`${tasaConversion.toFixed(1)}%`}
           color={tasaConversion >= config.meta_conversion_leads ? "text-emerald-400" : "text-white"}
@@ -1666,15 +1667,15 @@ const DashInventario = memo(function DashInventario({
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon="📦" label="Productos en catálogo" value={String(totalProductos)} color="text-[#0F172A]" />
-        <KpiCard icon="🔢" label="Stock total (unidades)" value={formatGs(totalUnidades)} color="text-[#0F172A]" />
-        <KpiCard icon="⚠️" label={inventarioSinCargar ? "Sin stock cargado" : "Bajo stock mínimo"}
+        <KpiCard icon={<Package className="h-4 w-4" />} label="Productos en catálogo" value={String(totalProductos)} color="text-[#0F172A]" />
+        <KpiCard icon={<Hash className="h-4 w-4" />} label="Stock total (unidades)" value={formatGs(totalUnidades)} color="text-[#0F172A]" />
+        <KpiCard icon={<AlertTriangle className="h-4 w-4" />} label={inventarioSinCargar ? "Sin stock cargado" : "Bajo stock mínimo"}
           value={inventarioSinCargar ? String(totalProductos) : String(bajosStock)}
           sub={inventarioSinCargar
             ? "registrá una compra para cargar stock"
             : bajosStock > 0 ? "requieren reposición" : "todo en orden"}
           color={inventarioSinCargar ? "text-slate-500" : bajosStock > 0 ? "text-red-600" : "text-emerald-600"} />
-        <KpiCard icon="💎" label="Valor del inventario"   value={`Gs. ${formatGsFull(valorTotal)}`} color="text-[#0F172A]" />
+        <KpiCard icon={<Gem className="h-4 w-4" />} label="Valor del inventario"   value={`Gs. ${formatGsFull(valorTotal)}`} color="text-[#0F172A]" />
       </div>
 
       {/* Donut + Críticos */}
@@ -1718,7 +1719,7 @@ const DashInventario = memo(function DashInventario({
             </div>
           ) : criticos.length === 0 ? (
             <div className="flex items-center gap-2 text-[var(--badge-success-text)] bg-[var(--badge-success-bg)] rounded-lg px-4 py-3 text-sm">
-              <span>✅</span> Todos los productos tienen stock suficiente.
+              <CheckCircle2 className="h-4 w-4" /> Todos los productos tienen stock suficiente.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -1927,20 +1928,20 @@ const DashVentas = memo(function DashVentas({
 
       {/* KPIs principales */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon="📅" label="Ventas del período"  value={`Gs. ${formatGsFull(totalPeriodo)}`}
+        <KpiCard icon={<Calendar className="h-4 w-4" />} label="Ventas del período"  value={`Gs. ${formatGsFull(totalPeriodo)}`}
           sub={`${ventasFilt.length} transacciones · ${etiquetaPeriodo}`} color="text-blue-600" />
-        <KpiCard icon="📆" label="Promedio por día"    value={`Gs. ${formatGsFull(promedioDiario)}`}
+        <KpiCard icon={<CalendarDays className="h-4 w-4" />} label="Promedio por día"    value={`Gs. ${formatGsFull(promedioDiario)}`}
           sub={`${diasRango} ${diasRango === 1 ? "día" : "días"}`} color="text-indigo-600" />
-        <KpiCard icon="🎫" label="Ticket promedio"     value={`Gs. ${formatGsFull(ticketProm)}`}
+        <KpiCard icon={<Ticket className="h-4 w-4" />} label="Ticket promedio"     value={`Gs. ${formatGsFull(ticketProm)}`}
           sub={etiquetaPeriodo} />
-        <KpiCard icon="📦" label="Unidades vendidas"   value={formatGs(unidades)}
+        <KpiCard icon={<Package className="h-4 w-4" />} label="Unidades vendidas"   value={formatGs(unidades)}
           sub={etiquetaPeriodo} />
       </div>
 
       {/* KPIs rentabilidad */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-3">
-          <span className="text-2xl">💰</span>
+          <Wallet className="h-6 w-6" aria-hidden />
           <div>
             <p className={`text-2xl font-bold tabular-nums ${ganancia >= 0 ? "text-green-600" : "text-red-600"}`}>
               Gs. {formatGsFull(ganancia)}
@@ -1950,7 +1951,7 @@ const DashVentas = memo(function DashVentas({
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-3">
-          <span className="text-2xl">📊</span>
+          <BarChart3 className="h-6 w-6" aria-hidden />
           <div>
             <p className={`text-2xl font-bold tabular-nums ${margenProm >= 20 ? "text-green-600" : margenProm >= 10 ? "text-amber-600" : "text-red-600"}`}>
               {margenProm.toFixed(1)}%
@@ -2241,11 +2242,11 @@ export default function DashboardPage() {
     }
   }, [tab, effectiveTabs, rolLoaded]);
 
-  const TAB_META: Record<TabDash, { label: string; icon: string }> = {
-    comercial: { label: "Comercial", icon: "📊" },
-    financiero: { label: "Financiero", icon: "💰" },
-    inventario: { label: "Inventario", icon: "📦" },
-    ventas: { label: "Ventas", icon: "🛒" },
+  const TAB_META: Record<TabDash, { label: string; icon: React.ReactNode }> = {
+    comercial: { label: "Comercial", icon: <BarChart3 className="h-4 w-4" aria-hidden /> },
+    financiero: { label: "Financiero", icon: <Banknote className="h-4 w-4" aria-hidden /> },
+    inventario: { label: "Inventario", icon: <Package className="h-4 w-4" aria-hidden /> },
+    ventas: { label: "Ventas", icon: <ShoppingCart className="h-4 w-4" aria-hidden /> },
   };
 
   if (!config) {
@@ -2263,7 +2264,7 @@ export default function DashboardPage() {
   if (nivel === "usuario") {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <span className="text-4xl">🔒</span>
+        <Lock className="h-10 w-10" aria-hidden />
         <h2 className="text-lg font-bold text-gray-800">Acceso restringido</h2>
         <p className="text-sm text-gray-500 text-center max-w-sm">
           El dashboard solo está disponible para usuarios con nivel <strong>Supervisor</strong> o <strong>Administrador</strong>.

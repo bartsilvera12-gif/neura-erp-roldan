@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PackageOpen, Package } from "lucide-react";
+import { Package, PackageOpen, X } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, type Deposito, type StockItem } from "@/lib/multideposito/client";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
@@ -302,7 +302,7 @@ function ModalTransferencia({
             <h3 className="text-sm font-bold text-slate-800">Transferir stock</h3>
             <p className="text-xs text-slate-500">{item.nombre}</p>
           </div>
-          <button onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+          <button onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>
         </div>
 
         {err && (

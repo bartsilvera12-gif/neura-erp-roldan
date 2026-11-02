@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import { ChefHat, ArrowLeft, Plus, Trash2, Save, Loader2, Factory, X, Pencil, Check } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChefHat, Factory, Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { NEURA_CLIENT_SCHEMA } from "@/lib/supabase/schema";
 import { formatUnidad } from "@/lib/unidades/format";
 import { unidadesCompatibles, familiaUnidad } from "@/lib/unidades/convert";
@@ -463,7 +463,7 @@ export default function EditarRecetaPage() {
 
       {fabOk && (
         <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700 mb-4">
-          ✓ {fabOk}
+          <Check className="h-4 w-4" /> {fabOk}
         </div>
       )}
 
@@ -670,7 +670,7 @@ export default function EditarRecetaPage() {
                   <td className="py-2 hidden md:table-cell">{fmtGs(row.costo_promedio)}<span className="text-[10px] text-gray-400">/{formatUnidad(row.unidad_medida) || "u"}</span></td>
                   <td className="py-2 tabular-nums">
                     {row.unidad_incompatible
-                      ? <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium px-2 py-0.5" title="La unidad del ítem no es compatible con la del insumo; no se cuenta en el costo.">⚠ Unidad incompatible</span>
+                      ? <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium px-2 py-0.5" title="La unidad del ítem no es compatible con la del insumo; no se cuenta en el costo."><AlertTriangle className="h-4 w-4" /> Unidad incompatible</span>
                       : fmtGs(row.subcosto)}
                   </td>
                   <td className="py-2 text-gray-600 hidden lg:table-cell tabular-nums">{Number(row.stock_actual).toLocaleString("es-PY")} <span className="text-xs text-gray-400">{formatUnidad(row.unidad_medida)}</span></td>
@@ -827,7 +827,7 @@ export default function EditarRecetaPage() {
 
       {/* Barra de acción final */}
       <div className="mt-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2">
-        {savedOk && <span className="text-sm text-emerald-600 sm:mr-auto">✓ Receta guardada</span>}
+        {savedOk && <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600 sm:mr-auto"><Check className="h-4 w-4" /> Receta guardada</span>}
         <Link
           href="/dashboard/recetas"
           className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -942,7 +942,7 @@ export default function EditarRecetaPage() {
                               {ins.faltante > 0 ? (
                                 <span className="text-amber-700 font-medium">{fmtNum(ins.faltante)}</span>
                               ) : (
-                                <span className="text-emerald-600">✓</span>
+                                <Check className="h-4 w-4 text-emerald-600" aria-hidden />
                               )}
                             </td>
                           </tr>
@@ -953,7 +953,7 @@ export default function EditarRecetaPage() {
 
                   {fabPreview.insumos_incompatibles.length > 0 && (
                     <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-                      ⚠ Insumos con unidad incompatible (no se descuentan):{" "}
+                      <AlertTriangle className="h-4 w-4" /> Insumos con unidad incompatible (no se descuentan):{" "}
                       {fabPreview.insumos_incompatibles.join(", ")}. Revisá las unidades en la receta.
                     </div>
                   )}

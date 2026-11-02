@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PackageX, ArrowLeft, Plus, Trash2, Loader2, Printer } from "lucide-react";
+import { ArrowLeft, Check, Loader2, PackageX, Plus, Printer, Trash2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
@@ -183,7 +183,7 @@ export default function DevolucionesProveedorPage() {
       </div>
 
       {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-      {ok && <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">✓ {ok}</div>}
+      {ok && <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
 
       {/* Datos */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">

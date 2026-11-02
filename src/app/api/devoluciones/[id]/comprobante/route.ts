@@ -130,6 +130,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     .corte { display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:6px;
              font-size:10px; color:#888; border-top:1px dashed #999; }
     .corte span { flex:1; text-align:center; letter-spacing:1px; text-transform:uppercase; }
+    .corte svg { vertical-align:-1px; }
   }
   .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .header-top .brand { display: flex; align-items: center; gap: 12px; }
@@ -232,7 +233,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     </div>
 
     <div class="disclaimer">Comprobante interno de devolucion — no valido como documento fiscal.${d.requiere_nota_credito ? " Esta devolucion puede requerir emitir una Nota de Credito fiscal." : ""}</div>
-    <div class="corte"><span>✂ CORTAR AQUÍ ✂</span></div>
+    <div class="corte"><span><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> CORTAR AQUÍ <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></span></div>
   </div>
   <script>try{ if(${autoPrint ? "true" : "false"}){ setTimeout(function(){window.print();},250); } }catch(e){}</script>
 </body></html>`;

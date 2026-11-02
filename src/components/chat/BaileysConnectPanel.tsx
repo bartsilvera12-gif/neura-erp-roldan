@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getBaileysChannelStatus, type BaileysChannelStatus } from "@/lib/chat/actions";
 
+import { CheckCircle2 } from "lucide-react";
+
 /**
  * Panel de conexión / RECONEXIÓN de un canal WhatsApp por QR (Baileys) YA EXISTENTE.
  *
@@ -70,7 +72,7 @@ export function BaileysConnectPanel({ channelId }: { channelId: string }) {
           </div>
         ) : connected ? (
           <div className="text-center">
-            <p className="text-3xl">✅</p>
+            <CheckCircle2 className="h-8 w-8" aria-hidden />
             <p className="mt-2 text-lg font-bold text-slate-900">Conectado</p>
             {status?.meNumber && <p className="mt-1 font-mono text-xs text-slate-500">{status.meNumber}</p>}
             <p className="mt-2 text-sm text-slate-600">

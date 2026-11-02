@@ -292,9 +292,7 @@ export default function InventarioPage() {
         <div className="flex flex-col gap-3 border-b border-[#4FAEB2]/15 bg-gradient-to-r from-[#4FAEB2]/5 to-transparent p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#4FAEB2]">
-                <Package className="h-4 w-4" />
-              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#4FAEB2]"><Package className="h-4 w-4" aria-hidden /></div>
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-slate-900">Productos</h2>
                 <p className="text-[11px] text-slate-500">
@@ -852,9 +850,7 @@ function ModalPlanilla({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#4FAEB2]">
-            <Printer className="h-4 w-4" />
-          </div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#4FAEB2]"><Printer className="h-4 w-4" aria-hidden /></div>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-slate-900">Planilla de conteo</h3>
             <p className="mt-0.5 text-[11px] leading-snug text-slate-500">

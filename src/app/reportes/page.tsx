@@ -3,6 +3,7 @@
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
 import { ArrowLeftRight, Banknote, FileArchive, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Users, Wallet } from "lucide-react";
+
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
   return (

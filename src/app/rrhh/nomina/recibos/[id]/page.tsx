@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
+import { FileText } from "lucide-react";
+
 export const dynamic = "force-dynamic";
 
 type Recibo = {
@@ -186,7 +188,7 @@ export default function RecibePage() {
           <div className="flex items-center gap-2">
             <a href={`/api/rrhh/nomina/recibos/${cab.id}/pdf`} target="_blank" rel="noreferrer"
                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
-              📄 Descargar PDF
+              <FileText className="h-4 w-4" /> Descargar PDF
             </a>
             <button onClick={guardar} disabled={saving}
               className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F9EA2] disabled:opacity-50">

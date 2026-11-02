@@ -19,6 +19,8 @@ import type { Nota, Prospecto } from "@/lib/crm/types";
 import type { Plan } from "@/lib/planes/types";
 import { FechaSelect } from "@/components/ui/FechaSelect";
 
+import { AlertTriangle, Check } from "lucide-react";
+
 export type ProspectoDetalleFormProps = {
   id: string;
   variant?: "page" | "modal";
@@ -458,7 +460,7 @@ export default function ProspectoDetalleForm({
           </div>
           {prospecto.etapa === "GANADO" ? (
             <div className="mt-3 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
-              <p className="text-sm font-medium text-emerald-700">✓ Oportunidad ganada</p>
+              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700"><Check className="h-4 w-4" /> Oportunidad ganada</p>
               <a
                 href={`/clientes/nuevo?from_crm=${prospecto.id}`}
                 className="text-sm font-semibold text-emerald-700 underline hover:text-emerald-900"
@@ -670,7 +672,7 @@ export default function ProspectoDetalleForm({
 
             {errorForm ? (
               <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                <span>⚠</span>
+                <AlertTriangle className="h-4 w-4" />
                 <span className="font-medium">{errorForm}</span>
               </div>
             ) : null}

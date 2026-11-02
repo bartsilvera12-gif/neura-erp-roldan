@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-admin";
 
+import { AlertTriangle } from "lucide-react";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -74,7 +76,7 @@ function Aviso({ titulo, cuerpo }: { titulo: string; cuerpo: string }) {
   return (
     <div className="flex min-h-svh items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xl">⚠</div>
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700"><AlertTriangle className="h-6 w-6" aria-hidden /></div>
         <h1 className="text-base font-semibold text-slate-900">{titulo}</h1>
         <p className="mt-2 text-sm text-slate-600">{cuerpo}</p>
       </div>

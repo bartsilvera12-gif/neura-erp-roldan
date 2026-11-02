@@ -65,6 +65,8 @@ import { ClienteDatosSifenReceptorForm } from "@/components/clientes/ClienteDato
 import { NEURA_CLIENT_SCHEMA } from "@/lib/supabase/schema";
 import { formatFecha, formatFechaHora } from "@/lib/fecha/asuncion";
 
+import { AlertTriangle, Clock, Folder, Link2 } from "lucide-react";
+
 /** Instancia monocliente Darocha: formulario/detalle de clientes simplificado (sin campos SaaS/Neura). */
 const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
 // ── Estilos ────────────────────────────────────────────────────────────────────
@@ -104,10 +106,12 @@ const TABS: { id: TabId; label: string; showWhen?: (c: Cliente) => boolean }[] =
 
 // ── Placeholder para pestañas futuras ─────────────────────────────────────────
 
-function PlaceholderTab({ icon, title, desc }: { icon: string; title: string; desc: string }) {
+function PlaceholderTab({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <span className="text-5xl mb-4">{icon}</span>
+      {/* El ícono ya viene dimensionado por quien lo pasa; antes era un emoji
+          suelto al que había que agrandarle la fuente. */}
+      <span className="mb-4 text-slate-300 [&>svg]:h-10 [&>svg]:w-10">{icon}</span>
       <h3 className="text-base font-semibold text-gray-600 mb-2">{title}</h3>
       <p className="text-sm text-gray-400 max-w-xs">{desc}</p>
       <span className="mt-5 text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-full">Próximamente</span>
@@ -1056,7 +1060,7 @@ export default function ClienteDetailPage() {
                   )}
                   {cliente.origen === "CRM" && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
-                      <span aria-hidden>🔗</span>
+                      <span aria-hidden><Link2 className="h-4 w-4" /></span>
                       Creado desde CRM
                     </span>
                   )}
@@ -2155,7 +2159,7 @@ export default function ClienteDetailPage() {
 
               {formError && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                  <span>⚠</span><span className="font-medium">{formError}</span>
+                  <AlertTriangle className="h-4 w-4" /><span className="font-medium">{formError}</span>
                 </div>
               )}
 
@@ -2406,7 +2410,7 @@ export default function ClienteDetailPage() {
           {/* ── PROYECTOS ────────────────────────────────────────────────── */}
           {activeTab === "proyectos" && (
             <PlaceholderTab
-              icon="📁"
+              icon={<Folder className="h-4 w-4" />}
               title="Proyectos"
               desc="Proyectos en curso y finalizados asociados a este cliente, con etapas y responsables."
             />
@@ -2415,7 +2419,7 @@ export default function ClienteDetailPage() {
           {/* ── ACTIVIDAD ────────────────────────────────────────────────── */}
           {activeTab === "actividad" && (
             <PlaceholderTab
-              icon="🕐"
+              icon={<Clock className="h-4 w-4" />}
               title="Actividad"
               desc="Timeline completo de interacciones, cambios de estado, ventas y eventos del cliente."
             />

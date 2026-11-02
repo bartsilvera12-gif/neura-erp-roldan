@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Inbox, CheckCircle2, XCircle, Search } from "lucide-react";
+import { Check, CheckCircle2, Inbox, Search, X, XCircle } from "lucide-react";
 import { fetchDepositos, fetchNRs, fetchNR, aprobarNR, rechazarNR, type Deposito, type NotaRemision } from "@/lib/multideposito/client";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
@@ -76,7 +76,7 @@ export default function RecepcionNRPage() {
     const r = await aprobarNR(nr.id, aprobador.trim());
     setProcesando(false);
     if (!r.ok) { setError(r.error); return; }
-    setFeedback(`✓ NR ${nr.numero} recibida. Stock transferido a ${nombreUbic(nr.ubicacion_destino_id)}.`);
+    setFeedback(`NR ${nr.numero} recibida. Stock transferido a ${nombreUbic(nr.ubicacion_destino_id)}.`);
     const det = await fetchNR(nr.id);
     if (det.ok) setNr(det.data.nota_remision);
     await cargarPendientes();
@@ -116,13 +116,13 @@ export default function RecepcionNRPage() {
       {feedback && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center justify-between">
           <span>{feedback}</span>
-          <button type="button" onClick={() => setFeedback(null)} className="text-emerald-500 hover:text-emerald-700">✕</button>
+          <button type="button" onClick={() => setFeedback(null)} className="text-emerald-500 hover:text-emerald-700"><X className="h-4 w-4" /></button>
         </div>
       )}
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center justify-between">
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700">✕</button>
+          <button type="button" onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></button>
         </div>
       )}
 
@@ -248,10 +248,10 @@ export default function RecepcionNRPage() {
           ) : (
             <div className="border-t border-slate-100 bg-slate-50/60 p-5">
               {nr.estado === "aprobada" && (
-                <p className="text-xs text-emerald-700">✓ Recibida por <strong>{nr.aprobada_por}</strong> el {fmtFecha(nr.aprobada_at ?? "")}.</p>
+                <p className="inline-flex items-center gap-1.5 text-xs text-emerald-700"><Check className="h-4 w-4" /> Recibida por <strong>{nr.aprobada_por}</strong> el {fmtFecha(nr.aprobada_at ?? "")}.</p>
               )}
               {nr.estado === "rechazada" && (
-                <p className="text-xs text-rose-700">✕ Rechazada. Motivo: <strong>{nr.motivo_rechazo}</strong></p>
+                <p className="inline-flex items-center gap-1.5 text-xs text-rose-700"><X className="h-4 w-4" /> Rechazada. Motivo: <strong>{nr.motivo_rechazo}</strong></p>
               )}
               <div className="mt-3">
                 <Link href="/notas-remision" className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Ir al historial</Link>

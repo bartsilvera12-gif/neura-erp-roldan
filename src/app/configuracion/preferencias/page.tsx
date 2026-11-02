@@ -12,6 +12,8 @@ import {
 import { GlobalConfigSubpageShell } from "@/components/config/GlobalConfigSubpageShell";
 import { useGlobalConfigForm } from "@/lib/config/use-global-config-form";
 
+import { AlertTriangle } from "lucide-react";
+
 export default function ConfiguracionPreferenciasPage() {
   const { config, form, handleChange, handleGuardar, handleResetFormToDefaults, success, ready } =
     useGlobalConfigForm();
@@ -103,7 +105,7 @@ export default function ConfiguracionPreferenciasPage() {
 
         <ConfigFormCard>
           <div className="mb-4 flex items-center gap-2 border-b border-red-50 pb-2">
-            <span className="text-base">⚠️</span>
+            <AlertTriangle className="h-4 w-4" aria-hidden />
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Zona peligrosa</h4>
           </div>
           {!showReset ? (

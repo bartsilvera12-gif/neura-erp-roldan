@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import {
   saveBaileysWhatsappChannel,
   getBaileysChannelStatus,
@@ -209,7 +210,7 @@ export function WhatsAppQrConnect({
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         {connected ? (
           <div className="text-center">
-            <p className="text-3xl">✅</p>
+            <CheckCircle2 className="h-8 w-8" aria-hidden />
             <p className="mt-2 text-lg font-bold text-slate-900">¡Conectado!</p>
             {status?.meNumber && (
               <p className="mt-1 font-mono text-xs text-slate-500">{status.meNumber}</p>

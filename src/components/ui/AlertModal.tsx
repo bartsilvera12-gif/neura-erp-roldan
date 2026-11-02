@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertTriangle, Check, Info, X } from "lucide-react";
 
 export type AlertTone = "info" | "success" | "warning" | "error";
 
@@ -59,9 +60,15 @@ export default function AlertModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${toneMap.icon} mb-3`}>
-          <span className="text-xl">
-            {tone === "success" ? "✓" : tone === "error" ? "✕" : tone === "warning" ? "!" : "i"}
-          </span>
+          {tone === "success" ? (
+            <Check className="h-5 w-5" aria-hidden />
+          ) : tone === "error" ? (
+            <X className="h-5 w-5" aria-hidden />
+          ) : tone === "warning" ? (
+            <AlertTriangle className="h-5 w-5" aria-hidden />
+          ) : (
+            <Info className="h-5 w-5" aria-hidden />
+          )}
         </div>
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
         {message && <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{message}</p>}

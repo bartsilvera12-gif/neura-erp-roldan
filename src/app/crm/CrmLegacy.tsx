@@ -11,6 +11,8 @@ import type { Prospecto } from "@/lib/crm/types";
 import ProspectoNuevoModal from "@/app/crm/components/ProspectoNuevoModal";
 import ProspectoDetalleModal from "@/app/crm/components/ProspectoDetalleModal";
 
+import { X } from "lucide-react";
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatGs(valor: number) {
@@ -1335,7 +1337,7 @@ export default function CrmPage() {
               aria-label="Limpiar búsqueda"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md px-1.5 py-0.5 text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             >
-              ✕
+              <X className="h-4 w-4" />
             </button>
           ) : null}
         </div>

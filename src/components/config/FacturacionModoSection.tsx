@@ -111,7 +111,7 @@ export default function FacturacionModoSection() {
       const j = await r.json();
       if (!r.ok || !j?.success) { setErrModo(j?.error ?? "No se pudo guardar"); return; }
       setModo(j.data.facturacion_modo as FacturacionModo);
-      setOkModo("Guardado ✓");
+      setOkModo("Guardado");
       // El reset a null lo hace useAutoClearFlag (1.5s, con cleanup en unmount).
     } catch (e) { setErrModo(e instanceof Error ? e.message : "Error de red"); }
     finally { setSavingModo(false); }
@@ -129,7 +129,7 @@ export default function FacturacionModoSection() {
       const j = await r.json();
       if (!r.ok || !j?.success) { setErrAuto(j?.error ?? "No se pudo guardar"); return; }
       setAuto(j.data.autoimpresor as Autoimpresor);
-      setOkAuto("Guardado ✓");
+      setOkAuto("Guardado");
       // Reset a null por useAutoClearFlag (1.5s, cleanup garantizado).
     } catch (e) { setErrAuto(e instanceof Error ? e.message : "Error de red"); }
     finally { setSavingAuto(false); }

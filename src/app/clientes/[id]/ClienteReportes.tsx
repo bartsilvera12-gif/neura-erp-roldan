@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
+import { Trophy } from "lucide-react";
+
 interface ReporteCliente {
   total_facturado_12m: number;
   ticket_promedio_12m: number;
@@ -93,7 +95,7 @@ export default function ClienteReportes({ clienteId }: { clienteId: string }) {
       {/* Ranking */}
       {data.ranking && (
         <div className="rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/5 px-4 py-3 text-sm">
-          🏆 Posición <b>#{data.ranking.posicion}</b> de <b>{data.ranking.total_clientes}</b> clientes por monto facturado en los últimos 12 meses.
+          <Trophy className="h-4 w-4" /> Posición <b>#{data.ranking.posicion}</b> de <b>{data.ranking.total_clientes}</b> clientes por monto facturado en los últimos 12 meses.
         </div>
       )}
 

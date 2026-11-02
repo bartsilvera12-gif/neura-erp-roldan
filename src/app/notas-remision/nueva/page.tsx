@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Truck, Send } from "lucide-react";
+import { Check, Send, Truck, X } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, crearNR, type Deposito, type StockItem } from "@/lib/multideposito/client";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
@@ -104,7 +104,7 @@ export default function EmitirNRPage() {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm text-emerald-900">
-          <h2 className="text-lg font-semibold">✓ Nota de Remisión {creada.numero} emitida</h2>
+          <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold"><Check className="h-4 w-4" /> Nota de Remisión {creada.numero} emitida</h2>
           <p className="mt-2 text-sm">Queda en estado <strong>pendiente</strong> hasta que {creada.destinoNombre} confirme la recepción.</p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link href="/notas-remision" className="rounded-md border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100">Ver historial</Link>
@@ -271,7 +271,7 @@ export default function EmitirNRPage() {
                         }}
                         className="text-rose-600 hover:bg-rose-50 rounded-md w-8 h-8 inline-flex items-center justify-center"
                         title="Quitar"
-                      >✕</button>
+                      ><X className="h-4 w-4" /></button>
                     </td>
                   </tr>
                 );

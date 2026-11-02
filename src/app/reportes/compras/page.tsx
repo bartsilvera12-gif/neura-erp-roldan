@@ -10,6 +10,8 @@ import { getComprasReporte } from "@/lib/reportes/storage";
 import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
 import type { ComprasReporte } from "@/lib/reportes/types";
 
+import { Paperclip } from "lucide-react";
+
 function formatGs(v: number) {
   return `Gs. ${Math.round(v).toLocaleString("es-PY")}`;
 }
@@ -173,7 +175,7 @@ export default function ComprasReportePage() {
                                 rel="noopener noreferrer"
                                 className="text-xs font-medium text-[#4FAEB2] hover:text-[#3F8E91] hover:underline"
                               >
-                                📎 Ver
+                                <Paperclip className="h-4 w-4" /> Ver
                               </a>
                             ) : (
                               <span className="text-xs text-slate-300">—</span>

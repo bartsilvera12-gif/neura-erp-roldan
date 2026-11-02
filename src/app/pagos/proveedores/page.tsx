@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
+import { Printer } from "lucide-react";
+
 type Factura = {
   numero_control: string;
   numero_factura: string | null;
@@ -220,7 +222,7 @@ function ProvRows({
                     <td className="py-1.5 text-right tabular-nums font-medium text-slate-800">{fmtGs(f.total)}</td>
                     <td className="py-1.5 text-right">
                       <button type="button" onClick={() => abrirOrdenPago(f.numero_control)}
-                        className="text-[11px] font-medium text-sky-700 hover:underline whitespace-nowrap">🖨 Orden</button>
+                        className="text-[11px] font-medium text-sky-700 hover:underline whitespace-nowrap"><Printer className="h-4 w-4" /> Orden</button>
                     </td>
                   </tr>
                 ))}

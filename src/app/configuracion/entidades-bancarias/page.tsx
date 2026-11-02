@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import {
   getEntidadesBancarias,
   createEntidadBancaria,
@@ -192,7 +193,7 @@ export default function EntidadesBancariasPage() {
                         onClick={() => void saveEdit()}
                         className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
                       >
-                        ✓ Guardar
+                        <Check className="h-4 w-4" /> Guardar
                       </button>
                       <button
                         type="button"
@@ -210,7 +211,7 @@ export default function EntidadesBancariasPage() {
                         className="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition-colors"
                         title="Editar datos de la entidad"
                       >
-                        ✎ Editar
+                        <Pencil className="h-4 w-4" /> Editar
                       </button>
                       {en.activo && (
                         <button
@@ -223,7 +224,7 @@ export default function EntidadesBancariasPage() {
                           className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
                           title="Desactivar (no borra, oculta de las opciones)"
                         >
-                          🗑 Eliminar
+                          <Trash2 className="h-4 w-4" /> Eliminar
                         </button>
                       )}
                     </div>

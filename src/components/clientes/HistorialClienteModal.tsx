@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
+import { X } from "lucide-react";
+
 /**
  * Historial comercial del cliente (punto 3.3).
  *
@@ -118,7 +120,7 @@ export default function HistorialClienteModal({
             type="button" onClick={onClose}
             className="ml-auto rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 

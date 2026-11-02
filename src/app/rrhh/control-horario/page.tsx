@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
@@ -358,7 +359,9 @@ function KioscoLinkCard() {
                   />
                   <button type="button" onClick={() => void copiar(urlCorto)}
                     className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                    {copiado ? "✓ Copiado" : "Copiar"}
+                    {copiado ? (
+                      <span className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" aria-hidden /> Copiado</span>
+                    ) : "Copiar"}
                   </button>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">

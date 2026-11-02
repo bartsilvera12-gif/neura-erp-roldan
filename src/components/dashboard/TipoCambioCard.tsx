@@ -5,6 +5,8 @@ import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 
+import { ArrowLeftRight, Check } from "lucide-react";
+
 /**
  * Indicadores de tipo de cambio en el Dashboard (punto 7.1).
  *
@@ -133,7 +135,7 @@ export default function TipoCambioCard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span aria-hidden>💱</span>
+            <span aria-hidden><ArrowLeftRight className="h-4 w-4" /></span>
             <h3 className="text-sm font-semibold text-slate-800">Dólar (USD)</h3>
           </div>
           {vigente ? (
@@ -190,7 +192,7 @@ export default function TipoCambioCard() {
       {vigente?.observacion && (
         <p className="mt-2 text-xs text-slate-500">{vigente.observacion}</p>
       )}
-      {okMsg && <p className="mt-2 text-xs text-emerald-600">✓ {okMsg}</p>}
+      {okMsg && <p className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600"><Check className="h-4 w-4" /> {okMsg}</p>}
 
       {abierto && (
         <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">

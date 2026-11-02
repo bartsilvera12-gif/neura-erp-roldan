@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
@@ -157,7 +158,17 @@ export default function ConciliacionReportePage() {
                 <div className={`mt-1 text-lg font-bold tabular-nums ${diferencia === 0 ? "text-emerald-600" : "text-red-600"}`}>
                   {saldoBanco ? formatGs(diferencia) : "—"}
                 </div>
-                <div className="text-xs text-slate-400">{saldoBanco ? (diferencia === 0 ? "cuadra ✓" : "banco − sistema") : "cargá el saldo banco"}</div>
+                <div className="text-xs text-slate-400">
+                  {!saldoBanco ? (
+                    "cargá el saldo banco"
+                  ) : diferencia === 0 ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600">
+                      <Check className="h-3.5 w-3.5" aria-hidden /> cuadra
+                    </span>
+                  ) : (
+                    "banco − sistema"
+                  )}
+                </div>
               </div>
               <div className="rounded-lg border border-slate-200 p-3">
                 <div className="text-[11px] uppercase tracking-wide text-slate-400">Pendiente / Conciliado</div>

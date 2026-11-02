@@ -15,6 +15,8 @@ import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import EditarVentaModal from "./EditarVentaModal";
 import type { Venta, TipoVenta, TipoIvaVenta } from "@/lib/ventas/types";
 
+import { X } from "lucide-react";
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function formatGs(valor: number) {
@@ -667,7 +669,7 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
             aria-label="Cerrar"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -812,7 +814,7 @@ function ModalMedioCobro({
               {venta.numero_control ?? ""} · hoy figura como <strong>{actual}</strong>
             </p>
           </div>
-          <button onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+          <button onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>
         </div>
 
         {err && (

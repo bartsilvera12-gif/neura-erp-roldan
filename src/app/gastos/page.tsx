@@ -6,6 +6,8 @@ import { getGastos, deleteGasto } from "@/lib/gastos/actions";
 import type { Gasto } from "@/lib/gastos/actions";
 import { useModoPersistido } from "@/components/ui/ToggleNutricionConsig";
 
+import { ClipboardList } from "lucide-react";
+
 function formatGs(valor: number) {
   return `${valor.toLocaleString("es-PY")} ₲`;
 }
@@ -240,7 +242,7 @@ export default function GastosPage() {
           <div className="py-16 text-center text-gray-400 text-sm animate-pulse">Cargando gastos…</div>
         ) : gastos.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
-            <p className="text-4xl mb-3">📋</p>
+            <ClipboardList className="h-10 w-10 mb-3" aria-hidden />
             <p className="font-medium text-gray-600">No hay gastos registrados</p>
             <Link
               href="/gastos/nuevo"

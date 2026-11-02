@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { getFacturacionEstado, asMetadataObject } from "@/lib/caja/facturacion";
+import { Check } from "lucide-react";
 import {
   ProyectoModuloSelector,
   type ProyectoModuloCatalogo as ModuloCatalogo,
@@ -419,7 +420,7 @@ export default function ProyectoDetalleInner({
         <div className="flex flex-wrap items-center gap-2">
           {esPedido && facturacionEstado === "facturado" && (
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-2 text-sm font-medium text-emerald-700">
-              ✓ Facturado
+              <Check className="h-4 w-4" /> Facturado
               {ventaIdPedido && (
                 <Link href={`/ventas?venta=${ventaIdPedido}`} className="underline hover:text-emerald-900">
                   {ventaNumeroPedido ?? "Ver venta"}

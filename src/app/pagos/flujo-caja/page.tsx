@@ -6,6 +6,8 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { DiagnosticoFlujo, EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
 
+import { X } from "lucide-react";
+
 /**
  * Flujo de caja de proveedores.
  *
@@ -351,7 +353,7 @@ export default function FlujoCajaPage() {
                                 type="button" onClick={() => setSaldos((prev) => prev.filter((_, j) => j !== i))}
                                 className="text-slate-400 hover:text-red-600" title="Quitar"
                               >
-                                ✕
+                                <X className="h-4 w-4" />
                               </button>
                             </>
                           ) : (
@@ -777,7 +779,7 @@ function PanelCelda({
             <h3 className="text-sm font-bold text-slate-800">{fila.nombre}</h3>
             <p className="text-xs text-slate-500">Pagos del {dia} de {MESES[mes - 1]} {anio}</p>
           </div>
-          <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+          <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>
         </div>
 
         {err && (

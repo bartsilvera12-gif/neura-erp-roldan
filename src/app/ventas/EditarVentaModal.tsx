@@ -5,6 +5,8 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { productoMatchesQuery } from "@/lib/productos/token-search";
 import type { Venta, TipoIvaVenta } from "@/lib/ventas/types";
 
+import { X } from "lucide-react";
+
 /**
  * Edición de una venta emitida (punto 2.2).
  *
@@ -165,7 +167,7 @@ export default function EditarVentaModal({
             type="button" onClick={onClose}
             className="ml-auto rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -248,7 +250,7 @@ export default function EditarVentaModal({
                           className="rounded px-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                           title="Quitar de la venta"
                         >
-                          ✕
+                          <X className="h-4 w-4" />
                         </button>
                       </td>
                     </tr>

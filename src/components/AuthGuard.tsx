@@ -8,6 +8,7 @@ import { BootProvider, useBoot } from "@/components/BootContext";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { getModuleAccessCached } from "@/lib/modulos/module-access-cache";
 import { isBootstrapSuperAdminEmail } from "@/lib/auth/super-admin-bootstrap-email";
+import { AlertTriangle } from "lucide-react";
 import {
   firstAccessibleHref,
   isModuleSlugGranted,
@@ -180,7 +181,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center bg-gray-50">
         <div className="max-w-md w-full bg-white border border-gray-200 rounded-lg shadow-sm p-8">
-          <div className="text-amber-500 text-4xl mb-3" aria-hidden>⚠</div>
+          <AlertTriangle className="h-10 w-10 text-amber-500 mb-3" aria-hidden />
           <h1 className="text-lg font-semibold text-gray-900 mb-2">
             Módulo no habilitado para esta empresa.
           </h1>

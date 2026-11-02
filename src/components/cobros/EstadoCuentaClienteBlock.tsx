@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Download, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { RegistrarCobroModalCxc, type CxcRef } from "@/components/cobros/RegistrarCobroModalCxc";
 
@@ -110,7 +110,7 @@ export function EstadoCuentaClienteBlock({
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       {toast && (
-        <div className="fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">✓ {toast}</div>
+        <div className="inline-flex items-center gap-1.5 fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg"><Check className="h-4 w-4" /> {toast}</div>
       )}
 
       {/* Cabecera tipo "FACTURAS del cliente" */}

@@ -8,6 +8,8 @@ import type { Gasto, GastoInput } from "@/lib/gastos/actions";
 import { hoyAsuncionYmd } from "@/lib/fecha/asuncion";
 import { formatearNumeroFactura } from "@/lib/formato/numero-factura";
 
+import { ClipboardList } from "lucide-react";
+
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput =
   "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
@@ -108,7 +110,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5 pb-2 border-b border-slate-200">
-          <span className="text-base">📋</span>
+          <ClipboardList className="h-4 w-4" aria-hidden />
           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
             Datos del gasto
           </h3>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Download, FileCheck2, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Download, FileCheck2, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
@@ -310,7 +310,7 @@ export default function PresupuestoDetallePage() {
       </div>
 
       {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-      {ok && <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">✓ {ok}</div>}
+      {ok && <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
 
       {presu.estado === "convertido" && presu.convertido_pedido_id && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-violet-50 border border-violet-200 p-3 text-sm text-violet-800">

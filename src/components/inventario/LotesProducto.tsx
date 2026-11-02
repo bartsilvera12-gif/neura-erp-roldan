@@ -11,6 +11,8 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { diasRestantes, nivelPorDias, type NivelVencimiento } from "@/lib/lotes/nivel";
 
+import { Pencil } from "lucide-react";
+
 type Lote = {
   id: string;
   numero_lote: string;
@@ -221,7 +223,7 @@ export default function LotesProducto({ productoId }: { productoId: string }) {
                             className="mr-3 text-xs font-medium text-sky-700 hover:text-sky-900 underline"
                             title="Ajustar stock y vencimiento de este lote"
                           >
-                            ✎ Editar
+                            <Pencil className="h-4 w-4" /> Editar
                           </button>
                           <button
                             onClick={() => borrar(l)}

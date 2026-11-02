@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 
@@ -136,7 +136,7 @@ export function RegistrarCobroModalCxc({
         {cobroOk ? (
           <>
             <div className="px-5 py-5 text-center space-y-2">
-              <div className="text-3xl">✅</div>
+              <CheckCircle2 className="h-8 w-8" aria-hidden />
               <p className="text-sm text-slate-700">Cobro de {fmtGs(cobroOk.monto, cuenta.moneda)} registrado.</p>
               <p className="text-xs text-slate-500">¿Querés generar el recibo de dinero de este cobro?</p>
             </div>

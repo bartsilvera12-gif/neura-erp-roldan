@@ -10,6 +10,8 @@ import CostoDolarDescuento from "@/components/inventario/CostoDolarDescuento";
 import { productoExiste, productoPorCodigoBarras, saveProducto } from "@/lib/inventario/storage";
 import { useRequireAdmin } from "@/lib/auth/use-require-admin";
 import type { MetodoValuacion, TipoIvaProducto } from "@/lib/inventario/types";
+import { AlertTriangle, X } from "lucide-react";
+
 // Opciones estándar de unidad de medida para gastro
 const UNIDADES_OPCIONES = [
   "UNIDAD","BOLSA","KG","G","LT","ML","CAJA","PAQUETE","DOCENA","LATA","BOTELLA","PORCION","COMBO",
@@ -523,7 +525,7 @@ export default function NuevoProductoPage() {
           {/* Advertencia (no bloquea) de código de barras repetido */}
           {avisoCodigo && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <p className="text-sm font-semibold text-amber-800">⚠️ Código de barras repetido</p>
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-800"><AlertTriangle className="h-4 w-4" /> Código de barras repetido</p>
               <p className="mt-1 text-sm text-amber-700">{avisoCodigo}</p>
               <p className="mt-1 text-xs text-amber-600">
                 Volvé a tocar “Guardar de todos modos” para confirmar, o cambiá el código.
@@ -1187,7 +1189,7 @@ function ModalCrearRapido({
       <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="text-sm font-bold text-slate-800">{cfg.titulo}</h3>
-          <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700">✕</button>
+          <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>
         </div>
 
         {err && (

@@ -923,7 +923,7 @@ export default function Sidebar() {
         {/* Favoritos */}
         {favoritosItemsFiltered.length > 0 && !collapsed && (
           <div className="mb-4">
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">★ Favoritos</p>
+            <p className="inline-flex items-center gap-1.5 mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500"><Star className="h-4 w-4" /> Favoritos</p>
             <div className="space-y-0.5">
               {favoritosItemsFiltered.map((item) => (
                 <NavItem

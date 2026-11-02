@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Minus, Trash2, ImageIcon, ChevronDown } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ImageIcon, Minus, Plus, Search, Trash2, X } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
 import { descuentoEfectivo, precioConDescuento, precioListaGs, precioEnDolares } from "@/lib/precios/ficha";
@@ -1630,7 +1630,7 @@ export default function NuevaVentaPage() {
         {/* Caja activa (múltiples cajas) */}
         {cajasAbiertas.length === 0 ? (
           <a href="/ventas" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">
-            ⚠ No hay caja abierta — abrí una caja
+            <AlertTriangle className="h-4 w-4" /> No hay caja abierta — abrí una caja
           </a>
         ) : (
           <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/[0.06] px-3 py-2">
@@ -2551,7 +2551,7 @@ export default function NuevaVentaPage() {
           {/* Error confirmar */}
           {errorVenta && (
             <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-xs text-red-700">
-              <span className="text-base leading-none mt-0.5">⚠</span>
+              <AlertTriangle className="h-4 w-4 leading-none mt-0.5" aria-hidden />
               <span className="font-medium">{errorVenta}</span>
             </div>
           )}
@@ -2653,7 +2653,7 @@ export default function NuevaVentaPage() {
               <h3 className="text-sm font-semibold text-slate-800">
                 {metodoPago === "transferencia" ? "Datos de transferencia" : "Datos de tarjeta / débito"}
               </h3>
-              <button type="button" onClick={() => setCobroModalOpen(false)} className="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+              <button type="button" onClick={() => setCobroModalOpen(false)} className="text-slate-400 hover:text-slate-700 text-lg leading-none"><X className="h-4 w-4" /></button>
             </div>
 
             <div>
@@ -2712,7 +2712,7 @@ export default function NuevaVentaPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmSinStockOpen(false)}>
           <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-2">
-              <span className="text-amber-500 text-xl leading-none">⚠</span>
+              <AlertTriangle className="h-5 w-5 text-amber-500 leading-none" aria-hidden />
               <div>
                 <h3 className="text-sm font-semibold text-slate-800">No hay stock para facturar</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Ajustá la cantidad, sacá la línea, o cargá el stock y volvé a intentar.</p>
@@ -2760,7 +2760,7 @@ export default function NuevaVentaPage() {
       {postVenta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4 text-center">
-            <div className="text-3xl">✅</div>
+            <CheckCircle2 className="h-8 w-8" aria-hidden />
             <div>
               <h3 className="text-base font-semibold text-slate-800">Venta {postVenta.numero} registrada</h3>
               {postVenta.credito && (
@@ -3020,7 +3020,13 @@ function PagosMixtoEditor({
             restante === 0 ? "text-emerald-600" : restante > 0 ? "text-amber-600" : "text-red-600"
           }`}
         >
-          {restante > 0 ? `Falta ${formatGs(restante)}` : restante < 0 ? `Sobra ${formatGs(-restante)}` : "✓ Coincide"}
+          {restante > 0 ? (
+            `Falta ${formatGs(restante)}`
+          ) : restante < 0 ? (
+            `Sobra ${formatGs(-restante)}`
+          ) : (
+            <span className="inline-flex items-center gap-1"><Check className="h-4 w-4" aria-hidden /> Coincide</span>
+          )}
         </span>
       </div>
     </div>

@@ -3,16 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  FileDown,
-  FileText,
-  Printer,
-  Receipt,
-  SlidersHorizontal,
-} from "lucide-react";
+import { AlertTriangle, Calendar, ChevronDown, ChevronUp, ClipboardList, Clock, FileDown, FileText, Link2, Printer, Receipt, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { ModalCambioPlanGestion } from "@/components/gestion-clientes/ModalCambioPlanGestion";
 import { ModalHistorialClienteGestion } from "@/components/gestion-clientes/ModalHistorialClienteGestion";
 import { RegistrarPagoModal } from "@/components/pagos/RegistrarPagoModal";
@@ -199,7 +190,7 @@ function BotonOperativo({
   onClick,
 }: {
   label:    string;
-  icon:     string;
+  icon:     React.ReactNode;
   iconNode?: React.ReactNode;
   activo?:  boolean;
   href?:    string;
@@ -364,7 +355,7 @@ function ModalFacturacion({
             <div className="space-y-4">
               {errorEmitir && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                  <span>⚠</span>
+                  <AlertTriangle className="h-4 w-4" />
                   <span>{errorEmitir}</span>
                 </div>
               )}
@@ -973,25 +964,25 @@ function GestionClientesPageInner() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
-                  <BotonOperativo label="Tipificación" icon="📋" activo href={`/clientes/${selected.id}/tipificacion`} />
+                  <BotonOperativo label="Tipificación" icon={<ClipboardList className="h-4 w-4" />} activo href={`/clientes/${selected.id}/tipificacion`} />
                   <BotonOperativo
                     label="Facturación"
-                    icon="📄"
+                    icon={<FileText className="h-4 w-4" />}
                     iconNode={<Calendar className="h-3.5 w-3.5" />}
                     activo
                     onClick={() => setModalFacturacion(true)}
                   />
-                  <BotonOperativo label="Servicios asociados" icon="🔗" />
+                  <BotonOperativo label="Servicios asociados" icon={<Link2 className="h-4 w-4" />} />
                   <BotonOperativo
                     label="Cambio de plan"
-                    icon="🔄"
+                    icon={<RefreshCw className="h-4 w-4" />}
                     activo
                     onClick={() => setModalCambioPlan(true)}
                   />
-                  <BotonOperativo label="Cambio fecha venc." icon="📅" />
+                  <BotonOperativo label="Cambio fecha venc." icon={<Calendar className="h-4 w-4" />} />
                   <BotonOperativo
                     label="Historial cliente"
-                    icon="🕐"
+                    icon={<Clock className="h-4 w-4" />}
                     activo
                     onClick={() => setModalHistorialCliente(true)}
                   />
