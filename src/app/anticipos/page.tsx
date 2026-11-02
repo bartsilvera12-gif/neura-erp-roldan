@@ -304,8 +304,20 @@ export default function AnticiposPage() {
 }
 
 function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: string) => void }) {
+  /**
+   * Buscador de clientes, no desplegable.
+   *
+   * Con los seis clientes de prueba un `<select>` alcanzaba. Con los 21.344
+   * reales el desplegable es inusable: hay que bajar con la rueda por una
+   * lista de veintiún mil nombres sin orden útil para encontrar uno. Acá se
+   * escribe y el servidor devuelve los veinte que coinciden.
+   */
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
   const [clienteId, setClienteId] = useState("");
+  const [clienteNombre, setClienteNombre] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [abierto, setAbierto] = useState(false);
+  const [buscando, setBuscando] = useState(false);
   const [monto, setMonto] = useState("");
   const [medio, setMedio] = useState("efectivo");
   const [observacion, setObservacion] = useState("");
@@ -313,23 +325,31 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/clientes", { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j?.success) return;
-        // `/api/clientes` devuelve el arreglo directo en `data`, no
-        // `data.clientes`: por eso el desplegable salía siempre vacío y no se
-        // podía registrar un anticipo. Se aceptan las dos formas para que un
-        // cambio en esa ruta no vuelva a dejar la pantalla muda.
-        const crudo = Array.isArray(j.data) ? j.data : (j.data?.clientes ?? []);
-        const lista = crudo as Array<Record<string, unknown>>;
-        setClientes(lista.map((c) => ({
-          id: String(c.id),
-          nombre: String(c.nombre_facturacion ?? c.empresa ?? c.nombre_contacto ?? c.nombre ?? ""),
-        })).filter((c) => c.nombre));
-      })
-      .catch(() => { /* se puede escribir el nombre a mano igual */ });
-  }, []);
+    const t = busqueda.trim();
+    if (t.length < 2) { setClientes([]); return; }
+    // Espera a que termine de escribir: sin esto son seis consultas para
+    // escribir "PEDRO".
+    const id = setTimeout(() => {
+      setBuscando(true);
+      fetch(`/api/clientes?limite=20&q=${encodeURIComponent(t)}`, { credentials: "include", cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => {
+          if (!j?.success) return;
+          // `/api/clientes` devuelve el arreglo directo en `data`, no
+          // `data.clientes`. Se aceptan las dos formas para que un cambio en
+          // esa ruta no vuelva a dejar la pantalla muda.
+          const crudo = Array.isArray(j.data) ? j.data : (j.data?.clientes ?? []);
+          const lista = crudo as Array<Record<string, unknown>>;
+          setClientes(lista.map((c) => ({
+            id: String(c.id),
+            nombre: String(c.nombre_facturacion ?? c.empresa ?? c.nombre_contacto ?? c.nombre ?? ""),
+          })).filter((c) => c.nombre));
+        })
+        .catch(() => { /* sin resultados: el aviso de abajo lo dice */ })
+        .finally(() => setBuscando(false));
+    }, 300);
+    return () => clearTimeout(id);
+  }, [busqueda]);
 
   async function guardar() {
     const m = Number(monto);
@@ -371,15 +391,56 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
         </div>
 
         <div className="space-y-3 px-5 py-4">
-          <label className="block text-sm">
+          <div className="block text-sm">
             <span className="font-medium text-slate-800">Cliente</span>
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="">— Elegir —</option>
-              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              {clientes.length === 0 && <option value="" disabled>No se pudieron cargar los clientes</option>}
-            </select>
-          </label>
+            {clienteId ? (
+              <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                <span className="min-w-0 truncate text-sm font-medium text-slate-800">{clienteNombre}</span>
+                <button
+                  type="button"
+                  onClick={() => { setClienteId(""); setClienteNombre(""); setBusqueda(""); setAbierto(false); }}
+                  className="shrink-0 text-xs font-medium text-sky-700 hover:text-sky-900"
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  autoFocus
+                  value={busqueda}
+                  onChange={(e) => { setBusqueda(e.target.value); setAbierto(true); }}
+                  placeholder="Buscar por nombre, RUC o código…"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                {abierto && busqueda.trim().length >= 2 && (
+                  <div className="mt-1 max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+                    {buscando ? (
+                      <p className="px-3 py-2 text-xs text-slate-400">Buscando…</p>
+                    ) : clientes.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-amber-700">
+                        Ningún cliente coincide con “{busqueda.trim()}”.
+                      </p>
+                    ) : (
+                      clientes.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setClienteId(c.id); setClienteNombre(c.nombre); setAbierto(false); }}
+                          className="block w-full px-3 py-2 text-left text-sm hover:bg-sky-50"
+                        >
+                          {c.nombre}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {busqueda.trim().length > 0 && busqueda.trim().length < 2 && (
+                  <p className="mt-1 text-xs text-slate-400">Escribí al menos dos letras.</p>
+                )}
+              </>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm">

@@ -343,6 +343,30 @@ export default function CajaControlPanel({ onStateChange }: Props) {
               <Metric label="Esperado efectivo" value={fmtGs(cr.efectivo_esperado)} icon={<Wallet className="h-3.5 w-3.5 text-[#4FAEB2]" />} highlight="turquesa" />
             </div>
 
+            {/* ── De dónde sale el esperado, cuando no sale de las ventas ───
+                Un turno con 0 ventas y "esperado Gs. 362.770" se lee como un
+                error del sistema. Casi siempre es un anticipo: plata que entró
+                al cajón sin ser una venta. Decirlo acá ahorra la pregunta y
+                evita que alguien cierre pensando que le sobra. */}
+            {(cr.anticipos_efectivo > 0 || cr.ingresos_efectivo > 0 || c.monto_apertura > 0) &&
+              cr.total_efectivo === 0 && (
+                <div className="border-b border-[#4FAEB2]/20 bg-[#4FAEB2]/[0.06] px-5 py-2 text-[11px] leading-snug text-slate-600">
+                  <span className="font-semibold text-[#3F8E91]">Todavía no hay ventas en efectivo.</span>{" "}
+                  El esperado son{" "}
+                  {[
+                    c.monto_apertura > 0 ? `${fmtGs(c.monto_apertura)} de apertura` : null,
+                    cr.anticipos_efectivo > 0 ? `${fmtGs(cr.anticipos_efectivo)} de anticipos cobrados` : null,
+                    cr.ingresos_efectivo > 0 ? `${fmtGs(cr.ingresos_efectivo)} de ingresos manuales` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" + ")}
+                  {cr.egresos_efectivo + cr.retiros_efectivo > 0
+                    ? `, menos ${fmtGs(cr.egresos_efectivo + cr.retiros_efectivo)} de egresos y retiros`
+                    : ""}
+                  .
+                </div>
+              )}
+
             {cr.movimientos.length > 0 && (
               <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/40">
                 <p className="text-[10.5px] uppercase tracking-wider font-bold text-slate-500 mb-2">Movimientos manuales</p>

@@ -145,6 +145,25 @@ export async function GET(request: NextRequest) {
     const incluirEliminados = sp.get("incluir_eliminados") === "1";
     const planActivo = sp.get("plan_activo") === "1";
 
+    /**
+     * Búsqueda y tope.
+     *
+     * ── POR QUÉ HICIERON FALTA ────────────────────────────────────────────
+     *   Esta ruta devolvía SIEMPRE todos los clientes con todas sus columnas.
+     *   Con los 6 de prueba eran unos kilobytes. Con los 21.344 reales son
+     *   1,8 MB por llamada, y la llaman nueve pantallas: Caja, Presupuestos,
+     *   Anticipos, Órdenes de venta, los reportes de estado de cuenta y libro
+     *   de ventas, entre otras.
+     *
+     *   Sin parámetros se comporta igual que antes, para no romper a las
+     *   pantallas que esperan la lista completa. Las que buscan contra el
+     *   servidor pasan `q` y `limite` y se traen veinte filas en vez de
+     *   veintiún mil.
+     */
+    const texto = (sp.get("q") ?? "").trim();
+    const limiteRaw = parseInt(sp.get("limite") ?? "0", 10);
+    const limite = Number.isFinite(limiteRaw) && limiteRaw > 0 ? Math.min(limiteRaw, 200) : 0;
+
     let q = supabase
       .from("clientes")
       .select("*")
@@ -152,6 +171,26 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false });
     if (!incluirEliminados) {
       q = q.is("deleted_at", null);
+    }
+    if (texto) {
+      // Se escapan los comodines: un cliente que se busca por "100%" no tiene
+      // por qué traer medio padrón.
+      const t = texto.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
+      if (t) {
+        q = q.or(
+          [
+            `nombre.ilike.%${t}%`,
+            `nombre_facturacion.ilike.%${t}%`,
+            `empresa.ilike.%${t}%`,
+            `nombre_contacto.ilike.%${t}%`,
+            `ruc.ilike.%${t}%`,
+            `codigo.ilike.%${t}%`,
+          ].join(",")
+        );
+      }
+    }
+    if (limite > 0) {
+      q = q.limit(limite);
     }
 
     const { data, error } = await q;
