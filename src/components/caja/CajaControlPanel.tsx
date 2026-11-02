@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
+  FileText,
 } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
 import AdjuntosEgreso, { type AdjuntoEgreso } from "@/components/caja/AdjuntosEgreso";
@@ -293,6 +294,21 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {/* La hoja del arqueo, antes de cerrar.
+                    Con la caja ya cerrada la hoja no sirve para corregir nada:
+                    el momento de mirarla es ahora, con el turno abierto y la
+                    plata todavía en el cajón. Sale marcada como vista previa y
+                    con el conteo en blanco para contar a mano. */}
+                <a
+                  href={`/api/cajas/${c.id}/arqueo-a4`}
+                  target="_blank"
+                  rel="noopener"
+                  title="Ver la hoja del arqueo como va a salir, con el turno todavía abierto"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold px-3 py-2 hover:border-[#4FAEB2] hover:text-[#3F8E91] hover:bg-[#4FAEB2]/5 transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Vista previa del arqueo
+                </a>
                 {!enCierre && (
                   <>
                     <button
@@ -348,24 +364,9 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                 error del sistema. Casi siempre es un anticipo: plata que entró
                 al cajón sin ser una venta. Decirlo acá ahorra la pregunta y
                 evita que alguien cierre pensando que le sobra. */}
-            {(cr.anticipos_efectivo > 0 || cr.ingresos_efectivo > 0 || c.monto_apertura > 0) &&
-              cr.total_efectivo === 0 && (
-                <div className="border-b border-[#4FAEB2]/20 bg-[#4FAEB2]/[0.06] px-5 py-2 text-[11px] leading-snug text-slate-600">
-                  <span className="font-semibold text-[#3F8E91]">Todavía no hay ventas en efectivo.</span>{" "}
-                  El esperado son{" "}
-                  {[
-                    c.monto_apertura > 0 ? `${fmtGs(c.monto_apertura)} de apertura` : null,
-                    cr.anticipos_efectivo > 0 ? `${fmtGs(cr.anticipos_efectivo)} de anticipos cobrados` : null,
-                    cr.ingresos_efectivo > 0 ? `${fmtGs(cr.ingresos_efectivo)} de ingresos manuales` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" + ")}
-                  {cr.egresos_efectivo + cr.retiros_efectivo > 0
-                    ? `, menos ${fmtGs(cr.egresos_efectivo + cr.retiros_efectivo)} de egresos y retiros`
-                    : ""}
-                  .
-                </div>
-              )}
+            {cr.total_efectivo === 0 && cr.efectivo_esperado !== 0 && (
+              <DesgloseEsperado resumen={cr} montoApertura={c.monto_apertura} />
+            )}
 
             {cr.movimientos.length > 0 && (
               <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/40">
@@ -429,6 +430,83 @@ export default function CajaControlPanel({ onStateChange }: Props) {
 // ============================================================
 // Subcomponentes
 // ============================================================
+
+/**
+ * De dónde sale el efectivo esperado, renglón por renglón.
+ *
+ * ── POR QUÉ HACE FALTA ────────────────────────────────────────────────────
+ * Un turno con 0 ventas y "esperado Gs. 372.770" se lee como un error del
+ * sistema. Casi siempre es un anticipo: plata que entró al cajón sin ser una
+ * venta. Decirlo acá ahorra la pregunta y evita que alguien cierre pensando
+ * que le sobra.
+ *
+ * ── POR QUÉ NO ES UNA FRASE ───────────────────────────────────────────────
+ * Antes esto era una oración armada con tres sumandos (apertura, anticipos,
+ * ingresos) y una resta (egresos y retiros). Pero el esperado tiene DOS
+ * componentes más —los ajustes y la diferencia arrastrada del turno anterior—
+ * y la frase los ignoraba: con un arrastre de Gs. 62.770 la casilla decía
+ * 372.770 y el texto de abajo "el esperado son 310.000". Una explicación de
+ * plata que no cierra con el número que explica es peor que no explicar nada.
+ *
+ * Ahora los renglones salen de los mismos componentes que usa el servidor y el
+ * total se suma acá. Si aun así no coincidiera con `efectivo_esperado`, se
+ * muestra el renglón de diferencia en vez de callarlo: que se vea que falta
+ * algo es mejor que un desglose que miente por omisión.
+ */
+function DesgloseEsperado({
+  resumen,
+  montoApertura,
+}: {
+  resumen: CajaResumen;
+  montoApertura: number;
+}) {
+  const arrastre = resumen.diferencia_arrastrada ?? 0;
+  const renglones: Array<{ label: string; monto: number }> = [
+    { label: "Apertura", monto: montoApertura },
+    { label: "Anticipos cobrados en efectivo", monto: resumen.anticipos_efectivo },
+    { label: "Ingresos manuales", monto: resumen.ingresos_efectivo },
+    { label: "Egresos", monto: -resumen.egresos_efectivo },
+    { label: "Retiros", monto: -resumen.retiros_efectivo },
+    { label: "Ajustes", monto: resumen.ajustes_efectivo },
+    {
+      label: arrastre < 0 ? "Faltante arrastrado del turno anterior" : "Sobrante arrastrado del turno anterior",
+      monto: arrastre,
+    },
+  ].filter((r) => Math.round(r.monto) !== 0);
+
+  const suma = renglones.reduce((a, r) => a + r.monto, 0);
+  const sinExplicar = Math.round(resumen.efectivo_esperado) - Math.round(suma);
+
+  return (
+    <div className="border-b border-[#4FAEB2]/20 bg-[#4FAEB2]/[0.06] px-5 py-2.5 text-[11px] leading-snug text-slate-600">
+      <p className="font-semibold text-[#3F8E91]">
+        Todavía no hay ventas en efectivo. El esperado sale de acá:
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {renglones.map((r) => (
+          <li key={r.label} className="flex justify-between gap-4">
+            <span>{r.label}</span>
+            <span className="tabular-nums">
+              {r.monto < 0 ? "−" : ""}{fmtGs(Math.abs(r.monto))}
+            </span>
+          </li>
+        ))}
+        {sinExplicar !== 0 && (
+          <li className="flex justify-between gap-4 text-amber-700">
+            <span>Sin explicar (revisar el arqueo)</span>
+            <span className="tabular-nums">
+              {sinExplicar < 0 ? "−" : ""}{fmtGs(Math.abs(sinExplicar))}
+            </span>
+          </li>
+        )}
+        <li className="mt-0.5 flex justify-between gap-4 border-t border-[#4FAEB2]/25 pt-0.5 font-semibold text-[#3F8E91]">
+          <span>Esperado en el cajón</span>
+          <span className="tabular-nums">{fmtGs(resumen.efectivo_esperado)}</span>
+        </li>
+      </ul>
+    </div>
+  );
+}
 
 function Metric({
   label,

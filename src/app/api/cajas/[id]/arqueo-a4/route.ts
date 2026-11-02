@@ -17,6 +17,20 @@ import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
  * lista de números que no se puede revisar. Separadas, cada bloque se controla
  * contra su propio respaldo — las ventas contra los comprobantes, los egresos
  * contra sus facturas, y el conteo contra lo que hay en el cajón.
+ *
+ * ── VISTA PREVIA CON EL TURNO ABIERTO ─────────────────────────────────────
+ * La misma hoja sirve para mirar cómo viene el turno antes de cerrarlo, que es
+ * cuando sirve de algo: con la caja ya cerrada no se puede corregir nada. Si la
+ * caja está abierta, la hoja sale marcada como VISTA PREVIA y cambia en tres
+ * cosas, porque los números del cierre todavía no existen:
+ *
+ *   1. El conteo por denominación sale EN BLANCO, para contar a mano sobre el
+ *      papel. Antes caía al arqueo de apertura, que es lo que había en el cajón
+ *      al empezar: imprimirlo acá como si fuera el conteo de cierre sería un
+ *      conteo inventado.
+ *   2. En vez de "Monto Rendido" y "Diferencia" —que salen de contar— van dos
+ *      renglones en blanco para completar y restar a mano.
+ *   3. Dice "Parcial al <hora>", porque lo que sigue abierto va a cambiar.
  */
 
 function esc(s: unknown): string {
@@ -70,8 +84,13 @@ export async function GET(
     const detalle = await getDetalleCaja(ctx.supabase, empresaId, cajaId, sucursalId);
 
     const c = resumen.caja;
-    const arqueo = c.arqueo_cierre_json ?? c.arqueo_apertura_json ?? [];
     const cerrada = c.estado === "cerrada";
+    /**
+     * Con la caja abierta no hay conteo de cierre. El de apertura NO sirve de
+     * reemplazo: es lo que había al empezar el turno, y ponerlo donde va el
+     * conteo final daría una diferencia que nadie contó.
+     */
+    const arqueo = cerrada ? (c.arqueo_cierre_json ?? []) : [];
 
     // ── Conteo por denominación ───────────────────────────────────────────
     const porValor = new Map<number, number>();
@@ -79,6 +98,14 @@ export async function GET(
     const filasDenom = (tipo: "billete" | "moneda") =>
       DENOMINACIONES.filter((d) => d.tipo === tipo).map((d) => {
         const cant = porValor.get(d.valor) ?? 0;
+        if (!cerrada) {
+          // Renglón para completar a mano sobre el papel impreso.
+          return `<tr>
+            <td class="m">${gs(d.valor)}</td>
+            <td class="m llenar"></td>
+            <td class="m llenar"></td>
+          </tr>`;
+        }
         return `<tr${cant === 0 ? ' class="cero"' : ""}>
           <td class="m">${gs(d.valor)}</td>
           <td class="m">${cant || "—"}</td>
@@ -255,6 +282,11 @@ export async function GET(
   .totales tr.fuerte td { border-top: 1.5px solid #000; font-weight: 700; font-size: 12px; }
   .totales tr.dif td { font-weight: 700; font-size: 13px; }
   .falta { color: #b00; }
+  /* Vista previa: los espacios que se completan a mano sobre el papel. */
+  .llenar { border-bottom: 1px solid #bbb; min-width: 46px; }
+  .llenar-linea { display: inline-block; width: 90px; border-bottom: 1px solid #555; }
+  .aviso-previa { margin: 6px 0 0; padding: 5px 7px; border: 1px solid #d9a441;
+    background: #fdf6e7; font-size: 10px; line-height: 1.45; }
   .sobra { color: #060; }
 
   .firmas { margin-top: 20px; display: flex; gap: 30px; }
@@ -292,8 +324,8 @@ export async function GET(
 
   ${membreteLinea()}
   <div class="cab">
-    <h1>Cierre de Caja</h1>
-    <div class="momento">${esc(fechaHoraPy(new Date().toISOString()))}</div>
+    <h1>${cerrada ? "Cierre de Caja" : "Cierre de Caja — VISTA PREVIA"}</h1>
+    <div class="momento">${cerrada ? "" : "Parcial al "}${esc(fechaHoraPy(new Date().toISOString()))}</div>
   </div>
   <div class="cab2">
     <div><b>Responsable:</b> ${esc(String(c.numero_caja))} - ${esc(
@@ -419,11 +451,20 @@ export async function GET(
   <h2 class="resumen-t">Resumen</h2>
   <div class="resumen">
     <span><b>Monto a Rendir:</b> ${gs(resumen.efectivo_esperado)}</span>
-    <span><b>Monto Rendido:</b> ${gs(contado)}</span>
-    <span class="${diferencia < 0 ? "falta" : diferencia > 0 ? "sobra" : ""}">
-      <b>Diferencia:</b> ${diferencia > 0 ? "+" : ""}${gs(diferencia)}${diferencia < 0 ? " (faltante)" : diferencia > 0 ? " (sobrante)" : ""}
-    </span>
+    ${cerrada
+      ? `<span><b>Monto Rendido:</b> ${gs(contado)}</span>
+         <span class="${diferencia < 0 ? "falta" : diferencia > 0 ? "sobra" : ""}">
+           <b>Diferencia:</b> ${diferencia > 0 ? "+" : ""}${gs(diferencia)}${diferencia < 0 ? " (faltante)" : diferencia > 0 ? " (sobrante)" : ""}
+         </span>`
+      : `<span><b>Monto Rendido:</b> <span class="llenar-linea"></span></span>
+         <span><b>Diferencia:</b> <span class="llenar-linea"></span></span>`}
   </div>
+  ${cerrada ? "" : `<p class="aviso-previa">
+    <b>Esto es una vista previa:</b> el turno sigue abierto y los números van a
+    cambiar con cada venta, cobro o egreso que entre de acá en adelante. El
+    conteo de billetes y el monto rendido están en blanco a propósito, para
+    contar a mano. El cierre definitivo se imprime después de cerrar la caja.
+  </p>`}
 
   ${c.observacion_cierre ? `<p class="nota"><b>Observación:</b> ${esc(c.observacion_cierre)}</p>` : ""}
 
