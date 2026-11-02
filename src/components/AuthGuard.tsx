@@ -13,6 +13,7 @@ import {
   isModuleSlugGranted,
   pathRequiresModuleSlug,
 } from "@/lib/modulos/route-slug-map";
+import { slugsEfectivosPorRol } from "@/lib/roles/erp-role-access";
 
 const PUBLIC_ROUTES = ["/login"];
 
@@ -86,10 +87,15 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
         superAdmin = bootstrapSuper;
       }
 
+      // El rol acota los módulos: un supervisor entra solo a los cierres de
+      // caja (ver `slugsEfectivosPorRol`). Si esta lectura falla no se recorta
+      // nada — el permiso de verdad lo aplica cada endpoint.
+      let rolErp: string | null = null;
       if (!superAdmin) {
         try {
           const cu = await getCurrentUser();
-          if ((cu?.rol ?? "").trim() === "super_admin") superAdmin = true;
+          rolErp = cu?.rol ?? null;
+          if ((rolErp ?? "").trim() === "super_admin") superAdmin = true;
         } catch {
           /* sin fila usuarios en cliente */
         }
@@ -97,7 +103,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
 
       setAccess({
         superAdmin,
-        slugs: new Set(slugs),
+        slugs: superAdmin ? new Set(slugs) : slugsEfectivosPorRol(new Set(slugs), rolErp),
         inactiveSlugs: new Set(inactiveSlugs),
         strict,
       });

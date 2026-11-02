@@ -4,7 +4,10 @@
  * Roles del catalogo zentra_erp.usuarios.rol (normalizados en
  * lib/usuarios/erp-rol-normalize.ts):
  *   - administrador / admin: acceso total.
- *   - supervisor: todo menos el tab "Financiero" del dashboard principal.
+ *   - supervisor: SOLO los cierres de caja (/reportes/cajas), donde ve las
+ *     ventas del turno y puede anular facturas. Es un puesto de control, no
+ *     un administrador con menos botones. Ver
+ *     SLUGS_PERMITIDOS_ROL_SUPERVISOR.
  *   - usuario: acceso operativo minimo — Clientes, Presupuestos, Caja
  *     (ventas). Landing directa en /ventas cuando entra a "/".
  *
@@ -33,6 +36,39 @@ export const SLUGS_PERMITIDOS_ROL_USUARIO_LIMITADO: ReadonlySet<string> = new Se
 
 /** Ruta a la que se redirige un `usuario` que entra a "/". */
 export const LANDING_ROL_USUARIO_LIMITADO = "/ventas";
+
+/**
+ * Slugs que el rol `supervisor` puede ver/usar.
+ *
+ * ── LO QUE PIDIÓ EL CLIENTE ───────────────────────────────────────────────
+ *   "Un supervisor puede entrar solo a reportes de cierres de caja, donde
+ *   pueda ver y anular las facturas."
+ *
+ *   O sea: el supervisor NO es un administrador con menos botones, es un
+ *   puesto de control. Entra al arqueo, mira las ventas del turno y anula la
+ *   que está mal. Nada más: ni rentabilidad, ni márgenes, ni configuración,
+ *   ni caja para cobrar.
+ *
+ * ── POR QUÉ ES UNA LISTA EN EL CÓDIGO Y NO MÓDULOS POR USUARIO ────────────
+ *   Los módulos por usuario (`usuario_modulos`) ya existen y sirven, pero
+ *   tienen un default peligroso para esto: un usuario SIN módulos asignados
+ *   hereda todos los de la empresa. Con solo módulos, un supervisor recién
+ *   creado y sin configurar vería el ERP completo — exactamente lo contrario
+ *   de lo pedido. Con esta lista el tope no depende de que alguien se acuerde
+ *   de configurarlo.
+ *
+ *   El permiso sigue siendo la intersección: el supervisor ve los cierres de
+ *   caja si además los tiene habilitados. Esta lista es el techo, no el piso.
+ *
+ *   Si mañana el supervisor tiene que ver algo más (Inventario, por ejemplo),
+ *   se agrega acá y queda en un solo lugar.
+ */
+export const SLUGS_PERMITIDOS_ROL_SUPERVISOR: ReadonlySet<string> = new Set([
+  "cierres-caja",
+]);
+
+/** Ruta a la que cae un supervisor que entra a "/". */
+export const LANDING_ROL_SUPERVISOR = "/reportes/cajas";
 
 export function esAdminErp(rol: string | null | undefined): boolean {
   const r = normalizeErpRolSlug(rol);
@@ -67,15 +103,16 @@ export function puedeEditarRecetas(rol: string | null | undefined): boolean {
 }
 
 /**
- * Item del sidebar visible para el rol. Devuelve true para admin y para
- * supervisor (que ve todo el menu igual que admin — el tab Financiero se
- * gatea aparte dentro del dashboard, no en el sidebar).
+ * Item del sidebar visible para el rol. Devuelve true para admin.
+ * Para `supervisor`, solo los cierres de caja (ver
+ * SLUGS_PERMITIDOS_ROL_SUPERVISOR).
  * Para `usuario`, solo permite slugs del set permitido.
  */
 export function puedeVerSidebarSlugPorRol(
   slug: string,
   rol: string | null | undefined
 ): boolean {
+  if (esSupervisorErp(rol)) return SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(slug);
   // En Darocha el control de acceso es 100% por `usuario_modulos` (los módulos
   // que un admin asigna a cada usuario). Única excepción: el Dashboard es solo
   // para admin/supervisor — a un rol `usuario` lo redirige/saca al entrar, así
@@ -83,4 +120,34 @@ export function puedeVerSidebarSlugPorRol(
   // por los módulos efectivos del usuario.
   if (slug === "dashboard" && esUsuarioLimitadoErp(rol)) return false;
   return true;
+}
+
+/**
+ * Recorta el set de módulos efectivos al techo del rol.
+ *
+ * Se usa en el guard de rutas (AuthGuard) para que UNA sola regla decida tres
+ * cosas que antes se decidían por separado y se contradecían entre sí: qué
+ * ítems muestra el menú, a qué rutas se puede entrar, y a dónde cae el
+ * usuario cuando entra a "/". Si el recorte se hiciera solo en el menú, un
+ * supervisor seguiría entrando a /inventario escribiendo la dirección.
+ *
+ * Caso del supervisor: los cierres de caja son un sub-permiso de Reportes
+ * (ver `isModuleSlugGranted`), así que quien tiene `reportes` los tiene. Se
+ * traduce acá para que el supervisor no arrastre el resto de la reportería.
+ *
+ * Si no se conoce el rol (la lectura falló), no se recorta nada: dejar a
+ * alguien afuera por un error de red es peor que mostrarle un ítem de más,
+ * sobre todo porque el permiso de verdad lo aplica cada endpoint.
+ */
+export function slugsEfectivosPorRol(
+  slugs: ReadonlySet<string>,
+  rol: string | null | undefined
+): Set<string> {
+  if (!esSupervisorErp(rol)) return new Set(slugs);
+  const recortado = new Set<string>();
+  if (slugs.has("cierres-caja") || slugs.has("reportes")) recortado.add("cierres-caja");
+  for (const s of slugs) {
+    if (s !== "cierres-caja" && SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(s)) recortado.add(s);
+  }
+  return recortado;
 }

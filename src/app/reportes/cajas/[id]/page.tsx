@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useRolErp } from "@/lib/auth/use-rol-erp";
+import { isErpRolSupervisor } from "@/lib/usuarios/erp-rol-normalize";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import DetalleVentaModal, { type VentaDetalleLite } from "@/components/ventas/DetalleVentaModal";
 import type { CajaReporteRow, CajaDetalleVenta, CajaDetalleMovimiento } from "@/lib/caja/types";
@@ -65,6 +68,14 @@ export default function DetalleCierreCajaPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [abierta, setAbierta] = useState<VentaDetalleLite | null>(null);
+  const [anularTarget, setAnularTarget] = useState<CajaDetalleVenta | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Anular una factura: administrador o supervisor. La misma regla que aplica
+  // el servidor en /api/ventas/[id]/anular.
+  const { isAdmin } = useIsAdmin();
+  const { rol } = useRolErp();
+  const puedeAnular = isAdmin || isErpRolSupervisor(rol);
 
   useEffect(() => {
     if (!id) return;
@@ -81,7 +92,7 @@ export default function DetalleCierreCajaPage() {
       .catch((e) => { if (!cancel) setError(e instanceof Error ? e.message : "Error de red."); })
       .finally(() => { if (!cancel) setCargando(false); });
     return () => { cancel = true; };
-  }, [id]);
+  }, [id, reloadKey]);
 
   if (cargando) return <p className="p-6 text-sm text-slate-400">Cargando cierre…</p>;
   if (error || !data) {
@@ -196,6 +207,7 @@ export default function DetalleCierreCajaPage() {
                 <th className="px-4 py-3 font-semibold">Cajero</th>
                 <th className="px-4 py-3 font-semibold">Medio</th>
                 <th className="px-4 py-3 text-right font-semibold">Total</th>
+                {puedeAnular && <th className="px-4 py-3 font-semibold"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -240,6 +252,20 @@ export default function DetalleCierreCajaPage() {
                     <td className={`px-4 py-3 text-right font-semibold tabular-nums ${anul ? "text-slate-400 line-through" : "text-slate-800"}`}>
                       {gs(v.total)}
                     </td>
+                    {puedeAnular && (
+                      <td className="px-4 py-3 text-right">
+                        {anul ? (
+                          <span className="text-[11px] text-slate-300">anulada</span>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setAnularTarget(v); }}
+                            className="rounded-md border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50"
+                          >
+                            Anular
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -252,6 +278,7 @@ export default function DetalleCierreCajaPage() {
                 <td className="px-4 py-2 text-right text-base font-bold text-slate-900">
                   {gs(vigentes.reduce((s, v) => s + (Number(v.total) || 0), 0))}
                 </td>
+                {puedeAnular && <td />}
               </tr>
             </tfoot>
           </table>
@@ -319,6 +346,112 @@ export default function DetalleCierreCajaPage() {
       </section>
 
       {abierta && <DetalleVentaModal venta={abierta} onClose={() => setAbierta(null)} />}
+
+      {anularTarget && (
+        <AnularFacturaModal
+          venta={anularTarget}
+          onClose={() => setAnularTarget(null)}
+          onHecho={() => { setAnularTarget(null); setReloadKey((k) => k + 1); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Anular una factura del turno.
+ *
+ * Pide el motivo y lo manda: es lo que se va a leer en el reporte de
+ * modificaciones administrativas cuando alguien pregunte por qué el total del
+ * día no coincide con lo que se cobró. No se fuerza a escribirlo —el servidor
+ * lo acepta vacío— pero sin motivo la anulación no se explica sola.
+ */
+function AnularFacturaModal({
+  venta,
+  onClose,
+  onHecho,
+}: {
+  venta: CajaDetalleVenta;
+  onClose: () => void;
+  onHecho: () => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function enviar() {
+    setEnviando(true);
+    setError(null);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/ventas/${venta.id}/anular`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: motivo.trim() || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
+      onHecho();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo anular la factura.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl border-2 border-red-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
+          <h3 className="text-base font-bold text-red-800">
+            Anular {venta.numero_control ?? "la factura"}
+          </h3>
+          <p className="mt-1 text-xs text-red-700">
+            Se reintegra el stock de lo vendido y la venta deja de sumar en el arqueo.
+            El cierre guarda los números originales para poder compararlos.
+          </p>
+        </div>
+        <div className="space-y-3 px-5 py-4">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Motivo
+            <textarea
+              autoFocus
+              rows={3}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ej. se cargó el producto equivocado"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-800"
+            />
+          </label>
+          <p className="text-xs text-slate-500">
+            Queda registrado con tu nombre en Reportes → Modificaciones administrativas.
+          </p>
+          {error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
+          <button
+            onClick={onClose}
+            disabled={enviando}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => void enviar()}
+            disabled={enviando}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+          >
+            {enviando ? "Anulando…" : "Anular factura"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

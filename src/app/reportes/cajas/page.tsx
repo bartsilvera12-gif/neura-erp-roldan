@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useRolErp } from "@/lib/auth/use-rol-erp";
+import { isErpRolSupervisor } from "@/lib/usuarios/erp-rol-normalize";
 import type { CajasReporte } from "@/lib/caja/types";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
@@ -30,6 +32,10 @@ export default function ReporteCajasPage() {
   const [data, setData] = useState<(CajasReporte & { mes?: string }) | null>(null);
   const [cargando, setCargando] = useState(true);
   const { isAdmin } = useIsAdmin();
+  // El supervisor entra solo acá: el hub de reportes le daría un bloqueo, así
+  // que para él no se muestra el link de vuelta.
+  const { rol } = useRolErp();
+  const soloCierres = isErpRolSupervisor(rol);
   const [reabriendo, setReabriendo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,9 +95,11 @@ export default function ReporteCajasPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link href="/reportes" className="text-xs font-medium text-slate-500 hover:text-slate-800">
-            ← Volver a reportes
-          </Link>
+          {!soloCierres && (
+            <Link href="/reportes" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+              ← Volver a reportes
+            </Link>
+          )}
           <h1 className="mt-1 text-2xl font-bold text-slate-900">Cierres de caja</h1>
           <p className="text-sm text-slate-500">
             Un turno por fila: lo que se vendió, lo que se contó al cerrar y la diferencia.

@@ -20,6 +20,9 @@ const SIDEBAR_SLUG_HREF_ORDER: { slug: string; href: string }[] = [
   { slug: "proveedores", href: "/proveedores" },
   { slug: "sucursales", href: "/configuracion/sucursales" },
   { slug: "gastos", href: "/gastos" },
+  // Antes que Reportes: un supervisor que solo tiene los cierres de caja
+  // aterriza ahí, no en un hub al que no puede entrar.
+  { slug: "cierres-caja", href: "/reportes/cajas" },
   { slug: "reportes", href: "/reportes" },
   { slug: "productos-a-vencer", href: "/reportes/productos-a-vencer" },
   { slug: "pagos", href: "/pagos" },
@@ -69,6 +72,16 @@ export function isModuleSlugGranted(
 ): boolean {
   if (grantedSlugs.has(routeSlug)) return true;
   if (inactiveSlugs?.has(routeSlug)) return false;
+  /**
+   * `cierres-caja` es un SUB-permiso de Reportes, no un alias legacy: existe
+   * para poder dar los cierres de caja SIN dar el resto de la reportería (el
+   * supervisor, que controla el arqueo y anula, pero no mira rentabilidad ni
+   * márgenes). Por eso se evalúa antes del modo estricto: quien ya tiene
+   * `reportes` completo tiene que seguir entrando a los cierres igual que
+   * antes, y si esto quedara debajo del `strict` se les cerraría la pantalla
+   * a todos los que hoy entran.
+   */
+  if (routeSlug === "cierres-caja" && grantedSlugs.has("reportes")) return true;
   if (opts?.strict) return false;
   // Paquete legacy: un solo permiso para todo el stack dashboard omnicanal.
   if (grantedSlugs.has("omnicanal") && isOmnicanalDashboardSlug(routeSlug)) return true;
@@ -168,6 +181,10 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
   ) {
     return "contabilidad";
   }
+  // Los cierres de caja tienen su propio permiso para que el supervisor pueda
+  // entrar solo acá. Quien tiene `reportes` completo también entra: lo
+  // resuelve `isModuleSlugGranted`.
+  if (p.startsWith("/reportes/cajas")) return "cierres-caja";
   if (p.startsWith("/reportes")) return "reportes";
   if (p.startsWith("/pagos")) return "pagos";
   if (p.startsWith("/comisiones")) return "comisiones";

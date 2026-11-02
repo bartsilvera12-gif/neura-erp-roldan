@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   Truck,
   BookOpen,
+  Wallet,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -236,6 +237,15 @@ const MENU_STRUCTURE: MenuItem[] = [
   },
   { key: "gastos", slug: "gastos", label: "Gastos", href: "/gastos", icon: Receipt },
   { key: "reportes", slug: "reportes", label: "Reportes", href: "/reportes", icon: BarChart3 },
+  // Cierres de caja aparte de Reportes: es el único lugar al que entra un
+  // supervisor, y no se llega escondido dentro del hub de reportería.
+  {
+    key: "cierres-caja",
+    slug: "cierres-caja",
+    label: "Cierres de caja",
+    href: "/reportes/cajas",
+    icon: Wallet,
+  },
   {
     key: "productos-a-vencer",
     slug: "productos-a-vencer",
@@ -354,7 +364,7 @@ const MENU_STRUCTURE: MenuItem[] = [
 const MENU_FAMILIES: { id: string; titulo: string; keys: string[] }[] = [
   { id: "inicio", titulo: "Inicio", keys: ["dashboard"] },
   { id: "comercial", titulo: "Comercial", keys: ["clientes", "crm", "gestion-clientes", "ventas", "ordenes_venta", "presupuestos", "comisiones", "planes"] },
-  { id: "finanzas", titulo: "Finanzas", keys: ["pagos", "gastos", "notas_credito", "contabilidad", "reportes", "productos-a-vencer"] },
+  { id: "finanzas", titulo: "Finanzas", keys: ["pagos", "gastos", "notas_credito", "contabilidad", "reportes", "cierres-caja", "productos-a-vencer"] },
   { id: "operaciones", titulo: "Operaciones", keys: ["inventario", "reposicion", "notas_remision", "compras", "proveedores", "recetas", "proyectos"] },
   { id: "omnicanal", titulo: "Omnicanal", keys: ["conversaciones", "conversaciones-finalizadas", "historial-omnicanal", "monitoreo", "campanas"] },
   { id: "marketing", titulo: "Marketing y Automatización", keys: ["marketing", "marketing_ops", "sorteos"] },
