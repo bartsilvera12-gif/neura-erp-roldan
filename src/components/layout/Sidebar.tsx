@@ -192,6 +192,9 @@ const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { label: "Clientes", href: "/clientes", exactMatch: true },
       { label: "Nuevo cliente", href: "/clientes/nuevo" },
+      // Historial de categorías y el filtro de los que no compraron. Estaba
+      // solo como botón dentro del listado, que no es donde se lo busca.
+      { label: "Categorías", href: "/clientes/categorias" },
     ],
   },
   {
