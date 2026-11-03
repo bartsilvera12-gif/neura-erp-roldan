@@ -251,6 +251,50 @@ export async function recalcularCategorias(
   };
 }
 
+/**
+ * Condición SQL para buscar un cliente por nombre o por RUC.
+ *
+ * ── EL RUC NO ESTÁ GUARDADO CON UN FORMATO ÚNICO ──────────────────────────
+ * En la base conviven `1234567-8`, `1.234.567-8` y `1234567`. Un LIKE del
+ * número con guion no encuentra al que quedó con puntos, y desde la pantalla
+ * parece que el cliente no existe. Por eso, cuando el texto tiene cuatro
+ * dígitos o más, se compara también el RUC SIN separadores: así el mismo número
+ * aparece escrito de cualquiera de las tres formas.
+ *
+ * Devuelve la condición y empuja los parámetros en `args`, para que cada
+ * consulta la arme con su propia numeración de `$n`.
+ */
+function condicionBusquedaCliente(
+  texto: string,
+  args: unknown[],
+  alias: string
+): string | null {
+  const t = texto.trim();
+  if (t === "") return null;
+
+  const partes: string[] = [];
+  args.push(`%${t}%`);
+  const n = args.length;
+  partes.push(
+    `(COALESCE(${alias}.nombre_facturacion, '') ILIKE $${n}` +
+    ` OR COALESCE(${alias}.empresa, '') ILIKE $${n}` +
+    ` OR COALESCE(${alias}.nombre_contacto, '') ILIKE $${n}` +
+    ` OR COALESCE(${alias}.nombre, '') ILIKE $${n}` +
+    ` OR COALESCE(${alias}.ruc, '') ILIKE $${n}` +
+    ` OR COALESCE(${alias}.codigo, '') ILIKE $${n})`
+  );
+
+  const digitos = t.replace(/[^0-9]/g, "");
+  if (digitos.length >= 4) {
+    args.push(`%${digitos}%`);
+    partes.push(
+      `regexp_replace(COALESCE(${alias}.ruc, ''), '[^0-9]', '', 'g') ILIKE $${args.length}`
+    );
+  }
+
+  return `(${partes.join(" OR ")})`;
+}
+
 export interface FilaHistorial {
   id: string;
   fecha: string;
@@ -282,7 +326,13 @@ export async function historialCategorias(
   empresaId: string,
   desde: string,
   hasta: string,
-  opciones?: { clienteId?: string | null; categoriaId?: string | null; limite?: number }
+  opciones?: {
+    clienteId?: string | null;
+    categoriaId?: string | null;
+    /** Nombre o RUC del cliente. */
+    busqueda?: string | null;
+    limite?: number;
+  }
 ): Promise<FilaHistorial[]> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const tHist = quoteSchemaTable(schema, "clientes_categoria_historial");
@@ -310,6 +360,8 @@ export async function historialCategorias(
     args.push(opciones.categoriaId);
     cond.push(`h.categoria_nueva_id = $${args.length}::uuid`);
   }
+  const buscaHist = condicionBusquedaCliente(opciones?.busqueda ?? "", args, "c");
+  if (buscaHist) cond.push(buscaHist);
   args.push(Math.min(Math.max(1, opciones?.limite ?? 500), 2000));
 
   const q = await p.query<Record<string, unknown>>(
@@ -367,7 +419,7 @@ export async function clientesSinCompras(
   sucursalId: string,
   desde: string,
   hasta: string,
-  opciones?: { categoriaId?: string | null; limite?: number }
+  opciones?: { categoriaId?: string | null; busqueda?: string | null; limite?: number }
 ): Promise<FilaSinCompras[]> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const tCli = quoteSchemaTable(schema, "clientes");
@@ -386,6 +438,8 @@ export async function clientesSinCompras(
     args.push(opciones.categoriaId);
     filtroCat = ` AND c.categoria_cliente_id = $${args.length}::uuid`;
   }
+  const buscaSin = condicionBusquedaCliente(opciones?.busqueda ?? "", args, "c");
+  if (buscaSin) filtroCat += ` AND ${buscaSin}`;
   args.push(Math.min(Math.max(1, opciones?.limite ?? 500), 2000));
 
   const q = await p.query<Record<string, unknown>>(
@@ -436,4 +490,102 @@ export async function clientesSinCompras(
       dias_sin_comprar: dias,
     };
   });
+}
+
+export interface SituacionCliente {
+  cliente_id: string;
+  cliente_nombre: string;
+  cliente_ruc: string | null;
+  /** La categoría en la que está HOY. */
+  categoria: string | null;
+  /** Lo que compró en el período consultado. */
+  monto_periodo: number;
+  operaciones: number;
+  ultima_compra: string | null;
+}
+
+/**
+ * En qué categoría está cada cliente que coincide con la búsqueda, y cuánto
+ * compró en el período.
+ *
+ * ── POR QUÉ HACE FALTA ADEMÁS DEL HISTORIAL ───────────────────────────────
+ * El historial tiene un renglón por CAMBIO. Un cliente que está en la misma
+ * categoría desde siempre no tiene ninguno, así que buscarlo por nombre o RUC
+ * en el historial devolvía "ningún cambio en esas fechas" — que es cierto y no
+ * sirve de nada: la pregunta era "¿en qué categoría está este señor y cuánto
+ * compró?".
+ *
+ * Esto la contesta. Se devuelve junto al historial cuando hay una búsqueda, no
+ * en lugar de él: las dos cosas se miran juntas.
+ */
+export async function situacionClientes(
+  schemaRaw: string,
+  empresaId: string,
+  sucursalId: string,
+  busqueda: string,
+  desde: string,
+  hasta: string,
+  limite = 50
+): Promise<SituacionCliente[]> {
+  const schema = assertAllowedChatDataSchema(schemaRaw);
+  if (busqueda.trim() === "") return [];
+
+  const tCli = quoteSchemaTable(schema, "clientes");
+  const tCat = quoteSchemaTable(schema, "categorias_cliente");
+  const tV = quoteSchemaTable(schema, "ventas");
+  const p = getChatPostgresPool();
+  if (!p) throw new Error("Pool no disponible.");
+
+  const args: unknown[] = [
+    empresaId,
+    `${desde}T00:00:00${OFFSET_PY}`,
+    `${hasta}T23:59:59.999${OFFSET_PY}`,
+  ];
+  const busca = condicionBusquedaCliente(busqueda, args, "c");
+  if (!busca) return [];
+  args.push(Math.min(Math.max(1, limite), 200));
+
+  const q = await p.query<Record<string, unknown>>(
+    `SELECT c.id::text AS cliente_id,
+            COALESCE(c.nombre_facturacion, c.empresa, c.nombre_contacto, c.nombre, '') AS cliente_nombre,
+            c.ruc AS cliente_ruc,
+            cat.nombre AS categoria,
+            COALESCE(per.monto, 0) AS monto_periodo,
+            COALESCE(per.operaciones, 0) AS operaciones,
+            ult.ultima AS ultima_compra
+       FROM ${tCli} c
+       LEFT JOIN ${tCat} cat ON cat.id = c.categoria_cliente_id
+       LEFT JOIN LATERAL (
+         SELECT SUM(v.total) AS monto, COUNT(*) AS operaciones
+           FROM ${tV} v
+          WHERE v.cliente_id = c.id
+            AND v.empresa_id = $1::uuid${andSucursal(sucursalId, "v.")}
+            AND COALESCE(v.estado, 'completada') <> 'anulada'
+            AND v.fecha >= $2::timestamptz
+            AND v.fecha <= $3::timestamptz
+       ) per ON true
+       LEFT JOIN LATERAL (
+         SELECT MAX(v2.fecha) AS ultima
+           FROM ${tV} v2
+          WHERE v2.cliente_id = c.id
+            AND v2.empresa_id = $1::uuid${andSucursal(sucursalId, "v2.")}
+            AND COALESCE(v2.estado, 'completada') <> 'anulada'
+       ) ult ON true
+      WHERE c.empresa_id = $1::uuid
+        AND c.deleted_at IS NULL
+        AND ${busca}
+      ORDER BY COALESCE(per.monto, 0) DESC, cliente_nombre
+      LIMIT $${args.length}`,
+    args
+  );
+
+  return q.rows.map((r) => ({
+    cliente_id: String(r.cliente_id),
+    cliente_nombre: String(r.cliente_nombre ?? ""),
+    cliente_ruc: r.cliente_ruc == null ? null : String(r.cliente_ruc),
+    categoria: r.categoria == null ? null : String(r.categoria),
+    monto_periodo: Number(r.monto_periodo) || 0,
+    operaciones: Number(r.operaciones) || 0,
+    ultima_compra: r.ultima_compra == null ? null : String(r.ultima_compra),
+  }));
 }

@@ -7,6 +7,7 @@ import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema"
 import {
   historialCategorias,
   clientesSinCompras,
+  situacionClientes,
 } from "@/lib/clientes/server/categorias-pg";
 import { periodoPy, rangoDePeriodo } from "@/lib/clientes/categoria-automatica";
 
@@ -15,8 +16,14 @@ import { periodoPy, rangoDePeriodo } from "@/lib/clientes/categoria-automatica";
  *
  * Dos preguntas en una ruta, porque se miran juntas desde la misma pantalla:
  *
- *   ?desde&hasta[&cliente][&categoria]  → los cambios de categoría del período
- *   ...&sin_compras=1                   → los clientes que NO compraron
+ *   ?desde&hasta[&q][&categoria]  → los cambios de categoría del período
+ *   ...&sin_compras=1             → los clientes que NO compraron
+ *
+ * `q` busca por nombre o por RUC. Cuando viene, la respuesta trae además la
+ * SITUACIÓN de los clientes que coinciden: en qué categoría están hoy y cuánto
+ * compraron en el período. Sin eso, buscar a un cliente que nunca cambió de
+ * categoría devolvía "ningún cambio en esas fechas" — cierto, y inútil: la
+ * pregunta era en qué categoría está y cuánto compró.
  *
  * El modo "sin compras" no es un filtro del historial: el que no compró
  * normalmente no genera renglón —si ya estaba en la categoría más baja no
@@ -55,6 +62,7 @@ export async function GET(request: NextRequest) {
     }
     const clienteId = (sp.get("cliente") ?? "").trim() || null;
     const categoriaId = (sp.get("categoria") ?? "").trim() || null;
+    const busqueda = (sp.get("q") ?? "").trim();
     const sinCompras = sp.get("sin_compras") === "1";
 
     const schema = await fetchDataSchemaForEmpresaId(empresaId);
@@ -62,23 +70,31 @@ export async function GET(request: NextRequest) {
     if (sinCompras) {
       const filas = await clientesSinCompras(schema, empresaId, sucursalId, desde, hasta, {
         categoriaId,
+        busqueda,
       });
       return NextResponse.json(successResponse({
         modo: "sin_compras" as const,
         desde, hasta,
         sin_compras: filas,
         cambios: [],
+        situacion: [],
       }));
     }
 
-    const filas = await historialCategorias(schema, empresaId, desde, hasta, {
-      clienteId, categoriaId,
-    });
+    const [filas, situacion] = await Promise.all([
+      historialCategorias(schema, empresaId, desde, hasta, {
+        clienteId, categoriaId, busqueda,
+      }),
+      busqueda
+        ? situacionClientes(schema, empresaId, sucursalId, busqueda, desde, hasta)
+        : Promise.resolve([]),
+    ]);
     return NextResponse.json(successResponse({
       modo: "cambios" as const,
       desde, hasta,
       cambios: filas,
       sin_compras: [],
+      situacion,
     }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);

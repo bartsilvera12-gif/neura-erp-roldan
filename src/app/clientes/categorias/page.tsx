@@ -43,11 +43,17 @@ type SinCompra = {
   cliente_id: string; cliente_nombre: string; cliente_ruc: string | null;
   categoria: string | null; ultima_compra: string | null; dias_sin_comprar: number | null;
 };
+type Situacion = {
+  cliente_id: string; cliente_nombre: string; cliente_ruc: string | null;
+  categoria: string | null; monto_periodo: number; operaciones: number;
+  ultima_compra: string | null;
+};
 type Respuesta = {
   modo: "cambios" | "sin_compras";
   desde: string; hasta: string;
   cambios: Cambio[];
   sin_compras: SinCompra[];
+  situacion: Situacion[];
 };
 type CategoriaLite = { id: string; nombre: string; monto_minimo_mensual?: number | null };
 
@@ -57,6 +63,7 @@ export default function CategoriasClientePage() {
   const [desde, setDesde] = useState(mes.desde);
   const [hasta, setHasta] = useState(mes.hasta);
   const [sinCompras, setSinCompras] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
   const [categoria, setCategoria] = useState("");
   const [cats, setCats] = useState<CategoriaLite[]>([]);
   const [data, setData] = useState<Respuesta | null>(null);
@@ -78,6 +85,7 @@ export default function CategoriasClientePage() {
     try {
       const qs = new URLSearchParams({ desde, hasta });
       if (categoria) qs.set("categoria", categoria);
+      if (busqueda.trim()) qs.set("q", busqueda.trim());
       if (sinCompras) qs.set("sin_compras", "1");
       const r = await fetchWithSupabaseSession(`/api/clientes/categorias/historial?${qs}`);
       const j = await r.json();
@@ -89,9 +97,14 @@ export default function CategoriasClientePage() {
     } finally {
       setCargando(false);
     }
-  }, [desde, hasta, categoria, sinCompras]);
+  }, [desde, hasta, categoria, sinCompras, busqueda]);
 
-  useEffect(() => { void cargar(); }, [cargar]);
+  useEffect(() => {
+    // Espera a que termine de escribir: sin esto son seis consultas para
+    // escribir "PEDRO".
+    const id = setTimeout(() => { void cargar(); }, busqueda.trim() === "" ? 0 : 300);
+    return () => clearTimeout(id);
+  }, [cargar, busqueda]);
 
   async function recalcular() {
     // El recálculo se hace sobre el MES del "desde": las categorías se deciden
@@ -151,6 +164,18 @@ export default function CategoriasClientePage() {
 
       {/* ── Filtros ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        {/* Buscar por nombre o por RUC. El RUC se compara también sin puntos
+            ni guiones: en la base conviven 1234567-8, 1.234.567-8 y 1234567, y
+            escribirlo de una forma no encontraba al que quedó de otra. */}
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase text-slate-500">Cliente</span>
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Nombre o RUC…"
+            className="w-56 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+          />
+        </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
           <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
@@ -182,7 +207,7 @@ export default function CategoriasClientePage() {
             }`}
           >
             <History className="h-3.5 w-3.5" />
-            Cambios
+            Historial
           </button>
           <button
             type="button"
@@ -192,7 +217,7 @@ export default function CategoriasClientePage() {
             }`}
           >
             <Users className="h-3.5 w-3.5" />
-            No compraron
+            No compra
           </button>
         </div>
 
@@ -217,6 +242,63 @@ export default function CategoriasClientePage() {
       )}
       {aviso && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">{aviso}</div>
+      )}
+
+      {/* ── En qué categoría está cada cliente buscado ──────────────────
+          El historial tiene un renglón por CAMBIO, así que un cliente que está
+          en la misma categoría desde siempre no aparece. Buscarlo y que diga
+          "ningún cambio" es cierto y no sirve: la pregunta era en qué categoría
+          está y cuánto compró. */}
+      {!sinCompras && busqueda.trim() !== "" && (data?.situacion.length ?? 0) > 0 && (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="text-sm font-semibold text-slate-800">
+              En qué categoría está{data!.situacion.length === 1 ? "" : "n"} ahora
+            </p>
+            <p className="text-[11px] leading-snug text-slate-500">
+              Y cuánto compró en las fechas del filtro. Abajo, los cambios de categoría que hubo.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-2.5">Cliente</th>
+                  <th className="px-4 py-2.5">RUC</th>
+                  <th className="px-4 py-2.5">Categoría actual</th>
+                  <th className="px-4 py-2.5 text-right">Compró en el período</th>
+                  <th className="px-4 py-2.5">Última compra</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data!.situacion.map((c) => (
+                  <tr key={c.cliente_id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-2.5 font-medium text-slate-800">
+                      <Link href={`/clientes/${c.cliente_id}`} className="hover:text-[#3F8E91] hover:underline">
+                        {c.cliente_nombre || "—"}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 tabular-nums text-slate-500">{c.cliente_ruc || "—"}</td>
+                    <td className="px-4 py-2.5 font-semibold text-[#3F8E91]">{c.categoria ?? "Sin categoría"}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                      {gs(c.monto_periodo)}
+                      {c.operaciones > 0 && (
+                        <span className="ml-1 text-[11px] font-normal text-slate-400">
+                          ({c.operaciones} vta{c.operaciones === 1 ? "" : "s"})
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">
+                      {c.ultima_compra ? fechaCorta(c.ultima_compra) : (
+                        <span className="text-slate-400">Nunca compró</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* ── Tabla ───────────────────────────────────────────────────────── */}
@@ -283,7 +365,9 @@ export default function CategoriasClientePage() {
                   <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400">Buscando…</td></tr>
                 ) : (data?.cambios.length ?? 0) === 0 ? (
                   <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400">
-                    Ningún cambio de categoría en esas fechas.
+                    {busqueda.trim() === ""
+                      ? "Ningún cambio de categoría en esas fechas."
+                      : "Este cliente no cambió de categoría en esas fechas. Arriba está en cuál se encuentra hoy."}
                   </td></tr>
                 ) : data!.cambios.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50/60" title={c.motivo ?? ""}>
