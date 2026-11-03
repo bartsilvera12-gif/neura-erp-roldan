@@ -86,10 +86,16 @@ export function ExistenciaLinea({
   return (
     // El nowrap va en el contenedor y no en cada parte: puesto en las partes,
     // el renglón se corta igual entre una y otra.
-    <div className="mt-1 whitespace-nowrap text-[10px] leading-tight" title={detalle}>
-      <span className="text-slate-400">{resumen}</span>
+    <div className="mt-1 whitespace-nowrap leading-tight" title={detalle}>
+      <span className="text-[10px] text-slate-400">{resumen}</span>
+      {/* El faltante es lo único que obliga a hacer algo —comprar, avisar al
+          cliente— y estaba del mismo tamaño y casi del mismo gris que el
+          stock, así que se leía como parte del mismo dato y se pasaba por
+          alto. Va más grande, en negrita y con fondo, para que salte. */}
       {falta > 0 && (
-        <span className="ml-1 font-medium text-amber-600">· faltan {falta}</span>
+        <span className="ml-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-800">
+          faltan {falta}
+        </span>
       )}
     </div>
   );
