@@ -11,7 +11,7 @@ import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/pr
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
-import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
+import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
@@ -422,9 +422,18 @@ export default function NuevoPresupuestoPage() {
    * Sin nombre no se puede ni buscar después, y sin ítems no hay cotización.
    * El resto de los datos del cliente lo decide `seraBorrador`.
    */
+  /**
+   * Cotizar más de lo que hay: solo el administrador.
+   *
+   * El servidor lo vuelve a validar —la pantalla se puede saltear— pero acá
+   * el botón se apaga, para no cargar veinte líneas y enterarse al guardar.
+   */
+  const sinStock = isAdmin ? [] : lineasSinStock(items, existencias);
+
   const valido =
     clienteNombre.trim().length > 0 &&
     items.length > 0 &&
+    sinStock.length === 0 &&
     items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
 
   async function guardar() {
@@ -920,7 +929,7 @@ export default function NuevoPresupuestoPage() {
         </div>
       </div>
 
-      <AvisoFaltantes lineas={items} existencias={existencias} />
+      <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={isAdmin} />
 
       {/* Qué falta, y qué pasa si falta. Se dice todo antes de guardar: que la
           cotización no se pierde, y que así no se puede cobrar. */}

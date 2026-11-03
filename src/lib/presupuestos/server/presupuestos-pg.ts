@@ -48,6 +48,14 @@ export interface CrearPresupuestoInput {
    * completarlos.
    */
   estado?: EstadoPresupuesto;
+  /**
+   * El cliente se escribió a mano, no se eligió del catálogo (script 62).
+   *
+   * Se guarda al crear y no cambia después, aunque más tarde se le abra la
+   * ficha: lo que registra es cómo entró, y después de abierta la ficha los
+   * dos casos se ven iguales.
+   */
+  cliente_a_mano?: boolean;
   items: PresupuestoItemInput[];
 }
 
@@ -162,6 +170,7 @@ export async function crearPresupuesto(
     cliente_direccion: input.cliente_direccion?.trim() || null,
     numero_control: numero,
     estado: input.estado ?? "creado",
+    cliente_a_mano: input.cliente_a_mano === true,
     moneda: input.moneda || "PYG",
     subtotal: round2(subtotal),
     monto_iva: round2(montoIva),
@@ -201,6 +210,13 @@ export async function crearPresupuesto(
   if (ins.error && /cliente_ciudad|cliente_profesion/.test(ins.error.message ?? "")) {
     const { cliente_ciudad: _c, cliente_profesion: _p, ...sinExtras } = cabecera;
     ins = await sb.from("presupuestos").insert(sinExtras).select("id, numero_control").single();
+  }
+
+  // Sin el script 62 se guarda igual, sin saber cómo entró el cliente: un
+  // filtro de la lista no vale una oferta perdida.
+  if (ins.error && /cliente_a_mano/.test(ins.error.message ?? "")) {
+    const { cliente_a_mano: _am, ...sinAMano } = cabecera as Record<string, unknown>;
+    ins = await sb.from("presupuestos").insert(sinAMano).select("id, numero_control").single();
   }
 
   if (ins.error && /vendedor_usuario_id|vendedor_nombre/.test(ins.error.message ?? "")) {

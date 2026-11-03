@@ -12,7 +12,7 @@ import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/pr
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
-import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
+import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
 
 type ProductoLite = {
   id: string;
@@ -369,9 +369,14 @@ export default function EditarPresupuestoPage() {
       })
     : [];
 
+  // Mismo criterio que al crear: sin esto se guarda con stock y después se le
+  // suben las cantidades desde la edición.
+  const sinStock = isAdmin ? [] : lineasSinStock(items, existencias);
+
   const valido =
     clienteNombre.trim().length > 0 &&
     rucOk &&
+    sinStock.length === 0 &&
     items.length > 0 &&
     items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
 
@@ -754,7 +759,7 @@ export default function EditarPresupuestoPage() {
         </div>
       </div>
 
-      <AvisoFaltantes lineas={items} existencias={existencias} />
+      <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={isAdmin} />
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
         <Link href={`/presupuestos/${id}`} className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">

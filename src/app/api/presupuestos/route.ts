@@ -7,6 +7,7 @@ import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { isAdmin } from "@/lib/middleware/auth";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
+import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
 import {
   conCamposScript38,
   leerPresupuestosConFallback,
@@ -135,6 +136,33 @@ export async function POST(request: NextRequest) {
      * Solo se mira cuando el cliente NO salió del catálogo: al cotizarle a uno
      * que ya existe no se le vuelven a pedir sus datos.
      */
+    /**
+     * Cotizar más de lo que hay: solo el administrador.
+     *
+     * Cotizar sin stock sigue siendo válido (punto 9.1) —en una ferretería lo
+     * normal es ofrecer, que el cliente acepte y recién entonces comprar— pero
+     * prometer mercadería que no está es asumir una compra y una fecha de
+     * entrega, y eso lo decide el que compra.
+     *
+     * Va antes de crear nada: una cotización rechazada no tiene que dejar
+     * media ficha de cliente dada de alta.
+     */
+    if (!isAdmin(ctx.auth)) {
+      const faltantes = await faltantesDeStock(
+        ctx.supabase,
+        ctx.auth.empresa_id,
+        ctx.auth.sucursal_id ?? null,
+        items.map((it) => ({
+          producto_id: it.producto_id ?? null,
+          producto_nombre: it.producto_nombre,
+          cantidad: it.cantidad,
+        }))
+      );
+      if (faltantes.length > 0) {
+        return NextResponse.json(errorResponse(mensajeFaltantes(faltantes)), { status: 403 });
+      }
+    }
+
     const faltan = faltantesDelPresupuesto({
       cliente_id: body.cliente_id as string | null | undefined,
       nombre: clienteNombre,
@@ -254,6 +282,10 @@ export async function POST(request: NextRequest) {
       vendedor_usuario_id: esAdmin && vendedorId ? vendedorId : null,
       vendedor_nombre: esAdmin && vendedorId ? vendedorNombre : null,
       estado: esBorrador ? "borrador" : "creado",
+      // Cómo entró el cliente. Después de guardar no se puede saber: si se
+      // escribió a mano con todos sus datos, se le abre la ficha y queda
+      // igual que uno elegido del catálogo.
+      cliente_a_mano: !body.cliente_id,
       items,
     });
 

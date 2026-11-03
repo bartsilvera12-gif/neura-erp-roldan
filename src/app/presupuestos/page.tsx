@@ -21,6 +21,8 @@ type PresupuestoRow = {
   moneda: string;
   /** Punto 9.3: la vigencia ya se guardaba; faltaba verla sin abrir el presupuesto. */
   fecha_vencimiento?: string | null;
+  /** El cliente se escribió a mano al cotizar (script 62). */
+  cliente_a_mano?: boolean;
   /** Quién lo cotizó. No va en el PDF: el cliente no necesita ese dato. */
   usuario_nombre?: string | null;
   vendedor_nombre?: string | null;
@@ -52,20 +54,55 @@ function fmtGs(n: number | string, moneda: string) {
   return (moneda === "USD" ? "USD " : "Gs. ") + v.toLocaleString("es-PY", { maximumFractionDigits: moneda === "USD" ? 2 : 0 });
 }
 
-const FILTROS: { id: "todos" | EstadoPresupuesto; label: string }[] = [
+/**
+ * "vencidos" no es un estado: es una fecha.
+ *
+ * Un presupuesto vencido puede estar creado, enviado o aprobado —el estado
+ * dice en qué quedó la conversación, la fecha dice si el precio todavía rige—.
+ * Son dos preguntas distintas y por eso el filtro es uno solo con las dos
+ * cosas adentro: lo que se quiere saber es "cuáles miro ahora", y mezclarlas
+ * en una fila de botones es más corto que dos filas de filtros que se
+ * combinan de seis maneras y confunden más de lo que ayudan.
+ */
+type FiltroPresupuesto = "todos" | "vencidos" | EstadoPresupuesto;
+
+const FILTROS: { id: FiltroPresupuesto; label: string }[] = [
   { id: "todos", label: "Todos" },
+  { id: "borrador", label: "Borradores" },
   { id: "creado", label: "Creados" },
   { id: "enviado", label: "Enviados" },
   { id: "aprobado", label: "Aprobados" },
   { id: "rechazado", label: "Rechazados" },
   { id: "convertido", label: "Convertidos" },
+  { id: "vencidos", label: "Vencidos" },
 ];
+
+/** Hoy en Paraguay (UTC−3): el server es UTC y de noche adelanta un día. */
+function hoyPy(): string {
+  return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * ¿Se le pasó la validez?
+ *
+ * Sin fecha de vencimiento no vence: los presupuestos viejos no la tienen y
+ * darlos por vencidos sería inventar que el precio ya no rige.
+ *
+ * Un presupuesto ya convertido tampoco: se cobró, y lo que se cobró no vence.
+ */
+function estaVencido(r: { fecha_vencimiento?: string | null; estado: EstadoPresupuesto }): boolean {
+  if (r.estado === "convertido") return false;
+  const v = String(r.fecha_vencimiento ?? "").slice(0, 10);
+  return v !== "" && v < hoyPy();
+}
 
 export default function PresupuestosPage() {
   const [rows, setRows] = useState<PresupuestoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filtro, setFiltro] = useState<"todos" | EstadoPresupuesto>("todos");
+  const [filtro, setFiltro] = useState<FiltroPresupuesto>("todos");
+  /** Cliente del catálogo o escrito a mano en el mostrador. */
+  const [fCliente, setFCliente] = useState<"todos" | "sistema" | "a_mano">("todos");
   // Requisito 11.2: desde/hasta también acá. Un presupuesto es un documento con
   // fecha, y sin rango la lista crece hasta volverse inútil.
   const [desde, setDesde] = useState("");
@@ -172,12 +209,23 @@ export default function PresupuestosPage() {
     const texto = buscar.trim().toLowerCase();
     const persona = fPersona.trim().toLowerCase();
     return rows
-      .filter((r) => filtro === "todos" || r.estado === filtro)
+      .filter((r) =>
+        filtro === "todos" ? true
+        : filtro === "vencidos" ? estaVencido(r)
+        : r.estado === filtro
+      )
       .filter((r) => {
         const f = String(r.fecha ?? "").slice(0, 10);
         if (desde && f < desde) return false;
         if (hasta && f > hasta) return false;
         return true;
+      })
+      .filter((r) => {
+        if (fCliente === "todos") return true;
+        // Los presupuestos anteriores al script 62 no tienen el dato: cuentan
+        // como del sistema, que es lo que eran casi siempre.
+        const aMano = r.cliente_a_mano === true;
+        return fCliente === "a_mano" ? aMano : !aMano;
       })
       .filter((r) => {
         if (!persona) return true;
@@ -191,7 +239,7 @@ export default function PresupuestosPage() {
         r.numero_control.toLowerCase().includes(texto) ||
         r.cliente_nombre.toLowerCase().includes(texto)
       );
-  }, [rows, filtro, desde, hasta, buscar, fPersona]);
+  }, [rows, filtro, desde, hasta, buscar, fPersona, fCliente]);
 
   /** Las personas que tienen al menos un presupuesto en la lista. */
   const personas = useMemo(() => {
@@ -235,7 +283,11 @@ export default function PresupuestosPage() {
           <AccionesTabla
             titulo="Presupuestos"
             archivo="presupuestos"
-            subtitulo={filtro !== "todos" ? `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}` : undefined}
+            subtitulo={
+              filtro === "todos" ? undefined
+              : filtro === "vencidos" ? "Vencidos"
+              : `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}`
+            }
             columnas={["Número", "Cliente", "Fecha", "Vence", "Emitió", "Total", "Moneda", "Estado"]}
             filas={filtradas.map((r) => [
               r.numero_control,
@@ -279,14 +331,29 @@ export default function PresupuestosPage() {
             {personas.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        {/* Del catálogo o escrito a mano. Después de guardar los dos se ven
+            iguales —al que se escribe completo se le abre la ficha—, así que
+            la respuesta sale de cómo entró, guardado al crear. */}
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-slate-500">Cliente</span>
+          <select
+            value={fCliente}
+            onChange={(e) => setFCliente(e.target.value as "todos" | "sistema" | "a_mano")}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+          >
+            <option value="todos">Todos</option>
+            <option value="sistema">Del sistema</option>
+            <option value="a_mano">Escrito a mano</option>
+          </select>
+        </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <input type="text" value={buscar} onChange={(e) => setBuscar(e.target.value)}
             placeholder="Número o cliente"
             className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
         </label>
-        {(desde || hasta || buscar) && (
-          <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); }}
+        {(desde || hasta || buscar || fCliente !== "todos") && (
+          <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); setFCliente("todos"); }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
             Limpiar
           </button>
@@ -318,7 +385,10 @@ export default function PresupuestosPage() {
           </div>
         ) : filtradas.length === 0 ? (
           <div className="p-8 text-center text-sm text-gray-500">
-            No hay presupuestos {filtro !== "todos" ? `en estado "${ESTADO_LABEL[filtro as EstadoPresupuesto]}"` : "todavía"}.
+            No hay presupuestos{" "}
+            {filtro === "todos" ? "todavía"
+             : filtro === "vencidos" ? "vencidos"
+             : `en estado "${ESTADO_LABEL[filtro as EstadoPresupuesto]}"`}.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -341,6 +411,16 @@ export default function PresupuestosPage() {
                     <td className="py-3 px-4 font-mono font-medium text-gray-800">{r.numero_control}</td>
                     <td className="py-3 px-4 text-gray-700">
                       {r.cliente_nombre}
+                      {/* Escrito a mano en el mostrador. Se marca acá para que
+                          el filtro se entienda sin tener que usarlo. */}
+                      {r.cliente_a_mano && (
+                        <span
+                          className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                          title="El cliente se escribió a mano al cotizar; no se eligió del catálogo."
+                        >
+                          a mano
+                        </span>
+                      )}
                       {/* Que falte material cambia qué se le puede prometer al
                           cliente: se ve en la lista y no abriendo uno por uno. */}
                       {r.falta_material && (
@@ -357,8 +437,10 @@ export default function PresupuestosPage() {
                       {(() => {
                         const v = r.fecha_vencimiento ? String(r.fecha_vencimiento).slice(0, 10) : null;
                         if (!v) return <span className="text-slate-300">—</span>;
-                        const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                        const vencido = v < hoy;
+                        // La misma cuenta que el filtro "Vencidos": si acá
+                        // dijera una cosa y el filtro otra, el que filtra por
+                        // vencidos vería filas sin la marca y al revés.
+                        const vencido = estaVencido(r);
                         return (
                           <span className={vencido ? "font-medium text-amber-600" : ""}>
                             {fmtFecha(v)}

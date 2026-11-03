@@ -101,33 +101,62 @@ export function ExistenciaLinea({
   );
 }
 
+/** Las líneas que piden más de lo disponible. Vacío = alcanza para todo. */
+export function lineasSinStock(
+  lineas: { producto_id: string | null; producto_nombre: string; cantidad: number }[],
+  existencias: Record<string, Existencia>
+): { nombre: string; falta: number }[] {
+  // Varias líneas del mismo producto suman: tres de 10 de la misma chapa son
+  // 30, y medidas por separado cada una "entra" cuando hay 15.
+  const pedido = new Map<string, { nombre: string; cantidad: number }>();
+  for (const l of lineas) {
+    const id = l.producto_id ? String(l.producto_id) : "";
+    if (!id) continue;
+    const prev = pedido.get(id);
+    pedido.set(id, {
+      nombre: prev?.nombre || l.producto_nombre,
+      cantidad: (prev?.cantidad ?? 0) + (Number(l.cantidad) || 0),
+    });
+  }
+  const out: { nombre: string; falta: number }[] = [];
+  for (const [id, p] of pedido) {
+    const ex = existencias[id];
+    if (!ex) continue;
+    const falta = p.cantidad - ex.disponible;
+    if (falta > 0) out.push({ nombre: p.nombre, falta });
+  }
+  return out;
+}
+
 /**
  * Resumen del faltante, para poner arriba del botón de guardar.
  *
- * Avisa y deja guardar. Un presupuesto es una oferta, no una entrega: lo normal
- * en una ferretería es cotizar lo que no hay, que el cliente acepte y recién
- * entonces comprarlo.
+ * Cotizar lo que no hay sigue siendo válido —un presupuesto es una oferta, no
+ * una entrega— pero prometer mercadería que no está es asumir una compra y una
+ * fecha de entrega, así que lo hace un administrador. Para el resto el aviso
+ * pasa de "se guarda igual" a "esto no se puede guardar", y lo dice acá, antes
+ * de que el vendedor termine de cargar veinte líneas.
  */
 export function AvisoFaltantes({
   lineas,
   existencias,
+  puedeSinStock = true,
 }: {
   lineas: { producto_id: string | null; producto_nombre: string; cantidad: number }[];
   existencias: Record<string, Existencia>;
+  /** El administrador puede cotizar sin stock; el resto no. */
+  puedeSinStock?: boolean;
 }) {
-  const faltantes = lineas
-    .map((l) => {
-      const ex = l.producto_id ? existencias[l.producto_id] : undefined;
-      if (!ex) return null;
-      const falta = (Number(l.cantidad) || 0) - ex.disponible;
-      return falta > 0 ? { nombre: l.producto_nombre, falta } : null;
-    })
-    .filter((x): x is { nombre: string; falta: number } => x !== null);
+  const faltantes = lineasSinStock(lineas, existencias);
 
   if (faltantes.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <div className={`rounded-xl border px-4 py-3 text-sm ${
+      puedeSinStock
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-rose-200 bg-rose-50 text-rose-800"
+    }`}>
       <p className="font-medium">
         {faltantes.length === 1
           ? "Hay un producto sin stock suficiente para entregar hoy."
@@ -139,8 +168,9 @@ export function AvisoFaltantes({
         ))}
       </ul>
       <p className="mt-1.5 text-xs">
-        El presupuesto se guarda igual. Si el cliente lo aprueba, hay que
-        comprar antes de entregar.
+        {puedeSinStock
+          ? "El presupuesto se guarda igual. Si el cliente lo aprueba, hay que comprar antes de entregar."
+          : "Cotizar más de lo que hay lo hace un administrador, porque es asumir una compra y una fecha de entrega. Bajá las cantidades o pedile a un administrador que lo cargue."}
       </p>
     </div>
   );

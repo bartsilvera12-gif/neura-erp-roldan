@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/l
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto } from "@/lib/presupuestos/faltantes";
 import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
+import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
 import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -226,6 +227,25 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
           descuento: desc,
           total: Math.round(bruto),
         });
+      }
+
+      // Mismo criterio que al crear: cotizar más de lo que hay lo hace un
+      // administrador. Sin esto, se guarda un presupuesto con stock y después
+      // se le suben las cantidades desde la edición.
+      if (!isAdmin(ctx.auth)) {
+        const faltantes = await faltantesDeStock(
+          ctx.supabase,
+          ctx.auth.empresa_id,
+          ctx.auth.sucursal_id ?? null,
+          itemsToInsert.map((it) => ({
+            producto_id: it.producto_id ? String(it.producto_id) : null,
+            producto_nombre: String(it.producto_nombre ?? ""),
+            cantidad: Number(it.cantidad) || 0,
+          }))
+        );
+        if (faltantes.length > 0) {
+          return NextResponse.json(errorResponse(mensajeFaltantes(faltantes)), { status: 403 });
+        }
       }
 
       // Delete items viejos + insertar nuevos.
