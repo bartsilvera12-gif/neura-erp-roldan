@@ -92,6 +92,9 @@ type ClienteCartera = {
 };
 type Cartera = {
   clientes: ClienteCartera[]; dias_cartera: number;
+  /** De qué sucursal es esta cartera (script 64). */
+  sucursal_id?: string | null;
+  sucursal_nombre?: string | null;
   resumen: { total: number; en_cartera: number; libres: number; sin_vendedor: number };
 };
 
@@ -459,6 +462,15 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-sm text-slate-600">
+          {/* De qué sucursal es. Sin esto, el que reasigna no sabe a quién le
+              está sacando el cliente: la cartera de Casa Central y la de la
+              otra sucursal son dos listas distintas, con su propio plazo. */}
+          {data?.sucursal_nombre && (
+            <>
+              Cartera de <b>{data.sucursal_nombre}</b>. Cada sucursal tiene la suya:
+              lo que se asigna acá no cambia la de las demás.{" "}
+            </>
+          )}
           Un cliente queda en la cartera de su vendedor por{" "}
           <b>{data?.dias_cartera ?? 30} días</b> desde su última operación. Pasado ese plazo queda
           libre solo, sin borrar quién lo atendía.

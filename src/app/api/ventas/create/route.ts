@@ -675,21 +675,27 @@ export async function POST(request: NextRequest) {
     //
     // Va best-effort y al final: la venta ya está hecha y confirmada, y no
     // tiene por qué fallar porque no se pudo tocar una fecha.
+    //
+    // Se renueva la cartera de ESTA sucursal (script 64). Una venta en Casa
+    // Central no tiene por qué sostenerle la cartera al vendedor de la otra
+    // sucursal: cada una tiene su propio plazo corriendo, que es justamente
+    // lo que significa diferenciarla.
     if (clienteId) {
       try {
         const sbCartera = await createServiceRoleClientForEmpresa(auth.empresa_id);
         const upd = await sbCartera
-          .from("clientes")
-          .update({ cartera_desde: new Date().toISOString() })
+          .from("cliente_cartera")
+          .update({ cartera_desde: new Date().toISOString(), updated_at: new Date().toISOString() })
           .eq("empresa_id", auth.empresa_id)
-          .eq("id", clienteId)
+          .eq("cliente_id", clienteId)
+          .eq("sucursal_id", exigirSucursal(auth.sucursal_id))
           // Solo si tiene vendedor: sin dueño, la cartera no significa nada.
           .not("vendedor_usuario_id", "is", null);
-        if (upd.error && !/cartera_desde/.test(upd.error.message ?? "")) {
-          console.warn("[ventas/create] cartera_desde:", upd.error.message);
+        if (upd.error && !/cliente_cartera/.test(upd.error.message ?? "")) {
+          console.warn("[ventas/create] cartera:", upd.error.message);
         }
       } catch (e) {
-        console.warn("[ventas/create] cartera_desde:", e instanceof Error ? e.message : e);
+        console.warn("[ventas/create] cartera:", e instanceof Error ? e.message : e);
       }
     }
 

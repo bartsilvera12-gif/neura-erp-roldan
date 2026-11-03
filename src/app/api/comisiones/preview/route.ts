@@ -337,6 +337,33 @@ export async function GET(request: Request) {
       clienteVendedor.set(id, typeof v === "string" && v.trim() ? v.trim() : null);
     }
 
+    /**
+     * De quién es el cliente EN ESTA SUCURSAL (script 64).
+     *
+     * La comisión por cobranza va al vendedor del cliente, y desde que la
+     * cartera es por sucursal ese dato vive en `cliente_cartera`. Lo de la
+     * ficha (`clientes.vendedor_usuario_id`) queda como respaldo para el
+     * cliente que ninguna sucursal reclamó todavía: sin ese respaldo, el día
+     * que se corre el script las cobranzas de todos los clientes sin fila
+     * dejarían de pagar comisión y nadie entendería por qué.
+     */
+    try {
+      const ccQ = await sb
+        .from("cliente_cartera")
+        .select("cliente_id, vendedor_usuario_id")
+        .eq("empresa_id", empresaId)
+        .eq("sucursal_id", sucursalId);
+      if (!ccQ.error) {
+        for (const f of (ccQ.data ?? []) as Array<Record<string, unknown>>) {
+          const cid = String(f.cliente_id ?? "");
+          const vid = f.vendedor_usuario_id;
+          if (cid) clienteVendedor.set(cid, typeof vid === "string" && vid.trim() ? vid.trim() : null);
+        }
+      }
+    } catch {
+      /* sin el script 64 manda lo de la ficha, que es como venía andando */
+    }
+
     const { ncMap, alertaNetoSinNc } = await cargarNcAprobadasPorFacturaId(sb, empresaId, sucursalId);
 
     const clientesAsignadosAutenticado = clientesRows.filter((c) => {
