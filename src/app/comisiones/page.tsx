@@ -797,10 +797,13 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
         <ReglasPorRubro
           cfg={cfg}
           disabled={guardando}
-          onGuardar={(categoriaId, porcentaje, idExistente) => void enviar({
+          onGuardar={(categoriaId, porcentaje, tipoVendedorId, idExistente) => void enviar({
             accion: "regla",
             ...(idExistente ? { id: idExistente } : {}),
-            tipo_vendedor_id: null,
+            // null = la regla vale para cualquier tipo de vendedor (la tabla
+            // general). Con un tipo elegido, la regla es de ese tipo y le gana
+            // a la general.
+            tipo_vendedor_id: tipoVendedorId,
             categoria_id: categoriaId,
             porcentaje,
           })}
@@ -970,19 +973,50 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
   cfg: Config;
   disabled?: boolean;
   /** `idExistente` vacío = la regla todavía no existe y hay que crearla. */
-  onGuardar: (categoriaId: string, porcentaje: number, idExistente?: string) => void;
+  onGuardar: (
+    categoriaId: string,
+    porcentaje: number,
+    tipoVendedorId: string | null,
+    idExistente?: string
+  ) => void;
   onBorrar: (id: string) => void;
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [soloFaltan, setSoloFaltan] = useState(false);
+  /**
+   * Para qué tipo de vendedor se están cargando los porcentajes.
+   *
+   * "" = para todos los tipos, que es la tabla general y lo único que esta
+   * pantalla editaba antes. Eligiendo un tipo se cargan los porcentajes de ESE
+   * tipo: "todos los del call center cobran tanto en caños".
+   *
+   * La base ya guardaba la regla por tipo + rubro (`comisiones_reglas`) y el
+   * cálculo ya la resolvía; lo que faltaba era poder cargarla desde acá sin
+   * armar reglas sueltas a mano.
+   */
+  const [tipoSel, setTipoSel] = useState("");
 
-  // Las reglas que edita esta pantalla: por rubro, sin tipo de vendedor.
+  /**
+   * Las reglas, separadas en las del tipo elegido y las generales.
+   *
+   * Las generales hacen de respaldo: si para CALL CENTER no hay nada cargado en
+   * CAÑOS pero sí hay una regla general para CAÑOS, el vendedor de call center
+   * cobra esa. Es el mismo orden que `porcentajeAplicable` en el servidor, y
+   * está acá para que la pantalla muestre lo que se va a pagar de verdad.
+   */
   const porRubro = new Map<string, Regla>();
-  const conTipo: Regla[] = [];
+  const generales = new Map<string, Regla>();
+  const huerfanas: Regla[] = [];
   for (const r of cfg.reglas) {
-    if (r.tipo_vendedor_id == null && r.categoria_id != null) porRubro.set(r.categoria_id, r);
-    else conTipo.push(r);
+    if (r.categoria_id == null) {
+      huerfanas.push(r);
+      continue;
+    }
+    if (r.tipo_vendedor_id == null) generales.set(r.categoria_id, r);
+    if ((r.tipo_vendedor_id ?? "") === tipoSel) porRubro.set(r.categoria_id, r);
   }
+  const nombreTipoSel = cfg.tipos.find((t) => t.id === tipoSel)?.nombre ?? "";
+  const baseTipoSel = cfg.tipos.find((t) => t.id === tipoSel)?.porcentaje_base;
 
   /**
    * El porcentaje que termina cobrando un rubro: el suyo, o el del primer
@@ -993,18 +1027,57 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
   const padreDe = new Map<string, string | null>(
     cfg.rubros.map((r) => [r.id, r.parent_id ?? null])
   );
+  const nombreTipo = (id: string | null) =>
+    id == null ? "Todos los tipos" : (cfg.tipos.find((x) => x.id === id)?.nombre ?? "—");
+  const nombreRubro = (id: string | null) =>
+    id == null ? "Cualquier rubro" : (cfg.rubros.find((x) => x.id === id)?.nombre ?? "—");
+  /**
+   * De dónde sale el porcentaje de un rubro cuando no tiene el suyo propio.
+   *
+   * ── TIENE QUE SER EL MISMO ORDEN QUE EL SERVIDOR ──────────────────────
+   * Esto copia `porcentajeAplicable` (src/lib/comisiones/calculo.ts), que es
+   * lo que decide lo que se paga: se recorre el rubro y sus padres, y EN CADA
+   * ESCALÓN se prueba primero la regla del tipo elegido y después la general.
+   *
+   *     CAÑOS REDONDOS (tipo) → CAÑOS REDONDOS (general)
+   *       → CAÑOS (tipo) → CAÑOS (general) → % base del tipo
+   *
+   * El orden importa y es fácil equivocarlo: la primera versión de esta
+   * función probaba TODOS los padres del tipo antes de mirar la tabla general,
+   * así que con un 7% en CAÑOS para call center y un 5% general en CAÑOS
+   * REDONDOS, la pantalla decía 7% y el sistema pagaba 5%. Una pantalla que
+   * muestra un número distinto al que se paga es peor que no mostrarlo.
+   */
   function heredado(rubroId: string): { pct: number; de: string } | null {
-    const vistos = new Set<string>([rubroId]);
-    let actual = padreDe.get(rubroId) ?? null;
+    const vistos = new Set<string>();
+    let actual: string | null = rubroId;
+    let primero = true;
+
     while (actual && !vistos.has(actual)) {
       vistos.add(actual);
-      const regla = porRubro.get(actual);
-      if (regla) {
-        return {
-          pct: Number(regla.porcentaje) || 0,
-          de: cfg.rubros.find((x) => x.id === actual)?.nombre ?? "su rubro padre",
-        };
+
+      // La del tipo elegido. En el primer escalón la saltea: esa es la propia
+      // del rubro, que el renglón muestra aparte como editable.
+      if (!primero) {
+        const delTipo = porRubro.get(actual);
+        if (delTipo) {
+          return { pct: Number(delTipo.porcentaje) || 0, de: nombreRubro(actual) };
+        }
       }
+
+      // La general de ese mismo rubro. Solo cuando hay un tipo elegido: en la
+      // tabla general, `porRubro` y `generales` son la misma cosa.
+      if (tipoSel !== "") {
+        const general = generales.get(actual);
+        if (general) {
+          return {
+            pct: Number(general.porcentaje) || 0,
+            de: primero ? "la tabla general" : `${nombreRubro(actual)} en la tabla general`,
+          };
+        }
+      }
+
+      primero = false;
       actual = padreDe.get(actual) ?? null;
     }
     return null;
@@ -1061,13 +1134,43 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
     return t === "" || rubro.nombre.toLowerCase().includes(t);
   });
 
-  const nombreTipo = (id: string | null) =>
-    id == null ? "Cualquier tipo" : (cfg.tipos.find((x) => x.id === id)?.nombre ?? "—");
-  const nombreRubro = (id: string | null) =>
-    id == null ? "Cualquier rubro" : (cfg.rubros.find((x) => x.id === id)?.nombre ?? "—");
-
   return (
     <div>
+      {/* Para qué tipo de vendedor se cargan estos porcentajes. */}
+      <div className="mb-3 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase text-slate-500">
+            Cargando los porcentajes de
+          </span>
+          <select
+            value={tipoSel}
+            onChange={(e) => setTipoSel(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium"
+          >
+            <option value="">Todos los tipos de vendedor</option>
+            {cfg.tipos.map((t) => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
+            ))}
+          </select>
+        </label>
+        <p className="flex-1 text-[11px] leading-snug text-slate-500">
+          {tipoSel === "" ? (
+            <>
+              Esta es la tabla <strong>general</strong>: vale para cualquier vendedor que no tenga
+              un porcentaje propio de su tipo. Eligiendo un tipo se cargan los de ese tipo, y esos
+              le ganan a la general.
+            </>
+          ) : (
+            <>
+              Lo que se cargue acá vale para <strong>todos los {nombreTipoSel}</strong> y le gana a
+              la tabla general. El rubro que quede vacío usa el de la tabla general y, si ahí
+              tampoco hay nada, el porcentaje base del tipo
+              {baseTipoSel != null ? ` (${pct(Number(baseTipoSel) || 0)})` : ""}.
+            </>
+          )}
+        </p>
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input
           value={busqueda}
@@ -1166,7 +1269,7 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
                           if (regla) onBorrar(regla.id);
                           return;
                         }
-                        onGuardar(rubro.id, n, regla?.id);
+                        onGuardar(rubro.id, n, tipoSel || null, regla?.id);
                       }}
                     />
                   )}
@@ -1186,9 +1289,16 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
                       </button>
                     </span>
                   ) : regla ? null : hereda ? (
-                    <span className="text-slate-500">hereda el {pct(hereda.pct)} de {hereda.de}</span>
+                    <span className="text-slate-500">
+                      {hereda.de.includes("tabla general")
+                        ? `usa el ${pct(hereda.pct)} de ${hereda.de}`
+                        : `hereda el ${pct(hereda.pct)} de ${hereda.de}`}
+                    </span>
                   ) : (
-                    <span className="text-amber-700">sin cargar: usa el % base del tipo</span>
+                    <span className="text-amber-700">
+                      sin cargar: usa el % base del tipo
+                      {tipoSel !== "" && baseTipoSel != null ? ` (${pct(Number(baseTipoSel) || 0)})` : ""}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -1197,20 +1307,23 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
         </tbody>
       </table>
 
-      {/* Las reglas que esta pantalla ya no edita, pero que siguen pesando. */}
-      {conTipo.length > 0 && (
+      {/* Las reglas que no apuntan a ningún rubro: esta tabla es por rubro, así
+          que no tienen renglón donde mostrarse, pero siguen pesando en el
+          cálculo. Antes acá salían también las reglas por tipo; ahora esas se
+          cargan arriba, eligiendo el tipo. */}
+      {huerfanas.length > 0 && (
         <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
           <p className="text-sm font-medium text-amber-900">
-            Hay {conTipo.length} regla{conTipo.length === 1 ? "" : "s"} vieja
-            {conTipo.length === 1 ? "" : "s"} atada{conTipo.length === 1 ? "" : "s"} a un tipo de vendedor.
+            Hay {huerfanas.length} regla{huerfanas.length === 1 ? "" : "s"} que no apunta
+            {huerfanas.length === 1 ? "" : "n"} a ningún rubro.
           </p>
           <p className="mt-0.5 text-xs leading-snug text-amber-800">
-            Le ganan a la lista de arriba, porque son más específicas: un vendedor de
-            ese tipo comisiona con esto y no con el porcentaje del rubro. Si ya no
-            hacen falta, borralas.
+            Se aplican a todos los rubros que no tengan uno cargado, así que no aparecen en
+            ningún renglón de la tabla pero igual deciden lo que se paga. Si ya no hacen falta,
+            borralas.
           </p>
           <ul className="mt-2 space-y-1">
-            {conTipo.map((r) => (
+            {huerfanas.map((r) => (
               <li key={r.id} className="flex items-center gap-2 text-sm text-amber-900">
                 <span className="tabular-nums font-medium">{pct(Number(r.porcentaje) || 0)}</span>
                 <span>· {nombreTipo(r.tipo_vendedor_id)} · {nombreRubro(r.categoria_id)}</span>
