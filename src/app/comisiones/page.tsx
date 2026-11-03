@@ -781,11 +781,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
           </tbody>
         </table>
 
-        {/* El nombre sale de una lista, no se escribe.
-            Con el campo abierto aparecían "CALL CENTER", "Call center" y
-            "CALLCENTER" como tres tipos distintos, cada uno con su porcentaje y
-            su mínimo, y las comisiones se repartían entre tres configuraciones
-            que nadie quiso crear. */}
+        {/* El nombre se escribe, con los tipos habituales como sugerencia. */}
         <NuevoTipoVendedor
           yaCargados={cfg.tipos}
           disabled={guardando}
@@ -1254,11 +1250,17 @@ function Tarjeta({ label, valor, sub, tono, destacado = false }: {
 }
 
 /**
- * Alta de un tipo de vendedor, eligiendo el nombre de una lista cerrada.
+ * Alta de un tipo de vendedor.
  *
- * Los tipos que ya existen en la base siguen funcionando aunque no estén en la
- * lista: esto limita lo que se puede CREAR, no lo que hay. Borrar un tipo
- * cargado dejaría sin porcentaje a los vendedores que lo tienen asignado.
+ * El nombre se escribe libremente, con los tipos habituales ofrecidos como
+ * sugerencia en vez de impuestos: la casa necesita poder inventar un tipo sin
+ * esperar a que alguien lo agregue al código. Se llegó acá después de haberlo
+ * cerrado y volver atrás a pedido.
+ *
+ * Lo que evita el desorden es que el servidor guarda el nombre en MAYÚSCULAS:
+ * sin eso, "CALL CENTER", "Call center" y "call center" entrarían como tres
+ * tipos distintos, cada uno con su porcentaje y su mínimo, y las comisiones se
+ * repartirían entre tres configuraciones que nadie quiso crear.
  */
 function NuevoTipoVendedor({ yaCargados, disabled, onEnviar }: {
   yaCargados: Tipo[];
@@ -1268,27 +1270,25 @@ function NuevoTipoVendedor({ yaCargados, disabled, onEnviar }: {
   const [nombre, setNombre] = useState("");
   const [pctBase, setPctBase] = useState("");
 
-  const opciones = tiposDisponibles(yaCargados);
-
-  if (opciones.length === 0) {
-    return (
-      <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
-        Ya están cargados todos los tipos de vendedor previstos.
-      </p>
-    );
-  }
+  // Los habituales se ofrecen como sugerencia; los que ya están cargados no,
+  // porque elegirlos solo lleva al error de nombre repetido.
+  const sugerencias = tiposDisponibles(yaCargados);
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-      <select
+      <input
+        list="tipos-vendedor-sugeridos"
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         disabled={disabled}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm"
-      >
-        <option value="">— Tipo de vendedor —</option>
-        {opciones.map((t) => <option key={t} value={t}>{t}</option>)}
-      </select>
+        placeholder="Tipo de vendedor"
+        // El nombre se guarda en MAYÚSCULAS (lo hace el servidor): sin eso,
+        // "Call center" y "CALL CENTER" entran como dos tipos distintos.
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm uppercase"
+      />
+      <datalist id="tipos-vendedor-sugeridos">
+        {sugerencias.map((t) => <option key={t} value={t} />)}
+      </datalist>
       <input
         type="number" min={0} max={100} step="0.01"
         placeholder="% base"
@@ -1301,7 +1301,7 @@ function NuevoTipoVendedor({ yaCargados, disabled, onEnviar }: {
         type="button"
         // Sin nombre no hay nada que crear. El % base puede quedar en cero: es
         // un valor real (el que no comisiona si ninguna regla aplica).
-        disabled={disabled || nombre === ""}
+        disabled={disabled || nombre.trim() === ""}
         onClick={() => {
           onEnviar(nombre, Number(pctBase) || 0);
           setNombre("");

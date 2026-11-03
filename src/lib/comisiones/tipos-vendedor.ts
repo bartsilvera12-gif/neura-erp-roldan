@@ -1,22 +1,22 @@
 /**
- * Los tipos de vendedor que se pueden dar de alta.
+ * Los tipos de vendedor habituales, como sugerencia al dar de alta uno nuevo.
  *
- * ── POR QUÉ UNA LISTA Y NO TEXTO LIBRE ────────────────────────────────────
- * Se pidió en la reunión: "tipos de vendedor predefinidos: call center,
- * vendedor externo (no escribir libre)". Con el campo abierto aparecen
- * "CALL CENTER", "Call center" y "CALLCENTER" como tres tipos distintos, cada
- * uno con su porcentaje y su mínimo, y las comisiones se reparten entre tres
+ * ── SON SUGERENCIAS, NO UNA LISTA CERRADA ─────────────────────────────────
+ * En la reunión se pidió cerrarla ("tipos de vendedor predefinidos: call
+ * center, vendedor externo, no escribir libre"), se cerró, y después se volvió
+ * atrás a pedido: la casa necesita poder inventar un tipo sin esperar a que
+ * alguien lo agregue al código. El campo acepta cualquier nombre y estos
+ * aparecen como sugerencia.
+ *
+ * Lo que evita el desorden que motivaba el pedido es que el nombre se guarda en
+ * MAYÚSCULAS (lo normaliza el endpoint): sin eso, "CALL CENTER", "Call center"
+ * y "call center" entrarían como tres tipos distintos, cada uno con su
+ * porcentaje y su mínimo, y las comisiones se repartirían entre tres
  * configuraciones que nadie quiso crear.
  *
- * Asignarle un tipo a una persona ya era un desplegable; lo que faltaba era
- * cerrar la creación.
- *
- * ── LOS TIPOS QUE YA EXISTEN NO SE TOCAN ──────────────────────────────────
- * Si en la base hay un tipo con otro nombre, sigue funcionando: esta lista
- * limita lo que se puede CREAR, no lo que existe. Borrar un tipo cargado
- * dejaría sin porcentaje a los vendedores que lo tienen asignado.
+ * `esTipoVendedorConocido` queda para poder distinguir en pantalla los
+ * habituales de los inventados, si alguna vez hace falta.
  */
-
 export const TIPOS_VENDEDOR: readonly string[] = [
   "CALL CENTER",
   "VENDEDOR EXTERNO",

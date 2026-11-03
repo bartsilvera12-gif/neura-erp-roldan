@@ -3,7 +3,6 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
-import { TIPOS_VENDEDOR, esTipoVendedorConocido } from "@/lib/comisiones/tipos-vendedor";
 
 /**
  * Configuración de comisiones (punto 4.5).
@@ -171,22 +170,17 @@ export async function POST(request: NextRequest) {
       if (!nombre) return NextResponse.json(errorResponse("Poné un nombre para el tipo."), { status: 400 });
 
       /**
-       * Los tipos salen de una lista cerrada (ver `TIPOS_VENDEDOR`).
+       * El nombre se puede escribir libremente: la pantalla ofrece los tipos
+       * habituales como sugerencia, pero no los impone. Se decidió así después
+       * de haberlo cerrado: la casa necesita poder inventar un tipo sin esperar
+       * a que alguien lo agregue al código.
        *
-       * Solo se exige AL CREAR: al editar llega el nombre que ya tiene la fila,
-       * y si en la base hay un tipo con otro nombre —cargado antes de esta
-       * regla— tiene que poder seguir cambiándole el porcentaje. Exigirlo
-       * también al editar dejaría esos tipos congelados.
+       * Lo que sí queda es la normalización a MAYÚSCULAS de arriba, que es la
+       * que evita el problema de fondo: sin ella, "CALL CENTER", "Call center"
+       * y "call center" entraban como tres tipos distintos, cada uno con su
+       * porcentaje, y las comisiones se repartían entre tres configuraciones
+       * que nadie quiso crear.
        */
-      if (!b.id && !esTipoVendedorConocido(nombre)) {
-        return NextResponse.json(
-          errorResponse(
-            `"${nombre}" no es uno de los tipos de vendedor previstos. ` +
-            `Elegí uno de: ${TIPOS_VENDEDOR.join(", ")}.`
-          ),
-          { status: 400 }
-        );
-      }
       const pct = Number(b.porcentaje_base);
       if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
         return NextResponse.json(
