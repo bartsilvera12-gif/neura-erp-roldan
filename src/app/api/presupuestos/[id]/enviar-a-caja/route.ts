@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { faltantesParaFacturar, mensajeNoFacturable } from "@/lib/presupuestos/server/stock-presupuesto";
 
 /**
  * POST /api/presupuestos/[id]/enviar-a-caja
@@ -46,6 +47,31 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
     }
     if (presu.convertido_venta_id) {
       return NextResponse.json(errorResponse("Este presupuesto ya se cobró."), { status: 409 });
+    }
+
+    /**
+     * Sin stock no se manda a cobrar.
+     *
+     * Cotizar lo que no hay es válido —se ofrece, el cliente acepta y recién
+     * entonces se compra— pero facturar es entregar, y no se entrega lo que no
+     * está. Se corta acá, que es cuando el presupuesto entra en la cola del
+     * cajero: si se dejara pasar, el que se entera de que falta mercadería es
+     * el cajero, con el cliente enfrente y la plata en la mano.
+     *
+     * No mira el rol a propósito: ni el administrador puede facturar
+     * mercadería que no existe.
+     */
+    const faltantes = await faltantesParaFacturar(
+      ctx.supabase,
+      ctx.auth.empresa_id,
+      ctx.auth.sucursal_id ?? null,
+      id
+    );
+    if (faltantes.length > 0) {
+      return NextResponse.json(
+        { success: false, error: mensajeNoFacturable(faltantes), faltantes },
+        { status: 409 }
+      );
     }
 
     const firma = await firmaUsuario(ctx.supabase, ctx.auth);

@@ -54,7 +54,16 @@ export async function reservasPorProducto(
   sb: AppSupabaseClient,
   empresaId: string,
   sucursalId: string | null,
-  productoIds?: string[]
+  productoIds?: string[],
+  /**
+   * Un presupuesto que NO cuenta como reserva.
+   *
+   * Hace falta al preguntar "¿alcanza el stock para cobrar ESTE presupuesto?".
+   * Un presupuesto aprobado reserva su propia mercadería, así que sin excluirlo
+   * se estaría comparando contra un disponible al que ya se le descontó lo
+   * mismo que se quiere entregar: nunca alcanzaría, ni con el depósito lleno.
+   */
+  excluirPresupuestoId?: string | null
 ): Promise<Map<string, ReservaProducto>> {
   const out = new Map<string, ReservaProducto>();
 
@@ -78,7 +87,8 @@ export async function reservasPorProducto(
       const v = p.fecha_vencimiento == null ? null : String(p.fecha_vencimiento).slice(0, 10);
       return v == null || v >= hoy;
     })
-    .map((p) => String(p.id));
+    .map((p) => String(p.id))
+    .filter((pid) => !excluirPresupuestoId || pid !== String(excluirPresupuestoId));
 
   if (ids.length === 0) return out;
 
@@ -149,11 +159,13 @@ export async function existenciasConReserva(
   sb: AppSupabaseClient,
   empresaId: string,
   sucursalId: string | null,
-  productoIds: string[]
+  productoIds: string[],
+  /** Un presupuesto que no cuenta como reserva. Ver `reservasPorProducto`. */
+  excluirPresupuestoId?: string | null
 ): Promise<ExistenciaProducto[]> {
   if (productoIds.length === 0) return [];
 
-  const reservas = await reservasPorProducto(sb, empresaId, sucursalId, productoIds);
+  const reservas = await reservasPorProducto(sb, empresaId, sucursalId, productoIds, excluirPresupuestoId);
 
   const filas: ExistenciaProducto[] = [];
   for (let i = 0; i < productoIds.length; i += CHUNK) {

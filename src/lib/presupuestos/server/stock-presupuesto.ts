@@ -44,7 +44,13 @@ export async function faltantesDeStock(
   sb: AppSupabaseClient,
   empresaId: string,
   sucursalId: string | null,
-  lineas: LineaParaStock[]
+  lineas: LineaParaStock[],
+  /**
+   * El presupuesto que se está por cobrar, para que su propia reserva no se
+   * le descuente a sí mismo. Al crear uno nuevo no se pasa: todavía no
+   * reserva nada.
+   */
+  excluirPresupuestoId?: string | null
 ): Promise<Faltante[]> {
   // Varias líneas del mismo producto suman: tres líneas de 10 de la misma
   // chapa son 30, y medidas por separado cada una "entra" cuando hay 15.
@@ -61,7 +67,9 @@ export async function faltantesDeStock(
   }
   if (pedido.size === 0) return [];
 
-  const existencias = await existenciasConReserva(sb, empresaId, sucursalId, [...pedido.keys()]);
+  const existencias = await existenciasConReserva(
+    sb, empresaId, sucursalId, [...pedido.keys()], excluirPresupuestoId
+  );
   const porId = new Map(existencias.map((e) => [String(e.producto_id), e]));
 
   const out: Faltante[] = [];
@@ -97,5 +105,55 @@ export function mensajeFaltantes(faltantes: Faltante[]): string {
     `No alcanza el stock para ${faltantes.length === 1 ? "un producto" : `${faltantes.length} productos`}: ` +
     `${detalle}${resto}. Cotizar más de lo que hay lo hace un administrador, ` +
     "porque es asumir una compra y una fecha de entrega."
+  );
+}
+
+/**
+ * Lo que le falta de stock a un presupuesto ya guardado, para poder cobrarlo.
+ *
+ * ── POR QUÉ ESTO NO ES LO MISMO QUE AL CREARLO ────────────────────────────
+ *   Cotizar sin stock es válido: se ofrece, el cliente acepta y recién
+ *   entonces se compra. Lo que no se puede es ENTREGAR lo que no está, y
+ *   facturar es entregar. Por eso la misma cuenta se hace dos veces, en dos
+ *   momentos distintos, y en el segundo no mira quién la pide: ni el
+ *   administrador puede facturar mercadería que no existe.
+ *
+ *   Se excluye la reserva del propio presupuesto: si está aprobado, ya tiene
+ *   reservada esa mercadería para sí mismo, y contarla sería descontarle lo
+ *   que justamente se le va a entregar.
+ */
+export async function faltantesParaFacturar(
+  sb: AppSupabaseClient,
+  empresaId: string,
+  sucursalId: string | null,
+  presupuestoId: string
+): Promise<Faltante[]> {
+  const itemsQ = await sb
+    .from("presupuesto_items")
+    .select("producto_id, producto_nombre, cantidad")
+    .eq("empresa_id", empresaId)
+    .eq("presupuesto_id", presupuestoId)
+    .limit(1000);
+  if (itemsQ.error) throw new Error(itemsQ.error.message);
+
+  const lineas: LineaParaStock[] = ((itemsQ.data ?? []) as Array<Record<string, unknown>>).map((it) => ({
+    producto_id: it.producto_id ? String(it.producto_id) : null,
+    producto_nombre: String(it.producto_nombre ?? ""),
+    cantidad: Number(it.cantidad) || 0,
+  }));
+
+  return faltantesDeStock(sb, empresaId, sucursalId, lineas, presupuestoId);
+}
+
+/** El mensaje de por qué este presupuesto todavía no se puede cobrar. */
+export function mensajeNoFacturable(faltantes: Faltante[]): string {
+  const detalle = faltantes
+    .slice(0, 5)
+    .map((f) => `${f.producto_nombre || "un producto"} (faltan ${f.falta})`)
+    .join("; ");
+  const resto = faltantes.length > 5 ? ` y ${faltantes.length - 5} más` : "";
+  return (
+    `No se puede cobrar: falta stock de ${faltantes.length === 1 ? "un producto" : `${faltantes.length} productos`}. ` +
+    `${detalle}${resto}. Hay que comprar la mercadería antes de facturar, o editar el presupuesto.`
   );
 }

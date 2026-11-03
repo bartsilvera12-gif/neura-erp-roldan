@@ -496,6 +496,17 @@ export default function NuevaVentaPage() {
   // Presupuesto asociado (?presupuesto_id=...) — se marca convertido al confirmar la venta.
   const [presupuestoId, setPresupuestoId] = useState<string | null>(null);
   const [presupuestoNumero, setPresupuestoNumero] = useState<string | null>(null);
+  /**
+   * El presupuesto que se está cobrando, ¿tiene stock para entregarse?
+   *
+   * Se vuelve a preguntar acá aunque el envío a caja ya lo haya validado: el
+   * presupuesto pudo mandarse ayer y la mercadería haberse vendido hoy por
+   * mostrador. Lo que valía al mandarlo no vale necesariamente al cobrarlo.
+   *
+   * `null` es "todavía no se sabe" y no bloquea nada: un cobro frenado
+   * mientras carga una consulta es un cobro frenado por nosotros.
+   */
+  const [presuSinStock, setPresuSinStock] = useState<string | null>(null);
 
   // Precarga al cobrar un presupuesto aprobado (?presupuesto_id=...).
   useEffect(() => {
@@ -512,6 +523,16 @@ export default function NuevaVentaPage() {
         const items = j?.data?.items as Record<string, unknown>[] | undefined;
         if (cancelled || !presu || !items) return;
         setPresupuestoNumero(typeof presu.numero_control === "string" ? presu.numero_control : null);
+
+        // ¿Alcanza el stock para entregarlo? La misma cuenta que bloqueó el
+        // envío a caja, repetida al cobrar porque el stock se mueve solo.
+        void fetch(`/api/presupuestos/${pid}/stock`, { credentials: "include", cache: "no-store" })
+          .then((r) => r.json())
+          .then((js) => {
+            if (cancelled || !js?.success) return;
+            setPresuSinStock(js.data?.facturable === false ? (js.data?.aviso ?? "Falta stock para entregar este presupuesto.") : null);
+          })
+          .catch(() => { /* sin el dato no se bloquea: ver el comentario del estado */ });
         const lineas: LineaVenta[] = items
           .filter((it) => it.producto_id && (Number(it.cantidad) || 0) > 0)
           .map((it) => {
@@ -1265,7 +1286,10 @@ export default function NuevaVentaPage() {
   );
 
   const ventaValida   = items.length > 0 && creditoValido && pagoMixtoValido
-                        && lineasEsperando.length === 0;
+                        && lineasEsperando.length === 0
+                        // Un presupuesto sin stock no se factura: facturar es
+                        // entregar, y no se entrega lo que no está.
+                        && presuSinStock === null;
 
   // Cliente (opcional) — selección + filtrado del buscador.
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null;
@@ -2650,6 +2674,22 @@ export default function NuevaVentaPage() {
 
           {/* Un pedido sin contestar frena la venta. Se dice por qué y se da la
               salida, porque el cliente está parado en el mostrador. */}
+          {/* Un presupuesto sin stock no se puede cobrar. Se dice con el
+              detalle de qué falta y cuánto: "no se puede" a secas deja al
+              cajero sin nada que contestarle al cliente. */}
+          {presuSinStock && (
+            <div className="mt-6 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3">
+              <p className="text-sm font-semibold text-rose-900">
+                Este presupuesto no se puede cobrar todavía
+              </p>
+              <p className="mt-0.5 text-xs leading-snug text-rose-800">{presuSinStock}</p>
+              <p className="mt-1.5 text-xs leading-snug text-rose-800">
+                Cotizar sin stock está bien —para eso está el presupuesto— pero facturar es
+                entregar. Hay que comprar la mercadería, o sacarle al presupuesto lo que no hay.
+              </p>
+            </div>
+          )}
+
           {lineasEsperando.length > 0 && (
             <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
               <p className="text-sm font-semibold text-amber-900">
@@ -2697,9 +2737,13 @@ export default function NuevaVentaPage() {
               type="submit"
               disabled={!ventaValida || guardando}
               aria-busy={guardando}
-              title={lineasEsperando.length > 0
-                ? "Hay un descuento esperando la autorización del administrador."
-                : undefined}
+              title={
+                presuSinStock
+                  ? "Falta stock para entregar este presupuesto: no se puede facturar."
+                  : lineasEsperando.length > 0
+                    ? "Hay un descuento esperando la autorización del administrador."
+                    : undefined
+              }
               className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 min-h-[48px] w-full sm:w-auto"
             >
               {guardando ? "Guardando…" : "Confirmar venta"}
