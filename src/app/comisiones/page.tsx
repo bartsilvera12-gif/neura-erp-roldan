@@ -793,7 +793,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Porcentajes por rubro */}
       <Caja titulo="Porcentajes por rubro"
-        ayuda="Están todos los rubros del catálogo. El que no tiene porcentaje cargado comisiona con el porcentaje base del tipo de vendedor, que casi nunca es lo que se quiso. Si un rubro tiene subcategorías, alcanza con cargar el porcentaje en el padre: lo heredan todas, salvo la que tenga uno propio. Por encima de todo esto manda la comisión propia de la persona.">
+        ayuda="El porcentaje se carga en el RUBRO MAYOR y lo heredan todos sus grupos: los grupos se muestran para que se vea qué cobran, pero no se editan acá. El rubro sin porcentaje cargado comisiona con el porcentaje base del tipo de vendedor, que casi nunca es lo que se quiso. Por encima de todo esto manda la comisión propia de la persona.">
         <ReglasPorRubro
           cfg={cfg}
           disabled={guardando}
@@ -1010,8 +1010,21 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
     return null;
   }
 
-  // Falta cargar el que no tiene regla propia NI hereda una.
-  const faltan = cfg.rubros.filter((r) => !porRubro.has(r.id) && !heredado(r.id)).length;
+  // Se declaran acá y no más abajo porque `cargables` los usa: un `const`
+  // usado antes de su declaración compila pero revienta al renderizar.
+  const existe = new Set(cfg.rubros.map((r) => r.id));
+  const hijosDe = new Map<string, RubroLite[]>();
+
+  /**
+   * Cuántos faltan, contando SOLO los que se pueden cargar.
+   *
+   * Los grupos no se cargan acá —el porcentaje lo pone su rubro mayor— así que
+   * contarlos como faltantes haría que el cartel diga "faltan 70 de 70" para
+   * siempre, aun con los nueve rubros mayores cargados. Lo que se cuenta es lo
+   * editable: los rubros mayores y los que no tienen grupos.
+   */
+  const cargables = cfg.rubros.filter((r) => !(r.parent_id && existe.has(r.parent_id)));
+  const faltan = cargables.filter((r) => !porRubro.has(r.id) && !heredado(r.id)).length;
 
   /**
    * Los rubros ordenados como árbol: cada padre seguido de sus hijos.
@@ -1020,9 +1033,7 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
    * se trata como raíz en vez de desaparecer: no mostrarlo haría que su
    * porcentaje no se pueda cargar desde ningún lado.
    */
-  const hijosDe = new Map<string, RubroLite[]>();
   const raices: RubroLite[] = [];
-  const existe = new Set(cfg.rubros.map((r) => r.id));
   for (const r of cfg.rubros) {
     const padre = r.parent_id && existe.has(r.parent_id) ? r.parent_id : null;
     if (padre) {
@@ -1071,11 +1082,11 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
         <span className="ml-auto text-sm">
           {faltan === 0 ? (
             <span className="font-medium text-emerald-700">
-              Los {cfg.rubros.length} rubros tienen porcentaje cargado.
+              Los {cargables.length} rubros tienen porcentaje cargado.
             </span>
           ) : (
             <span className="font-medium text-amber-700">
-              Faltan {faltan} de {cfg.rubros.length} rubros por cargar.
+              Faltan {faltan} de {cargables.length} rubros por cargar.
             </span>
           )}
         </span>
@@ -1104,29 +1115,77 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
             const regla = porRubro.get(rubro.id);
             const hereda = regla ? null : heredado(rubro.id);
             const cubierto = !!regla || !!hereda;
+            /**
+             * Un GRUPO no se edita acá: el porcentaje lo pone su rubro mayor.
+             *
+             * Dejar la casilla en cada grupo invita a cargar siete números
+             * distintos donde debería haber uno, que es lo contrario de
+             * "alcanza con cargarlo en el padre". El grupo muestra lo que le
+             * toca; para cambiarlo se va al padre.
+             */
+            const esGrupo = nivel > 0;
+            const esPadre = (hijosDe.get(rubro.id) ?? []).length > 0;
             return (
-              <tr key={rubro.id} className={cubierto ? "" : "bg-amber-50/40"}>
+              <tr key={rubro.id} className={cubierto ? (esPadre ? "bg-slate-50/70" : "") : "bg-amber-50/40"}>
                 <td className="py-2 text-slate-700" style={{ paddingLeft: nivel * 18 }}>
                   {nivel > 0 && <span className="mr-1 text-slate-300">└</span>}
-                  {rubro.nombre}
+                  <span className={esPadre ? "font-semibold text-slate-800" : ""}>{rubro.nombre}</span>
+                  {esPadre && (
+                    <span className="ml-2 rounded-full bg-[#4FAEB2]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#3F8E91]">
+                      {(hijosDe.get(rubro.id) ?? []).length} grupos
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 text-right">
-                  <PctEditable
-                    valor={regla ? Number(regla.porcentaje) || 0 : -1}
-                    disabled={disabled}
-                    permiteVacio
-                    etiquetaVacio={hereda ? pct(hereda.pct) : "sin cargar"}
-                    onGuardar={(n) => {
-                      if (n < 0) {
-                        if (regla) onBorrar(regla.id);
-                        return;
-                      }
-                      onGuardar(rubro.id, n, regla?.id);
-                    }}
-                  />
+                  {esGrupo ? (
+                    /* Solo lectura. Si el grupo tiene un % propio distinto al
+                       del padre se muestra ESE, marcado: taparlo seria decir
+                       un numero que no es el que se va a pagar. */
+                    regla ? (
+                      <span className="inline-flex items-center gap-1 pr-2 text-xs">
+                        <span className="font-semibold tabular-nums text-amber-700">
+                          {pct(Number(regla.porcentaje) || 0)}
+                        </span>
+                        <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold uppercase text-amber-800">
+                          propio
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="pr-2 text-xs tabular-nums text-slate-400">
+                        {hereda ? pct(hereda.pct) : "—"}
+                      </span>
+                    )
+                  ) : (
+                    <PctEditable
+                      valor={regla ? Number(regla.porcentaje) || 0 : -1}
+                      disabled={disabled}
+                      permiteVacio
+                      etiquetaVacio={hereda ? pct(hereda.pct) : "sin cargar"}
+                      onGuardar={(n) => {
+                        if (n < 0) {
+                          if (regla) onBorrar(regla.id);
+                          return;
+                        }
+                        onGuardar(rubro.id, n, regla?.id);
+                      }}
+                    />
+                  )}
                 </td>
                 <td className="py-2 pl-3 text-xs">
-                  {regla ? null : hereda ? (
+                  {esGrupo && regla ? (
+                    <span className="inline-flex items-center gap-2 text-amber-700">
+                      <span>tiene el suyo, no el del rubro</span>
+                      <button
+                        type="button"
+                        onClick={() => onBorrar(regla.id)}
+                        disabled={disabled}
+                        className="text-rose-700 underline-offset-2 hover:underline disabled:opacity-50"
+                        title="Saca el porcentaje propio de este grupo para que use el de su rubro"
+                      >
+                        usar el del rubro
+                      </button>
+                    </span>
+                  ) : regla ? null : hereda ? (
                     <span className="text-slate-500">hereda el {pct(hereda.pct)} de {hereda.de}</span>
                   ) : (
                     <span className="text-amber-700">sin cargar: usa el % base del tipo</span>
