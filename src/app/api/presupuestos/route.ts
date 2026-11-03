@@ -5,6 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { isAdmin } from "@/lib/middleware/auth";
+import { validarRucOCedula } from "@/lib/clientes/identificador";
 import {
   conCamposScript38,
   leerPresupuestosConFallback,
@@ -114,6 +115,23 @@ export async function POST(request: NextRequest) {
     const clienteNombre = String(body.cliente_nombre ?? "").trim();
     if (!clienteNombre) {
       return NextResponse.json(errorResponse("El nombre del cliente es obligatorio."), { status: 400 });
+    }
+
+    /**
+     * RUC o cédula, obligatorio.
+     *
+     * No es solo un dato del papel: más abajo, si el cliente no se eligió del
+     * catálogo, ESTA RUTA LO DA DE ALTA. Sin exigirlo acá, el presupuesto se
+     * cuela por la ventana que cerramos en el alta de clientes y el padrón se
+     * vuelve a llenar de homónimos. Y el presupuesto es el papel que después se
+     * factura: una factura sin RUC ni cédula no se puede emitir.
+     */
+    const identPresu = validarRucOCedula(body.cliente_ruc as string | null | undefined);
+    if (!identPresu.ok) {
+      return NextResponse.json(
+        errorResponse(identPresu.error ?? "Cargá el RUC o la cédula del cliente."),
+        { status: 400 }
+      );
     }
     const validezRaw = body.validez_dias;
     const validez =

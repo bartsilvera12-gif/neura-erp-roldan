@@ -9,6 +9,7 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
+import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -389,8 +390,13 @@ export default function NuevoPresupuestoPage() {
     return { subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total) };
   }, [items]);
 
+  // Mismo criterio que el servidor, acá para que el aviso salga antes de
+  // guardar: sin RUC ni cédula el presupuesto no se puede facturar después.
+  const identCliente = validarRucOCedula(clienteRuc);
+
   const valido =
     clienteNombre.trim().length > 0 &&
+    identCliente.ok &&
     // Sin teléfono no hay seguimiento posible, y el seguimiento es la mitad
     // del trabajo de un presupuesto.
     clienteTel.trim().length > 0 &&
@@ -542,8 +548,16 @@ export default function NuevoPresupuestoPage() {
             <input value={clienteNombre} onChange={(e) => { setClienteId(""); setClienteNombre(e.target.value); }} className={inputClass} placeholder="Nombre del cliente" />
           </div>
           <div>
-            <label className={labelClass}>RUC / CI</label>
-            <input value={clienteRuc} onChange={(e) => setClienteRuc(e.target.value)} className={inputClass} />
+            <label className={labelClass}>RUC / CI *</label>
+            <input
+              value={clienteRuc}
+              onChange={(e) => setClienteRuc(e.target.value)}
+              placeholder="80012345-1 o cédula"
+              className={`${inputClass} ${identCliente.ok ? "" : "border-rose-300"}`}
+            />
+            {!identCliente.ok && clienteRuc.trim() !== "" && (
+              <p className="mt-1 text-[11px] leading-snug text-rose-600">{identCliente.error}</p>
+            )}
           </div>
           <div>
             <label className={labelClass}>Teléfono *</label>

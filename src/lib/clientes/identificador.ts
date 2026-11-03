@@ -75,3 +75,36 @@ export function validarIdentificadorAlta(
 
   return { ok: true, error: null };
 }
+
+/**
+ * Valida un campo único que puede llevar RUC o cédula, como el del
+ * presupuesto.
+ *
+ * ── POR QUÉ ES UN CAMPO SOLO ──────────────────────────────────────────────
+ * En el presupuesto el cliente se escribe a mano, y quien atiende no sabe de
+ * antemano si va a cotizarle a una empresa con RUC o a una persona con cédula.
+ * Un campo solo que acepte los dos es lo que se puede llenar sin pensarlo.
+ *
+ * ── POR QUÉ IMPORTA EN EL PRESUPUESTO ─────────────────────────────────────
+ * Si el presupuesto no trae identificador, el cliente que se da de alta solo
+ * al guardarlo tampoco lo tiene: se cuela por la ventana que cerramos en el
+ * alta de clientes, y el padrón se vuelve a llenar de homónimos. Además el
+ * presupuesto es el papel que después se factura, y una factura sin RUC ni
+ * cédula no se puede emitir.
+ *
+ * Acepta el RUC con su dígito verificador (80012345-1) o una cédula, que es un
+ * número y puede venir con puntos o guiones. No acepta texto: "s/d" o "no
+ * tiene" en ese campo son lo mismo que dejarlo vacío, pero sin que se note.
+ */
+export function validarRucOCedula(valor: string | null | undefined): ResultadoIdentificador {
+  const v = String(valor ?? "").trim();
+  if (v === "") {
+    return { ok: false, error: "Cargá el RUC o la cédula del cliente." };
+  }
+  if (RE_RUC.test(v)) return { ok: true, error: null };
+  if (/^[\d.\-\s]+$/.test(v)) return { ok: true, error: null };
+  return {
+    ok: false,
+    error: "Poné el RUC (ej: 80012345-1) o la cédula. Solo números, puntos y guiones.",
+  };
+}

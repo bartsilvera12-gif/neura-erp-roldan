@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -139,7 +140,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     // Verificar estado actual (no editable si convertido).
     const cur = await ctx.supabase
       .from("presupuestos")
-      .select("estado")
+      .select("estado, cliente_ruc")
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("id", id)
       .maybeSingle();
@@ -147,6 +148,26 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     if (!cur.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
     if ((cur.data as { estado: string }).estado === "convertido") {
       return NextResponse.json(errorResponse("El presupuesto ya fue convertido; no se puede editar."), { status: 409 });
+    }
+
+    /**
+     * El RUC se exige al CREAR. Al editar no se pide uno que nunca hubo —hay
+     * presupuestos anteriores a esta regla y bloquearlos impediría corregirles
+     * un teléfono—, pero tampoco se deja BORRAR el que ya está: vaciarlo sería
+     * saltear la regla desde la pantalla de edición.
+     */
+    if (body.cliente_ruc !== undefined) {
+      const rucActual = String((cur.data as { cliente_ruc?: string | null }).cliente_ruc ?? "").trim();
+      const rucNuevo = String(body.cliente_ruc ?? "").trim();
+      if (rucActual !== "" || rucNuevo !== "") {
+        const ident = validarRucOCedula(rucNuevo);
+        if (!ident.ok) {
+          return NextResponse.json(
+            errorResponse(ident.error ?? "Cargá el RUC o la cédula del cliente."),
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // ═══════ MODO 2: edicion completa (body incluye items) ═══════

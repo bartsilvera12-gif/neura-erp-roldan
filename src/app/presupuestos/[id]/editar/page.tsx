@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
+import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 type ProductoLite = {
@@ -94,6 +95,8 @@ export default function EditarPresupuestoPage() {
   const [clienteId, setClienteId] = useState("");
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteRuc, setClienteRuc] = useState("");
+  /** Si el presupuesto ya traía RUC cuando se abrió. Se marca al cargarlo. */
+  const rucVenia = useRef<boolean | null>(null);
   const [clienteTel, setClienteTel] = useState("");
   const [clienteDir, setClienteDir] = useState("");
 
@@ -191,6 +194,10 @@ export default function EditarPresupuestoPage() {
         setClienteId(p.cliente_id ? String(p.cliente_id) : "");
         setClienteNombre(String(p.cliente_nombre ?? ""));
         setClienteRuc(p.cliente_ruc ? String(p.cliente_ruc) : "");
+        // Si este presupuesto venía con RUC, no se puede dejar vacío. Si nunca
+        // lo tuvo (es anterior a la regla), se puede seguir editando sin
+        // inventarle uno.
+        rucVenia.current = !!p.cliente_ruc && String(p.cliente_ruc).trim() !== "";
         setClienteTel(p.cliente_telefono ? String(p.cliente_telefono) : "");
         setClienteDir(p.cliente_direccion ? String(p.cliente_direccion) : "");
         setMoneda(p.moneda === "USD" ? "USD" : "PYG");
@@ -321,8 +328,17 @@ export default function EditarPresupuestoPage() {
     return { subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total) };
   }, [items]);
 
+  /**
+   * El RUC se exige si el presupuesto ya lo tenía: no se puede borrar. Los
+   * anteriores a esta regla, que nunca lo tuvieron, se pueden seguir editando
+   * sin inventarle uno.
+   */
+  const identCliente = validarRucOCedula(clienteRuc);
+  const rucOk = identCliente.ok || rucVenia.current === false;
+
   const valido =
     clienteNombre.trim().length > 0 &&
+    rucOk &&
     items.length > 0 &&
     items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
 
@@ -420,7 +436,15 @@ export default function EditarPresupuestoPage() {
           </div>
           <div>
             <label className={labelClass}>RUC / CI</label>
-            <input value={clienteRuc} onChange={(e) => setClienteRuc(e.target.value)} className={inputClass} />
+            <input
+              value={clienteRuc}
+              onChange={(e) => setClienteRuc(e.target.value)}
+              placeholder="80012345-1 o cédula"
+              className={`${inputClass} ${rucOk ? "" : "border-rose-300"}`}
+            />
+            {!rucOk && (
+              <p className="mt-1 text-[11px] leading-snug text-rose-600">{identCliente.error}</p>
+            )}
           </div>
           <div>
             <label className={labelClass}>Teléfono</label>
