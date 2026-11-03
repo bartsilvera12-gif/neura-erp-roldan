@@ -1,5 +1,34 @@
+import { sinIva, ivaIncluido } from "@/lib/precios/iva";
+
 /**
  * Margen y remarcación (punto 1.7).
+ *
+ * ── EL IVA NO ES GANANCIA ─────────────────────────────────────────────────
+ * Los precios de venta y los costos se guardan CON IVA INCLUIDO. Restarlos
+ * así nomás da una ganancia inflada, porque adentro de esa resta quedó la
+ * diferencia entre el IVA que se le cobra al cliente y el IVA que se pagó al
+ * proveedor: plata que es del fisco y que la empresa solo está pasando de una
+ * mano a la otra.
+ *
+ *   Venta 85.566 (10%) − Costo 74.276 (10%) = 11.290  ← lo que se mostraba
+ *   IVA de la venta 7.779 − IVA del costo 6.752 = 1.027
+ *   Ganancia real = 11.290 − 1.027 = 10.264
+ *
+ * Por eso toda función de acá acepta las dos tasas —la de la línea de venta y
+ * la del artículo— y cuando se las pasa, trabaja con los importes sin IVA.
+ *
+ * CUANDO LAS DOS TASAS SON IGUALES EL PORCENTAJE NO CAMBIA
+ *   Dividir arriba y abajo por el mismo 1,1 se cancela: el margen de un
+ *   artículo al 10% comprado al 10% sigue dando el mismo %. Lo que cambia es
+ *   la GANANCIA EN GUARANÍES, que ahora es la de verdad. Las tasas distintas
+ *   —vender exento algo comprado al 10%— son las que mueven el porcentaje, y
+ *   son justo los casos en los que el número viejo mentía más.
+ *
+ * SIN TASAS SE COMPORTA COMO ANTES
+ *   Los parámetros de IVA son opcionales. Quien no los pasa obtiene la cuenta
+ *   vieja sobre importes con IVA. No es que esté bien: es que hay pantallas
+ *   que todavía no tienen la tasa a mano y es mejor que sigan mostrando lo de
+ *   siempre que un número a medio corregir.
  *
  * SON DOS NÚMEROS DISTINTOS Y SE CONFUNDEN TODO EL TIEMPO
  *
@@ -21,11 +50,35 @@
  *   que queda. El punto 4.4 (comisión según rentabilidad) necesita el margen.
  */
 
-/** Qué parte de la venta es ganancia: (precio − costo) / precio × 100. */
-export function margenSobreVenta(costo: number, precio: number): number {
+/**
+ * Los dos importes sin IVA, listos para restarse.
+ *
+ * `ivaVenta` manda también para el costo cuando `ivaCosto` no viene: lo normal
+ * es que el artículo se compre y se venda con la misma tasa, y pedir las dos
+ * siempre obligaría a todas las pantallas a cargar el artículo completo.
+ */
+function netos(
+  costo: number,
+  precio: number,
+  ivaVenta?: string,
+  ivaCosto?: string
+): { costo: number; precio: number } {
+  const c = Number(costo) || 0;
   const p = Number(precio) || 0;
-  if (p <= 0) return 0;
-  return (((p - (Number(costo) || 0)) / p) * 100);
+  if (!ivaVenta) return { costo: c, precio: p };
+  return { costo: sinIva(c, ivaCosto ?? ivaVenta), precio: sinIva(p, ivaVenta) };
+}
+
+/** Qué parte de la venta es ganancia: (precio − costo) / precio × 100, sin IVA. */
+export function margenSobreVenta(
+  costo: number,
+  precio: number,
+  ivaVenta?: string,
+  ivaCosto?: string
+): number {
+  const n = netos(costo, precio, ivaVenta, ivaCosto);
+  if (n.precio <= 0) return 0;
+  return ((n.precio - n.costo) / n.precio) * 100;
 }
 
 /**
@@ -35,10 +88,15 @@ export function margenSobreVenta(costo: number, precio: number): number {
  * remarcación" significa que se vende al costo, y eso es una afirmación
  * distinta de "no sabemos cuánto costó".
  */
-export function remarcacionSobreCosto(costo: number, precio: number): number | null {
-  const c = Number(costo) || 0;
-  if (c <= 0) return null;
-  return (((Number(precio) || 0) - c) / c) * 100;
+export function remarcacionSobreCosto(
+  costo: number,
+  precio: number,
+  ivaVenta?: string,
+  ivaCosto?: string
+): number | null {
+  const n = netos(costo, precio, ivaVenta, ivaCosto);
+  if (n.costo <= 0) return null;
+  return ((n.precio - n.costo) / n.costo) * 100;
 }
 
 /** Precio que resulta de aplicarle una remarcación al costo. */
@@ -46,9 +104,38 @@ export function precioDesdeRemarcacion(costo: number, remarcacionPct: number): n
   return (Number(costo) || 0) * (1 + (Number(remarcacionPct) || 0) / 100);
 }
 
-/** Ganancia en guaraníes por unidad. */
-export function gananciaUnitaria(costo: number, precio: number): number {
-  return (Number(precio) || 0) - (Number(costo) || 0);
+/**
+ * Ganancia en guaraníes por unidad.
+ *
+ * Con las tasas: (precio − costo) − (IVA de la venta − IVA del costo), que es
+ * lo mismo que restar los dos importes ya sin IVA. Se escribe de la segunda
+ * forma porque es una resta en vez de cuatro, pero es la misma cuenta.
+ */
+export function gananciaUnitaria(
+  costo: number,
+  precio: number,
+  ivaVenta?: string,
+  ivaCosto?: string
+): number {
+  const n = netos(costo, precio, ivaVenta, ivaCosto);
+  return n.precio - n.costo;
+}
+
+/**
+ * El IVA que hay que sacar de la resta, por separado.
+ *
+ * Existe para poder MOSTRARLO: cuando alguien que venía leyendo "ganancia
+ * 11.290" ve "10.263", lo primero que pregunta es de dónde salió la
+ * diferencia, y la respuesta tiene que estar en la misma pantalla.
+ */
+export function diferenciaDeIva(
+  costo: number,
+  precio: number,
+  ivaVenta: string,
+  ivaCosto?: string
+): number {
+  return ivaIncluido(Number(precio) || 0, ivaVenta)
+       - ivaIncluido(Number(costo) || 0, ivaCosto ?? ivaVenta);
 }
 
 /**

@@ -13,7 +13,8 @@ import HistorialClienteModal from "@/components/clientes/HistorialClienteModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
+import { margenSobreVenta, remarcacionSobreCosto, gananciaUnitaria, colorMargen, pct } from "@/lib/precios/margen";
+import { sinIva } from "@/lib/precios/iva";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
 import { formatFecha } from "@/lib/fecha/asuncion";
@@ -1177,21 +1178,38 @@ export default function NuevaVentaPage() {
 
   const { isAdmin: verMargenes, descuentoMaximo } = useIsAdmin();
 
+  /**
+   * Rentabilidad de la venta, SIN IVA.
+   *
+   * Los precios y los costos están guardados con IVA incluido, pero el IVA no
+   * es ganancia: la diferencia entre el que se le cobra al cliente y el que se
+   * le pagó al proveedor es del fisco. Se le saca a cada línea con su propia
+   * tasa —la de venta puede no ser la del artículo— y recién después se suma,
+   * porque una venta puede tener líneas al 10%, al 5% y exentas a la vez y un
+   * divisor único sobre el total daría un número que no es de nadie.
+   */
   const resumenMargen = useMemo(() => {
     let costo = 0;
     let venta = 0;
+    let ivaVenta = 0;
+    let ivaCosto = 0;
     let sinCosto = 0;
     for (const it of items) {
       const prod = productos.find((p) => p.id === it.producto_id);
       const c = Number(prod?.costo_promedio) || 0;
       if (c <= 0) sinCosto++;
-      costo += c * it.cantidad;
-      venta += it.total_linea;
+      const ivaDelCosto = prod?.tipo_iva ?? it.tipo_iva;
+      const costoLinea = c * it.cantidad;
+      costo += sinIva(costoLinea, ivaDelCosto);
+      venta += sinIva(it.total_linea, it.tipo_iva);
+      ivaVenta += it.total_linea - sinIva(it.total_linea, it.tipo_iva);
+      ivaCosto += costoLinea - sinIva(costoLinea, ivaDelCosto);
     }
     return {
       costo,
       venta,
       ganancia: venta - costo,
+      iva_diferencia: ivaVenta - ivaCosto,
       margen: margenSobreVenta(costo, venta),
       remarcacion: remarcacionSobreCosto(costo, venta),
       sinCosto,
@@ -1771,7 +1789,10 @@ export default function NuevaVentaPage() {
               sale el precio: si el producto tiene precio en dólares, el guaraní
               es el dólar por la cotización del día. Decirlo acá evita la
               pregunta de por qué hoy el mismo producto cuesta distinto. */}
-          {hayLineaEnDolares && (
+          {/* Solo admin: para el vendedor el precio es el guaraní que está en
+              la pantalla, y de dónde salió ese guaraní no es su decisión ni
+              puede hacer nada al respecto. */}
+          {verMargenes && hayLineaEnDolares && (
             tcVenta ? (
               <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
                 Hay productos con precio en <strong>dólares</strong>. Se cobra en
@@ -2172,7 +2193,9 @@ export default function NuevaVentaPage() {
                                     </p>
                                   );
                                 })()}
-                                {prod && precioEnDolares(prod) && (
+                                {/* Lo mismo acá: el dólar y la cotización son
+                                    datos de costo, no del cobro. */}
+                                {verMargenes && prod && precioEnDolares(prod) && (
                                   tcVenta ? (
                                     <p className="text-[11px] leading-snug text-sky-700">
                                       US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
@@ -2186,12 +2209,16 @@ export default function NuevaVentaPage() {
                                   )
                                 )}
                                 {verMargenes && costoMin > 0 && (() => {
-                                  const m = margenSobreVenta(costoMin, item.precio_venta);
-                                  const r = remarcacionSobreCosto(costoMin, item.precio_venta);
+                                  // Con las dos tasas: la del artículo para el
+                                  // costo, la de la línea para la venta.
+                                  const ivaCosto = prod?.tipo_iva ?? item.tipo_iva;
+                                  const m = margenSobreVenta(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
+                                  const r = remarcacionSobreCosto(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
+                                  const g = gananciaUnitaria(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
                                   return (
                                     <p
                                       className="text-[11px] leading-snug text-slate-400"
-                                      title={`Costo ${formatGs(costoMin)} por unidad`}
+                                      title={`Costo ${formatGs(costoMin)} por unidad (IVA ${ivaCosto}). Ganancia sin IVA: ${formatGs(g)}`}
                                     >
                                       Rem. {pct(r)} ·{" "}
                                       <span className={`font-semibold ${colorMargen(m)}`}>
@@ -2465,8 +2492,12 @@ export default function NuevaVentaPage() {
                     {verMargenes && items.length > 0 && resumenMargen.costo > 0 && (
                       <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
                         <div className="flex justify-between text-[12px] text-slate-500">
-                          <span>Costo</span>
+                          <span>Costo sin IVA</span>
                           <span className="tabular-nums">{formatGs(resumenMargen.costo)}</span>
+                        </div>
+                        <div className="flex justify-between text-[12px] text-slate-500">
+                          <span>Venta sin IVA</span>
+                          <span className="tabular-nums">{formatGs(resumenMargen.venta)}</span>
                         </div>
                         <div className="flex justify-between text-[12px] text-slate-500">
                           <span>Ganancia</span>
@@ -2474,6 +2505,14 @@ export default function NuevaVentaPage() {
                             {formatGs(resumenMargen.ganancia)}
                           </span>
                         </div>
+                        {/* Por qué la ganancia no es precio − costo: esta es la
+                            plata del fisco que estaba adentro de esa resta. */}
+                        {Math.round(resumenMargen.iva_diferencia) !== 0 && (
+                          <p className="text-[11px] leading-snug text-slate-400">
+                            Ya se le descontó {formatGs(resumenMargen.iva_diferencia)} de diferencia de
+                            IVA entre la venta y el costo.
+                          </p>
+                        )}
                         <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-[12px]">
                           <span className="text-slate-500">
                             Remarcación {pct(resumenMargen.remarcacion)}

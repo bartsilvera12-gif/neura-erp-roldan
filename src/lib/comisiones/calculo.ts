@@ -1,3 +1,5 @@
+import { sinIva } from "@/lib/precios/iva";
+
 /**
  * Cálculo de comisiones (puntos 4.4 y 4.5).
  *
@@ -91,17 +93,15 @@ export interface ResultadoLinea {
   comision: number;
 }
 
-/** Divisor para sacar el IVA de un precio que lo incluye. */
-export function divisorIva(tipoIva: string): number {
-  if (tipoIva === "10%") return 1.1;
-  if (tipoIva === "5%") return 1.05;
-  return 1;
-}
-
-/** Quita el IVA de un importe que lo incluye. */
-export function sinIva(montoConIva: number, tipoIva: string): number {
-  return (Number(montoConIva) || 0) / divisorIva(tipoIva);
-}
+/**
+ * El divisor del IVA y la forma de sacarlo viven en `@/lib/precios/iva`.
+ *
+ * Se siguen exportando desde acá porque medio sistema los importa de este
+ * archivo, pero la definición es una sola: comisiones y margen tienen que
+ * sacar el IVA exactamente igual, o la misma venta rinde distinto según qué
+ * pantalla la mire.
+ */
+export { divisorIva, sinIva } from "@/lib/precios/iva";
 
 /**
  * Los rubros desde uno hasta la raíz: él, su padre, el padre de su padre.
