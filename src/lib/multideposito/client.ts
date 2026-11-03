@@ -76,7 +76,14 @@ export async function fetchDepositos(): Promise<Result<{ depositos: Deposito[] }
 export async function fetchStockDeposito(
   ubicacionId: string,
   opts?: { buscar?: string; soloConStock?: boolean }
-): Promise<Result<{ deposito: { id: string; nombre: string; codigo: string }; items: StockItem[]; total_stock: number; productos_con_stock: number }>> {
+): Promise<Result<{
+  deposito: { id: string; nombre: string; codigo: string };
+  items: StockItem[];
+  total_stock: number;
+  productos_con_stock: number;
+  /** Cuántos productos hay realmente en el depósito, filtre lo que filtre la pantalla. */
+  productos_en_deposito?: number;
+}>> {
   const p = new URLSearchParams();
   if (opts?.buscar) p.set("buscar", opts.buscar);
   if (opts?.soloConStock) p.set("solo_con_stock", "1");

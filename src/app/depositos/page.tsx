@@ -16,6 +16,20 @@ export default function DepositosPage() {
   const [cargandoStock, setCargandoStock] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transferir, setTransferir] = useState<StockItem | null>(null);
+  /**
+   * Por omisión, solo lo que está en el depósito.
+   *
+   * Antes se listaba el catálogo entero: 983 renglones de los cuales 982
+   * decían cero y tenían el botón Transferir apagado. Lo único que se puede
+   * hacer en esta pantalla es mover lo que hay, así que mostrar lo que no hay
+   * es ruido que tapa la única fila que importa.
+   *
+   * El interruptor queda, para el que entra a buscar si un producto está o no
+   * en este depósito, que es una pregunta distinta y también válida.
+   */
+  const [soloConStock, setSoloConStock] = useState(true);
+  /** Cuántos hay de verdad en el depósito, filtre lo que filtre la pantalla. */
+  const [enDeposito, setEnDeposito] = useState(0);
 
   /**
    * Últimos movimientos de transferencia. Sin esto, al entrar al depósito de
@@ -64,20 +78,21 @@ export default function DepositosPage() {
     })();
   }, []);
 
-  const cargarStock = useCallback(async (ubicacionId: string) => {
+  const cargarStock = useCallback(async (ubicacionId: string, solo: boolean) => {
     if (!ubicacionId) return;
     setCargandoStock(true);
-    const r = await fetchStockDeposito(ubicacionId);
+    const r = await fetchStockDeposito(ubicacionId, { soloConStock: solo });
     if (!r.ok) { setError(r.error); setCargandoStock(false); return; }
     setItems(r.data.items);
     setTotalActual(r.data.total_stock);
     setConStockActual(r.data.productos_con_stock);
+    setEnDeposito(r.data.productos_en_deposito ?? r.data.productos_con_stock);
     setCargandoStock(false);
   }, []);
 
   useEffect(() => {
-    if (ubicacionActiva) cargarStock(ubicacionActiva);
-  }, [ubicacionActiva, cargarStock]);
+    if (ubicacionActiva) cargarStock(ubicacionActiva, soloConStock);
+  }, [ubicacionActiva, soloConStock, cargarStock]);
 
   const depositoActual = useMemo(() => depositos.find((d) => d.id === ubicacionActiva), [depositos, ubicacionActiva]);
 
@@ -138,15 +153,26 @@ export default function DepositosPage() {
               <p className="mt-1 text-[11px] text-slate-500">unidades en stock</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Productos con stock</p>
-              <p className="mt-2 text-3xl font-bold tabular-nums leading-none text-slate-800">{conStockActual} <span className="text-base font-normal text-slate-500">/ {items.length}</span></p>
-              <p className="mt-1 text-[11px] text-slate-500">de {items.length} productos definidos</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Productos en este depósito</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums leading-none text-slate-800">{fmt(enDeposito)}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {enDeposito === 1 ? "artículo con existencia acá" : "artículos con existencia acá"}
+              </p>
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-slate-800">Stock en {depositoActual?.nombre}</h2>
+              <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={!soloConStock}
+                  onChange={(e) => setSoloConStock(!e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Ver también los que no están acá
+              </label>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -163,7 +189,11 @@ export default function DepositosPage() {
                   {cargandoStock ? (
                     <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-400">Cargando…</td></tr>
                   ) : items.length === 0 ? (
-                    <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-400 italic">Sin productos configurados.</td></tr>
+                    <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-400 italic">
+                      {soloConStock
+                        ? "No hay nada en este depósito todavía."
+                        : "Sin productos configurados."}
+                    </td></tr>
                   ) : items.map((p) => (
                     <tr key={p.producto_id} className="border-b border-slate-100 last:border-0 hover:bg-emerald-50/40 transition-colors">
                       <td className="px-5 py-3 font-mono text-xs text-slate-500">{p.sku || "—"}</td>
@@ -234,7 +264,7 @@ export default function DepositosPage() {
           origenId={ubicacionActiva}
           depositos={depositos}
           onClose={() => setTransferir(null)}
-          onHecho={() => { setTransferir(null); void cargarStock(ubicacionActiva); void cargarMovimientos(); }}
+          onHecho={() => { setTransferir(null); void cargarStock(ubicacionActiva, soloConStock); void cargarMovimientos(); }}
         />
       )}
     </div>

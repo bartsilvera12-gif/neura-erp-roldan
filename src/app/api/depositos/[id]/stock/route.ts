@@ -29,16 +29,8 @@ export async function GET(
     if (ubQ.error) throw new Error(ubQ.error.message);
     if (!ubQ.data) return NextResponse.json(errorResponse("Depósito no encontrado."), { status: 404 });
 
-    // Traer todos los productos activos + su stock en la ubicación (LEFT JOIN manual)
-    const prodQ = await supabase
-      .from("productos")
-      .select("id, nombre, sku, unidad_medida, controla_stock, activo")
-      .eq("empresa_id", auth.empresa_id)
-      .eq("activo", true)
-      .order("nombre");
-    if (prodQ.error) throw new Error(prodQ.error.message);
-    const productos = (prodQ.data ?? []) as Array<{ id: string; nombre: string; sku: string | null; unidad_medida: string | null; controla_stock: boolean | null }>;
-
+    // Lo que hay en ESTA ubicación. Es la lista corta: la mayoría de los
+    // productos del catálogo no están en ningún depósito.
     const stockQ = await supabase
       .from("inventario_stock_ubicacion")
       .select("producto_id, stock_actual")
@@ -50,6 +42,52 @@ export async function GET(
       stockMap.set(r.producto_id, Number(r.stock_actual) || 0);
     }
 
+    type ProdFila = { id: string; nombre: string; sku: string | null; unidad_medida: string | null };
+
+    /**
+     * Los productos a mostrar.
+     *
+     * ── POR QUÉ DOS CAMINOS Y NO UNO ──────────────────────────────────────
+     *   Con `solo_con_stock` se piden SOLO los que están en el depósito, que
+     *   suelen ser un puñado. Traer el catálogo entero para después filtrar
+     *   983 ceros es trabajo tirado, y encima PostgREST corta en 1000 filas:
+     *   con 1.002 productos cargados, los dos últimos no existían para esta
+     *   pantalla y nadie se iba a enterar.
+     *
+     *   Sin el filtro se trae el catálogo por tandas, por el mismo tope.
+     */
+    const productos: ProdFila[] = [];
+    if (soloConStock) {
+      const conStock = [...stockMap.entries()].filter(([, n]) => n > 0).map(([id]) => id);
+      const TANDA = 200;
+      for (let i = 0; i < conStock.length; i += TANDA) {
+        const q = await supabase
+          .from("productos")
+          .select("id, nombre, sku, unidad_medida")
+          .eq("empresa_id", auth.empresa_id)
+          .in("id", conStock.slice(i, i + TANDA))
+          .order("nombre");
+        if (q.error) throw new Error(q.error.message);
+        productos.push(...((q.data ?? []) as ProdFila[]));
+      }
+      productos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    } else {
+      const PAGINA = 500;
+      for (let desde = 0; ; desde += PAGINA) {
+        const q = await supabase
+          .from("productos")
+          .select("id, nombre, sku, unidad_medida")
+          .eq("empresa_id", auth.empresa_id)
+          .eq("activo", true)
+          .order("nombre")
+          .range(desde, desde + PAGINA - 1);
+        if (q.error) throw new Error(q.error.message);
+        const tanda = (q.data ?? []) as ProdFila[];
+        productos.push(...tanda);
+        if (tanda.length < PAGINA) break;
+      }
+    }
+
     let items = productos.map((p) => ({
       producto_id: p.id,
       nombre: p.nombre,
@@ -57,8 +95,6 @@ export async function GET(
       unidad: p.unidad_medida ?? "",
       stock: stockMap.get(p.id) ?? 0,
     }));
-
-    if (soloConStock) items = items.filter((i) => i.stock > 0);
     if (buscar) items = items.filter((i) => i.nombre.toLowerCase().includes(buscar) || i.sku.toLowerCase().includes(buscar));
 
     const total = items.reduce((s, i) => s + i.stock, 0);
@@ -68,6 +104,9 @@ export async function GET(
       items,
       total_stock: total,
       productos_con_stock: items.filter((i) => i.stock > 0).length,
+      // Cuántos están realmente en el depósito, mire lo que mire la pantalla.
+      // Sin esto, con el filtro puesto el contador diría "1 de 1".
+      productos_en_deposito: [...stockMap.values()].filter((n) => n > 0).length,
     }));
   } catch (err) {
     return NextResponse.json(errorResponse(err instanceof Error ? err.message : "Error"), { status: 500 });
