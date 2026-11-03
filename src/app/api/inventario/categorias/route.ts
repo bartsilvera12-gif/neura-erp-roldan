@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
           .from("categorias_productos")
           .select(
             conDiasCritico
-              ? "id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, descuento_pct, created_at, updated_at"
+              ? "id, empresa_id, nombre, codigo, descripcion, parent_id, activo, dias_critico, descuento_pct, markup_pct, created_at, updated_at"
               : "id, empresa_id, nombre, codigo, descripcion, parent_id, activo, created_at, updated_at"
           )
           .eq("empresa_id", ctx.auth.empresa_id),
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     };
 
     let { data, error } = await armar(true);
-    if (error && /(dias_critico|descuento_pct)/.test(error.message ?? "")) {
+    if (error && /(dias_critico|descuento_pct|markup_pct)/.test(error.message ?? "")) {
       ({ data, error } = await armar(false));
     }
     if (error) throw new Error(error.message);

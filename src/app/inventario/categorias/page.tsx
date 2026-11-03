@@ -20,6 +20,8 @@ interface Categoria {
   /** Punto 1.3: días bajo los cuales el rubro es crítico. null = umbral general. */
   dias_critico?: number | null;
   descuento_pct?: number | null;
+  /** Remarcación de referencia del rubro, en % (script 56). */
+  markup_pct?: number | null;
 }
 
 export default function CategoriasProductosPage() {
@@ -208,6 +210,47 @@ export default function CategoriasProductosPage() {
    * suma, un artículo al 5% dentro de un rubro al 4% saldría al 9%, que no es
    * lo que nadie quiso decir al cargar los dos.
    */
+  /**
+   * La remarcación de referencia del rubro.
+   *
+   * ── NO CAMBIA NINGÚN PRECIO ──────────────────────────────────────────────
+   * Es el porcentaje del grupo: el que se le propone a un producto nuevo de
+   * este rubro, y el que heredan las subcategorías que no tengan el suyo. Los
+   * productos que ya existen quedan con el precio que tienen: cambiar esto no
+   * los toca.
+   *
+   * Unificar los que ya existen a este número es otra cosa, y se hace aparte
+   * (script 57) justamente porque eso sí mueve plata.
+   */
+  function editarRemarcacionRubro(cat: Categoria) {
+    const padre = items.find((i) => i.id === cat.parent_id);
+    setCampo({
+      cat,
+      titulo: `Remarcación · ${cat.nombre}`,
+      descripcion:
+        padre && padre.markup_pct != null
+          ? `Si se deja vacío, este grupo usa la de ${padre.nombre} (${padre.markup_pct}%).`
+          : "Es el porcentaje con el que se carga un producto nuevo de este rubro.",
+      etiqueta: "Remarcación",
+      valorInicial: cat.markup_pct == null ? "" : String(cat.markup_pct),
+      sufijo: "%",
+      tipo: "number",
+      ayuda:
+        "No cambia el precio de los productos que ya están cargados: es el valor de referencia del rubro.",
+      validar: (v) => {
+        const t = v.trim().replace(",", ".");
+        if (t === "") return null;
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 0) return "Tiene que ser un número mayor o igual a cero.";
+        return null;
+      },
+      cuerpo: (v) => {
+        const t = v.replace(",", ".");
+        return { markup_pct: t === "" ? null : Number(t) };
+      },
+    });
+  }
+
   function editarDescuentoRubro(cat: Categoria) {
     setCampo({
       cat,
@@ -271,12 +314,13 @@ export default function CategoriasProductosPage() {
             <ExportExcelButton url="/api/inventario/categorias/export" />
             <ImprimirTablaButton
             titulo="Rubros"
-            columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Descuento %", "Estado"]}
+            columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Remarcación %", "Descuento %", "Estado"]}
             filas={visibles.map((c) => [
               c.nombre,
               c.codigo ?? "",
               items.find((i) => i.id === c.parent_id)?.nombre ?? "",
               c.dias_critico ?? "general",
+              c.markup_pct ?? (items.find((i) => i.id === c.parent_id)?.markup_pct ?? ""),
               c.descuento_pct ?? 0,
               c.activo ? "Activo" : "Inactivo",
             ])}
@@ -409,6 +453,9 @@ export default function CategoriasProductosPage() {
                 <th className="text-left px-4 py-2" title="Días de stock por debajo de los cuales el rubro se marca crítico en Reposición">
                   Crítico bajo
                 </th>
+                <th className="text-left px-4 py-2" title="Remarcación de referencia del rubro. No cambia los precios ya cargados.">
+                  Remarcación
+                </th>
                 <th className="text-left px-4 py-2" title="Descuento que se aplica a todos los artículos del rubro">
                   Descuento
                 </th>
@@ -441,6 +488,31 @@ export default function CategoriasProductosPage() {
                             {c.dias_critico} d
                           </span>
                         )}
+                        <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
+                      </button>
+                    </td>
+                    {/* La remarcación del grupo. Heredada del padre si el
+                        grupo no tiene la suya. */}
+                    <td className="px-4 py-2">
+                      <button
+                        onClick={() => editarRemarcacionRubro(c)}
+                        className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
+                        title="Clic para cambiar la remarcación de referencia del rubro. No cambia los precios ya cargados."
+                      >
+                        {c.markup_pct != null ? (
+                          <span className="font-semibold tabular-nums text-slate-700 group-hover:text-[#3F8E91]">
+                            {c.markup_pct}%
+                          </span>
+                        ) : (() => {
+                          const padre = items.find((i) => i.id === c.parent_id);
+                          return padre && padre.markup_pct != null ? (
+                            <span className="tabular-nums text-slate-400 group-hover:text-[#3F8E91]">
+                              {padre.markup_pct}% (del padre)
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 group-hover:text-[#3F8E91]">sin definir</span>
+                          );
+                        })()}
                         <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
                       </button>
                     </td>
