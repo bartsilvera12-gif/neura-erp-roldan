@@ -1186,27 +1186,40 @@ function GsEditable({ valor, disabled, etiquetaVacio, onGuardar }: {
   etiquetaVacio?: string;
   onGuardar: (nuevo: number | null) => void;
 }) {
-  const aTexto = (v: number | null) => (v == null ? "" : String(v));
+  /**
+   * Con separador de miles, y por eso un campo de texto y no uno numérico: el
+   * campo numérico del navegador muestra 10000000 sin agrupar, y el que carga
+   * un mínimo de diez millones tiene que contar los ceros con el dedo. Contar
+   * ceros sobre el campo que decide cuánto cobra un vendedor es exactamente
+   * donde se equivoca uno por diez.
+   */
+  const aTexto = (v: number | null) => (v == null ? "" : v.toLocaleString("es-PY"));
+  const conMiles = (t: string) => {
+    const d = t.replace(/[^0-9]/g, "");
+    if (d === "") return "";
+    const n = Number(d);
+    return Number.isFinite(n) ? n.toLocaleString("es-PY") : "";
+  };
   const [texto, setTexto] = useState(aTexto(valor));
   useEffect(() => { setTexto(aTexto(valor)); }, [valor]);
 
   return (
     <input
-      type="number"
-      min={0}
-      step="1"
+      type="text"
+      inputMode="numeric"
       value={texto}
       disabled={disabled}
       placeholder={etiquetaVacio}
       aria-label="Mínimo de ventas en guaraníes"
-      onChange={(e) => setTexto(e.target.value)}
+      onChange={(e) => setTexto(conMiles(e.target.value))}
       onBlur={() => {
         if (texto.trim() === "") {
           if (valor == null) return;
           onGuardar(null);
           return;
         }
-        const n = Number(texto.replace(/[.,\s]/g, ""));
+        const d = texto.replace(/[^0-9]/g, "");
+        const n = d === "" ? NaN : Number(d);
         if (!Number.isFinite(n) || n < 0) { setTexto(aTexto(valor)); return; }
         if (n === valor) return;
         onGuardar(n);

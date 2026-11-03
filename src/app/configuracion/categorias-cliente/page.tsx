@@ -12,6 +12,36 @@ type Categoria = {
 };
 
 /** "-8" para mostrar, "" cuando no hay política definida. */
+/**
+ * El monto con separador de miles, como se escribe en Paraguay.
+ *
+ * ── POR QUÉ NO ES UN `input type="number"` ────────────────────────────────
+ * Un campo numérico del navegador no agrupa los miles: muestra 10000 y el que
+ * carga un mínimo de diez millones tiene que contar los ceros con el dedo. Y
+ * contar ceros sobre un campo que decide a qué precio se le vende al cliente es
+ * exactamente donde se equivoca uno por diez.
+ *
+ * Por eso el campo es de texto y se formatea mientras se escribe. Lo que se
+ * guarda son los dígitos, sin los puntos.
+ */
+function milesTexto(v: number | string | null | undefined): string {
+  const digitos = String(v ?? "").replace(/[^0-9]/g, "");
+  if (digitos === "") return "";
+  // Se sacan los ceros a la izquierda, pero no el cero solo: un mínimo de 0 es
+  // un valor real (el piso de la escalera).
+  const n = Number(digitos);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("es-PY");
+}
+
+/** Los dígitos pelados de un monto escrito con puntos. */
+function milesNumero(texto: string): number | null {
+  const digitos = texto.replace(/[^0-9]/g, "");
+  if (digitos === "") return null;
+  const n = Number(digitos);
+  return Number.isFinite(n) ? n : null;
+}
+
 function pctTexto(v: number | null | undefined): string {
   return v == null ? "" : String(v);
 }
@@ -97,7 +127,7 @@ export default function CategoriasClientePage() {
     setEditNombre(c.nombre);
     setEditOrden(String(c.orden));
     setEditAjuste(pctTexto(c.ajuste_pct));
-    setEditMinimo(c.monto_minimo_mensual == null ? "" : String(c.monto_minimo_mensual));
+    setEditMinimo(milesTexto(c.monto_minimo_mensual));
     setError(null);
   }
   function cancelarEdicion() {
@@ -122,8 +152,8 @@ export default function CategoriasClientePage() {
       // del que compra poco o nada.
       let minimoNuevo: number | null = null;
       if (editMinimo.trim() !== "") {
-        const n = Number(editMinimo.replace(/[.,\s]/g, ""));
-        if (!Number.isFinite(n) || n < 0) {
+        const n = milesNumero(editMinimo);
+        if (n == null || n < 0) {
           setError("El mínimo mensual tiene que ser un monto en guaraníes, o vacío.");
           return;
         }
@@ -291,12 +321,16 @@ export default function CategoriasClientePage() {
                   <td className="px-4 py-2">
                     {isEditing ? (
                       <input
-                        type="number" min="0" step="1"
+                        type="text"
+                        inputMode="numeric"
                         value={editMinimo}
-                        onChange={(e) => setEditMinimo(e.target.value)}
+                        // Se reformatea en cada tecla: escribir 10000000 va
+                        // mostrando 1.000 · 10.000 · 100.000 … y se ve cuántos
+                        // ceros lleva sin tener que contarlos.
+                        onChange={(e) => setEditMinimo(milesTexto(e.target.value))}
                         disabled={!minimoDisponible}
                         placeholder="a mano"
-                        className="w-32 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm tabular-nums disabled:bg-slate-100"
+                        className="w-32 rounded-md border border-amber-300 bg-white px-2 py-1 text-right text-sm tabular-nums disabled:bg-slate-100"
                       />
                     ) : c.monto_minimo_mensual == null ? (
                       <span className="text-slate-400">Se asigna a mano</span>
