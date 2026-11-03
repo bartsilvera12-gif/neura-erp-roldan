@@ -192,7 +192,13 @@ export default function ReporteCajasPage() {
                       <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${
                         abierta ? "text-slate-300" : dif < 0 ? "text-red-600" : dif > 0 ? "text-amber-600" : "text-emerald-700"
                       }`}>
-                        {abierta ? "—" : dif === 0 ? "Cuadra" : gs(dif)}
+                        {/* El monto SIEMPRE, también cuando da cero.
+                            Antes decía "Cuadra", que es la conclusión y no el
+                            dato: en una columna de importes, la fila que cuadra
+                            quedaba sin número y no se podía leer la columna de
+                            un saque ni sumarla con la vista. El tilde conserva
+                            el golpe de ojo. */}
+                        {abierta ? "—" : dif === 0 ? <>✓ {gs(0)}</> : gs(dif)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-right">
                         {/* Punto 5.1: consultar el cierre. Antes esto abría el

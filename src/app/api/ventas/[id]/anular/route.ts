@@ -82,11 +82,36 @@ export async function POST(
       return NextResponse.json(errorResponse("La venta ya fue anulada."), { status: 409 });
     }
 
-    // Bloqueo 0: permisos (requisito 11.4). El cajero anula lo de su turno
-    // abierto; lo de un turno ya cerrado y arqueado, solo un administrador.
+    /**
+     * Bloqueo 0: permisos.
+     *
+     * El administrador anula cualquier venta. El supervisor, solo las de una
+     * caja que siga abierta: una caja cerrada ya fue contada y su diferencia
+     * está firmada (ver `puedeAnularVenta`).
+     *
+     * Si la consulta del turno falla, `cajaAbierta` queda en undefined y la
+     * regla lo trata como cerrado: ante la duda no se deshace un arqueo.
+     */
+    let cajaAbierta: boolean | undefined;
+    if (head.caja_id) {
+      const cj = await sb
+        .from("cajas")
+        .select("estado")
+        .eq("empresa_id", empresaId)
+        .eq("id", head.caja_id)
+        .maybeSingle();
+      if (!cj.error) {
+        cajaAbierta = (cj.data as { estado?: string } | null)?.estado !== "cerrada";
+      }
+    } else {
+      // Venta sin turno: no hay ninguna caja abierta que la contenga.
+      cajaAbierta = false;
+    }
+
     const permiso = puedeAnularVenta({
       esAdmin: isAdmin(auth),
       esSupervisor: esSupervisor(auth),
+      cajaAbierta,
     });
     if (!permiso.permitido) {
       return NextResponse.json(errorResponse(permiso.motivo), { status: 403 });

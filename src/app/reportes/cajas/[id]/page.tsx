@@ -154,8 +154,10 @@ export default function DetalleCierreCajaPage() {
         <Tarjeta titulo="Contado al cerrar" valor={gs(c.monto_cierre_contado)} pie={abiertaAun ? "El turno sigue abierto" : undefined} />
         <Tarjeta
           titulo="Diferencia"
-          valor={dif == null ? "—" : dif === 0 ? "Cuadra" : gs(dif)}
-          pie={dif == null ? undefined : dif < 0 ? "Faltante" : dif > 0 ? "Sobrante" : undefined}
+          /* El monto, no la palabra: "Cuadra" es la conclusión y lo que se
+             busca en esta tarjeta es el número. El "Cuadra" pasa al pie. */
+          valor={dif == null ? "—" : gs(dif)}
+          pie={dif == null ? undefined : dif < 0 ? "Faltante" : dif > 0 ? "Sobrante" : "Cuadra"}
           color={dif == null ? "text-slate-400" : dif < 0 ? "text-red-600" : dif > 0 ? "text-amber-600" : "text-emerald-700"}
         />
       </div>

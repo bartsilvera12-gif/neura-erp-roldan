@@ -2,28 +2,29 @@
  * Quién puede anular una venta.
  *
  * ── LA REGLA ──────────────────────────────────────────────────────────────
- *   Anular una factura lo hace un ADMINISTRADOR o un SUPERVISOR. Nadie más.
+ *   ADMINISTRADOR  → cualquier venta, de cualquier turno y de cualquier día.
+ *   SUPERVISOR     → solo las de una caja que todavía está ABIERTA.
+ *   El resto       → nadie.
  *
- * ── POR QUÉ CAMBIÓ ────────────────────────────────────────────────────────
- *   Antes el cajero podía anular una venta de SU turno abierto, y solo las de
- *   turnos cerrados exigían administrador. La idea era no frenar el
- *   mostrador: una venta mal cargada se detecta en el momento, con el cliente
- *   delante, y pedir que venga alguien con permiso para cada error de tipeo
- *   convierte un problema de diez segundos en una cola.
+ * ── POR QUÉ EL SUPERVISOR NO LLEGA A LO CERRADO ───────────────────────────
+ *   Una caja cerrada ya fue contada y arqueada: su diferencia está escrita y
+ *   alguien la firmó. Anular una venta de ahí cambia el efectivo esperado de
+ *   un turno que ya se cuadró, y el faltante o sobrante que quedó registrado
+ *   pasa a no corresponderse con las ventas que lo explican. Eso se corrige,
+ *   pero es una decisión de la administración, no del control diario.
  *
- *   El cliente pidió lo contrario, y tiene su razón: esa misma puerta deja que
- *   quien cobró de más anule y rehaga la venta sin que nadie se entere. Por
- *   eso anular pasa a ser de quien controla, y el supervisor existe
- *   justamente para que el control no dependa de que el administrador esté
- *   disponible.
+ *   Con la caja abierta no hay nada firmado todavía: la venta mal cargada se
+ *   detecta en el momento, se anula y el turno cierra bien. Para eso está el
+ *   supervisor en el mostrador.
  *
- *   La contracara hay que decirla: ahora un error de tipeo en el mostrador
- *   espera a que haya un supervisor o un administrador a mano. Es el costo
- *   que se eligió pagar.
+ * ── LO QUE ESTO REEMPLAZA ─────────────────────────────────────────────────
+ *   Antes el cajero podía anular las de su propio turno, y después se pasó a
+ *   "admin o supervisor, sin mirar el turno". Esta es la tercera versión y la
+ *   que pidió el cliente: el administrador sin límites, el supervisor acotado
+ *   a lo que todavía se puede corregir sin deshacer un arqueo.
  *
- * El turno de caja ya no entra en la decisión: con la regla nueva, quién
- * anula no depende de cuándo se hizo la venta. Toda anulación queda además
- * registrada en `modificaciones_administrativas`, con nombre y motivo.
+ * Toda anulación queda registrada en `modificaciones_administrativas`, con
+ * nombre y motivo, sin importar quién la haya hecho.
  */
 
 export type PermisoAnular =
@@ -32,12 +33,29 @@ export type PermisoAnular =
 
 export function puedeAnularVenta(params: {
   esAdmin: boolean;
-  /** El supervisor también puede anular: su trabajo es controlar. */
+  /** El supervisor anula, pero solo mientras la caja siga abierta. */
   esSupervisor?: boolean;
+  /**
+   * Si la caja de ESA venta sigue abierta.
+   *
+   * `undefined` es "no se pudo averiguar". Se trata como cerrada: ante la duda
+   * no se deja anular algo que puede estar arqueado. Una venta sin caja
+   * (cargada fuera de un turno) tampoco tiene nada abierto que la contenga.
+   */
+  cajaAbierta?: boolean;
 }): PermisoAnular {
-  if (params.esAdmin || params.esSupervisor === true) {
-    return { permitido: true, motivo: null };
+  if (params.esAdmin) return { permitido: true, motivo: null };
+
+  if (params.esSupervisor === true) {
+    if (params.cajaAbierta === true) return { permitido: true, motivo: null };
+    return {
+      permitido: false,
+      motivo:
+        "El turno de caja de esta venta ya está cerrado y arqueado. " +
+        "Anular una venta de un turno cerrado lo hace un administrador.",
+    };
   }
+
   return {
     permitido: false,
     motivo:

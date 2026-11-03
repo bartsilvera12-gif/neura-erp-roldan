@@ -177,7 +177,9 @@ export default function ArqueoMensualPage() {
                       <td className={`px-5 py-2.5 text-right font-semibold tabular-nums ${
                         d.diferencia < 0 ? "text-red-600" : d.diferencia > 0 ? "text-amber-600" : "text-slate-400"
                       }`}>
-                        {d.diferencia === 0 ? "Cuadra" : gsConSigno(d.diferencia)}
+                        {/* Ver el comentario en reportes/cajas: el monto
+                            siempre, el tilde para el golpe de ojo. */}
+                        {d.diferencia === 0 ? <>✓ {gsConSigno(0)}</> : gsConSigno(d.diferencia)}
                       </td>
                     </tr>
                   );
