@@ -108,3 +108,73 @@ export function validarRucOCedula(valor: string | null | undefined): ResultadoId
     error: "Poné el RUC (ej: 80012345-1) o la cédula. Solo números, puntos y guiones.",
   };
 }
+
+/**
+ * Los datos que no pueden faltar al dar de alta un cliente.
+ *
+ * ── CUÁLES, Y POR QUÉ ESTOS ───────────────────────────────────────────────
+ * Son los cinco que nombró la reunión: nombre, RUC o cédula, teléfono,
+ * profesión y ciudad. Cada uno se usa para algo concreto:
+ *
+ *   nombre          va en la factura
+ *   RUC o cédula    identifica a la persona; sin él, el padrón se llena de
+ *                   homónimos y el anticipo termina en la ficha equivocada
+ *   teléfono        sin teléfono no hay seguimiento, y el seguimiento es la
+ *                   mitad del trabajo de un presupuesto
+ *   profesión       es con lo que la casa segmenta (herrero, constructor,
+ *                   gasista) para saber a quién ofrecerle qué
+ *   ciudad          define el flete y la zona de reparto
+ *
+ * NO se exigen dirección, email, límite ni días de crédito: al cliente de
+ * mostrador no siempre se le piden, y volverlos obligatorios haría que se
+ * carguen inventados con tal de poder seguir, que es peor que vacíos.
+ *
+ * ── SOLO AL CREAR ─────────────────────────────────────────────────────────
+ * Igual que el identificador: de los 21.348 clientes migrados, muchos no
+ * tienen profesión ni ciudad. Exigirlos al editar dejaría esas fichas
+ * congeladas.
+ */
+export interface DatosAltaCliente extends IdentificadorCliente {
+  nombre?: string | null;
+  telefono?: string | null;
+  profesion?: string | null;
+  ciudad?: string | null;
+}
+
+/** Qué falta, en el orden en que está el formulario. */
+export function faltantesAltaCliente(datos: DatosAltaCliente): string[] {
+  const vacio = (v: unknown) => String(v ?? "").trim() === "";
+  const faltan: string[] = [];
+  if (vacio(datos.nombre)) faltan.push("el nombre");
+  if (vacio(datos.ruc) && vacio(datos.documento)) faltan.push("el RUC o la cédula");
+  if (vacio(datos.telefono)) faltan.push("el teléfono");
+  if (vacio(datos.profesion)) faltan.push("la profesión");
+  if (vacio(datos.ciudad)) faltan.push("la ciudad");
+  return faltan;
+}
+
+/**
+ * Valida los datos obligatorios del alta.
+ *
+ * Devuelve TODO lo que falta de una, no el primero: con un mensaje por campo,
+ * quien está cargando descubre el siguiente recién después de arreglar el
+ * anterior, y con el cliente esperando en el mostrador eso son cinco idas y
+ * vueltas.
+ */
+export function validarAltaCliente(
+  datos: DatosAltaCliente,
+  exigirFormatoRuc = false
+): ResultadoIdentificador {
+  const faltan = faltantesAltaCliente(datos);
+  if (faltan.length > 0) {
+    return {
+      ok: false,
+      error:
+        faltan.length === 1
+          ? `Falta ${faltan[0]}.`
+          : `Faltan ${faltan.slice(0, -1).join(", ")} y ${faltan[faltan.length - 1]}.`,
+    };
+  }
+  // Los cinco están; queda chequear que el RUC tenga forma de RUC.
+  return validarIdentificadorAlta(datos, exigirFormatoRuc);
+}

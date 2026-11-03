@@ -9,7 +9,7 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
-import { validarRucOCedula } from "@/lib/clientes/identificador";
+import { validarRucOCedula, faltantesAltaCliente } from "@/lib/clientes/identificador";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -394,9 +394,26 @@ export default function NuevoPresupuestoPage() {
   // guardar: sin RUC ni cédula el presupuesto no se puede facturar después.
   const identCliente = validarRucOCedula(clienteRuc);
 
+  /**
+   * Lo que falta para poder dar de alta al cliente.
+   *
+   * Solo cuando se escribió a mano: si salió del catálogo, ya tiene sus datos
+   * cargados y no se le vuelven a pedir.
+   */
+  const faltanDatosCliente = clienteId
+    ? []
+    : faltantesAltaCliente({
+        nombre: clienteNombre,
+        ruc: clienteRuc,
+        telefono: clienteTel,
+        profesion: clienteProfesion,
+        ciudad: clienteCiudad,
+      });
+
   const valido =
     clienteNombre.trim().length > 0 &&
     identCliente.ok &&
+    faltanDatosCliente.length === 0 &&
     // Sin teléfono no hay seguimiento posible, y el seguimiento es la mitad
     // del trabajo de un presupuesto.
     clienteTel.trim().length > 0 &&
@@ -897,6 +914,19 @@ export default function NuevoPresupuestoPage() {
       </div>
 
       <AvisoFaltantes lineas={items} existencias={existencias} />
+
+      {/* Qué falta para poder guardar. Sin esto el botón queda gris y hay que
+          adivinar cuál de los cinco campos es el que falta. */}
+      {faltanDatosCliente.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-2 text-sm text-amber-900">
+          Para dar de alta este cliente falta{faltanDatosCliente.length === 1 ? "" : "n"}{" "}
+          <strong>
+            {faltanDatosCliente.length === 1
+              ? faltanDatosCliente[0]
+              : `${faltanDatosCliente.slice(0, -1).join(", ")} y ${faltanDatosCliente[faltanDatosCliente.length - 1]}`}
+          </strong>.
+        </div>
+      )}
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
         <Link href="/presupuestos" className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">

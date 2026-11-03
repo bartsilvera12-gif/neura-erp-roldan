@@ -18,7 +18,7 @@ import {
   type TributarioFormState,
 } from "@/components/clientes/ClientePerfilTributarioForm";
 import { getProspecto, updateProspecto } from "@/lib/crm/storage";
-import { validarIdentificadorAlta } from "@/lib/clientes/identificador";
+import { validarAltaCliente } from "@/lib/clientes/identificador";
 import { getUsuariosActivosEmpresa, type UsuarioEmpresa } from "@/lib/usuarios/empresa";
 import MontoInput from "@/components/ui/MontoInput";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -273,11 +273,18 @@ function NuevoClienteForm() {
     // RUC o cédula: uno de los dos. Mismo criterio que el servidor, acá para
     // que el aviso salga antes de mandar el formulario entero.
     {
-      const ident = validarIdentificadorAlta(
-        { ruc: form.ruc, documento: form.documento },
+      const ident = validarAltaCliente(
+        {
+          ruc: form.ruc,
+          documento: form.documento,
+          nombre: form.tipo_cliente === "empresa" ? form.empresa : form.nombre_contacto,
+          telefono: form.telefono,
+          profesion: form.profesion,
+          ciudad: form.ciudad,
+        },
         form.tipo_cliente === "empresa" || form.es_contribuyente === true
       );
-      if (!ident.ok) return setError(ident.error ?? "Falta el RUC o la cédula.");
+      if (!ident.ok) return setError(ident.error ?? "Faltan datos del cliente.");
     }
 
     // Validación de formato de RUC paraguayo (dígitos-dígito verificador).

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
-import { validarIdentificadorAlta } from "@/lib/clientes/identificador";
+import { validarAltaCliente } from "@/lib/clientes/identificador";
 import { emitEvent, EVENT_TYPES } from "@/lib/integrations/events";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { createServiceRoleClient } from "@/lib/supabase/service-admin";
@@ -494,12 +494,19 @@ export async function POST(request: NextRequest) {
      * El formato del RUC se exige a empresas y contribuyentes, que son los que
      * facturan electrónicamente.
      */
-    const ident = validarIdentificadorAlta(
-      { ruc, documento },
+    const ident = validarAltaCliente(
+      {
+        ruc,
+        documento,
+        nombre: esEmpresa ? (empresa || nombre_contacto) : nombre_contacto,
+        telefono,
+        profesion,
+        ciudad,
+      },
       tipo_cliente === "empresa" || es_contribuyente === true
     );
     if (!ident.ok) {
-      return NextResponse.json(errorResponse(ident.error ?? "Falta el RUC o la cédula."), { status: 400 });
+      return NextResponse.json(errorResponse(ident.error ?? "Faltan datos del cliente."), { status: 400 });
     }
 
     const tipoServicio = tipo_servicio_cliente?.trim();

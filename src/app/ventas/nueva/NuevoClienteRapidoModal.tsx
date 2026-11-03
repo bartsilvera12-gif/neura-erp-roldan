@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { validarIdentificadorAlta } from "@/lib/clientes/identificador";
+import { validarAltaCliente } from "@/lib/clientes/identificador";
 import { apiCreateCliente } from "@/lib/api/client";
 
 export interface NuevoClienteCreado {
@@ -71,10 +71,27 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
    * esperando en el mostrador, un error que vuelve del servidor son dos
    * segundos más de silencio.
    */
-  const identificador = validarIdentificadorAlta(
-    { ruc: tipo === "empresa" ? ruc : "", documento: tipo === "persona" ? documento : "" },
+  const identificador = validarAltaCliente(
+    {
+      ruc: tipo === "empresa" ? ruc : "",
+      documento: tipo === "persona" ? documento : "",
+      nombre: nombreTrim,
+      telefono,
+      profesion,
+      ciudad,
+    },
     tipo === "empresa"
   );
+  /**
+   * Profesión y ciudad están detrás de "Ver más", y ahora son obligatorias:
+   * si faltan, el panel se abre solo. Sin esto, el botón queda deshabilitado
+   * por dos campos que no se ven y parece que la pantalla está rota.
+   */
+  const faltanOcultos = profesion.trim() === "" || ciudad.trim() === "";
+  useEffect(() => {
+    if (faltanOcultos) setVerMas(true);
+  }, [faltanOcultos]);
+
   const puedeGuardar = nombreTrim.length >= 2 && identificador.ok && !enviando;
 
   async function handleSubmit() {
@@ -183,7 +200,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
 
         {/* Teléfono */}
         <label className="mt-3 block text-sm font-medium text-slate-800">
-          Teléfono <span className="text-xs font-normal text-slate-400">(opcional)</span>
+          Teléfono <span className="ml-1 text-rose-600">*</span>
         </label>
         <input
           value={telefono}

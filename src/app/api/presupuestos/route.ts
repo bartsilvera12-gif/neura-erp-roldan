@@ -5,7 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { isAdmin } from "@/lib/middleware/auth";
-import { validarRucOCedula } from "@/lib/clientes/identificador";
+import { validarRucOCedula, faltantesAltaCliente } from "@/lib/clientes/identificador";
 import {
   conCamposScript38,
   leerPresupuestosConFallback,
@@ -133,6 +133,34 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    /**
+     * Los mismos datos obligatorios que el alta de cliente.
+     *
+     * Esta ruta DA DE ALTA al cliente cuando se escribe a mano, así que si acá
+     * se pidiera menos, el presupuesto sería la puerta por donde entran las
+     * fichas incompletas que el alta de clientes ya no deja pasar. Se exige
+     * solo cuando el cliente NO salió del catálogo: al cotizarle a uno que ya
+     * existe no se le vuelven a pedir sus datos.
+     */
+    if (!body.cliente_id) {
+      const faltan = faltantesAltaCliente({
+        nombre: clienteNombre,
+        ruc: body.cliente_ruc as string | null | undefined,
+        telefono: body.cliente_telefono as string | null | undefined,
+        profesion: body.cliente_profesion as string | null | undefined,
+        ciudad: body.cliente_ciudad as string | null | undefined,
+      });
+      if (faltan.length > 0) {
+        return NextResponse.json(
+          errorResponse(
+            `Para dar de alta este cliente falta${faltan.length === 1 ? "" : "n"} ` +
+            `${faltan.length === 1 ? faltan[0] : faltan.slice(0, -1).join(", ") + " y " + faltan[faltan.length - 1]}.`
+          ),
+          { status: 400 }
+        );
+      }
+    }
     const validezRaw = body.validez_dias;
     const validez =
       validezRaw === null || validezRaw === undefined || String(validezRaw).trim() === ""
@@ -146,6 +174,10 @@ export async function POST(request: NextRequest) {
     const rucInput = body.cliente_ruc ? String(body.cliente_ruc).trim() : "";
     const telInput = body.cliente_telefono ? String(body.cliente_telefono).trim() : "";
     const dirInput = body.cliente_direccion ? String(body.cliente_direccion).trim() : "";
+    // Ciudad y profesión también: son obligatorias en el alta, y si el cliente
+    // se crea desde acá sin ellas, nace incompleto por la ventana de atrás.
+    const ciudadInput = body.cliente_ciudad ? String(body.cliente_ciudad).trim() : "";
+    const profInput = body.cliente_profesion ? String(body.cliente_profesion).trim() : "";
     if (!clienteId) {
       if (rucInput) {
         const { data: existente } = await ctx.supabase
@@ -172,6 +204,8 @@ export async function POST(request: NextRequest) {
             ruc: rucInput || null,
             telefono: telInput || null,
             direccion: dirInput || null,
+            ciudad: ciudadInput || null,
+            profesion: profInput || null,
             moneda_preferida: body.moneda === "USD" ? "USD" : "GS",
             estado: "activo",
             usa_nota_remision: false,
