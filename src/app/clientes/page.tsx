@@ -7,7 +7,7 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { FancySelect } from "@/components/ui/FancySelect";
 import MobileFab from "@/components/ui/MobileFab";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
-import { getClientes, clienteNombre } from "@/lib/clientes/storage";
+import { getClientesPaginado, clienteNombre } from "@/lib/clientes/storage";
 import type { Cliente } from "@/lib/clientes/types";
 import { etiquetaVisibleTipoServicio, type ClienteTipoServicioRow } from "@/lib/clientes/tipo-servicio-catalogo";
 import { filasTiposDesdeSistemaEstatico, fetchTiposFormCliente } from "@/lib/clientes/fetch-tipos-servicio-form";
@@ -56,6 +56,15 @@ function BadgeOrigen({ origen }: { origen: Cliente["origen"] }) {
 // v3: nuevas columnas por defecto "Nombre comercial/Sucursal/Local" y "Ciudad"
 // (reemplazan a Contacto y Teléfono). Bump de versión para resetear preferencias viejas.
 const CLIENTES_COLUMNAS_STORAGE_KEY = "neura.erp.clientes.columnas.v3";
+
+/**
+ * Clientes por página.
+ *
+ * Cincuenta entran en una pantalla sin scroll infinito y una página pesa 27 KB
+ * contra la base real. Subirlo a doscientos no mejora nada: nadie lee
+ * doscientos renglones, y el que busca a alguien lo busca por nombre.
+ */
+const POR_PAGINA = 50;
 
 type ClienteColumnKey =
   | "codigo"
@@ -276,6 +285,11 @@ function buildClienteColumns(mapNombreTipo: Record<string, string>): ClienteColu
 export default function ClientesPage() {
   const searchParams = useSearchParams();
   const [clientes,    setClientes]    = useState<Cliente[]>([]);
+  /** Cuántos hay en total con los filtros puestos, no cuántos llegaron. */
+  const [total,       setTotal]       = useState<number | null>(null);
+  const [totalExacto, setTotalExacto] = useState(true);
+  const [pagina,      setPagina]      = useState(1);
+  const [paginas,     setPaginas]     = useState(1);
   const [cargando,    setCargando]    = useState(true);
   const [busqueda,    setBusqueda]    = useState("");
   const [bajaOk,      setBajaOk]      = useState(false);
@@ -314,12 +328,48 @@ export default function ClientesPage() {
     [clienteColumns, visibleColumnSet]
   );
 
+  /**
+   * Los clientes de UNA página, filtrados y buscados en el servidor.
+   *
+   * Antes se traían todos y se filtraba en el navegador. Con 21.348 clientes
+   * eso no funcionaba de dos maneras a la vez: PostgREST corta en 1000 filas
+   * —la pantalla decía "1000 de 1000"— y traerlos todos son 36 MB y 30
+   * segundos. Buscar a alguien que había quedado fuera de esas 1000 no daba
+   * "no está en el listado", daba "no existe".
+   */
   useEffect(() => {
-    getClientes({ incluirPlanActivo: true }).then((data) => {
-      setClientes(data);
-      setCargando(false);
-    });
-  }, []);
+    let cancel = false;
+    setCargando(true);
+    // Espera a que termine de escribir: sin esto son seis consultas para
+    // escribir "PEDRO".
+    const id = setTimeout(() => {
+      void getClientesPaginado({
+        pagina,
+        porPagina: POR_PAGINA,
+        busqueda,
+        estado: filtroEstado,
+        origen: filtroOrigen,
+        tipoCliente: filtroTipo,
+        tipoServicio: filtroTipoServicio,
+        categoria: filtroRubro,
+      }).then((r) => {
+        if (cancel) return;
+        setClientes(r.clientes);
+        setTotal(r.total);
+        setPaginas(r.paginas);
+        setTotalExacto(r.total_exacto);
+        setCargando(false);
+      });
+    }, busqueda.trim() === "" ? 0 : 300);
+    return () => { cancel = true; clearTimeout(id); };
+  }, [pagina, busqueda, filtroEstado, filtroOrigen, filtroTipo, filtroTipoServicio, filtroRubro]);
+
+  // Al cambiar un filtro o la búsqueda se vuelve a la primera página: quedarse
+  // en la página 7 de un resultado que ahora tiene dos muestra una tabla vacía
+  // que parece "no hay nada".
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, filtroEstado, filtroOrigen, filtroTipo, filtroTipoServicio, filtroRubro]);
 
   useEffect(() => {
     void fetchTiposFormCliente().then(setFilasTipoCatalogo);
@@ -365,30 +415,11 @@ export default function ClientesPage() {
     }
   }, [searchParams]);
 
-  const filtrados = clientes.filter((c) => {
-    const nombre = clienteNombre(c).toLowerCase();
-    const q      = busqueda.toLowerCase();
-    if (q) {
-      const match =
-        nombre.includes(q) ||
-        (c.nombre_comercial ?? "").toLowerCase().includes(q) ||
-        (c.nombre_contacto  ?? "").toLowerCase().includes(q) ||
-        (c.codigo_cliente ?? "").toLowerCase().includes(q) ||
-        (c.email          ?? "").toLowerCase().includes(q) ||
-        (c.telefono       ?? "").toLowerCase().includes(q) ||
-        (c.ruc            ?? "").toLowerCase().includes(q) ||
-        (c.ciudad         ?? "").toLowerCase().includes(q);
-      if (!match) return false;
-    }
-    if (filtroEstado       && c.estado              !== filtroEstado) return false;
-    if (filtroOrigen       && c.origen              !== filtroOrigen) return false;
-    if (filtroTipo         && c.tipo_cliente        !== filtroTipo) return false;
-    if (filtroTipoServicio && c.tipo_servicio_cliente !== filtroTipoServicio) return false;
-    if (filtroRubro === "__sin__") {
-      if (c.categoria_cliente_id) return false;
-    } else if (filtroRubro && c.categoria_cliente_id !== filtroRubro) return false;
-    return true;
-  });
+  // Lo que llega YA viene filtrado y buscado por el servidor: filtrar de nuevo
+  // acá solo filtraría la página que se está viendo.
+  const filtrados = clientes;
+  const desdeFila = clientes.length === 0 ? 0 : (pagina - 1) * POR_PAGINA + 1;
+  const hastaFila = (pagina - 1) * POR_PAGINA + clientes.length;
 
   const hayFiltros = busqueda || filtroEstado || filtroOrigen || filtroTipo || filtroTipoServicio || filtroRubro;
 
@@ -518,9 +549,24 @@ export default function ClientesPage() {
 
       {/* Contador */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* El contador dice el TOTAL que hay con esos filtros, no cuántos
+            llegaron. Antes decía "1000 de 1000" porque mostraba el largo de lo
+            que había recibido, y eso tapaba que faltaban 20.348. */}
         <p className="text-sm text-gray-500">
-          <span className="font-semibold text-gray-800">{filtrados.length}</span> de{" "}
-          <span className="font-semibold text-gray-800">{clientes.length}</span> clientes
+          {total == null ? (
+            <><span className="font-semibold text-gray-800">{filtrados.length}</span> clientes</>
+          ) : total === 0 ? (
+            <>Ningún cliente</>
+          ) : (
+            <>
+              <span className="font-semibold text-gray-800">
+                {desdeFila.toLocaleString("es-PY")}–{hastaFila.toLocaleString("es-PY")}
+              </span>{" "}
+              de <span className="font-semibold text-gray-800">{total.toLocaleString("es-PY")}</span>{" "}
+              clientes
+              {!totalExacto && <span className="ml-1 text-amber-700">(aproximado)</span>}
+            </>
+          )}
         </p>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex gap-3 text-xs text-gray-400">
@@ -592,9 +638,9 @@ export default function ClientesPage() {
           <div className="py-16 text-center text-gray-400">
             <Users className="h-10 w-10 mb-3" aria-hidden />
             <p className="font-medium text-gray-600">
-              {clientes.length === 0 ? "No hay clientes registrados" : "Sin resultados para los filtros aplicados"}
+              {hayFiltros ? "Sin resultados para los filtros aplicados" : "No hay clientes registrados"}
             </p>
-            {clientes.length === 0 && (
+            {!hayFiltros && (
               <Link href="/clientes/nuevo" className="mt-4 inline-block text-sm text-gray-500 underline hover:text-gray-800">
                 Crear primer cliente
               </Link>
@@ -631,6 +677,48 @@ export default function ClientesPage() {
           </EdgeScrollArea>
         )}
       </div>
+
+      {paginas > 1 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-slate-500">
+            Página {pagina.toLocaleString("es-PY")} de {paginas.toLocaleString("es-PY")}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPagina(1)}
+              disabled={pagina <= 1 || cargando}
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91] disabled:opacity-40"
+            >
+              Primera
+            </button>
+            <button
+              type="button"
+              onClick={() => setPagina((p) => Math.max(1, p - 1))}
+              disabled={pagina <= 1 || cargando}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#3F8E91] disabled:opacity-40"
+            >
+              ← Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPagina((p) => Math.min(paginas, p + 1))}
+              disabled={pagina >= paginas || cargando}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#3F8E91] disabled:opacity-40"
+            >
+              Siguiente →
+            </button>
+            <button
+              type="button"
+              onClick={() => setPagina(paginas)}
+              disabled={pagina >= paginas || cargando}
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91] disabled:opacity-40"
+            >
+              Última
+            </button>
+          </div>
+        </div>
+      )}
 
       <MobileFab href="/clientes/nuevo" label="Nuevo cliente" />
     </div>

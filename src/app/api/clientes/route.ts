@@ -165,14 +165,74 @@ export async function GET(request: NextRequest) {
     const limiteRaw = parseInt(sp.get("limite") ?? "0", 10);
     const limite = Number.isFinite(limiteRaw) && limiteRaw > 0 ? Math.min(limiteRaw, 200) : 0;
 
+    /**
+     * MODO PAGINADO, para el listado de clientes.
+     *
+     * ── POR QUÉ ───────────────────────────────────────────────────────────
+     *   Traer los 21.348 clientes de una son 36 MB y 30 segundos (medido), y
+     *   PostgREST corta en 1000 filas por consulta, así que la pantalla
+     *   mostraba "1000 de 1000" y los otros 20.348 no existían: los filtros
+     *   trabajan sobre lo que llegó, de modo que buscar un cliente que quedó
+     *   afuera no daba "no está en el listado", daba "no existe". Un cliente
+     *   real invisible es peor que un error, porque nadie sabe que hay algo que
+     *   revisar.
+     *
+     *   Paginar es la única salida: ni trayendo solo las columnas del listado
+     *   baja de 11 MB.
+     *
+     * ── POR QUÉ ES OPT-IN ─────────────────────────────────────────────────
+     *   Sin `paginado=1` la respuesta sigue siendo el arreglo pelado de antes.
+     *   Nueve pantallas dependen de esa forma; cambiarla para todas desde acá
+     *   rompería ocho para arreglar una.
+     */
+    const paginado = sp.get("paginado") === "1";
+    const porPaginaRaw = parseInt(sp.get("por_pagina") ?? "0", 10);
+    const porPagina = Number.isFinite(porPaginaRaw) && porPaginaRaw > 0
+      ? Math.min(porPaginaRaw, 200)
+      : 50;
+    const paginaRaw = parseInt(sp.get("pagina") ?? "1", 10);
+    const pagina = Number.isFinite(paginaRaw) && paginaRaw > 0 ? paginaRaw : 1;
+
+    /**
+     * Las columnas que necesita el listado, nada más.
+     *
+     * `*` trae más de noventa columnas por cliente, con los campos de SIFEN,
+     * las bajas y los datos de contrato. El listado muestra dieciocho. Es la
+     * diferencia entre 36 MB y 11 MB para el padrón entero, y en una página de
+     * cincuenta se nota igual.
+     */
+    const COLUMNAS_LISTA =
+      "id, codigo, documento, ruc, nombre, empresa, nombre_comercial, nombre_contacto, " +
+      "nombre_facturacion, telefono, telefono_secundario, email, email_secundario, " +
+      "ciudad, estado, origen, tipo_cliente, tipo_servicio_cliente, categoria_cliente_id, " +
+      "vendedor_usuario_id, created_at, created_by_nombre, deleted_at";
+    const columnas = sp.get("campos") === "lista" ? COLUMNAS_LISTA : "*";
+
     let q = supabase
       .from("clientes")
-      .select("*")
+      // `count` solo en modo paginado: pedirlo siempre obliga a la base a
+      // contar el padrón entero en cada llamada de las otras ocho pantallas.
+      .select(columnas, paginado ? { count: "exact" } : undefined)
       .eq("empresa_id", auth.empresa_id)
       .order("created_at", { ascending: false });
     if (!incluirEliminados) {
       q = q.is("deleted_at", null);
     }
+
+    // Filtros del listado. Van al servidor porque filtrar en la pantalla solo
+    // filtraría la página que se está viendo.
+    const fEstado = (sp.get("estado") ?? "").trim();
+    const fOrigen = (sp.get("origen") ?? "").trim();
+    const fTipo = (sp.get("tipo_cliente") ?? "").trim();
+    const fTipoServicio = (sp.get("tipo_servicio") ?? "").trim();
+    const fCategoria = (sp.get("categoria") ?? "").trim();
+    if (fEstado) q = q.eq("estado", fEstado);
+    if (fOrigen) q = q.eq("origen", fOrigen);
+    if (fTipo) q = q.eq("tipo_cliente", fTipo);
+    if (fTipoServicio) q = q.eq("tipo_servicio_cliente", fTipoServicio);
+    // `__sin__` es "los que no tienen rubro", que no es lo mismo que "todos".
+    if (fCategoria === "__sin__") q = q.is("categoria_cliente_id", null);
+    else if (fCategoria) q = q.eq("categoria_cliente_id", fCategoria);
     if (texto) {
       // Se escapan los comodines: un cliente que se busca por "100%" no tiene
       // por qué traer medio padrón.
@@ -185,6 +245,13 @@ export async function GET(request: NextRequest) {
           `nombre_contacto.ilike.%${t}%`,
           `ruc.ilike.%${t}%`,
           `codigo.ilike.%${t}%`,
+          // Los que buscaba la pantalla cuando filtraba en el navegador. Sin
+          // estos, pasar la búsqueda al servidor habría ENCONTRADO MENOS que
+          // antes, y nadie lo habría notado hasta no encontrar a alguien.
+          `nombre_comercial.ilike.%${t}%`,
+          `email.ilike.%${t}%`,
+          `telefono.ilike.%${t}%`,
+          `ciudad.ilike.%${t}%`,
         ];
 
         /**
@@ -215,13 +282,75 @@ export async function GET(request: NextRequest) {
       q = q.limit(limite);
     }
 
-    const { data, error } = await q;
+    /**
+     * EL LISTADO SE CORTABA EN 1000 CLIENTES, SIN AVISAR.
+     *
+     * PostgREST devuelve como máximo 1000 filas por consulta. Con 21.344
+     * clientes, la pantalla mostraba "1000 de 1000" y los otros 20.344
+     * simplemente no existían: los filtros de la pantalla trabajan sobre lo que
+     * llegó, así que buscar un cliente que quedó afuera no daba "no está en el
+     * listado", daba "no existe". Un cliente real invisible es peor que un
+     * error, porque nadie sabe que hay algo que revisar.
+     *
+     * Se trae por páginas hasta terminar. Cuando el pedido trae `limite` (los
+     * buscadores de las pantallas, que piden veinte) no se pagina: ahí el tope
+     * es el que se pidió.
+     *
+     * El tope de seguridad existe para que un error en la condición de corte no
+     * se convierta en un bucle infinito contra la base; si alguna vez se
+     * alcanza, es un aviso de que hay que paginar en serio desde la pantalla.
+     */
+    const PAGINA = 1000;
+    const TOPE_FILAS = 50_000;
+    const soportaRange = typeof (q as { range?: unknown }).range === "function";
+
+    let data: Record<string, unknown>[] | null = null;
+    let error: { message: string } | null = null;
+    let total: number | null = null;
+
+    if (paginado && soportaRange) {
+      // Una página y su total, que es lo que la pantalla necesita para poder
+      // decir "51 a 100 de 21.348" en vez de mentir con "1000 de 1000".
+      const desde = (pagina - 1) * porPagina;
+      const r = await (q as unknown as {
+        range: (a: number, b: number) => PromiseLike<{
+          data: unknown; error: { message: string } | null; count?: number | null;
+        }>;
+      }).range(desde, desde + porPagina - 1);
+      data = (r.data ?? null) as Record<string, unknown>[] | null;
+      error = r.error;
+      total = typeof r.count === "number" ? r.count : null;
+    } else if (limite > 0 || !soportaRange) {
+      // Con `limite` manda lo pedido. Sin `.range` estamos contra el shim
+      // Postgres directo, que no tiene el tope de 1000 ni implementa paginado.
+      const r = await q;
+      data = (r.data ?? null) as Record<string, unknown>[] | null;
+      error = r.error;
+    } else {
+      const acumulado: Record<string, unknown>[] = [];
+      for (let desde = 0; desde < TOPE_FILAS; desde += PAGINA) {
+        const r = await (q as unknown as {
+          range: (a: number, b: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+        }).range(desde, desde + PAGINA - 1);
+        if (r.error) { error = r.error; break; }
+        const lote = (r.data ?? []) as Record<string, unknown>[];
+        acumulado.push(...lote);
+        // Se corta con la página INCOMPLETA, no comparando contra un número
+        // mayor al tope del servidor: pedir de a 10.000 y cortar cuando vuelven
+        // menos de 10.000 corta siempre en la primera vuelta, con 1000 filas.
+        if (lote.length < PAGINA) break;
+      }
+      if (!error) data = acumulado;
+    }
 
     if (error) {
       return NextResponse.json(errorResponse(error.message), { status: 400 });
     }
 
     const rows = (data ?? []) as Record<string, unknown>[];
+    // Sin `count` (el shim no lo da) el total se desconoce: se dice lo que hay
+    // en la página y la pantalla no inventa un número.
+    const totalFinal = total ?? (paginado ? rows.length : null);
     /** Los enriquecimientos secundarios NO deben derribar el listado: si una tabla auxiliar no
      *  está mapeada en el shim o un RPC dependiente falla en un tenant `erp_*`, el listado igual
      *  debe responder con los clientes. */
@@ -257,6 +386,18 @@ export async function GET(request: NextRequest) {
       } catch (e) {
         console.error("[api/clientes] enrich vendedores:", e instanceof Error ? e.message : e);
       }
+    }
+
+    if (paginado) {
+      return NextResponse.json(successResponse({
+        clientes: rows,
+        total: totalFinal,
+        pagina,
+        por_pagina: porPagina,
+        paginas: totalFinal == null ? 1 : Math.max(1, Math.ceil(totalFinal / porPagina)),
+        /** false cuando el total no se pudo contar: la pantalla lo dice así. */
+        total_exacto: total != null,
+      }));
     }
 
     return NextResponse.json(successResponse(rows));

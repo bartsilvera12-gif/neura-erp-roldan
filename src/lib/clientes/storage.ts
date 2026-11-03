@@ -198,7 +198,85 @@ function rowToCliente(row: SupabaseRow): Cliente {
 // ─── API pública ──────────────────────────────────────────────────────────────
 
 /** Lista clientes vía API (tenant + service role); evita depender del schema/RLS del cliente browser. */
-export async function getClientes(opts?: { incluirEliminados?: boolean; incluirPlanActivo?: boolean }): Promise<Cliente[]> {
+export interface PaginaClientes {
+  clientes: Cliente[];
+  /** Cuántos hay en total con esos filtros. null = no se pudo contar. */
+  total: number | null;
+  pagina: number;
+  paginas: number;
+  total_exacto: boolean;
+}
+
+/**
+ * Una página del listado de clientes, filtrada y buscada EN EL SERVIDOR.
+ *
+ * ── POR QUÉ NO ALCANZA CON `getClientes` ──────────────────────────────────
+ * Esa trae todo, y PostgREST corta en 1000 filas: con 21.348 clientes la
+ * pantalla mostraba "1000 de 1000" y los otros 20.348 no existían. Los filtros
+ * trabajaban sobre lo que había llegado, así que buscar a alguien que quedó
+ * afuera no daba "no está en el listado", daba "no existe".
+ *
+ * Traerlos todos tampoco es opción: medido contra la base real son 36 MB y 30
+ * segundos, y 11 MB aun pidiendo solo las columnas del listado. Una página de
+ * cincuenta son 27 KB y menos de un segundo.
+ */
+export async function getClientesPaginado(opts: {
+  pagina?: number;
+  porPagina?: number;
+  busqueda?: string;
+  estado?: string;
+  origen?: string;
+  tipoCliente?: string;
+  tipoServicio?: string;
+  categoria?: string;
+  incluirEliminados?: boolean;
+} = {}): Promise<PaginaClientes> {
+  const vacio: PaginaClientes = {
+    clientes: [], total: 0, pagina: 1, paginas: 1, total_exacto: true,
+  };
+  if (typeof window === "undefined") return vacio;
+
+  try {
+    const params = new URLSearchParams({ paginado: "1", campos: "lista" });
+    params.set("pagina", String(Math.max(1, opts.pagina ?? 1)));
+    params.set("por_pagina", String(Math.min(200, Math.max(1, opts.porPagina ?? 50))));
+    if (opts.busqueda?.trim()) params.set("q", opts.busqueda.trim());
+    if (opts.estado) params.set("estado", opts.estado);
+    if (opts.origen) params.set("origen", opts.origen);
+    if (opts.tipoCliente) params.set("tipo_cliente", opts.tipoCliente);
+    if (opts.tipoServicio) params.set("tipo_servicio", opts.tipoServicio);
+    if (opts.categoria) params.set("categoria", opts.categoria);
+    if (opts.incluirEliminados) params.set("incluir_eliminados", "1");
+
+    const res = await fetchWithSupabaseSession(`/api/clientes?${params}`, { cache: "no-store" });
+    if (!res.ok) {
+      console.error("[clientes] getClientesPaginado:", res.status, await res.text().catch(() => ""));
+      return vacio;
+    }
+    const json = (await res.json()) as { success: boolean; data?: Record<string, unknown> };
+    if (!json.success || !json.data) return vacio;
+
+    const d = json.data;
+    const filas = Array.isArray(d.clientes) ? (d.clientes as SupabaseRow[]) : [];
+    return {
+      clientes: filas.map((row) => rowToCliente(row)),
+      total: typeof d.total === "number" ? d.total : null,
+      pagina: typeof d.pagina === "number" ? d.pagina : 1,
+      paginas: typeof d.paginas === "number" ? d.paginas : 1,
+      total_exacto: d.total_exacto !== false,
+    };
+  } catch (e) {
+    console.error("[clientes] getClientesPaginado:", e);
+    return vacio;
+  }
+}
+
+export async function getClientes(opts?: {
+  incluirEliminados?: boolean;
+  incluirPlanActivo?: boolean;
+  /** Trae las noventa y pico de columnas. Solo si de verdad hacen falta. */
+  todasLasColumnas?: boolean;
+}): Promise<Cliente[]> {
   if (typeof window === "undefined") {
     return [];
   }
@@ -206,6 +284,15 @@ export async function getClientes(opts?: { incluirEliminados?: boolean; incluirP
     const params = new URLSearchParams();
     if (opts?.incluirPlanActivo) params.set("plan_activo", "1");
     if (opts?.incluirEliminados) params.set("incluir_eliminados", "1");
+    /**
+     * Solo las columnas que usan los listados.
+     *
+     * `*` son más de noventa por cliente, con los campos de SIFEN, las bajas y
+     * los datos de contrato. Para el padrón entero eso son 36 MB contra los 11
+     * del set reducido (medido contra la base real). Quien necesite la ficha
+     * completa la pide por id, que es una fila.
+     */
+    if (!opts?.todasLasColumnas) params.set("campos", "lista");
     const qs = params.toString();
     const res = await fetchWithSupabaseSession(`/api/clientes${qs ? `?${qs}` : ""}`, {
       cache: "no-store",
