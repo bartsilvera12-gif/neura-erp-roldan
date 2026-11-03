@@ -44,6 +44,13 @@ import { sinIva, ivaIncluido } from "@/lib/precios/iva";
  *   Por eso en pantalla van las dos, con su nombre, y nunca una sola rotulada
  *   de forma ambigua.
  *
+ * LOS TRES NÚMEROS Y EN QUÉ ORDEN SALEN
+ *   1. UTILIDAD BRUTA (en guaraníes) = venta − costo − diferencia de IVA.
+ *   2. MARGEN BRUTO (%) = utilidad bruta / venta.
+ *   3. REMARCACIÓN (%) = utilidad bruta / costo.
+ *   Primero la plata, después los dos porcentajes como su cociente. Los dos
+ *   salen de la misma función para que no puedan contradecirse.
+ *
  * CUÁL SE USA PARA QUÉ
  *   Para FIJAR un precio se piensa en remarcación: "al costo le pongo 60%".
  *   Para medir RENTABILIDAD se usa el margen: es la parte de la facturación
@@ -69,8 +76,16 @@ function netos(
   return { costo: sinIva(c, ivaCosto ?? ivaVenta), precio: sinIva(p, ivaVenta) };
 }
 
-/** Qué parte de la venta es ganancia: (precio − costo) / precio × 100, sin IVA. */
-export function margenSobreVenta(
+/**
+ * MARGEN BRUTO: qué parte de la venta queda como utilidad bruta.
+ *
+ *   margen bruto = utilidad bruta / venta × 100
+ *
+ * Sale de la utilidad bruta y no de una resta propia, a propósito: son el
+ * mismo número mirado de dos formas, y calculados por separado un día uno se
+ * corrige y el otro no.
+ */
+export function margenBruto(
   costo: number,
   precio: number,
   ivaVenta?: string,
@@ -78,8 +93,11 @@ export function margenSobreVenta(
 ): number {
   const n = netos(costo, precio, ivaVenta, ivaCosto);
   if (n.precio <= 0) return 0;
-  return ((n.precio - n.costo) / n.precio) * 100;
+  return (utilidadBruta(costo, precio, ivaVenta, ivaCosto) / n.precio) * 100;
 }
+
+/** Nombre viejo de `margenBruto`. Se mantiene por los que ya lo importan. */
+export const margenSobreVenta = margenBruto;
 
 /**
  * Cuánto se le puso encima al costo: (precio − costo) / costo × 100.
@@ -96,7 +114,7 @@ export function remarcacionSobreCosto(
 ): number | null {
   const n = netos(costo, precio, ivaVenta, ivaCosto);
   if (n.costo <= 0) return null;
-  return ((n.precio - n.costo) / n.costo) * 100;
+  return (utilidadBruta(costo, precio, ivaVenta, ivaCosto) / n.costo) * 100;
 }
 
 /** Precio que resulta de aplicarle una remarcación al costo. */
@@ -105,13 +123,19 @@ export function precioDesdeRemarcacion(costo: number, remarcacionPct: number): n
 }
 
 /**
- * Ganancia en guaraníes por unidad.
+ * UTILIDAD BRUTA en guaraníes.
  *
- * Con las tasas: (precio − costo) − (IVA de la venta − IVA del costo), que es
- * lo mismo que restar los dos importes ya sin IVA. Se escribe de la segunda
- * forma porque es una resta en vez de cuatro, pero es la misma cuenta.
+ *   utilidad bruta = (precio de venta − precio de costo)
+ *                    − (IVA de la venta − IVA del costo)
+ *
+ * Las dos puntas en guaraníes y con IVA, que es como están guardadas. Es lo
+ * mismo que restar los dos importes ya sin IVA, y así está escrito acá:
+ * una resta en vez de cuatro, pero es la misma cuenta.
+ *
+ * De este número sale el margen bruto. Es el orden que importa: primero la
+ * utilidad en plata, y el porcentaje después, como su cociente.
  */
-export function gananciaUnitaria(
+export function utilidadBruta(
   costo: number,
   precio: number,
   ivaVenta?: string,
@@ -120,6 +144,9 @@ export function gananciaUnitaria(
   const n = netos(costo, precio, ivaVenta, ivaCosto);
   return n.precio - n.costo;
 }
+
+/** Nombre viejo de `utilidadBruta`. Se mantiene por los que ya lo importan. */
+export const gananciaUnitaria = utilidadBruta;
 
 /**
  * El IVA que hay que sacar de la resta, por separado.
