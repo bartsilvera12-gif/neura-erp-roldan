@@ -34,6 +34,30 @@ export const SLUGS_PERMITIDOS_ROL_USUARIO_LIMITADO: ReadonlySet<string> = new Se
   "recetas",
 ]);
 
+/**
+ * Slugs VEDADOS al rol `usuario`, aunque tenga el módulo habilitado.
+ *
+ * En Roldán el acceso del `usuario` se rige por los módulos que le asigna el
+ * administrador, con una trampa: un usuario SIN módulos asignados hereda
+ * todos los de la empresa. O sea que lo que acá no esté listado se le muestra
+ * por omisión, y basta con que nadie le configure los módulos.
+ *
+ *   - dashboard: es el tablero de la empresa. A un `usuario` el guard ya lo
+ *     saca al entrar, así que mostrarlo en el menú solo lleva a un rebote.
+ *   - ordenes_venta: pedido del cliente —"las cajeras no pueden ver el orden
+ *     de venta"—. La orden de venta es el compromiso comercial previo a la
+ *     factura: quién le prometió qué, a qué precio y con qué plazo. La cajera
+ *     cobra lo que se le presenta; no es su pantalla.
+ *
+ * Es un techo, no un piso: lo que esté acá no se ve ni habilitando el módulo,
+ * y se arregla cambiándole el rol a la persona, que es la conversación que
+ * corresponde tener.
+ */
+export const SLUGS_VEDADOS_ROL_USUARIO: ReadonlySet<string> = new Set([
+  "dashboard",
+  "ordenes_venta",
+]);
+
 /** Ruta a la que se redirige un `usuario` que entra a "/". */
 export const LANDING_ROL_USUARIO_LIMITADO = "/ventas";
 
@@ -118,7 +142,7 @@ export function puedeVerSidebarSlugPorRol(
   // para admin/supervisor — a un rol `usuario` lo redirige/saca al entrar, así
   // que se oculta del sidebar aunque tenga el slug habilitado. El resto se rige
   // por los módulos efectivos del usuario.
-  if (slug === "dashboard" && esUsuarioLimitadoErp(rol)) return false;
+  if (esUsuarioLimitadoErp(rol) && SLUGS_VEDADOS_ROL_USUARIO.has(slug)) return false;
   return true;
 }
 
@@ -143,6 +167,14 @@ export function slugsEfectivosPorRol(
   slugs: ReadonlySet<string>,
   rol: string | null | undefined
 ): Set<string> {
+  // El `usuario` pierde lo vedado por rol, aunque tenga el módulo: si el
+  // recorte se hiciera solo en el menú, entraría igual escribiendo la
+  // dirección.
+  if (esUsuarioLimitadoErp(rol)) {
+    const recortado = new Set<string>();
+    for (const s of slugs) if (!SLUGS_VEDADOS_ROL_USUARIO.has(s)) recortado.add(s);
+    return recortado;
+  }
   if (!esSupervisorErp(rol)) return new Set(slugs);
   const recortado = new Set<string>();
   if (slugs.has("cierres-caja") || slugs.has("reportes")) recortado.add("cierres-caja");

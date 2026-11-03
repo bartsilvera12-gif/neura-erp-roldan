@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { esUsuarioLimitadoErp } from "@/lib/roles/erp-role-access";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
@@ -20,8 +21,16 @@ const COLS =
 
 export async function GET(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Pedido del cliente: las cajeras no ven las órdenes de venta. Esconder
+    // el ítem del menú no cierra la ruta, y la pantalla la pide por acá.
+    if (esUsuarioLimitadoErp(ctx.auth.rol)) {
+      return NextResponse.json(
+        errorResponse("Las órdenes de venta no son del puesto de caja."),
+        { status: 403 }
+      );
+    }
     const { supabase, auth } = ctx;
     const sp = new URL(request.url).searchParams;
 
@@ -65,8 +74,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Pedido del cliente: las cajeras no ven las órdenes de venta. Esconder
+    // el ítem del menú no cierra la ruta, y la pantalla la pide por acá.
+    if (esUsuarioLimitadoErp(ctx.auth.rol)) {
+      return NextResponse.json(
+        errorResponse("Las órdenes de venta no son del puesto de caja."),
+        { status: 403 }
+      );
+    }
     const { supabase, auth } = ctx;
     const body = (await request.json().catch(() => ({}))) as {
       cliente_id?: unknown;

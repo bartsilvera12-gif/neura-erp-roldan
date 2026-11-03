@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { esUsuarioLimitadoErp } from "@/lib/roles/erp-role-access";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
 /** Cambio de estado: aprobar / rechazar / cancelar. La conversión a venta va aparte. */
 export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Pedido del cliente: las cajeras no ven las órdenes de venta. Esconder
+    // el ítem del menú no cierra la ruta, y la pantalla la pide por acá.
+    if (esUsuarioLimitadoErp(ctx.auth.rol)) {
+      return NextResponse.json(
+        errorResponse("Las órdenes de venta no son del puesto de caja."),
+        { status: 403 }
+      );
+    }
     const { id } = await ctxParams.params;
     const body = (await request.json().catch(() => ({}))) as {
       estado?: unknown; motivo_rechazo?: unknown; observaciones?: unknown;
@@ -43,8 +52,16 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
 
 export async function DELETE(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Pedido del cliente: las cajeras no ven las órdenes de venta. Esconder
+    // el ítem del menú no cierra la ruta, y la pantalla la pide por acá.
+    if (esUsuarioLimitadoErp(ctx.auth.rol)) {
+      return NextResponse.json(
+        errorResponse("Las órdenes de venta no son del puesto de caja."),
+        { status: 403 }
+      );
+    }
     const { id } = await ctxParams.params;
     // Borrar items (por si no hay CASCADE), después la orden.
     await ctx.supabase.from("ordenes_venta_items").delete().eq("orden_id", id);
