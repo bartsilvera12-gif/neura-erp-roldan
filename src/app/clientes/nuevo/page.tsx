@@ -19,6 +19,7 @@ import {
 } from "@/components/clientes/ClientePerfilTributarioForm";
 import { getProspecto, updateProspecto } from "@/lib/crm/storage";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { getUsuariosActivosEmpresa, type UsuarioEmpresa } from "@/lib/usuarios/empresa";
 import MontoInput from "@/components/ui/MontoInput";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -68,6 +69,18 @@ function NuevoClienteForm() {
       })
       .catch(() => { /* sin catálogo se escribe a mano, como antes */ });
   }, []);
+
+  /**
+   * Las condiciones de crédito las decide el administrador.
+   *
+   * Cuánto se le fía a un cliente, a cuántos días y con qué condición de pago
+   * no es una decisión de mostrador: es la línea de crédito de la empresa. El
+   * cajero da de alta al cliente —nombre, RUC, teléfono— y el crédito queda
+   * en cero hasta que alguien con esa facultad lo defina. El servidor ignora
+   * estos tres campos si vienen de un usuario común, así que esconderlos acá
+   * es para que la pantalla diga la verdad, no para que la regla se cumpla.
+   */
+  const { isAdmin: puedeCredito } = useIsAdmin();
 
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -408,14 +421,14 @@ function NuevoClienteForm() {
       profesion: form.profesion.trim().toUpperCase() || undefined,
       // Vacío queda sin definir; cero se manda tal cual porque significa
       // "no se le vende a crédito", que es una decisión distinta.
-      limite_credito: form.limite_credito.trim() === "" ? undefined : Number(form.limite_credito),
-      dias_credito: form.dias_credito.trim() === "" ? undefined : Number(form.dias_credito),
+      limite_credito: !puedeCredito || form.limite_credito.trim() === "" ? undefined : Number(form.limite_credito),
+      dias_credito: !puedeCredito || form.dias_credito.trim() === "" ? undefined : Number(form.dias_credito),
       pais: form.pais.trim().toUpperCase() || undefined,
       sitio_web: form.sitio_web.trim() || undefined,
       instagram: form.instagram.trim() || undefined,
       linkedin: form.linkedin.trim() || undefined,
       valor_cliente: form.valor_cliente.trim() ? Number(form.valor_cliente) : undefined,
-      condicion_pago: form.condicion_pago.trim().toUpperCase() || undefined,
+      condicion_pago: puedeCredito ? (form.condicion_pago.trim().toUpperCase() || undefined) : undefined,
       metodo_pago_preferido: form.metodo_pago_preferido || null,
       moneda_preferida: form.moneda_preferida,
       estado: form.estado,
@@ -836,6 +849,7 @@ function NuevoClienteForm() {
                   </p>
                 )}
               </div>
+              {puedeCredito && (
               <div>
                 <label className={labelClass}>Límite de crédito</label>
                 <input
@@ -853,6 +867,8 @@ function NuevoClienteForm() {
                   Vacío = sin definir. 0 = no se le vende a crédito.
                 </p>
               </div>
+              )}
+              {puedeCredito && (
               <div>
                 {/* El plazo acordado vive en la ficha y no en cada venta: que
                     a este cliente son 30 días y al otro 15 no puede depender
@@ -872,6 +888,7 @@ function NuevoClienteForm() {
                   Se propone solo al vender a crédito, y no se puede pasar. Vacío = sin plazo acordado.
                 </p>
               </div>
+              )}
               <div>
                 <label className={labelClass}>Ciudad</label>
                 <input
@@ -970,6 +987,7 @@ function NuevoClienteForm() {
             <SectionTitle>Datos comerciales</SectionTitle>
 
             <div className={`grid gap-4 ${SIMPLE_CLIENTE ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-3"}`}>
+              {puedeCredito && (
               <div>
                 <label className={labelClass}>Condición de pago</label>
                 <select
@@ -987,6 +1005,7 @@ function NuevoClienteForm() {
                   {!SIMPLE_CLIENTE && <option value="MENSUAL">Mensual</option>}
                 </select>
               </div>
+              )}
               <div>
                 <label className={labelClass}>Moneda preferida</label>
                 <select

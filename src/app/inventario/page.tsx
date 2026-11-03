@@ -249,16 +249,25 @@ export default function InventarioPage() {
             Planilla de conteo
           </button>
           <span className="inline-flex items-start gap-2">
-            <ExportExcelButton url="/api/inventario/productos/export" />
+            {/* El export del catálogo lleva el costo de cada artículo: una
+                planilla con los costos del depósito que sale por mail es la
+                forma más fácil de que los costos dejen de ser internos. */}
+            {isAdmin && <ExportExcelButton url="/api/inventario/productos/export" />}
+            {/* La planilla impresa va sin la columna de costo para el que no es
+                administrador. La suma se mueve con ella: con "Costo" el total
+                va en la columna 5 y sin ella en la 4, y si no se corre, el
+                sistema suma los stocks debajo del encabezado de precios. */}
             <ImprimirTablaButton
               titulo="Productos"
-              columnas={["Producto", "SKU", "Rubro", "Costo", "Precio", "Stock", "Mínimo"]}
-              sumar={[5]}
+              columnas={isAdmin
+                ? ["Producto", "SKU", "Rubro", "Costo", "Precio", "Stock", "Mínimo"]
+                : ["Producto", "SKU", "Rubro", "Precio", "Stock", "Mínimo"]}
+              sumar={isAdmin ? [5] : [4]}
               filas={productosMostrados.map((p) => [
                 p.nombre,
                 p.sku,
                 p.categoria_principal_id ? categoriaById.get(p.categoria_principal_id) ?? "" : "",
-                p.costo_promedio,
+                ...(isAdmin ? [p.costo_promedio] : []),
                 p.precio_venta,
                 p.controla_stock === false ? "" : p.stock_actual,
                 p.controla_stock === false ? "" : p.stock_minimo,
@@ -270,10 +279,14 @@ export default function InventarioPage() {
               con costo, precios de lista y valorizado. Va aparte del export de
               productos porque contestan cosas distintas — ese es el catálogo,
               esta es la plata que hay en el depósito. */}
-          <ExportExcelButton
-            url="/api/inventario/stock-con-precios/export"
-            label="Stock con precios"
-          />
+          {/* "Stock con precios" es el valorizado del depósito: costos,
+              precios y la plata que hay en estantería. Solo administrador. */}
+          {isAdmin && (
+            <ExportExcelButton
+              url="/api/inventario/stock-con-precios/export"
+              label="Stock con precios"
+            />
+          )}
           <ImportExcelButton
             entidad="Productos"
             previewUrl="/api/inventario/productos/import/preview"
@@ -401,21 +414,28 @@ export default function InventarioPage() {
                 <th className="px-5 py-3">Producto</th>
                 <th className="hidden px-3 py-3 lg:table-cell">SKU</th>
                 <th className="hidden px-3 py-3 md:table-cell">Rubro</th>
-                <th className="px-3 py-3 text-right">Costo</th>
+                {/* Costo, remarcación y margen: solo administrador. Lo que el
+                    mostrador necesita es el precio; cuánto nos costó y cuánto
+                    se gana no es dato de atención al público. */}
+                {isAdmin && <th className="px-3 py-3 text-right">Costo</th>}
                 <th className="px-3 py-3 text-right">Precio</th>
                 <th className="px-3 py-3 text-center">Stock</th>
-                <th
-                  className="hidden px-3 py-3 text-right lg:table-cell"
-                  title="Cuánto se le puso encima al costo. Costo 100.000 y precio 150.000 son 50% de remarcación."
-                >
-                  Remarcación
-                </th>
-                <th
-                  className="hidden px-3 py-3 text-right lg:table-cell"
-                  title="Qué parte de la venta queda como ganancia. Costo 100.000 y precio 150.000 son 33,3% de margen."
-                >
-                  Margen
-                </th>
+                {isAdmin && (
+                  <>
+                    <th
+                      className="hidden px-3 py-3 text-right lg:table-cell"
+                      title="Cuánto se le puso encima al costo. Costo 100.000 y precio 150.000 son 50% de remarcación."
+                    >
+                      Remarcación
+                    </th>
+                    <th
+                      className="hidden px-3 py-3 text-right lg:table-cell"
+                      title="Qué parte de la venta queda como ganancia. Costo 100.000 y precio 150.000 son 33,3% de margen."
+                    >
+                      Margen
+                    </th>
+                  </>
+                )}
                 <th className="hidden px-3 py-3 text-center lg:table-cell">Valuación</th>
                 <th className="px-5 py-3 text-center">Acción</th>
               </tr>
@@ -423,14 +443,14 @@ export default function InventarioPage() {
             <tbody className="divide-y divide-slate-100">
               {loading && productos.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-5 py-16 text-center">
+                  <td colSpan={isAdmin ? 10 : 7} className="px-5 py-16 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
                     <p className="mt-2 text-xs text-slate-500">Cargando productos...</p>
                   </td>
                 </tr>
               ) : productosMostrados.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-5 py-16 text-center">
+                  <td colSpan={isAdmin ? 10 : 7} className="px-5 py-16 text-center">
                     <Package className="mx-auto h-8 w-8 text-slate-300" />
                     <p className="mt-3 text-sm font-medium text-slate-700">
                       No se encontraron productos
@@ -496,9 +516,11 @@ export default function InventarioPage() {
                           })()
                         )}
                       </td>
-                      <td className="px-3 py-3.5 text-right tabular-nums text-slate-700">
-                        {formatGs(p.costo_promedio)}
-                      </td>
+                      {isAdmin && (
+                        <td className="px-3 py-3.5 text-right tabular-nums text-slate-700">
+                          {formatGs(p.costo_promedio)}
+                        </td>
+                      )}
                       <td className="px-3 py-3.5 text-right tabular-nums font-semibold text-slate-900">
                         {formatGs(p.precio_venta)}
                       </td>
@@ -522,14 +544,18 @@ export default function InventarioPage() {
                           </span>
                         )}
                       </td>
-                      <td className="hidden px-3 py-3.5 text-right tabular-nums text-slate-600 lg:table-cell">
-                        {pct(remarcacion)}
-                      </td>
-                      <td
-                        className={`hidden px-3 py-3.5 text-right tabular-nums font-semibold lg:table-cell ${colorMargen(margen)}`}
-                      >
-                        {pct(margen)}
-                      </td>
+                      {isAdmin && (
+                        <>
+                          <td className="hidden px-3 py-3.5 text-right tabular-nums text-slate-600 lg:table-cell">
+                            {pct(remarcacion)}
+                          </td>
+                          <td
+                            className={`hidden px-3 py-3.5 text-right tabular-nums font-semibold lg:table-cell ${colorMargen(margen)}`}
+                          >
+                            {pct(margen)}
+                          </td>
+                        </>
+                      )}
                       <td className="hidden px-3 py-3.5 text-center lg:table-cell">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider ${metodoBadge[p.metodo_valuacion]}`}

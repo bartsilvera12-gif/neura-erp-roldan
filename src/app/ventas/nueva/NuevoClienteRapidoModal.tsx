@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
 import { apiCreateCliente } from "@/lib/api/client";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 
 export interface NuevoClienteCreado {
   id: string;
@@ -34,6 +35,15 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
   // mostrador: el que tiene apuro carga tres datos y sigue, el que tiene
   // tiempo abre y completa.
   const [verMas, setVerMas] = useState(false);
+  /**
+   * Cuánto se le fía y a cuántos días: solo administrador.
+   *
+   * El alta rápida la usa el cajero con el cliente enfrente, y ese es
+   * justamente el peor momento para fijar una línea de crédito. Se da de alta
+   * sin crédito y después lo define quien corresponde. El servidor descarta
+   * los dos campos si los manda un usuario común.
+   */
+  const { isAdmin: puedeCredito } = useIsAdmin();
   const [ciudad, setCiudad] = useState("");
   const [profesion, setProfesion] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -110,8 +120,8 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
       direccion: direccion.trim() || undefined,
       email: email.trim().toLowerCase() || undefined,
       // Vacío queda sin definir, que no es lo mismo que cero.
-      limite_credito: limiteCredito.trim() === "" ? undefined : Number(limiteCredito) || 0,
-      dias_credito: diasCredito.trim() === "" ? undefined : Number(diasCredito) || 0,
+      limite_credito: !puedeCredito || limiteCredito.trim() === "" ? undefined : Number(limiteCredito) || 0,
+      dias_credito: !puedeCredito || diasCredito.trim() === "" ? undefined : Number(diasCredito) || 0,
       categoria_cliente_id: rubroId || undefined,
     });
     setEnviando(false);
@@ -260,6 +270,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
             </label>
 
             <div className="grid grid-cols-2 gap-3">
+              {puedeCredito && (
               <label className="block text-sm">
                 <span className="font-medium text-slate-800">Límite de crédito</span>
                 <input
@@ -272,8 +283,10 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
                   Vacío = sin definir. 0 = no se le vende a crédito.
                 </span>
               </label>
+              )}
               {/* El plazo va al lado del límite: las dos mitades de "cuánto y
                   hasta cuándo se le fía" se deciden juntas o no se deciden. */}
+              {puedeCredito && (
               <label className="block text-sm">
                 <span className="font-medium text-slate-800">Días de crédito</span>
                 <input
@@ -286,6 +299,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
                   Plazo acordado. Vacío = sin plazo.
                 </span>
               </label>
+              )}
               <label className="block text-sm">
                 <span className="font-medium text-slate-800">Rubro</span>
                 <select

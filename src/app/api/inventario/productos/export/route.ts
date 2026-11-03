@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-pool";
 import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
@@ -29,8 +30,13 @@ interface Row {
 }
 
 export async function GET(request: NextRequest) {
-  const ctx = await getTenantSupabaseFromAuth(request);
+  const ctx = await getTenantSupabaseFromAuthWithRol(request);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
+  // El costo del depósito no sale por una URL. El botón está escondido para
+  // el que no es administrador, pero esconder un botón no cierra una ruta.
+  if (!isAdmin(ctx.auth)) {
+    return new Response("Esta planilla lleva los costos: solo administrador.", { status: 403 });
+  }
   const empresaId = ctx.auth.empresa_id;
   const schema = assertAllowedChatDataSchema(await fetchDataSchemaForEmpresaId(empresaId));
   const pool = getChatPostgresPool();

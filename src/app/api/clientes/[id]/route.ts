@@ -131,6 +131,21 @@ export async function PATCH(
 
     const patch = construirPatchActualizacionCliente(datos);
 
+    /**
+     * El crédito solo lo toca un administrador.
+     *
+     * Si el alta no deja fijar crédito pero la edición sí, la regla no existe:
+     * se crea el cliente sin límite y se le pone el límite dos clics después.
+     * Se borran del patch en vez de rechazar el pedido entero, para que el
+     * cajero pueda seguir corrigiendo el teléfono o la dirección del mismo
+     * cliente sin que se le caiga todo por un campo que ni ve.
+     */
+    if (!isAdmin(auth)) {
+      delete patch.limite_credito;
+      delete patch.dias_credito;
+      delete patch.condicion_pago;
+    }
+
     const { data: existing, error: errExist } = await supabase
       .from("clientes")
       .select("id, deleted_at")

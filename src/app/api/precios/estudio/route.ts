@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
@@ -51,8 +51,18 @@ const n = (v: unknown) => Number(v) || 0;
 
 export async function GET(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // El estudio de precios ES la tabla de costos y márgenes de todo el
+    // catálogo. Aplicar cambios ya era solo de administrador; verlos también
+    // tiene que serlo, o el dato que no se quiere mostrar en pantalla se
+    // consigue igual pidiéndole la lista a esta ruta.
+    if (!isAdmin(ctx.auth)) {
+      return NextResponse.json(
+        errorResponse("El estudio de precios muestra costos y márgenes: solo administrador."),
+        { status: 403 }
+      );
+    }
     const empresaId = ctx.auth.empresa_id;
     const sucursalId = exigirSucursal(ctx.auth.sucursal_id);
     const sp = new URL(request.url).searchParams;

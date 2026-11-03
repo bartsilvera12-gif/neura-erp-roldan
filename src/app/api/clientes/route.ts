@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
+import { isAdmin } from "@/lib/middleware/auth";
 import { emitEvent, EVENT_TYPES } from "@/lib/integrations/events";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { createServiceRoleClient } from "@/lib/supabase/service-admin";
@@ -415,6 +416,21 @@ export async function POST(request: NextRequest) {
     }
     const { auth, supabase } = ctx;
 
+    /**
+     * El crédito lo define un administrador, no el que carga el cliente.
+     *
+     * Límite, días y condición de pago son la línea de crédito de la empresa:
+     * de ahí sale si se le puede vender a plazo y por cuánto. Un usuario común
+     * da de alta la ficha, pero el crédito nace en cero y lo fija después
+     * quien tiene esa facultad.
+     *
+     * No alcanza con esconder los campos en pantalla: el alta también entra
+     * por /api/presupuestos y por la API directa, y un formulario viejo
+     * cacheado seguiría mandándolos. Se descartan acá, que es el único lugar
+     * por donde pasan todos.
+     */
+    const puedeCredito = isAdmin(auth);
+
     const body = await request.json();
     const {
       tipo_cliente,
@@ -555,13 +571,13 @@ export async function POST(request: NextRequest) {
       profesion: typeof profesion === "string" && profesion.trim().length > 0
         ? profesion.trim().toUpperCase()
         : null,
-      limite_credito: limite_credito === null || limite_credito === undefined || limite_credito === ""
+      limite_credito: !puedeCredito || limite_credito === null || limite_credito === undefined || limite_credito === ""
         ? null
         : Number.isFinite(Number(limite_credito)) && Number(limite_credito) >= 0
           ? Number(limite_credito)
           : null,
       // Plazo acordado, en días. Vacío = sin plazo acordado, que no es cero.
-      dias_credito: dias_credito === null || dias_credito === undefined || dias_credito === ""
+      dias_credito: !puedeCredito || dias_credito === null || dias_credito === undefined || dias_credito === ""
         ? null
         : Number.isFinite(Number(dias_credito)) && Number(dias_credito) >= 0 && Number(dias_credito) <= 365
           ? Math.round(Number(dias_credito))
@@ -589,7 +605,7 @@ export async function POST(request: NextRequest) {
       instagram:            typeof instagram === "string" && instagram.trim() ? instagram.trim() : null,
       linkedin:             typeof linkedin === "string" && linkedin.trim() ? linkedin.trim() : null,
       valor_cliente:        (() => { const n = Number(valor_cliente); return Number.isFinite(n) && n > 0 ? n : null; })(),
-      condicion_pago:       condicion_pago?.trim() || null,
+      condicion_pago:       puedeCredito ? (condicion_pago?.trim() || null) : null,
       metodo_pago_preferido:
         metodo_pago_preferido === "efectivo" ||
         metodo_pago_preferido === "transferencia" ||

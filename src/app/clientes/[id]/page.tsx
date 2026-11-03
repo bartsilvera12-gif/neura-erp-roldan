@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ClienteReportes from "./ClienteReportes";
@@ -154,6 +155,16 @@ function ClienteFichaSkeleton() {
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function ClienteDetailPage() {
+  /**
+   * El crédito y la condición de pago los ve y los decide el administrador.
+   *
+   * Si el alta no deja fijar crédito pero la ficha sí, la regla no existe: se
+   * crea el cliente sin límite y se le pone el límite dos clics después. El
+   * servidor también borra esos tres campos del patch cuando el pedido no
+   * viene de un administrador.
+   */
+  const { isAdmin: puedeCredito } = useIsAdmin();
+
   const params = useParams();
   const router = useRouter();
   const rawId = params?.id;
@@ -1139,6 +1150,9 @@ export default function ClienteDetailPage() {
           {(
             [
               { label: "Origen", value: cliente.origen },
+              ...(puedeCredito
+                ? [{ label: "Condición", value: cliente.condicion_pago ?? "—" }]
+                : []),
               {
                 label: "Tipo servicio",
                 value: etiquetaVisibleTipoServicio(
@@ -1146,7 +1160,6 @@ export default function ClienteDetailPage() {
                   labelTipoServicioMap
                 ),
               },
-              { label: "Condición", value: cliente.condicion_pago ?? "—" },
               {
                 label: "Plan activo",
                 value: cargandoDetalleCliente ? (
@@ -1758,6 +1771,7 @@ export default function ClienteDetailPage() {
                     <input type="text" name="profesion" value={form.profesion} onChange={handleChange}
                       placeholder="ALBAÑIL, ELECTRICISTA…" className={`${inputClass} uppercase`} />
                   </div>
+                  {puedeCredito && (
                   <div>
                     <label className={labelClass}>Límite de crédito</label>
                     <input type="number" min={0} name="limite_credito" value={form.limite_credito}
@@ -1766,6 +1780,8 @@ export default function ClienteDetailPage() {
                         todavía no decidió; el que pone cero sí. */}
                     <p className="mt-1 text-[11px] text-slate-400">Vacío = sin definir. 0 = sin crédito.</p>
                   </div>
+                  )}
+                  {puedeCredito && (
                   <div>
                     {/* El plazo acordado vive en la ficha y no en cada venta. */}
                     <label className={labelClass}>Días de crédito</label>
@@ -1773,6 +1789,7 @@ export default function ClienteDetailPage() {
                       onChange={handleChange} placeholder="Ej: 30" className={`${inputClass} tabular-nums`} />
                     <p className="mt-1 text-[11px] text-slate-400">Se propone al vender a crédito y no se puede pasar. Vacío = sin plazo.</p>
                   </div>
+                  )}
                   <div>
                     <label className={labelClass}>Ciudad</label>
                     <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`${inputClass} uppercase`} />
@@ -1897,6 +1914,7 @@ export default function ClienteDetailPage() {
                 )}
 
                 <div className="grid grid-cols-3 gap-4">
+                  {puedeCredito && (
                   <div>
                     <label className={labelClass}>Condición de pago</label>
                     <select
@@ -1915,6 +1933,7 @@ export default function ClienteDetailPage() {
                       {!SIMPLE_CLIENTE && <option value="MENSUAL">Mensual</option>}
                     </select>
                   </div>
+                  )}
                   <div>
                     <label className={labelClass}>Moneda preferida</label>
                     <select

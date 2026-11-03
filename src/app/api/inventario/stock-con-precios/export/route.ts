@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { xlsxResponseHeaders } from "@/lib/excel/export";
@@ -92,8 +93,13 @@ function columnas(cotizacion: number | null, filasConCostoUsd: number): ColumnaE
  *   cliente). Un consolidado acá sería la forma de saltear ese límite.
  */
 export async function GET(request: NextRequest) {
-  const ctx = await getTenantSupabaseFromAuth(request);
+  const ctx = await getTenantSupabaseFromAuthWithRol(request);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
+  // El costo del depósito no sale por una URL. El botón está escondido para
+  // el que no es administrador, pero esconder un botón no cierra una ruta.
+  if (!isAdmin(ctx.auth)) {
+    return new Response("Esta planilla lleva los costos: solo administrador.", { status: 403 });
+  }
   try {
     const schema = await fetchDataSchemaForEmpresaId(ctx.auth.empresa_id);
     const sucursalId = exigirSucursal(ctx.auth.sucursal_id);

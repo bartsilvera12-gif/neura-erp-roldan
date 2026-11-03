@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Calendar, ChevronDown, ChevronUp, ClipboardList, Clock, FileDown, FileText, Link2, Printer, Receipt, RefreshCw, SlidersHorizontal } from "lucide-react";
@@ -609,6 +610,16 @@ function ClienteBusquedaGlobal({
 // ── Página principal ──────────────────────────────────────────────────────────
 
 function GestionClientesPageInner() {
+  /**
+   * El crédito y la condición de pago los ve y los decide el administrador.
+   *
+   * Para el que atiende el mostrador no son datos de contacto: son la línea de
+   * crédito de la empresa. El servidor también los descarta si vienen de un
+   * usuario común, así que esto es para que la pantalla no ofrezca algo que
+   * después se va a ignorar.
+   */
+  const { isAdmin: puedeCredito } = useIsAdmin();
+
   const router = useRouter();
   const searchParams = useSearchParams();
   // modo removido: era Nutrición/Consignataria de Reserva Ecológica, no aplica en Roldán e Hijos.
@@ -950,7 +961,9 @@ function GestionClientesPageInner() {
                     { label: "Dirección", value: selected.direccion ?? "—" },
                     { label: "Tipo de cliente", value: textoTipoClienteGestion(selected, mapNombreTipoCatalogo) },
                     { label: "Ciudad", value: selected.ciudad ?? "—" },
-                    { label: "Condición", value: selected.condicion_pago ?? "—" },
+                    ...(puedeCredito
+                      ? [{ label: "Condición", value: selected.condicion_pago ?? "—" }]
+                      : []),
                     { label: "Moneda", value: selected.moneda_preferida ?? "GS" },
                     { label: "Fecha alta", value: formatFechaIso(selected.created_at) },
                   ].map((item) => (
