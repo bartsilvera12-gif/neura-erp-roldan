@@ -7,6 +7,8 @@ import type { Cliente, EstadoCliente, NotaCliente, PerfilTributarioCliente } fro
 // RLS maneja empresa_id automáticamente; no filtrar manualmente en SELECT
 interface SupabaseRow {
   id:                      string;
+  /** El código con el que el cliente se conoce en la casa. */
+  codigo:                  string | null;
   empresa_id:              string | null;
   tipo_cliente:            string | null;
   tipo_servicio_cliente:   string | null;
@@ -99,11 +101,34 @@ function rowToCliente(row: SupabaseRow): Cliente {
   const idRow = typeof row.id === "string" && row.id ? row.id : "";
   const c: Cliente = {
     id:                  idRow,
-    codigo_cliente:      idRow ? `CL-${idRow.slice(0, 8).toUpperCase()}` : "CL-????????",
+    /**
+     * El código REAL del cliente cuando lo tiene.
+     *
+     * Esto armaba siempre un `CL-` con los primeros ocho caracteres del uuid,
+     * ignorando la columna `codigo`. El sistema anterior traía el código con el
+     * que el cliente se conoce en la casa (21537, 21538…) y la pantalla mostraba
+     * `CL-894277B4`: un número que no sirve para nada y que además no coincide
+     * con el que encuentra el buscador, que sí mira `codigo`.
+     *
+     * El `CL-` queda como respaldo para los clientes cargados a mano, que
+     * todavía no tienen código propio.
+     */
+    codigo_cliente:
+      (typeof row.codigo === "string" && row.codigo.trim())
+        ? row.codigo.trim()
+        : (idRow ? `CL-${idRow.slice(0, 8).toUpperCase()}` : "CL-????????"),
     tipo_cliente:        (row.tipo_cliente === "persona" ? "persona" : "empresa") as Cliente["tipo_cliente"],
     empresa:             row.empresa ?? undefined,
     nombre_contacto:     nombreContacto,
-    nombre_facturacion:  row.nombre_facturacion ?? null,
+    /**
+     * Si no hay nombre de facturación se usa `nombre`: en las fichas que vienen
+     * del sistema anterior ese campo ES el nombre con el que se factura. Son
+     * cuatro de 21.348, y sin esto se verían como "Cliente" a secas.
+     */
+    nombre_facturacion:
+      (typeof row.nombre_facturacion === "string" && row.nombre_facturacion.trim())
+        ? row.nombre_facturacion
+        : ((typeof row.nombre === "string" && row.nombre.trim()) ? row.nombre : null),
     nombre_comercial:    row.nombre_comercial ?? null,
     nivel_precio:        (row.nivel_precio === "mayorista" || row.nivel_precio === "distribuidor" ? row.nivel_precio : "minorista") as "minorista" | "mayorista" | "distribuidor",
     ruc:                 row.ruc ?? undefined,
@@ -778,7 +803,23 @@ export async function toggleEstado(id: string, estado: EstadoCliente): Promise<v
 
 /** Nombre de display según tipo de cliente. */
 export function clienteNombre(c: Cliente): string {
-  if (c.tipo_cliente === "empresa" && c.empresa) return c.empresa;
-  // Respaldos para no mostrar vacío: contacto -> razón social.
-  return (c.nombre_contacto?.trim() || c.empresa?.trim() || "Cliente");
+  /**
+   * ── POR QUÉ MIRA TAMBIÉN `nombre_facturacion` ────────────────────────────
+   * Esta función solo miraba `empresa` y `nombre_contacto`. Los 21.348 clientes
+   * que vinieron del sistema anterior tienen el nombre en `nombre` y en
+   * `nombre_facturacion`, con `empresa` y `nombre_contacto` en null: el listado
+   * entero mostraba la palabra literal "Cliente" en vez del nombre de cada uno.
+   *
+   * El orden es de lo más específico a lo más general: la razón social de una
+   * empresa, después el nombre con el que se factura, después la persona de
+   * contacto. "Cliente" queda solo para la ficha que de verdad no tiene ningún
+   * nombre cargado, que no debería existir.
+   */
+  if (c.tipo_cliente === "empresa" && c.empresa?.trim()) return c.empresa.trim();
+  return (
+    c.nombre_facturacion?.trim() ||
+    c.nombre_contacto?.trim() ||
+    c.empresa?.trim() ||
+    "Cliente"
+  );
 }
