@@ -62,11 +62,72 @@ const num = (v: unknown) => {
 };
 
 /**
+ * Las fichas de cliente que comparten el RUC con la que se pasó.
+ *
+ * ── POR QUÉ ──────────────────────────────────────────────────────────────
+ * El anticipo es del CLIENTE, y el cliente es el RUC, no la ficha. En el
+ * padrón que vino del sistema anterior hay RUC cargados dos veces, con la
+ * misma persona en dos fichas distintas. Con el anticipo atado solo a la
+ * ficha, el señor deja la seña con una y al volver lo atienden con la otra:
+ * el sistema le dice que no tiene nada y paga dos veces lo mismo.
+ *
+ * Se compara el RUC SIN separadores, porque en la base conviven `1234567-8`,
+ * `1.234.567-8` y `1234567`: comparando el texto tal cual, dos fichas del
+ * mismo RUC escrito distinto no se reconocerían entre sí.
+ *
+ * Un cliente SIN RUC no se agrupa con nadie: si lo hiciera, todas las fichas
+ * sin RUC compartirían los anticipos de todas las demás.
+ */
+async function fichasDelMismoRuc(
+  sb: AnticiposSupabase,
+  empresaId: string,
+  clienteId: string
+): Promise<string[]> {
+  try {
+    const propio = await sb
+      .from("clientes")
+      .select("ruc")
+      .eq("empresa_id", empresaId)
+      .eq("id", clienteId)
+      .maybeSingle();
+    const ruc = String((propio.data as { ruc?: string | null } | null)?.ruc ?? "").trim();
+    const digitos = ruc.replace(/[^0-9]/g, "");
+    if (digitos.length < 4) return [clienteId];
+
+    // El patrón con los dígitos intercalados encuentra el mismo número escrito
+    // con puntos, con guion o pelado. Va solo contra `ruc`, que son trece
+    // caracteres: un patrón así casi no tiene con qué confundirse.
+    const patron = `%${digitos.split("").join("%")}%`;
+    const otras = await sb
+      .from("clientes")
+      .select("id, ruc")
+      .eq("empresa_id", empresaId)
+      .ilike("ruc", patron)
+      .limit(50);
+    if (otras.error) return [clienteId];
+
+    const ids = ((otras.data ?? []) as Array<{ id: string; ruc: string | null }>)
+      // El ilike es laxo: se confirma que los dígitos sean EXACTAMENTE los
+      // mismos, para no juntar 1234567 con 12345678.
+      .filter((c) => String(c.ruc ?? "").replace(/[^0-9]/g, "") === digitos)
+      .map((c) => String(c.id));
+    return ids.includes(clienteId) ? ids : [clienteId, ...ids];
+  } catch {
+    // Si algo falla, se sigue con la ficha sola: es el comportamiento anterior.
+    return [clienteId];
+  }
+}
+
+/**
  * Qué tiene a favor un cliente, en esta sucursal.
  *
  * La sucursal entra en la cuenta porque la plata está en un cajón concreto:
  * un anticipo dejado en una sucursal no se puede descontar de la caja de la
  * otra sin mover plata entre las dos.
+ *
+ * El RUC también: se suman los anticipos de todas las fichas que comparten el
+ * RUC, porque el anticipo es de la persona y no del renglón del padrón. Ver
+ * `fichasDelMismoRuc`.
  */
 export async function saldoDeCliente(
   sb: AnticiposSupabase,
@@ -77,12 +138,14 @@ export async function saldoDeCliente(
   const vacio: SaldoCliente = { saldo: 0, anticipos: [], aviso: null };
   if (!clienteId) return vacio;
 
+  const fichas = await fichasDelMismoRuc(sb, empresaId, clienteId);
+
   const r = await sb
     .from("anticipos")
     .select("id, numero, fecha, monto, monto_utilizado, medio_pago")
     .eq("empresa_id", empresaId)
     .eq("sucursal_id", sucursalId)
-    .eq("cliente_id", clienteId)
+    .in("cliente_id", fichas)
     .eq("estado", "activo")
     .order("fecha", { ascending: true });
 

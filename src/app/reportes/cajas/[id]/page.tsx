@@ -304,11 +304,12 @@ export default function DetalleCierreCajaPage() {
           <AccionesTabla
             titulo={`Movimientos de la caja ${c.numero_caja}`}
             archivo={`movimientos-caja-${c.numero_caja}-${(c.fecha_apertura ?? "").slice(0, 10)}`}
-            columnas={["Hora", "Tipo", "Clase de egreso", "Concepto", "Medio", "Usuario", "Observación", "Comprobantes", "Monto"]}
+            columnas={["Hora", "Tipo", "Clase de egreso", "Proveedor", "Concepto", "Medio", "Usuario", "Observación", "Comprobantes", "Monto"]}
             filas={movimientos.map((m) => [
               fechaHora(m.created_at).slice(11),
               TIPO_MOV[m.tipo] ?? m.tipo,
               m.tipo_egreso ?? "",
+              m.proveedor ?? "",
               m.concepto ?? "",
               MEDIO[m.medio_pago ?? ""] ?? m.medio_pago ?? "",
               m.usuario_nombre ?? m.usuario_email ?? "",
@@ -323,7 +324,7 @@ export default function DetalleCierreCajaPage() {
             ])}
             // El monto se corrió un lugar al agregar la columna: sin mover esto
             // el total del Excel sumaría la columna de comprobantes.
-            sumar={[8]}
+            sumar={[9]}
           />
         </div>
         {movimientos.length === 0 ? (
@@ -350,6 +351,11 @@ export default function DetalleCierreCajaPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-700">
                     {m.concepto}
+                    {/* A quién se le pagó: sin esto, veinte pagos del mes son
+                        una lista de "proveedor · 1.500.000" sin saber a quién. */}
+                    {m.proveedor && (
+                      <span className="block text-[11px] font-medium text-slate-500">{m.proveedor}</span>
+                    )}
                     {m.observacion && <span className="block text-[11px] text-slate-400">{m.observacion}</span>}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{m.usuario_nombre || m.usuario_email || "—"}</td>

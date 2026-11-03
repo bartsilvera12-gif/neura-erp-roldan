@@ -158,6 +158,8 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     observacion: string | null;
     /** Punto 5.7. Viaja tal cual al endpoint junto con el resto. */
     tipo_egreso?: string | null;
+    /** A quién se le pagó. Solo en egresos (script 58). */
+    proveedor?: string | null;
     /** Punto 5.7: factura y recibo ya subidos, con su path. */
     adjuntos?: AdjuntoEgreso[] | null;
   }) {
@@ -378,6 +380,12 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                       <span className="flex items-center gap-1.5 min-w-0">
                         <MovIcon tipo={m.tipo} />
                         <span className="truncate font-medium text-slate-700">{m.concepto}</span>
+                        {m.proveedor && (
+                          <>
+                            <span className="text-slate-400">·</span>
+                            <span className="truncate text-slate-500">{m.proveedor}</span>
+                          </>
+                        )}
                         <span className="text-slate-400">·</span>
                         <span className="text-slate-500 capitalize">{m.medio_pago}</span>
                         {/* El comprobante que se acaba de subir, para poder
@@ -966,6 +974,8 @@ function ModalMovimiento({
     observacion: string | null;
     /** Punto 5.7: clasificación del egreso. */
     tipo_egreso?: string | null;
+    /** A quién se le pagó. Solo en egresos (script 58). */
+    proveedor?: string | null;
     /** Punto 5.7: factura y recibo que lo respaldan. */
     adjuntos?: AdjuntoEgreso[] | null;
   }) => Promise<void>;
@@ -974,6 +984,29 @@ function ModalMovimiento({
   // Punto 5.7: qué clase de egreso es. Sin esto no se puede contestar
   // "¿cuánto se fue en fletes este mes?" sin leer los conceptos uno por uno.
   const [tipoEgreso, setTipoEgreso] = useState<string>("proveedor");
+  /** A quién se le pagó. Texto libre: ver el script 58. */
+  const [proveedor, setProveedor] = useState("");
+  const [proveedoresSug, setProveedoresSug] = useState<string[]>([]);
+
+  /**
+   * Los proveedores del padrón, como sugerencia al escribir.
+   *
+   * Si falla no pasa nada: el campo es libre igual. Sugerir ahorra tipear y,
+   * sobre todo, evita que el mismo proveedor quede cargado de tres maneras
+   * distintas, que es lo que arruina el informe de egresos por proveedor.
+   */
+  useEffect(() => {
+    fetch("/api/proveedores", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const filas = Array.isArray(j?.data) ? j.data : (j?.data?.proveedores ?? []);
+        const nombres = (filas as Array<Record<string, unknown>>)
+          .map((x) => String(x.nombre ?? x.razon_social ?? "").trim())
+          .filter(Boolean);
+        setProveedoresSug([...new Set(nombres)].sort((a, b) => a.localeCompare(b, "es")));
+      })
+      .catch(() => { /* sin sugerencias: el campo sigue siendo libre */ });
+  }, []);
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("0");
   const [medio, setMedio] = useState<MedioPagoCaja>("efectivo");
@@ -1012,6 +1045,7 @@ function ModalMovimiento({
         medio_pago: medio,
         observacion: obs.trim() || null,
         tipo_egreso: tipo === "egreso" ? tipoEgreso : null,
+        proveedor: tipo === "egreso" ? (proveedor.trim() || null) : null,
         // Solo en egresos: un ingreso o un retiro no tienen factura de proveedor.
         adjuntos: tipo === "egreso" && adjuntos.length > 0 ? adjuntos : null,
       });
@@ -1069,6 +1103,37 @@ function ModalMovimiento({
                 Escribí el motivo en las notas de abajo: es obligatorio para &quot;Otros&quot;.
               </p>
             )}
+          </div>
+        )}
+
+        {/* A quién se le pagó.
+            El tipo de egreso dice que fue a un proveedor; esto dice a CUÁL.
+            Sin este dato, veinte pagos del mes son una lista de "proveedor ·
+            1.500.000" y hay que abrir los comprobantes de a uno para saber
+            quién cobró.
+
+            Es texto libre con sugerencias, no una lista cerrada: en caja se le
+            paga también a quien no está dado de alta —el flete de una vez, el
+            service del portón— y obligar a elegir haría que se cargue
+            cualquiera con tal de seguir. */}
+        {tipo === "egreso" && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              A quién se le pagó{" "}
+              <span className="font-normal normal-case text-slate-400">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              list="caja-proveedores-sug"
+              value={proveedor}
+              onChange={(e) => setProveedor(e.target.value)}
+              disabled={busy}
+              placeholder="Nombre del proveedor o de quien cobró"
+              className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#4FAEB2]"
+            />
+            <datalist id="caja-proveedores-sug">
+              {proveedoresSug.map((p) => <option key={p} value={p} />)}
+            </datalist>
           </div>
         )}
 

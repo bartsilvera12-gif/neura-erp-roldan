@@ -566,7 +566,7 @@ export async function getDetalleCaja(
   const mQ = await sb
     .from("caja_movimientos")
     .select(
-      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, usuario_email, observacion, created_at, venta_id, tipo_egreso, adjuntos"
+      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, usuario_email, observacion, created_at, venta_id, tipo_egreso, proveedor, adjuntos"
     )
     .eq("empresa_id", empresaId)
     .eq("caja_id", cajaId)
@@ -744,6 +744,7 @@ export async function getDetalleCaja(
     usuario_email: m.usuario_email,
     usuario_nombre: m.usuario_id ? nombrePorUsuario.get(m.usuario_id) ?? null : null,
     tipo_egreso: (m as { tipo_egreso?: string | null }).tipo_egreso ?? null,
+    proveedor: (m as { proveedor?: string | null }).proveedor ?? null,
     // El `url` que viene de la base se ignora a propósito: las firmadas
     // vencen, y la pantalla pide una nueva al abrir el comprobante.
     adjuntos: (m as { adjuntos?: Array<{ tipo: string; nombre: string; path: string | null }> | null }).adjuntos ?? null,
@@ -1008,6 +1009,9 @@ export async function registrarMovimiento(
     usuarioEmail?: string | null;
     /** Punto 5.7: clasificación del egreso. Solo aplica a tipo='egreso'. */
     tipoEgreso?: string | null;
+    /** A quién se le pagó. Texto libre: en caja se paga también a quien no
+     *  está dado de alta (el flete de una vez, el service del portón). */
+    proveedor?: string | null;
     /** Punto 5.7: factura y recibo que respaldan el egreso. */
     adjuntos?: Array<{ tipo: string; nombre: string; path: string | null; url: string | null }> | null;
   }
@@ -1045,6 +1049,7 @@ export async function registrarMovimiento(
       // Punto 5.7. Las columnas llegan con el script 25; si no está corrido,
       // el insert falla y se reintenta sin ellas (ver más abajo).
       ...(params.tipo === "egreso" && params.tipoEgreso ? { tipo_egreso: params.tipoEgreso } : {}),
+      ...(params.tipo === "egreso" && params.proveedor ? { proveedor: params.proveedor } : {}),
       ...(params.adjuntos && params.adjuntos.length > 0 ? { adjuntos: params.adjuntos } : {}),
     })
     .select(
@@ -1055,9 +1060,9 @@ export async function registrarMovimiento(
     // Sin el script 25 esas dos columnas no existen. Antes que perder el
     // movimiento entero -que es plata que salió de la caja- se registra sin
     // la clasificación.
-    if (/tipo_egreso|adjuntos/.test(ins.error.message ?? "")) {
+    if (/tipo_egreso|adjuntos|proveedor/.test(ins.error.message ?? "")) {
       return await registrarMovimiento(sb, {
-        ...params, tipoEgreso: null, adjuntos: null,
+        ...params, tipoEgreso: null, adjuntos: null, proveedor: null,
       });
     }
     throw new Error(ins.error.message);
@@ -1170,7 +1175,7 @@ async function computeResumen(
   const mQ = await sb
     .from("caja_movimientos")
     .select(
-      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, observacion, created_at, tipo_egreso, adjuntos"
+      "id, caja_id, tipo, concepto, monto, medio_pago, usuario_id, observacion, created_at, tipo_egreso, proveedor, adjuntos"
     )
     .eq("empresa_id", empresaId)
     .eq("caja_id", caja.id)
@@ -1213,6 +1218,7 @@ async function computeResumen(
       usuario_id: m.usuario_id,
       observacion: m.observacion,
       tipo_egreso: (m as { tipo_egreso?: string | null }).tipo_egreso ?? null,
+      proveedor: (m as { proveedor?: string | null }).proveedor ?? null,
       // El `path` viene en el jsonb y es lo que necesita la pantalla para pedir
       // el enlace firmado: sin declararlo acá, el tipo decía que no existía.
       adjuntos: (m as { adjuntos?: Array<{ tipo: string; nombre: string; path?: string | null }> | null }).adjuntos ?? null,

@@ -9,7 +9,7 @@ import { esTipoEgresoValido } from "@/lib/caja/tipos-egreso";
 /**
  * POST /api/caja/movimiento
  *   Registra un movimiento manual en la caja abierta.
- *   Body: { tipo, concepto, monto, medio_pago?, observacion?, caja_id?, tipo_egreso? }
+ *   Body: { tipo, concepto, monto, medio_pago?, observacion?, caja_id?, tipo_egreso?, proveedor? }
  *   Si caja_id no viene, se usa la caja abierta actual.
  */
 const TIPOS_VALIDOS = ["ingreso", "egreso", "retiro", "ajuste"] as const;
@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
       medioPago: medioPago as (typeof MEDIOS_VALIDOS)[number],
       observacion,
       // Punto 5.7. Solo aplica a egresos; en el resto se ignora.
+      // A quién se le pagó. Solo en egresos: un ingreso no tiene proveedor.
+      proveedor:
+        tipo === "egreso" && typeof o.proveedor === "string" && o.proveedor.trim()
+          ? o.proveedor.trim().slice(0, 200)
+          : null,
       tipoEgreso: tipo === "egreso" && esTipoEgresoValido(o.tipo_egreso)
         ? o.tipo_egreso
         : null,

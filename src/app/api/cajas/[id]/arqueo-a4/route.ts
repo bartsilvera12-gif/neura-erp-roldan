@@ -118,6 +118,15 @@ export async function GET(
     const movs = resumen.movimientos;
     const ingresos = movs.filter((m) => m.tipo === "ingreso");
     const egresos = movs.filter((m) => m.tipo === "egreso" || m.tipo === "retiro");
+    /**
+     * Los ajustes van en su propia sección.
+     *
+     * Entran en el efectivo esperado —`efectivoEsperado` los suma— pero no
+     * tenían dónde verse: el que controlaba la hoja encontraba un esperado que
+     * no cerraba con los renglones de arriba y no había forma de saber de
+     * dónde salía la diferencia.
+     */
+    const ajustes = movs.filter((m) => m.tipo === "ajuste");
     const listaMovs = (lista: typeof movs) =>
       lista.length === 0
         ? `<tr><td colspan="3" class="vacio">Sin movimientos.</td></tr>`
@@ -133,8 +142,11 @@ export async function GET(
               ? ` <span class="sinpapel">[sin comprobante]</span>`
               : "";
             const clase = m.tipo_egreso ? ` <span class="obs">· ${esc(m.tipo_egreso)}</span>` : "";
+            // A quién se le pagó, para poder controlar la hoja contra las
+            // facturas sin abrir la computadora.
+            const aQuien = m.proveedor ? ` <span class="obs">· ${esc(m.proveedor)}</span>` : "";
             return `<tr>
-            <td>${esc(m.concepto)}${clase}${m.observacion ? ` <span class="obs">· ${esc(m.observacion)}</span>` : ""}${marca}</td>
+            <td>${esc(m.concepto)}${aQuien}${clase}${m.observacion ? ` <span class="obs">· ${esc(m.observacion)}</span>` : ""}${marca}</td>
             <td class="med">${esc(m.medio_pago)}</td>
             <td class="m b">${gs(m.monto)}</td>
           </tr>`;
@@ -444,6 +456,17 @@ export async function GET(
         </tr>`).join("") || '<tr><td colspan="4" class="vacio">Sin otras entradas.</td></tr>',
         "T. O. Entrada",
         resumen.ingresos_efectivo
+      )}
+      ${seccion(
+        "Ajustes",
+        ajustes.map((m) => `<tr>
+          <td class="ind">${esc(m.concepto)}${m.observacion ? ` <span class="obs">· ${esc(m.observacion)}</span>` : ""}</td>
+          <td class="ref">${esc(m.medio_pago)}</td>
+          <td class="hora">${esc(horaPy(m.created_at))}</td>
+          <td class="m">${gs(m.monto)}</td>
+        </tr>`).join("") || '<tr><td colspan="4" class="vacio">Sin ajustes.</td></tr>',
+        "T. Ajustes",
+        resumen.ajustes_efectivo
       )}
     </tbody>
   </table>

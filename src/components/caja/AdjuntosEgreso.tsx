@@ -30,6 +30,9 @@ const TIPOS: { tipo: "factura" | "recibo"; label: string; ayuda: string }[] = [
   { tipo: "recibo", label: "Recibo", ayuda: "El comprobante de que se pagó" },
 ];
 
+/** Lo que acepta el servidor (ver `ALLOWED_COMPROBANTE_MIME`). */
+const ACEPTADOS = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+
 export default function AdjuntosEgreso({
   value,
   onChange,
@@ -41,6 +44,8 @@ export default function AdjuntosEgreso({
 }) {
   const [subiendo, setSubiendo] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  /** Qué recuadro está listo para recibir un Ctrl+V. */
+  const [pegandoEn, setPegandoEn] = useState<"factura" | "recibo" | null>(null);
 
   async function subir(tipo: "factura" | "recibo", file: File) {
     setSubiendo(tipo);
@@ -68,17 +73,77 @@ export default function AdjuntosEgreso({
     }
   }
 
+  /**
+   * Pegar una captura con Ctrl+V.
+   *
+   * ── POR QUÉ ──────────────────────────────────────────────────────────────
+   * La factura del proveedor llega casi siempre como foto por WhatsApp. Con
+   * solo el botón de elegir archivo hay que guardar la imagen en el disco,
+   * acordarse de dónde quedó y buscarla: tres pasos para algo que es un
+   * Ctrl+V. En la práctica eso termina en egresos sin comprobante.
+   *
+   * El portapapeles puede traer varias cosas (el texto del chat y la imagen).
+   * Se toma el primer archivo que sea imagen o PDF y se ignora el resto.
+   *
+   * A la captura pegada el navegador le pone `image.png` a todas por igual, así
+   * que se renombra con la hora: en el storage, veinte archivos llamados
+   * `image.png` no se distinguen entre sí.
+   */
+  async function pegar(tipo: "factura" | "recibo", e: React.ClipboardEvent) {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const archivo = items
+      .filter((i) => i.kind === "file")
+      .map((i) => i.getAsFile())
+      // Los mismos tipos que acepta el servidor: si se filtrara por
+      // `image/*` a secas, un GIF pasaría acá y lo rechazaría el upload con un
+      // error que no dice qué hacer.
+      .find((f): f is File => !!f && ACEPTADOS.has(f.type));
+
+    if (!archivo) {
+      setErr("Lo que pegaste no es una imagen ni un PDF. Copiá la captura y probá de nuevo.");
+      return;
+    }
+    e.preventDefault();
+
+    const ext = archivo.type === "application/pdf" ? "pdf" : (archivo.type.split("/")[1] || "png");
+    const ahora = new Date();
+    const p2 = (n: number) => String(n).padStart(2, "0");
+    const sello = `${p2(ahora.getDate())}-${p2(ahora.getMonth() + 1)} ${p2(ahora.getHours())}.${p2(ahora.getMinutes())}.${p2(ahora.getSeconds())}`;
+    const conNombre =
+      archivo.name && archivo.name !== "image.png"
+        ? archivo
+        : new File([archivo], `${tipo} pegada ${sello}.${ext}`, { type: archivo.type });
+
+    await subir(tipo, conNombre);
+  }
+
   return (
     <div>
       <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
         Comprobantes <span className="font-normal normal-case text-slate-400">(opcional)</span>
       </label>
+      <p className="mb-1.5 text-[11px] leading-snug text-slate-500">
+        Podés <strong>pegar una captura con Ctrl+V</strong>: hacé clic en el recuadro y pegá.
+      </p>
       <div className="grid grid-cols-2 gap-2">
         {TIPOS.map(({ tipo, label, ayuda }) => {
           const cargado = value.find((a) => a.tipo === tipo);
           const ocupado = subiendo === tipo;
           return (
-            <div key={tipo} className="rounded-lg border-2 border-dashed border-slate-200 p-2.5">
+            <div
+              key={tipo}
+              /* `tabIndex` para que el recuadro pueda tomar el foco: sin foco
+                 el navegador no entrega el evento de pegar. */
+              tabIndex={disabled || ocupado ? -1 : 0}
+              onPaste={(e) => { if (!disabled && !ocupado) void pegar(tipo, e); }}
+              onFocus={() => setPegandoEn(tipo)}
+              onBlur={() => setPegandoEn((p) => (p === tipo ? null : p))}
+              className={`rounded-lg border-2 border-dashed p-2.5 outline-none transition-colors ${
+                pegandoEn === tipo
+                  ? "border-[#4FAEB2] bg-[#4FAEB2]/5"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
               <p className="text-xs font-semibold text-slate-700">{label}</p>
               {cargado ? (
                 <div className="mt-1 flex items-center gap-1.5">
@@ -99,6 +164,11 @@ export default function AdjuntosEgreso({
               ) : (
                 <>
                   <p className="text-[11px] text-slate-400">{ayuda}</p>
+                  {pegandoEn === tipo && (
+                    <p className="text-[11px] font-medium text-[#3F8E91]">
+                      Pegá la captura con Ctrl+V
+                    </p>
+                  )}
                   <label className="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5">
                     {ocupado ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
                     {ocupado ? "Subiendo…" : "Elegir archivo"}

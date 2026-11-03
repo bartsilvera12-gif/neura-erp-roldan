@@ -63,6 +63,8 @@ export interface CajaMovimiento {
   observacion: string | null;
   created_at: string;  /** Punto 5.7: qué clase de egreso es. Null en ingresos y retiros. */
   tipo_egreso?: string | null;
+  /** A quién se le pagó. Solo en egresos (script 58). */
+  proveedor?: string | null;
   /** Punto 5.7: factura y recibo que respaldan el egreso. */
   adjuntos?: Array<{ tipo: string; nombre: string; path?: string | null }> | null;
 }
@@ -184,6 +186,8 @@ export interface CajaDetalleMovimiento extends CajaMovimiento {
   usuario_nombre: string | null;
   /** Punto 5.7: qué clase de egreso es. Null en ingresos y retiros. */
   tipo_egreso: string | null;
+  /** A quién se le pagó. Solo en egresos (script 58). */
+  proveedor: string | null;
   /** Punto 5.7: factura y recibo que respaldan el egreso. */
   adjuntos: Array<{ tipo: string; nombre: string; path: string | null }> | null;
 }
