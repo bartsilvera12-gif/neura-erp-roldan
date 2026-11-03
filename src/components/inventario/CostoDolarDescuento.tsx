@@ -6,9 +6,9 @@ import {
   costoGsDesdeUsd,
   precioDesdeMarkup,
   aUsd,
-  descuentoEfectivo,
   precioConDescuento,
 } from "@/lib/precios/ficha";
+import { topeDeLista } from "@/lib/precios/tope-descuento";
 
 /**
  * Bloque de la ficha de producto con el costo en dólares y los descuentos.
@@ -90,8 +90,9 @@ export default function CostoDolarDescuento({
   const costoConvertido = costoGsDesdeUsd(costoUsd, tcVenta);
   const ventaUsdDesdeMarkup = precioDesdeMarkup(costoUsd, markupPct);
   const precioEnUsd = aUsd(precioGs, tcCompra);
-  const desc = descuentoEfectivo(descuentoPct, descuentoRubro);
-  const precioFinal = precioConDescuento(precioGs, desc.pct);
+  // Tope, no precio: hasta cuánto se puede bajar este artículo en una venta.
+  const desc = topeDeLista(descuentoPct, descuentoRubro);
+  const precioFinal = precioConDescuento(precioGs, desc.pct ?? 0);
   const precioNum = Number(precioGs) || 0;
 
   return (
@@ -153,7 +154,7 @@ export default function CostoDolarDescuento({
 
         <div>
           <label className={labelClass}>
-            Descuento del artículo <span className="text-gray-400 font-normal">(opcional)</span>
+            Descuento máximo del artículo <span className="text-gray-400 font-normal">(opcional)</span>
           </label>
           <div className="relative">
             <input
@@ -170,14 +171,16 @@ export default function CostoDolarDescuento({
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">%</span>
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
+            Es HASTA cuánto se puede descontar este artículo, no un descuento que se
+            aplique solo: el precio que sale en la venta es el de lista.{" "}
             {descuentoRubro && descuentoRubro > 0
-              ? `El rubro tiene ${descuentoRubro}%. Si acá cargás uno, reemplaza al del rubro (no se suman).`
+              ? `El rubro permite ${descuentoRubro}%. Si acá cargás uno, reemplaza al del rubro (no se suman).`
               : "Si queda en cero, se usa el del rubro."}
           </p>
         </div>
       </div>
 
-      {(costoConvertido !== null || precioEnUsd !== null || desc.pct > 0) && (
+      {(costoConvertido !== null || precioEnUsd !== null || desc.pct != null) && (
         <dl className="mt-4 space-y-1.5 border-t border-slate-200 pt-3 text-xs">
           {costoConvertido !== null && (
             <div className="flex items-center justify-between gap-3">
@@ -211,10 +214,11 @@ export default function CostoDolarDescuento({
               <dd className="font-semibold tabular-nums text-slate-700">{fmtUsd(precioEnUsd)}</dd>
             </div>
           )}
-          {desc.pct > 0 && precioFinal !== null && (
+          {desc.pct != null && precioFinal !== null && (
             <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-1.5">
               <dt className="text-slate-500">
-                Con {desc.pct}% de descuento {desc.origen === "rubro" ? "del rubro" : "del artículo"}
+                Precio mínimo, con el {desc.pct}% de descuento máximo{" "}
+                {desc.origen === "rubro" ? "del rubro" : "del artículo"}
               </dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {fmtGs(precioFinal)}

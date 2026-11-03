@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, CheckCircle2, ChevronDown, ImageIcon, Minus, Plus, Search, Trash2, X } from "lucide-react";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
-import { descuentoEfectivo, precioConDescuento, precioListaGs, precioEnDolares } from "@/lib/precios/ficha";
+import { precioListaGs, precioEnDolares } from "@/lib/precios/ficha";
+import { topeDeLista, topeAplicable, textoTope, type TopeDeLista } from "@/lib/precios/tope-descuento";
 import { saveVenta, type FaltanteStock } from "@/lib/ventas/storage";
 import { getProductos } from "@/lib/inventario/storage";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "./NuevoClienteRapidoModal";
@@ -13,7 +14,7 @@ import HistorialClienteModal from "@/components/clientes/HistorialClienteModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import { margenSobreVenta, remarcacionSobreCosto, gananciaUnitaria, colorMargen, pct } from "@/lib/precios/margen";
+import { margenBruto, remarcacionSobreCosto, utilidadBruta, colorMargen, pct } from "@/lib/precios/margen";
 import { sinIva } from "@/lib/precios/iva";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
@@ -400,15 +401,12 @@ export default function NuevaVentaPage() {
       iva,
       tipo_precio,
     } = payload;
-    // El modal buscador prellena el precio de lista y deja cambiarlo. Si quedó
-    // el de lista, se le aplica el descuento del artículo o del rubro, igual
-    // que en el autocomplete; si el vendedor escribió otro precio, manda el
-    // suyo y no se le encima ningún descuento.
+    // El modal buscador prellena el precio de lista y deja cambiarlo. El
+    // descuento del artículo o del rubro NO se aplica acá: es un tope, no un
+    // precio, y se usa en el campo de descuento de la línea.
     const listaPicker = precioPorTipo(pickerToProducto(p), tipo_precio, tcVenta);
     const usaPrecioDeLista = Math.round(precio_input) === Math.round(listaPicker);
-    const precioPyg = usaPrecioDeLista
-      ? precioConDescuento(listaPicker, descuentoDeLista(p.id)) ?? listaPicker
-      : precio_input;
+    const precioPyg = usaPrecioDeLista ? listaPicker : precio_input;
     const precioOriginal = usaPrecioDeLista ? listaPicker : precio_input;
     // Verificar stock vs lo ya cargado SOLO si el producto controla stock.
     // Venta sin stock (Fase 5): NO se bloquea por falta de stock al agregar; la
@@ -1210,7 +1208,7 @@ export default function NuevaVentaPage() {
       venta,
       ganancia: venta - costo,
       iva_diferencia: ivaVenta - ivaCosto,
-      margen: margenSobreVenta(costo, venta),
+      margen: margenBruto(costo, venta),
       remarcacion: remarcacionSobreCosto(costo, venta),
       sinCosto,
     };
@@ -1331,26 +1329,32 @@ export default function NuevaVentaPage() {
    * porque el modal buscador no consulta estas columnas y quedaría aplicando
    * un descuento distinto al del autocomplete para el mismo artículo.
    */
-  const descuentoDeLista = useCallback(
-    (productoId: string): number => {
+  const topeDeArticulo = useCallback(
+    (productoId: string): TopeDeLista => {
       const prod = productos.find((x) => x.id === productoId);
-      if (!prod) return 0;
+      if (!prod) return { pct: null, origen: "ninguno" };
       const rubro = prod.categoria_principal_id
         ? categorias.find((c) => c.id === prod.categoria_principal_id)
         : undefined;
-      return descuentoEfectivo(prod.descuento_pct, rubro?.descuento_pct).pct;
+      return topeDeLista(prod.descuento_pct, rubro?.descuento_pct);
     },
     [productos, categorias]
   );
 
-  /** Precio de lista y precio ya con el descuento del artículo o del rubro. */
+  /**
+   * El precio con el que entra una línea: el de lista, sin descuento.
+   *
+   * Antes el descuento cargado en el artículo o en el rubro se aplicaba solo,
+   * y un rubro al 4% salía con el 4% regalado en cada venta sin que nadie lo
+   * decidiera. Ese porcentaje es el TOPE —hasta cuánto se puede bajar— y
+   * ahora se usa como tal en el campo de descuento de la línea.
+   */
   const preciosDe = useCallback(
     (p: Producto, tipo: TipoPrecioVenta) => {
       const lista = precioPorTipo(p, tipo, tcVenta);
-      const pct = descuentoDeLista(p.id);
-      return { lista, final: precioConDescuento(lista, pct) ?? lista, pct };
+      return { lista, final: lista };
     },
-    [descuentoDeLista, tcVenta]
+    [tcVenta]
   );
 
   /**
@@ -2157,6 +2161,11 @@ export default function NuevaVentaPage() {
                       // Piso del precio de venta = costo de compra del producto. El cajero
                       // puede bajar el precio, pero nunca por debajo del costo (regla del cliente).
                       const costoMin = prod?.costo_promedio ?? 0;
+                      // Hasta cuánto se puede descontar ESTA línea: el tope
+                      // del artículo (o de su rubro) y el de la persona, el
+                      // más chico de los dos.
+                      const topeLinea = topeDeArticulo(item.producto_id);
+                      const topeEfectivo = topeAplicable(descuentoMaximo, topeLinea.pct);
                       return (
                         <tr key={idx} className="align-middle transition-colors hover:bg-[#0EA5E9]/5">
                           {/* Producto + SKU */}
@@ -2212,17 +2221,17 @@ export default function NuevaVentaPage() {
                                   // Con las dos tasas: la del artículo para el
                                   // costo, la de la línea para la venta.
                                   const ivaCosto = prod?.tipo_iva ?? item.tipo_iva;
-                                  const m = margenSobreVenta(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
+                                  const m = margenBruto(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
                                   const r = remarcacionSobreCosto(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
-                                  const g = gananciaUnitaria(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
+                                  const g = utilidadBruta(costoMin, item.precio_venta, item.tipo_iva, ivaCosto);
                                   return (
                                     <p
                                       className="text-[11px] leading-snug text-slate-400"
-                                      title={`Costo ${formatGs(costoMin)} por unidad (IVA ${ivaCosto}). Ganancia sin IVA: ${formatGs(g)}`}
+                                      title={`Costo ${formatGs(costoMin)} por unidad (IVA ${ivaCosto}). Utilidad bruta: ${formatGs(g)}`}
                                     >
                                       Rem. {pct(r)} ·{" "}
                                       <span className={`font-semibold ${colorMargen(m)}`}>
-                                        Marg. {pct(m)}
+                                        Marg. bruto {pct(m)}
                                       </span>
                                     </p>
                                   );
@@ -2293,26 +2302,27 @@ export default function NuevaVentaPage() {
                                 fijos (0 / -3 / -5 %) que no se correspondían con
                                 ningún acuerdo comercial de esta empresa: ahora
                                 se escribe el porcentaje que haga falta. */}
+                            {/* Dos topes a la vez: el de la persona (punto
+                                2.3) y el del artículo o su rubro, que es lo
+                                que el cliente carga como "descuento". Tienen
+                                que cumplirse los dos, así que manda el más
+                                chico de los que existan. */}
                             <div className="mt-1 flex items-center justify-end gap-1">
                               <span
                                 className="text-[10px] text-slate-400"
-                                title={descuentoMaximo == null
-                                  ? "Tu usuario no tiene tope de descuento."
-                                  : descuentoMaximo === 0
-                                    ? "Tu usuario no puede aplicar descuentos."
-                                    : `Tu tope de descuento es ${descuentoMaximo}%.`}
+                                title={textoTope(descuentoMaximo, topeLinea)}
                               >
-                                Desc.{descuentoMaximo != null && (
-                                  <span className="ml-0.5 text-slate-300">máx {descuentoMaximo}%</span>
+                                Desc.{topeEfectivo != null && (
+                                  <span className="ml-0.5 text-slate-300">máx {topeEfectivo}%</span>
                                 )}
                               </span>
                               <NumeroEditable
                                 value={descuentoPctDe(item)}
                                 onChange={(d) => {
-                                  // El tope del usuario (punto 2.3). Se corta acá
-                                  // para avisar en el momento; el límite de verdad
-                                  // lo aplica el servidor al confirmar la venta.
-                                  const tope = descuentoMaximo ?? 100;
+                                  // Se corta acá para avisar en el momento; el
+                                  // límite de verdad lo aplica el servidor al
+                                  // confirmar la venta.
+                                  const tope = topeEfectivo ?? 100;
                                   const dOk = Math.min(Math.max(0, d), tope);
                                   // Recortar sin decirlo se lee como "me dejó".
                                   setAvisoTope(d > tope ? { idx, pidio: d, aplicado: dOk } : null);
@@ -2335,8 +2345,8 @@ export default function NuevaVentaPage() {
                             {avisoTope?.idx === idx && !pedidos[idx] && (
                               <div className="mt-1 space-y-1">
                                 <p className="text-[10px] font-medium leading-tight text-amber-700">
-                                  Escribiste {avisoTope.pidio}%, pero tu tope es {descuentoMaximo}%: se aplicó{" "}
-                                  {avisoTope.aplicado}%.
+                                  Escribiste {avisoTope.pidio}%, pero el tope de esta línea es{" "}
+                                  {topeEfectivo}%: se aplicó {avisoTope.aplicado}%.
                                 </p>
                                 <button
                                   type="button"
@@ -2500,7 +2510,7 @@ export default function NuevaVentaPage() {
                           <span className="tabular-nums">{formatGs(resumenMargen.venta)}</span>
                         </div>
                         <div className="flex justify-between text-[12px] text-slate-500">
-                          <span>Ganancia</span>
+                          <span>Utilidad bruta</span>
                           <span className="tabular-nums font-medium text-slate-700">
                             {formatGs(resumenMargen.ganancia)}
                           </span>
@@ -2518,14 +2528,14 @@ export default function NuevaVentaPage() {
                             Remarcación {pct(resumenMargen.remarcacion)}
                           </span>
                           <span className={`font-bold tabular-nums ${colorMargen(resumenMargen.margen)}`}>
-                            Margen {pct(resumenMargen.margen)}
+                            Margen bruto {pct(resumenMargen.margen)}
                           </span>
                         </div>
                         {resumenMargen.sinCosto > 0 && (
                           <p className="mt-1 text-[11px] leading-snug text-amber-600">
                             {resumenMargen.sinCosto}{" "}
                             {resumenMargen.sinCosto === 1 ? "artículo no tiene" : "artículos no tienen"}{" "}
-                            costo cargado: la ganancia real es menor que la que figura acá.
+                            costo cargado: la utilidad real es menor que la que figura acá.
                           </p>
                         )}
                       </div>
@@ -2650,7 +2660,8 @@ export default function NuevaVentaPage() {
                   ? `Pediste ${lineasEsperando[0]!.pct}% de descuento en ${items[lineasEsperando[0]!.idx]?.producto_nombre ?? "una línea"} y todavía no te contestaron.`
                   : `Hay ${lineasEsperando.length} descuentos pedidos y todavía sin contestar.`}
                 {" "}La venta no se puede confirmar hasta que respondan. Si el
-                cliente no quiere esperar, cobrala con tu tope de {descuentoMaximo}%.
+                cliente no quiere esperar, cobrala con el descuento que ya está
+                cargado, que es el tope de esa línea.
               </p>
               <button
                 type="button"
@@ -2667,7 +2678,7 @@ export default function NuevaVentaPage() {
                 }}
                 className="mt-2 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
               >
-                Cobrar con el tope de {descuentoMaximo}% y no esperar
+                Cobrar con el tope y no esperar
               </button>
             </div>
           )}

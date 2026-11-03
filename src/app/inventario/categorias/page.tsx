@@ -399,13 +399,15 @@ export default function CategoriasProductosPage() {
   function editarDescuentoRubro(cat: Categoria) {
     setCampo({
       cat,
-      titulo: `Descuento · ${cat.nombre}`,
-      descripcion: "Se aplica a todos los artículos del rubro que no tengan uno propio.",
-      etiqueta: "Descuento",
+      titulo: `Descuento máximo · ${cat.nombre}`,
+      descripcion:
+        "Hasta cuánto se puede descontar cualquier artículo del rubro que no tenga su propio tope. " +
+        "No es un descuento que se aplique solo: en la venta el precio sigue siendo el de lista.",
+      etiqueta: "Descuento máximo",
       valorInicial: cat.descuento_pct ? String(cat.descuento_pct) : "",
       sufijo: "%",
       tipo: "number",
-      ayuda: "Un artículo con su propio descuento usa el suyo, no la suma de los dos. Vacío o cero deja el rubro sin descuento.",
+      ayuda: "Un artículo con su propio tope usa el suyo, no la suma de los dos. Vacío o cero deja el rubro sin tope, y entonces vale solo el tope de cada usuario.",
       validar: (v) => {
         const t = v.trim().replace(",", ".");
         if (t === "") return null;
@@ -445,8 +447,8 @@ export default function CategoriasProductosPage() {
               parece un dato de la fila y no un control. Se dice en una línea
               en vez de esperar que alguien pruebe hacerle clic. */}
           <p className="mt-1 text-xs text-slate-500">
-            Las columnas <strong>Crítico bajo</strong> y <strong>Descuento</strong> se configuran
-            haciendo clic sobre su valor, rubro por rubro.
+            Las columnas <strong>Crítico bajo</strong> y <strong>Descuento máx.</strong> se
+            configuran haciendo clic sobre su valor, rubro por rubro.
           </p>
           <div className="mt-3 max-w-2xl rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
             Estos rubros aparecen en el selector <strong>Rubro principal</strong> de Nuevo producto.
@@ -459,7 +461,7 @@ export default function CategoriasProductosPage() {
             <ExportExcelButton url="/api/inventario/categorias/export" />
             <ImprimirTablaButton
             titulo="Rubros"
-            columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Remarcación %", "Descuento %", "Estado"]}
+            columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Remarcación %", "Descuento máx. %", "Estado"]}
             filas={visibles.map((c) => [
               c.nombre,
               c.codigo ?? "",
@@ -567,8 +569,9 @@ export default function CategoriasProductosPage() {
               <option value="activos">Solo activos</option>
               <option value="inactivos">Solo inactivos</option>
             </select>
-            {/* El descuento del rubro ahora sale en el precio de Caja, así que
-                conviene poder ver de un vistazo cuáles lo tienen puesto. */}
+            {/* El tope del rubro es lo que Caja ofrece como descuento máximo
+                de la línea, así que conviene ver de un vistazo cuáles lo
+                tienen puesto. */}
             <label className="inline-flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -576,7 +579,7 @@ export default function CategoriasProductosPage() {
                 onChange={(e) => setSoloConDescuento(e.target.checked)}
                 className="h-4 w-4 rounded border-slate-300"
               />
-              Solo con descuento
+              Solo con descuento máximo
             </label>
             {/* Abrir o cerrar todos los rubros padre de una. Sin esto, ver
                 solo los nueve rubros mayores son nueve clics. */}
@@ -625,8 +628,8 @@ export default function CategoriasProductosPage() {
                 <th className="text-left px-4 py-2" title="Remarcación de referencia del rubro. No cambia los precios ya cargados.">
                   Remarcación
                 </th>
-                <th className="text-left px-4 py-2" title="Descuento que se aplica a todos los artículos del rubro">
-                  Descuento
+                <th className="text-left px-4 py-2" title="Hasta cuánto se puede descontar un artículo del rubro. No se aplica solo: en la venta el precio es el de lista.">
+                  Descuento máx.
                 </th>
                 <th className="text-left px-4 py-2">Estado</th>
                 <th className="px-4 py-2"></th>

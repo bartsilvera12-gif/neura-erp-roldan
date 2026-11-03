@@ -6,7 +6,8 @@ import { useParams } from "next/navigation";
 import { getProducto } from "@/lib/inventario/storage";
 import type { Producto } from "@/lib/inventario/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import { aUsd, descuentoEfectivo, markupDesdePrecio, precioConDescuento } from "@/lib/precios/ficha";
+import { aUsd, markupDesdePrecio, precioConDescuento } from "@/lib/precios/ficha";
+import { topeDeLista } from "@/lib/precios/tope-descuento";
 
 interface CatRow { id: string; nombre: string; descuento_pct?: number | null }
 interface UbiRow { id: string; nombre: string; tipo: string }
@@ -127,8 +128,11 @@ export default function DetalleProductoPage() {
   const mostrarPrecioVenta = !esInsumo;
   const stockBajo = producto.stock_actual <= producto.stock_minimo;
   const remarcacion = markupDesdePrecio(producto.precio_venta, producto.costo_promedio);
-  const descuento = descuentoEfectivo(producto.descuento_pct, rubro?.descuento_pct);
-  const precioFinal = precioConDescuento(producto.precio_venta, descuento.pct);
+  // El porcentaje cargado es un TOPE, no un precio: hasta cuánto se puede
+  // bajar este artículo en una venta. El "precio mínimo" es lo que queda si se
+  // da todo el descuento permitido, no lo que sale en el mostrador.
+  const descuento = topeDeLista(producto.descuento_pct, rubro?.descuento_pct);
+  const precioFinal = precioConDescuento(producto.precio_venta, descuento.pct ?? 0);
 
   return (
     <div className="space-y-8">
@@ -204,16 +208,17 @@ export default function DetalleProductoPage() {
               </DatoFila>
             )}
             {mostrarPrecioVenta && (
-              <DatoFila label="Descuento aplicado">
-                {descuento.pct > 0 ? `${descuento.pct.toLocaleString("es-PY", { maximumFractionDigits: 2 })} %` : "Sin descuento"}
+              <DatoFila label="Descuento máximo permitido">
+                {descuento.pct != null ? `hasta ${descuento.pct.toLocaleString("es-PY", { maximumFractionDigits: 2 })} %` : "Sin tope cargado"}
                 <span className="block text-xs font-normal text-slate-400">
                   {descuento.origen === "articulo" && "Definido en este artículo (reemplaza al del rubro)."}
                   {descuento.origen === "rubro" && `Viene del rubro ${nombreCategoria ?? ""}.`}
-                  {descuento.origen === "ninguno" && "Ni el artículo ni el rubro tienen descuento cargado."}
+                  {descuento.origen === "ninguno" && "Ni el artículo ni el rubro tienen tope cargado: vale el de cada usuario."}
                 </span>
-                {descuento.pct > 0 && precioFinal != null && (
+                {descuento.pct != null && precioFinal != null && (
                   <span className="block text-xs font-normal text-slate-600">
-                    Precio con descuento: {formatGs(precioFinal)}
+                    Precio mínimo con ese descuento: {formatGs(precioFinal)}. El precio que sale
+                    en la venta es el de lista; el descuento se da si se decide darlo.
                   </span>
                 )}
               </DatoFila>

@@ -1,3 +1,4 @@
+import { topeAplicable, topeDeLista } from "@/lib/precios/tope-descuento";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 
 /**
@@ -151,19 +152,90 @@ export interface LineaSobreTope {
  */
 export function lineasSobreTope<T extends LineaConDescuento & { producto_id?: string | null }>(
   lineas: T[],
-  tope: number | null
+  tope: number | null,
+  /**
+   * Tope propio de cada artículo (el del artículo o el de su rubro), por
+   * producto_id. Es el "descuento" que el administrador carga en Rubros: no
+   * es un precio rebajado, es hasta cuánto se puede bajar ese artículo.
+   *
+   * Se pasa como mapa y no se consulta acá para que la función siga siendo
+   * pura y probable con casos armados a mano.
+   */
+  topePorProducto?: ReadonlyMap<string, number>
 ): LineaSobreTope[] {
-  if (tope == null) return [];
   const out: LineaSobreTope[] = [];
   for (const l of lineas) {
+    const id = String(l.producto_id ?? "");
+    // Los dos topes tienen que cumplirse: manda el más chico de los que
+    // existan. Sin ninguno de los dos no hay nada que validar.
+    const topeLinea = topeAplicable(tope, topePorProducto?.get(id) ?? null);
+    if (topeLinea == null) continue;
     const pct = descuentoPctDeLinea(l.precio_venta_original, l.precio_venta);
-    if (pct > tope + TOLERANCIA_PCT) {
+    if (pct > topeLinea + TOLERANCIA_PCT) {
       out.push({
-        producto_id: String(l.producto_id ?? ""),
+        producto_id: id,
         producto_nombre: l.producto_nombre ?? null,
         pct,
       });
     }
+  }
+  return out;
+}
+
+/**
+ * El tope de cada artículo de la venta, leído de la base.
+ *
+ * El del artículo le gana al de su rubro, igual que en pantalla: si los dos
+ * dijeran lo suyo y acá se resolviera distinto, el vendedor vería un tope y el
+ * servidor aplicaría otro.
+ *
+ * Nunca lanza: si falta la columna `descuento_pct` —bases viejas— no hay tope
+ * por artículo y queda valiendo solo el de la persona, que es como funcionaba
+ * antes de este cambio.
+ */
+export async function topesPorArticulo(
+  sb: AppSupabaseClient,
+  empresaId: string,
+  productoIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const ids = [...new Set(productoIds.filter(Boolean))];
+  if (ids.length === 0) return out;
+  try {
+    const pq = await sb
+      .from("productos")
+      .select("id, descuento_pct, categoria_principal_id")
+      .eq("empresa_id", empresaId)
+      .in("id", ids);
+    if (pq.error) return out;
+    const filas = (pq.data ?? []) as Array<{
+      id: string; descuento_pct?: number | string | null; categoria_principal_id?: string | null;
+    }>;
+
+    const rubroIds = [...new Set(filas.map((f) => f.categoria_principal_id).filter((x): x is string => !!x))];
+    const porRubro = new Map<string, number | null>();
+    if (rubroIds.length > 0) {
+      const rq = await sb
+        .from("categorias_productos")
+        .select("id, descuento_pct")
+        .eq("empresa_id", empresaId)
+        .in("id", rubroIds);
+      if (!rq.error) {
+        for (const r of (rq.data ?? []) as Array<{ id: string; descuento_pct?: number | string | null }>) {
+          porRubro.set(String(r.id), r.descuento_pct == null ? null : Number(r.descuento_pct));
+        }
+      }
+    }
+
+    for (const f of filas) {
+      const t = topeDeLista(
+        f.descuento_pct ?? null,
+        f.categoria_principal_id ? porRubro.get(f.categoria_principal_id) ?? null : null
+      );
+      if (t.pct != null) out.set(String(f.id), t.pct);
+    }
+  } catch {
+    // Sin el dato no hay tope por artículo: vale el de la persona.
   }
   return out;
 }

@@ -73,7 +73,9 @@ function columnas(cotizacion: number | null, filasConCostoUsd: number): ColumnaE
   cols.push(
     { header: "Existencia", value: (r) => Number(r.existencia) || 0, formato: "cantidad", suma: true, width: 12 },
     { header: "Stock mínimo", value: (r) => Number(r.stock_minimo) || 0, formato: "cantidad", width: 14 },
-    { header: "Descuento", value: (r) => { const d = n(r.descuento_pct); return d == null ? null : d / 100; }, formato: "porcentaje", width: 12 },
+    // "Descuento máx." y no "Descuento": el porcentaje cargado es hasta cuánto
+    // se puede bajar ese artículo, no un descuento que ya esté en el precio.
+    { header: "Descuento máx.", value: (r) => { const d = n(r.descuento_pct); return d == null ? null : d / 100; }, formato: "porcentaje", width: 14 },
     { header: "Valorizado Gs.", value: (r) => n(r.valorizado_gs), formato: "gs", suma: true, width: 18 }
   );
   return cols;

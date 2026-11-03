@@ -94,7 +94,7 @@ export async function getStockConPrecios(
             p.unidad_medida                      AS unidad,
             NULLIF(p.costo_promedio, 0)          AS costo_gs,
             p.costo_usd                          AS costo_usd,
-            -- Misma regla que descuentoEfectivo() en src/lib/precios/ficha.ts:
+            -- Misma regla que topeDeLista() en src/lib/precios/tope-descuento.ts:
             -- el descuento del artículo REEMPLAZA al del rubro, no se suman ni
             -- se toma el mayor. Acá estaba con GREATEST, que daba otra cosa:
             -- un artículo al 2% en un rubro al 4% salía con 4%, al revés de lo

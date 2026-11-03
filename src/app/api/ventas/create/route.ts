@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserAndEmpresa } from "@/lib/middleware/auth";
 import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
-import { descuentoMaximoDe, lineasSobreTope } from "@/lib/ventas/server/descuento-maximo";
+import { descuentoMaximoDe, lineasSobreTope, topesPorArticulo } from "@/lib/ventas/server/descuento-maximo";
 import { buscarAutorizaciones, marcarUsadas } from "@/lib/descuentos/server/solicitudes";
 import { creditoDe, validarCredito } from "@/lib/clientes/server/credito";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
@@ -286,7 +286,15 @@ export async function POST(request: NextRequest) {
     {
       const sbTope = await createServiceRoleClientForEmpresa(auth.empresa_id);
       const tope = await descuentoMaximoDe(sbTope, auth.empresa_id, auth.usuarioCatalogId);
-      const pasadas = lineasSobreTope(items, tope);
+      // Y el tope propio de cada artículo: el "descuento" que el administrador
+      // carga en Rubros no es un precio rebajado, es hasta cuánto se puede
+      // bajar ese artículo. Tienen que cumplirse los dos.
+      const topesArt = await topesPorArticulo(
+        sbTope,
+        auth.empresa_id,
+        items.map((l) => String((l as { producto_id?: string | null }).producto_id ?? ""))
+      );
+      const pasadas = lineasSobreTope(items, tope, topesArt);
       if (pasadas.length > 0) {
         let permiso: Awaited<ReturnType<typeof buscarAutorizaciones>> = {
           ok: false,
@@ -312,7 +320,9 @@ export async function POST(request: NextRequest) {
             errorResponse(
               tope === 0
                 ? `Tu usuario no tiene permitido aplicar descuentos, y ${nombre} tiene ${l.pct.toFixed(1)}% menos que el precio de lista.`
-                : `El descuento de ${nombre} es ${l.pct.toFixed(1)}% y tu tope es ${tope}%. Pedí autorización desde la línea del producto.`
+                : `El descuento de ${nombre} es ${l.pct.toFixed(1)}% y el tope de esa línea es ${
+                    Math.min(tope ?? 100, topesArt.get(l.producto_id) ?? 100)
+                  }%. Pedí autorización desde la línea del producto.`
             ),
             { status: 403 }
           );

@@ -72,38 +72,18 @@ export function markupDesdePrecio(
   return ((p - c) / c) * 100;
 }
 
-export interface DescuentoResuelto {
-  /** Porcentaje que efectivamente se aplica. */
-  pct: number;
-  /** De dónde salió, para poder mostrarlo y que nadie tenga que adivinar. */
-  origen: "articulo" | "rubro" | "ninguno";
-}
-
 /**
- * Qué descuento corresponde a un artículo.
+ * El descuento del artículo y del rubro ya NO se aplican al precio.
  *
- * ── POR QUÉ EL DEL ARTÍCULO MANDA, Y NO SE SUMAN ─────────────────────────
- *   Sumarlos haría que un artículo con 5% propio dentro de un rubro al 4%
- *   salga al 9%, que no es lo que nadie quiso decir al cargar los dos: el
- *   descuento del rubro es el que vale "salvo que este artículo diga otra
- *   cosa". Por eso el del artículo reemplaza al del rubro en vez de sumarse.
+ * Eran un porcentaje que se descontaba solo en cada venta —un rubro al 4%
+ * salía con el 4% regalado sin que nadie lo decidiera—. El cliente aclaró que
+ * ese número es un TOPE: hasta cuánto se puede bajar. La resolución vive en
+ * `@/lib/precios/tope-descuento` (`topeDeLista`, `topeAplicable`).
  *
- *   Un artículo en 0 no está diciendo "sin descuento", está diciendo "no
- *   tengo el mío": cae al del rubro. Para que un artículo quede SIN descuento
- *   dentro de un rubro que sí lo tiene, hay que bajar el del rubro — que es
- *   justamente la conversación que conviene tener antes de regalar margen en
- *   un solo artículo y que nadie se entere.
+ * `descuentoEfectivo` se borró a propósito en vez de dejarlo sin uso: con la
+ * función ahí, el próximo que necesite "el descuento del artículo" la vuelve
+ * a llamar y el 4% vuelve a aplicarse solo.
  */
-export function descuentoEfectivo(
-  descuentoArticulo: string | number | null | undefined,
-  descuentoRubro: string | number | null | undefined
-): DescuentoResuelto {
-  const a = num(descuentoArticulo) ?? 0;
-  if (a > 0) return { pct: a, origen: "articulo" };
-  const r = num(descuentoRubro) ?? 0;
-  if (r > 0) return { pct: r, origen: "rubro" };
-  return { pct: 0, origen: "ninguno" };
-}
 
 /** Precio ya con el descuento aplicado, redondeado a guaraní entero. */
 export function precioConDescuento(
