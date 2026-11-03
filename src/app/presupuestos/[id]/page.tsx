@@ -51,6 +51,7 @@ type ItemRow = {
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
+  borrador: "bg-amber-100 text-amber-800",
   creado: "bg-slate-100 text-slate-700",
   enviado: "bg-sky-100 text-sky-700",
   aprobado: "bg-emerald-100 text-emerald-700",
@@ -59,6 +60,11 @@ const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
 };
 // Transiciones permitidas desde la UI (no incluye 'convertido', que va por /convertir).
 const SIGUIENTES: Record<EstadoPresupuesto, EstadoPresupuesto[]> = {
+  // Un borrador no tiene a dónde ir desde los botones de estado: sale de
+  // borrador completando los datos del cliente en Editar, y el servidor lo
+  // pasa a "creado" solo cuando están todos. Ofrecer acá "Enviar" o "Aprobar"
+  // sería ofrecer algo que el servidor va a rechazar.
+  borrador: [],
   creado: ["enviado", "aprobado", "rechazado"],
   enviado: ["aprobado", "rechazado"],
   aprobado: ["rechazado"],
@@ -239,6 +245,17 @@ export default function PresupuestoDetallePage() {
       <Link href="/presupuestos" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
         <ArrowLeft className="h-4 w-4" /> Volver a presupuestos
       </Link>
+
+      {/* Un borrador dice qué es y cómo deja de serlo. Sin esto, el que lo abre
+          ve los botones de estado apagados y no sabe por qué. */}
+      {presu.estado === "borrador" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-sm text-amber-900">
+          Es un <strong>borrador</strong>: se guardó sin todos los datos del cliente, para que la
+          cotización no se perdiera. Se puede imprimir y entregar, pero no se puede mandar,
+          aprobar ni cobrar. Completá los datos en <strong>Editar</strong> y pasa a presupuesto
+          firme solo.
+        </div>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">

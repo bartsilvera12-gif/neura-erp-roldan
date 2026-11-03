@@ -5,7 +5,8 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { isAdmin } from "@/lib/middleware/auth";
-import { validarRucOCedula, faltantesAltaCliente } from "@/lib/clientes/identificador";
+import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
+import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
 import {
   conCamposScript38,
   leerPresupuestosConFallback,
@@ -118,49 +119,31 @@ export async function POST(request: NextRequest) {
     }
 
     /**
-     * RUC o cédula, obligatorio.
+     * QUÉ FALTA PARA QUE ESTO SEA UN PRESUPUESTO FIRME
      *
-     * No es solo un dato del papel: más abajo, si el cliente no se eligió del
-     * catálogo, ESTA RUTA LO DA DE ALTA. Sin exigirlo acá, el presupuesto se
-     * cuela por la ventana que cerramos en el alta de clientes y el padrón se
-     * vuelve a llenar de homónimos. Y el presupuesto es el papel que después se
-     * factura: una factura sin RUC ni cédula no se puede emitir.
-     */
-    const identPresu = validarRucOCedula(body.cliente_ruc as string | null | undefined);
-    if (!identPresu.ok) {
-      return NextResponse.json(
-        errorResponse(identPresu.error ?? "Cargá el RUC o la cédula del cliente."),
-        { status: 400 }
-      );
-    }
-
-    /**
-     * Los mismos datos obligatorios que el alta de cliente.
+     * Son los mismos datos que pide el alta de cliente, porque esta ruta DA DE
+     * ALTA al cliente cuando se escribe a mano: si acá se pidiera menos, el
+     * presupuesto sería la puerta por donde entran las fichas incompletas que
+     * el alta de clientes ya no deja pasar.
      *
-     * Esta ruta DA DE ALTA al cliente cuando se escribe a mano, así que si acá
-     * se pidiera menos, el presupuesto sería la puerta por donde entran las
-     * fichas incompletas que el alta de clientes ya no deja pasar. Se exige
-     * solo cuando el cliente NO salió del catálogo: al cotizarle a uno que ya
-     * existe no se le vuelven a pedir sus datos.
+     * Pero faltar no es motivo para rechazar el pedido. Antes sí lo era, y el
+     * resultado fue el contrario del buscado: el que no tenía el RUC del
+     * cliente no podía guardar, la cotización salía a mano y no quedaba
+     * registrada en ninguna parte. Ahora se guarda como BORRADOR —queda qué se
+     * cotizó y a qué precio— y no avanza hasta completar los datos.
+     *
+     * Solo se mira cuando el cliente NO salió del catálogo: al cotizarle a uno
+     * que ya existe no se le vuelven a pedir sus datos.
      */
-    if (!body.cliente_id) {
-      const faltan = faltantesAltaCliente({
-        nombre: clienteNombre,
-        ruc: body.cliente_ruc as string | null | undefined,
-        telefono: body.cliente_telefono as string | null | undefined,
-        profesion: body.cliente_profesion as string | null | undefined,
-        ciudad: body.cliente_ciudad as string | null | undefined,
-      });
-      if (faltan.length > 0) {
-        return NextResponse.json(
-          errorResponse(
-            `Para dar de alta este cliente falta${faltan.length === 1 ? "" : "n"} ` +
-            `${faltan.length === 1 ? faltan[0] : faltan.slice(0, -1).join(", ") + " y " + faltan[faltan.length - 1]}.`
-          ),
-          { status: 400 }
-        );
-      }
-    }
+    const faltan = faltantesDelPresupuesto({
+      cliente_id: body.cliente_id as string | null | undefined,
+      nombre: clienteNombre,
+      ruc: body.cliente_ruc as string | null | undefined,
+      telefono: body.cliente_telefono as string | null | undefined,
+      profesion: body.cliente_profesion as string | null | undefined,
+      ciudad: body.cliente_ciudad as string | null | undefined,
+    });
+    const esBorrador = faltan.length > 0;
     const validezRaw = body.validez_dias;
     const validez =
       validezRaw === null || validezRaw === undefined || String(validezRaw).trim() === ""
@@ -178,52 +161,39 @@ export async function POST(request: NextRequest) {
     // se crea desde acá sin ellas, nace incompleto por la ventana de atrás.
     const ciudadInput = body.cliente_ciudad ? String(body.cliente_ciudad).trim() : "";
     const profInput = body.cliente_profesion ? String(body.cliente_profesion).trim() : "";
-    if (!clienteId) {
-      if (rucInput) {
-        const { data: existente } = await ctx.supabase
-          .from("clientes")
-          .select("id")
-          .eq("empresa_id", ctx.auth.empresa_id)
-          .eq("ruc", rucInput)
-          .maybeSingle();
-        if (existente?.id) clienteId = String(existente.id);
-      }
-      if (!clienteId) {
-        const nombreCreador =
-          (typeof ctx.auth.user?.email === "string" ? ctx.auth.user.email.trim() : "") ||
-          null;
-        const { data: nuevo, error: eNuevo } = await ctx.supabase
-          .from("clientes")
-          .insert([{
-            empresa_id: ctx.auth.empresa_id,
-            created_by_user_id: ctx.auth.user.id,
-            created_by_nombre: nombreCreador,
-            tipo_cliente: "empresa",
-            nombre: clienteNombre,
-            nombre_contacto: clienteNombre,
-            ruc: rucInput || null,
-            telefono: telInput || null,
-            direccion: dirInput || null,
-            ciudad: ciudadInput || null,
-            profesion: profInput || null,
-            moneda_preferida: body.moneda === "USD" ? "USD" : "GS",
-            estado: "activo",
-            usa_nota_remision: false,
-          }])
-          .select("id")
-          .single();
-        if (eNuevo) throw new Error(`No se pudo crear el cliente: ${eNuevo.message}`);
-        clienteId = String(nuevo.id);
-      }
+    // Un borrador NO da de alta al cliente: justamente le faltan los datos que
+    // el alta exige, y crear la ficha a medias es lo que se quería evitar. La
+    // ficha nace cuando el borrador se completa, desde la edición.
+    if (!clienteId && !esBorrador) {
+      clienteId = await asegurarClienteDelPresupuesto(
+        ctx.supabase,
+        {
+          empresaId: ctx.auth.empresa_id,
+          userId: ctx.auth.user.id,
+          emailCreador:
+            (typeof ctx.auth.user?.email === "string" ? ctx.auth.user.email.trim() : "") || null,
+        },
+        {
+          nombre: clienteNombre,
+          ruc: rucInput,
+          telefono: telInput,
+          direccion: dirInput,
+          ciudad: ciudadInput,
+          profesion: profInput,
+          moneda: body.moneda === "USD" ? "USD" : "GS",
+        }
+      );
     }
 
-    // El teléfono es obligatorio: un presupuesto sin forma de contactar al
-    // cliente no se puede seguir, y el seguimiento es la mitad del trabajo.
-    // Se exige acá y no solo en la pantalla, que se puede saltear.
+    // El teléfono sigue siendo obligatorio para un presupuesto firme —sin forma
+    // de contactar al cliente no hay seguimiento, y el seguimiento es la mitad
+    // del trabajo— pero su falta lo deja en borrador, no lo rechaza. Ya está
+    // contado en `faltan`: esto es solo la defensa para el presupuesto de un
+    // cliente del catálogo, donde `faltan` no se mira.
     const telefonoCliente = typeof body.cliente_telefono === "string"
       ? body.cliente_telefono.trim()
       : "";
-    if (!telefonoCliente) {
+    if (!telefonoCliente && !esBorrador && !body.cliente_id) {
       return NextResponse.json(
         errorResponse("Falta el teléfono del cliente: sin eso no se puede hacer el seguimiento."),
         { status: 400 }
@@ -283,10 +253,24 @@ export async function POST(request: NextRequest) {
       // tenga el rol.
       vendedor_usuario_id: esAdmin && vendedorId ? vendedorId : null,
       vendedor_nombre: esAdmin && vendedorId ? vendedorNombre : null,
+      estado: esBorrador ? "borrador" : "creado",
       items,
     });
 
-    return NextResponse.json(successResponse({ id, numero_control }));
+    // El aviso va en la respuesta y no en un error: el presupuesto SE GUARDÓ,
+    // y la pantalla tiene que poder decir las dos cosas a la vez —quedó
+    // registrado, y así no avanza— sin que parezca que falló.
+    return NextResponse.json(successResponse({
+      id,
+      numero_control,
+      estado: esBorrador ? "borrador" : "creado",
+      falta: faltan,
+      aviso: esBorrador
+        ? `Quedó guardado como BORRADOR porque falta${faltan.length === 1 ? "" : "n"} ` +
+          `${textoFaltantes(faltan)}. Se puede imprimir, pero no se puede mandar, aprobar ` +
+          "ni cobrar hasta completarlo."
+        : null,
+    }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo crear el presupuesto.";
     const status = /obligatorio|al menos un|inválid/i.test(msg) ? 400 : 500;

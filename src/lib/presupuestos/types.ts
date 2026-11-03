@@ -1,8 +1,25 @@
-export type EstadoPresupuesto = "creado" | "enviado" | "aprobado" | "rechazado" | "convertido";
+/**
+ * `borrador` es la cotización que se guardó con los datos del cliente
+ * incompletos.
+ *
+ * Existe por un efecto no buscado de hacer obligatorios el RUC, el teléfono,
+ * la profesión y la ciudad: el que no los tiene no podía guardar, así que la
+ * cotización salía igual —el cliente está en el mostrador esperando el
+ * precio— pero salía a mano y no quedaba registrada en ninguna parte. Los
+ * datos obligatorios se pusieron para no tener fichas a medias y el efecto
+ * fue perder cotizaciones enteras.
+ *
+ * Un borrador guarda qué se cotizó y a qué precio. No se puede mandar,
+ * aprobar ni cobrar hasta completar los datos: ahí pasa a `creado` y recién
+ * entonces se le da de alta la ficha al cliente.
+ */
+export type EstadoPresupuesto =
+  | "borrador" | "creado" | "enviado" | "aprobado" | "rechazado" | "convertido";
 
 export type IvaTipoPresupuesto = "EXENTA" | "5%" | "10%";
 
 export const ESTADOS_PRESUPUESTO: EstadoPresupuesto[] = [
+  "borrador",
   "creado",
   "enviado",
   "aprobado",
@@ -11,6 +28,7 @@ export const ESTADOS_PRESUPUESTO: EstadoPresupuesto[] = [
 ];
 
 export const ESTADO_LABEL: Record<EstadoPresupuesto, string> = {
+  borrador: "Borrador",
   creado: "Creado",
   enviado: "Enviado",
   aprobado: "Aprobado",

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
+import { faltantesDelPresupuesto } from "@/lib/presupuestos/faltantes";
+import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
 import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -8,6 +10,7 @@ import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/
 import {
   conCamposScript38,
   faltaScript38,
+  faltaScript46,
   leerPresupuestosConFallback,
 } from "@/lib/presupuestos/server/presupuestos-select";
 
@@ -140,7 +143,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     // Verificar estado actual (no editable si convertido).
     const cur = await ctx.supabase
       .from("presupuestos")
-      .select("estado, cliente_ruc")
+      .select("estado, cliente_ruc, cliente_id")
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("id", id)
       .maybeSingle();
@@ -150,13 +153,20 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       return NextResponse.json(errorResponse("El presupuesto ya fue convertido; no se puede editar."), { status: 409 });
     }
 
+    const eraBorrador = (cur.data as { estado: string }).estado === "borrador";
+
     /**
-     * El RUC se exige al CREAR. Al editar no se pide uno que nunca hubo —hay
-     * presupuestos anteriores a esta regla y bloquearlos impediría corregirles
-     * un teléfono—, pero tampoco se deja BORRAR el que ya está: vaciarlo sería
-     * saltear la regla desde la pantalla de edición.
+     * En un BORRADOR el RUC puede estar vacío o mal: es justamente lo que le
+     * falta, y por eso es un borrador. Validarlo acá impediría guardar la
+     * corrección a medias —el que consiguió el teléfono pero todavía no el
+     * RUC—, que es el caso para el que existe el borrador.
+     *
+     * Para el resto sigue valiendo: el RUC se exige al CREAR, al editar no se
+     * pide uno que nunca hubo —hay presupuestos anteriores a esta regla y
+     * bloquearlos impediría corregirles un teléfono— pero tampoco se deja
+     * BORRAR el que ya está, que sería saltear la regla desde la edición.
      */
-    if (body.cliente_ruc !== undefined) {
+    if (!eraBorrador && body.cliente_ruc !== undefined) {
       const rucActual = String((cur.data as { cliente_ruc?: string | null }).cliente_ruc ?? "").trim();
       const rucNuevo = String(body.cliente_ruc ?? "").trim();
       if (rucActual !== "" || rucNuevo !== "") {
@@ -230,12 +240,65 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         ? null
         : Math.max(0, parseInt(String(validezRaw), 10) || 0) || null;
 
+      /**
+       * SALIR DE BORRADOR
+       *
+       * Un borrador sale de borrador cuando se completan los datos del
+       * cliente, y recién ahí se le abre la ficha. Es el único camino: los
+       * botones de estado no lo mueven, y el servidor no lo deja avanzar
+       * mientras falte algo. Si todavía falta, se guarda la corrección y
+       * sigue siendo borrador —lo que se consiguió no se pierde—.
+       *
+       * Al presupuesto que ya era firme no se lo toca: se guarda su edición y
+       * conserva su estado.
+       */
+      let clienteIdFinal = body.cliente_id ? String(body.cliente_id) : null;
+      let estadoNuevo: string | null = null;
+      if (eraBorrador) {
+        const faltan = faltantesDelPresupuesto({
+          cliente_id: clienteIdFinal,
+          nombre: clienteNombre,
+          ruc: body.cliente_ruc as string | null | undefined,
+          telefono: body.cliente_telefono as string | null | undefined,
+          profesion: body.cliente_profesion as string | null | undefined,
+          ciudad: body.cliente_ciudad as string | null | undefined,
+        });
+        if (faltan.length === 0) {
+          clienteIdFinal = await asegurarClienteDelPresupuesto(
+            ctx.supabase,
+            {
+              empresaId: ctx.auth.empresa_id,
+              userId: ctx.auth.user.id,
+              emailCreador:
+                (typeof ctx.auth.user?.email === "string" ? ctx.auth.user.email.trim() : "") || null,
+            },
+            {
+              cliente_id: clienteIdFinal,
+              nombre: clienteNombre,
+              ruc: body.cliente_ruc as string | null | undefined,
+              telefono: body.cliente_telefono as string | null | undefined,
+              direccion: body.cliente_direccion as string | null | undefined,
+              ciudad: body.cliente_ciudad as string | null | undefined,
+              profesion: body.cliente_profesion as string | null | undefined,
+              moneda: body.moneda === "USD" ? "USD" : "GS",
+            }
+          );
+          estadoNuevo = "creado";
+        }
+      }
+
       const parcheCabecera: Record<string, unknown> = {
-        cliente_id: body.cliente_id ? String(body.cliente_id) : null,
+        cliente_id: clienteIdFinal,
+        ...(estadoNuevo ? { estado: estadoNuevo } : {}),
         cliente_nombre: clienteNombre,
         cliente_ruc: body.cliente_ruc ? String(body.cliente_ruc) : null,
         cliente_telefono: body.cliente_telefono ? String(body.cliente_telefono) : null,
         cliente_direccion: body.cliente_direccion ? String(body.cliente_direccion) : null,
+        // Ciudad y profesión: son dos de los datos que dejan al presupuesto en
+        // borrador, así que si la edición no los guardara, completarlos no
+        // serviría de nada.
+        cliente_ciudad: body.cliente_ciudad ? String(body.cliente_ciudad) : null,
+        cliente_profesion: body.cliente_profesion ? String(body.cliente_profesion) : null,
         moneda: body.moneda === "USD" ? "USD" : "PYG",
         subtotal: Math.round(subtotal),
         monto_iva: Math.round(monto_iva),
@@ -289,6 +352,12 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         const { nota_interna: _n, falta_material: _f, ...sinScript38 } = parcheCabecera;
         updHead = await guardarCabecera(sinScript38);
       }
+      // Y para el 46: sin esas columnas no hay dónde guardar ciudad y
+      // profesión, pero el resto de la edición no tiene por qué caerse.
+      if (updHead.error && faltaScript46(updHead.error.message)) {
+        const { cliente_ciudad: _c, cliente_profesion: _p, ...sin46 } = parcheCabecera;
+        updHead = await guardarCabecera(sin46);
+      }
       if (updHead.error) throw new Error(updHead.error.message);
       return NextResponse.json(
         successResponse({
@@ -306,6 +375,22 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       return NextResponse.json(
         errorResponse("Para convertir usá la acción 'Convertir en pedido'."),
         { status: 400 }
+      );
+    }
+    /**
+     * Un borrador no avanza por un botón de estado.
+     *
+     * Le faltan los datos del cliente: mandarlo, aprobarlo o cobrarlo con la
+     * ficha incompleta es exactamente lo que el borrador existe para evitar.
+     * El camino es completarlo en Editar; ahí el servidor lo pasa a "creado"
+     * y le abre la ficha al cliente.
+     */
+    if (eraBorrador && nuevoEstado !== "borrador") {
+      return NextResponse.json(
+        errorResponse(
+          "Es un borrador: completá los datos del cliente en Editar y pasa a presupuesto firme solo."
+        ),
+        { status: 409 }
       );
     }
 

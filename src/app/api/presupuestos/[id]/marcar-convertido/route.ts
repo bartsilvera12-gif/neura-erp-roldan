@@ -37,7 +37,12 @@ export async function POST(
       })
       .eq("id", id)
       .eq("empresa_id", ctx.auth.empresa_id)
-      .neq("estado", "convertido"); // idempotente
+      .neq("estado", "convertido") // idempotente
+      // Un borrador no se cobra: le faltan los datos del cliente y la ficha
+      // todavía no existe. Se completa primero, desde la edición. La venta en
+      // sí no se frena por esto —la cobra el que esté en Caja— pero el
+      // presupuesto no queda marcado como convertido si era un borrador.
+      .neq("estado", "borrador");
     if (error) throw new Error(error.message);
 
     return NextResponse.json(successResponse({ ok: true }));

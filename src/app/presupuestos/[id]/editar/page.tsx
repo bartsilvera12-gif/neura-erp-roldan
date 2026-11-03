@@ -11,6 +11,7 @@ import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuesto
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
+import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 type ProductoLite = {
@@ -99,6 +100,15 @@ export default function EditarPresupuestoPage() {
   const rucVenia = useRef<boolean | null>(null);
   const [clienteTel, setClienteTel] = useState("");
   const [clienteDir, setClienteDir] = useState("");
+  /**
+   * Ciudad y profesión se editan acá porque son dos de los datos que dejan a
+   * un presupuesto en borrador. Sin estos campos, un borrador al que le falta
+   * la ciudad no se podría completar desde ninguna pantalla y quedaría en
+   * borrador para siempre.
+   */
+  const [clienteCiudad, setClienteCiudad] = useState("");
+  const [clienteProfesion, setClienteProfesion] = useState("");
+  const [esBorrador, setEsBorrador] = useState(false);
 
   // Items
   const [items, setItems] = useState<Item[]>([]);
@@ -200,6 +210,9 @@ export default function EditarPresupuestoPage() {
         rucVenia.current = !!p.cliente_ruc && String(p.cliente_ruc).trim() !== "";
         setClienteTel(p.cliente_telefono ? String(p.cliente_telefono) : "");
         setClienteDir(p.cliente_direccion ? String(p.cliente_direccion) : "");
+        setClienteCiudad(p.cliente_ciudad ? String(p.cliente_ciudad) : "");
+        setClienteProfesion(p.cliente_profesion ? String(p.cliente_profesion) : "");
+        setEsBorrador(String(p.estado) === "borrador");
         setMoneda(p.moneda === "USD" ? "USD" : "PYG");
         setValidezDias(p.validez_dias == null ? String(VALIDEZ_DIAS) : String(p.validez_dias));
         setFormaPago(p.forma_pago ? String(p.forma_pago) : "");
@@ -334,7 +347,27 @@ export default function EditarPresupuestoPage() {
    * sin inventarle uno.
    */
   const identCliente = validarRucOCedula(clienteRuc);
-  const rucOk = identCliente.ok || rucVenia.current === false;
+  // En un borrador el RUC puede estar vacío: es justamente lo que le falta.
+  const rucOk = identCliente.ok || rucVenia.current === false || esBorrador;
+
+  /**
+   * Lo que todavía le falta a este borrador para ser un presupuesto firme.
+   *
+   * Es la misma cuenta que hace el servidor al guardar: si da vacío, el
+   * presupuesto sale de borrador solo y recién ahí se le abre la ficha al
+   * cliente. Se muestra acá para que el que está completando sepa cuánto le
+   * queda, en vez de guardar y ver si salió.
+   */
+  const faltaParaFirme = esBorrador
+    ? faltantesDelPresupuesto({
+        cliente_id: clienteId || null,
+        nombre: clienteNombre,
+        ruc: clienteRuc,
+        telefono: clienteTel,
+        profesion: clienteProfesion,
+        ciudad: clienteCiudad,
+      })
+    : [];
 
   const valido =
     clienteNombre.trim().length > 0 &&
@@ -356,6 +389,8 @@ export default function EditarPresupuestoPage() {
           cliente_ruc: clienteRuc.trim() || null,
           cliente_telefono: clienteTel.trim() || null,
           cliente_direccion: clienteDir.trim() || null,
+          cliente_ciudad: clienteCiudad.trim() || null,
+          cliente_profesion: clienteProfesion.trim() || null,
           moneda,
           validez_dias: validezDias.trim() === "" ? VALIDEZ_DIAS : parseInt(validezDias, 10),
           forma_pago: formaPago.trim() || null,
@@ -454,7 +489,37 @@ export default function EditarPresupuestoPage() {
             <label className={labelClass}>Dirección</label>
             <input value={clienteDir} onChange={(e) => setClienteDir(e.target.value)} className={inputClass} />
           </div>
+          <div>
+            <label className={labelClass}>Ciudad</label>
+            <input
+              value={clienteCiudad}
+              onChange={(e) => setClienteCiudad(e.target.value.toUpperCase())}
+              className={`${inputClass} uppercase`}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Profesión</label>
+            <input
+              value={clienteProfesion}
+              onChange={(e) => setClienteProfesion(e.target.value.toUpperCase())}
+              placeholder="ALBAÑIL, ELECTRICISTA…"
+              className={`${inputClass} uppercase`}
+            />
+          </div>
         </div>
+        {/* Un borrador dice qué le falta y qué pasa cuando no le falte más. */}
+        {esBorrador && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm text-amber-900">
+            {faltaParaFirme.length > 0 ? (
+              <>Es un <strong>borrador</strong>: falta{faltaParaFirme.length === 1 ? "" : "n"}{" "}
+              <strong>{textoFaltantes(faltaParaFirme)}</strong>. Se puede guardar igual —no se
+              pierde nada— pero no se puede mandar, aprobar ni cobrar hasta completarlo.</>
+            ) : (
+              <>Ya están todos los datos: al guardar pasa a <strong>presupuesto firme</strong> y
+              se le abre la ficha al cliente.</>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Productos */}

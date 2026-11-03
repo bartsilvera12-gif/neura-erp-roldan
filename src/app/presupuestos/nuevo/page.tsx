@@ -9,7 +9,8 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
-import { validarRucOCedula, faltantesAltaCliente } from "@/lib/clientes/identificador";
+import { validarRucOCedula } from "@/lib/clientes/identificador";
+import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -395,28 +396,34 @@ export default function NuevoPresupuestoPage() {
   const identCliente = validarRucOCedula(clienteRuc);
 
   /**
-   * Lo que falta para poder dar de alta al cliente.
+   * Lo que falta para que sea un presupuesto FIRME.
    *
    * Solo cuando se escribió a mano: si salió del catálogo, ya tiene sus datos
    * cargados y no se le vuelven a pedir.
+   *
+   * Faltar ya no impide guardar. Antes sí, y el resultado era el contrario del
+   * buscado: el que no tenía el RUC del cliente no podía guardar, la
+   * cotización salía a mano y no quedaba registrada en ninguna parte. Ahora se
+   * guarda como borrador y no avanza hasta completarse.
    */
-  const faltanDatosCliente = clienteId
-    ? []
-    : faltantesAltaCliente({
-        nombre: clienteNombre,
-        ruc: clienteRuc,
-        telefono: clienteTel,
-        profesion: clienteProfesion,
-        ciudad: clienteCiudad,
-      });
+  const faltanDatosCliente = faltantesDelPresupuesto({
+    cliente_id: clienteId || null,
+    nombre: clienteNombre,
+    ruc: clienteRuc,
+    telefono: clienteTel,
+    profesion: clienteProfesion,
+    ciudad: clienteCiudad,
+  });
+  const seraBorrador = faltanDatosCliente.length > 0;
 
+  /**
+   * Lo mínimo para guardar algo: un nombre a quién cotizarle y qué cotizarle.
+   *
+   * Sin nombre no se puede ni buscar después, y sin ítems no hay cotización.
+   * El resto de los datos del cliente lo decide `seraBorrador`.
+   */
   const valido =
     clienteNombre.trim().length > 0 &&
-    identCliente.ok &&
-    faltanDatosCliente.length === 0 &&
-    // Sin teléfono no hay seguimiento posible, y el seguimiento es la mitad
-    // del trabajo de un presupuesto.
-    clienteTel.trim().length > 0 &&
     items.length > 0 &&
     items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
 
@@ -915,16 +922,15 @@ export default function NuevoPresupuestoPage() {
 
       <AvisoFaltantes lineas={items} existencias={existencias} />
 
-      {/* Qué falta para poder guardar. Sin esto el botón queda gris y hay que
-          adivinar cuál de los cinco campos es el que falta. */}
-      {faltanDatosCliente.length > 0 && (
+      {/* Qué falta, y qué pasa si falta. Se dice todo antes de guardar: que la
+          cotización no se pierde, y que así no se puede cobrar. */}
+      {seraBorrador && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-2 text-sm text-amber-900">
-          Para dar de alta este cliente falta{faltanDatosCliente.length === 1 ? "" : "n"}{" "}
-          <strong>
-            {faltanDatosCliente.length === 1
-              ? faltanDatosCliente[0]
-              : `${faltanDatosCliente.slice(0, -1).join(", ")} y ${faltanDatosCliente[faltanDatosCliente.length - 1]}`}
-          </strong>.
+          Falta{faltanDatosCliente.length === 1 ? "" : "n"}{" "}
+          <strong>{textoFaltantes(faltanDatosCliente)}</strong>, así que se va a guardar como{" "}
+          <strong>borrador</strong>: queda registrado y se puede imprimir, pero no se puede
+          mandar, aprobar ni cobrar hasta completarlo. Tampoco se le abre la ficha al cliente
+          todavía.
         </div>
       )}
 
@@ -932,8 +938,19 @@ export default function NuevoPresupuestoPage() {
         <Link href="/presupuestos" className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
           Cancelar
         </Link>
-        <button onClick={guardar} disabled={!valido || guardando} className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
-          {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar presupuesto"}
+        <button
+          onClick={guardar}
+          disabled={!valido || guardando}
+          // Ámbar cuando va a quedar borrador: el color dice qué botón es antes
+          // de leerlo, y es la diferencia entre una cotización cobrable y una
+          // que todavía no.
+          className={`inline-flex items-center justify-center gap-1.5 rounded-md px-5 py-2 text-sm font-medium text-white disabled:opacity-50 ${
+            seraBorrador ? "bg-amber-600 hover:bg-amber-700" : "bg-[#4FAEB2] hover:bg-[#3F8E91]"
+          }`}
+        >
+          {guardando
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</>
+            : seraBorrador ? "Guardar como borrador" : "Guardar presupuesto"}
         </button>
       </div>
     {nuevoClienteOpen && (

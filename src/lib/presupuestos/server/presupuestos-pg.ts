@@ -1,3 +1,4 @@
+import type { EstadoPresupuesto } from "@/lib/presupuestos/types";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 
@@ -39,6 +40,14 @@ export interface CrearPresupuestoInput {
   vendedor_nombre?: string | null;
   cliente_ciudad?: string | null;
   cliente_profesion?: string | null;
+  /**
+   * Estado con el que nace. Por omisión "creado".
+   *
+   * "borrador" es la cotización guardada con los datos del cliente
+   * incompletos: queda el registro de qué se cotizó, y no avanza hasta
+   * completarlos.
+   */
+  estado?: EstadoPresupuesto;
   items: PresupuestoItemInput[];
 }
 
@@ -152,7 +161,7 @@ export async function crearPresupuesto(
     cliente_telefono: input.cliente_telefono?.trim() || null,
     cliente_direccion: input.cliente_direccion?.trim() || null,
     numero_control: numero,
-    estado: "creado",
+    estado: input.estado ?? "creado",
     moneda: input.moneda || "PYG",
     subtotal: round2(subtotal),
     monto_iva: round2(montoIva),

@@ -29,6 +29,9 @@ type PresupuestoRow = {
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
+  // Ámbar: no está mal, está a medio hacer. Es la bandeja de cotizaciones a
+  // completar y tiene que saltar a la vista en el listado.
+  borrador: "bg-amber-100 text-amber-800",
   creado: "bg-slate-100 text-slate-700",
   enviado: "bg-sky-100 text-sky-700",
   aprobado: "bg-emerald-100 text-emerald-700",
@@ -36,6 +39,7 @@ const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
   convertido: "bg-violet-100 text-violet-700",
 };
 const ESTADO_DOT: Record<EstadoPresupuesto, string> = {
+  borrador: "bg-amber-500",
   creado: "bg-slate-400",
   enviado: "bg-sky-500",
   aprobado: "bg-emerald-500",
