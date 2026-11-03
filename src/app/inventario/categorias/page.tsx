@@ -24,6 +24,67 @@ interface Categoria {
   markup_pct?: number | null;
 }
 
+/**
+ * Lo que muestra un GRUPO en las columnas de política del rubro (crítico,
+ * remarcación, descuento).
+ *
+ * ── POR QUÉ NO SE EDITA ACÁ ───────────────────────────────────────────────
+ * Estas tres son del rubro mayor: "un rubro tiene la misma remarcación para
+ * todos sus grupos". Dejar el lápiz en cada grupo invita a cargar nueve
+ * números distintos donde debería haber uno, que es justo el desorden que se
+ * quiso sacar. Se editan en el padre y los grupos muestran lo que les toca.
+ *
+ * ── PERO NO SE TAPA UN VALOR PROPIO ───────────────────────────────────────
+ * Hoy hay grupos con su propio valor distinto al del padre: CHAPA ACANALADA
+ * COLOR está al 24% y su padre al 16%. Mostrar el del padre a secas sería
+ * decir un número que no es el que está guardado. Cuando el grupo tiene uno
+ * propio se muestra ESE, marcado como propio, con el del padre al lado. Así se
+ * ve dónde falta emparejar en vez de esconderlo.
+ */
+function ValorDelPadre({
+  propio,
+  delPadre,
+  sufijo = "",
+  vacio = "—",
+  resaltar = false,
+}: {
+  propio: number | null | undefined;
+  delPadre: number | null | undefined;
+  sufijo?: string;
+  vacio?: string;
+  resaltar?: boolean;
+}) {
+  const tieneP = propio != null;
+  const tieneH = delPadre != null;
+  const difiere = tieneP && tieneH && Number(propio) !== Number(delPadre);
+
+  if (!tieneP && !tieneH) {
+    return <span className="px-2 text-xs text-slate-300">{vacio}</span>;
+  }
+
+  if (difiere) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 text-xs"
+        title={`Este grupo tiene ${propio}${sufijo} propio; su rubro está en ${delPadre}${sufijo}. Para emparejarlos, cambialo en el rubro padre.`}
+      >
+        <span className={`font-semibold tabular-nums ${resaltar ? "text-emerald-700" : "text-amber-700"}`}>
+          {propio}{sufijo}
+        </span>
+        <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold uppercase text-amber-800">
+          propio
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="px-2 text-xs tabular-nums text-slate-400">
+      {tieneP ? propio : delPadre}{sufijo}
+    </span>
+  );
+}
+
 export default function CategoriasProductosPage() {
   const { isAdmin } = useIsAdmin();
   const [items, setItems] = useState<Categoria[]>([]);
@@ -534,6 +595,14 @@ export default function CategoriasProductosPage() {
                 {plegados.size >= padresConHijos.length ? "Abrir todos" : "Cerrar todos"}
               </button>
             )}
+            {/* La regla, dicha una vez, en vez de que cada uno la deduzca de
+                ver los lápices solo en algunos renglones. */}
+            {!hayFiltro && padresConHijos.length > 0 && (
+              <span className="text-[11px] leading-snug text-slate-500">
+                El crítico, la remarcación y el descuento se cargan en el rubro mayor: sus grupos
+                los heredan.
+              </span>
+            )}
             <span className="text-xs text-slate-500">
               {visibles.length === items.length
                 ? `${items.length} rubro${items.length === 1 ? "" : "s"}`
@@ -568,6 +637,8 @@ export default function CategoriasProductosPage() {
                 const esPadre = hijos > 0;
                 const plegado = plegados.has(c.id);
                 const parent = items.find((i) => i.id === c.parent_id);
+                /** Cuelga de un rubro mayor: las políticas las pone el padre. */
+                const esGrupo = !!parent;
                 return (
                   <tr
                     key={c.id}
@@ -612,11 +683,21 @@ export default function CategoriasProductosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-gray-500">{c.codigo ?? "—"}</td>
+                    {/* Las tres columnas de política del rubro se editan SOLO
+                        en el padre. Ver `ValorDelPadre`. */}
                     <td className="px-4 py-2">
-                      {/* Se dibuja como un campo editable y no como texto: con
-                          el estilo anterior —gris, subrayado solo al pasar por
-                          encima— se leía como un dato y nadie adivinaba que
-                          ahí se hace clic para configurarlo. */}
+                      {esGrupo ? (
+                        <ValorDelPadre
+                          propio={c.dias_critico}
+                          delPadre={parent?.dias_critico}
+                          sufijo=" d"
+                          vacio="general"
+                        />
+                      ) : (
+                      /* Se dibuja como un campo editable y no como texto: con
+                         el estilo anterior —gris, subrayado solo al pasar por
+                         encima— se leía como un dato y nadie adivinaba que
+                         ahí se hace clic para configurarlo. */
                       <button
                         onClick={() => editarDiasCritico(c)}
                         className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
@@ -631,10 +712,17 @@ export default function CategoriasProductosPage() {
                         )}
                         <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
                       </button>
+                      )}
                     </td>
-                    {/* La remarcación del grupo. Heredada del padre si el
-                        grupo no tiene la suya. */}
                     <td className="px-4 py-2">
+                      {esGrupo ? (
+                        <ValorDelPadre
+                          propio={c.markup_pct}
+                          delPadre={parent?.markup_pct}
+                          sufijo="%"
+                          vacio="sin definir"
+                        />
+                      ) : (
                       <button
                         onClick={() => editarRemarcacionRubro(c)}
                         className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
@@ -656,8 +744,18 @@ export default function CategoriasProductosPage() {
                         })()}
                         <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
                       </button>
+                      )}
                     </td>
                     <td className="px-4 py-2">
+                      {esGrupo ? (
+                        <ValorDelPadre
+                          propio={c.descuento_pct ? c.descuento_pct : null}
+                          delPadre={parent?.descuento_pct ? parent.descuento_pct : null}
+                          sufijo="%"
+                          vacio="sin desc."
+                          resaltar
+                        />
+                      ) : (
                       <button
                         onClick={() => editarDescuentoRubro(c)}
                         className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
@@ -672,6 +770,7 @@ export default function CategoriasProductosPage() {
                         )}
                         <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
                       </button>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       {c.activo ? (
