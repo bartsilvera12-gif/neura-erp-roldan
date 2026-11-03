@@ -694,9 +694,15 @@ export async function getDetalleCaja(
   //   errores, y el faltante queda donde corresponde: en `diferencia_arrastrada`,
   //   a la vista, hasta que alguien lo marque resuelto.
   //
-  //   El signo ya viene dado: una diferencia negativa es faltante, así que
-  //   sumarla resta. Un sobrante arrastrado suma, por el mismo camino.
+  //   SOLO SE DESCUENTA EL FALTANTE, NUNCA SE SUMA EL SOBRANTE
+  //   Un faltante es plata que no está: se fue ayer, así que el esperado de
+  //   hoy baja. Un sobrante es al revés: la plata de más quedó en el cajón y
+  //   el turno nuevo la contó al abrir, porque la apertura es un conteo
+  //   físico de lo que hay. Sumarla también al esperado la contaría dos
+  //   veces, y el cierre de hoy mostraría un faltante exactamente igual al
+  //   sobrante de ayer. El sobrante entra por la apertura y nada más.
   const arrastrePrevio = await leerArrastre(sb, empresaId, caja.id);
+  const arrastreQueResta = Math.min(0, arrastrePrevio);
 
   const efectivoEsperado =
     caja.monto_apertura +
@@ -706,7 +712,7 @@ export async function getDetalleCaja(
     egresosEf -
     retirosEf +
     ajustesEf +
-    arrastrePrevio;
+    arrastreQueResta;
 
   // Nombres de usuarios (quién abrió/cerró + autores de movimientos).
   const userIds = [
@@ -1248,9 +1254,10 @@ async function computeResumen(
     }
   }
 
-  // Mismo criterio que en `computeResumen`: el faltante del turno anterior
-  // baja lo que se espera encontrar. Las dos cuentas tienen que dar igual o
-  // el panel de Caja y el arqueo dirían cosas distintas del mismo turno.
+  // Mismo criterio que en `computeResumen`: baja el faltante del turno
+  // anterior y NO suma el sobrante, que quedó en el cajón y ya se contó al
+  // abrir. Las dos cuentas tienen que dar igual o el panel de Caja y el
+  // arqueo dirían cosas distintas del mismo turno.
   const arrastrePrevio = await leerArrastre(sb, empresaId, caja.id);
 
   const efectivoEsperado =
@@ -1261,7 +1268,7 @@ async function computeResumen(
     egresosEf -
     retirosEf +
     ajustesEf +
-    arrastrePrevio;
+    Math.min(0, arrastrePrevio);
 
   // Lo que hay que entregar: todo menos el fondo con el que se abrió, que
   // queda para el turno siguiente.

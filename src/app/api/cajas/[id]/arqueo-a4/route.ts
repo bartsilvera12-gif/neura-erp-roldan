@@ -364,8 +364,17 @@ export async function GET(
         ${kv("Ant. de Facturación:", resumen.anticipos_efectivo ?? 0)}
         ${kv("Otra Ent.:", 0)}
         ${kv("Ant. Utilizado:", 0)}
-        ${kv("Dif. Caja Ant.:", resumen.diferencia_arrastrada)}
+        <!-- Solo el faltante del turno anterior. El sobrante quedó en el
+             cajón y ya entró en el conteo de apertura: ponerlo también en esta
+             columna lo sumaría dos veces y el Total no cerraría con los
+             renglones de arriba. -->
+        ${kv("Dif. Caja Ant.:", Math.min(0, resumen.diferencia_arrastrada))}
         ${kv("Total", resumen.efectivo_esperado, true)}
+        ${resumen.diferencia_arrastrada > 0
+          ? `<tr><td colspan="2" class="nota">El turno anterior cerró con un sobrante de
+               ${esc(gs(resumen.diferencia_arrastrada))}: quedó en el cajón y ya está contado
+               en la apertura.</td></tr>`
+          : ""}
       </table>
     </div>
     <div class="col3">

@@ -297,11 +297,13 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* La hoja del arqueo, antes de cerrar.
-                    Con la caja ya cerrada la hoja no sirve para corregir nada:
-                    el momento de mirarla es ahora, con el turno abierto y la
-                    plata todavía en el cajón. Sale marcada como vista previa y
-                    con el conteo en blanco para contar a mano. */}
+                {/* La hoja del arqueo, para contar.
+                    Aparece recién cuando el turno pasa a cierre: con la caja
+                    abierta los números siguen cambiando con cada venta, así
+                    que la hoja impresa queda vieja antes de que termine de
+                    contar. En cierre ya no entran ventas y lo que dice el
+                    papel es lo que hay que encontrar en el cajón. */}
+                {enCierre && (
                 <a
                   href={`/api/cajas/${c.id}/arqueo-a4`}
                   target="_blank"
@@ -312,6 +314,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                   <FileText className="h-3.5 w-3.5" />
                   Vista previa del arqueo
                 </a>
+                )}
                 {!enCierre && (
                   <>
                     <button
@@ -482,10 +485,9 @@ function DesgloseEsperado({
     { label: "Egresos", monto: -resumen.egresos_efectivo },
     { label: "Retiros", monto: -resumen.retiros_efectivo },
     { label: "Ajustes", monto: resumen.ajustes_efectivo },
-    {
-      label: arrastre < 0 ? "Faltante arrastrado del turno anterior" : "Sobrante arrastrado del turno anterior",
-      monto: arrastre,
-    },
+    // Solo el faltante. El sobrante de ayer quedó en el cajón y ya entró en
+    // el conteo de apertura: ponerlo también acá lo contaría dos veces.
+    { label: "Faltante arrastrado del turno anterior", monto: Math.min(0, arrastre) },
   ].filter((r) => Math.round(r.monto) !== 0);
 
   const suma = renglones.reduce((a, r) => a + r.monto, 0);
@@ -517,6 +519,12 @@ function DesgloseEsperado({
           <span>Esperado en el cajón</span>
           <span className="tabular-nums">{fmtGs(resumen.efectivo_esperado)}</span>
         </li>
+        {arrastre > 0 && (
+          <li className="mt-1 text-[10.5px] leading-snug text-slate-500">
+            El turno anterior cerró con {fmtGs(arrastre)} de sobrante. Esa plata quedó en el
+            cajón y ya está contada en la apertura, así que no se suma de nuevo acá.
+          </li>
+        )}
       </ul>
     </div>
   );
