@@ -65,6 +65,7 @@ DO $arbol$
 DECLARE
   v_empresa uuid;
   v_padre   uuid;
+  v_sucursal uuid;
   r         record;
   -- Cada fila: rubro padre, su remarcación de referencia, y sus grupos.
   grupos    text[][] := ARRAY[
@@ -108,8 +109,28 @@ BEGIN
      LIMIT 1;
 
     IF v_padre IS NULL THEN
-      INSERT INTO roldanerp.categorias_productos (empresa_id, nombre, activo, markup_pct, descripcion)
-      VALUES (v_empresa, nombre_p, true, rem_p,
+      /**
+       * LA SUCURSAL ES OBLIGATORIA, aunque la columna la acepte en NULL.
+       *
+       * La pantalla de Rubros filtra por sucursal (`aplicarFiltroSucursal`).
+       * Un rubro con `sucursal_id` en NULL queda fuera de ese filtro: existe en
+       * la base, los hijos lo apuntan bien, y en la pantalla NO SE VE —ni como
+       * renglon, ni en la columna Padre de sus hijos, que muestran "—" como si
+       * no tuvieran ninguno.
+       *
+       * Se toma la sucursal del primero de sus grupos, que es la que
+       * corresponde: el padre vive donde viven sus hijos.
+       */
+      SELECT sucursal_id INTO v_sucursal
+        FROM roldanerp.categorias_productos
+       WHERE empresa_id = v_empresa
+         AND upper(btrim(nombre)) = ANY (SELECT upper(btrim(x)) FROM unnest(hijos) x)
+         AND sucursal_id IS NOT NULL
+       LIMIT 1;
+
+      INSERT INTO roldanerp.categorias_productos
+        (empresa_id, sucursal_id, nombre, activo, markup_pct, descripcion)
+      VALUES (v_empresa, v_sucursal, nombre_p, true, rem_p,
               'Rubro padre (script 56). Remarcacion de referencia del grupo.')
       RETURNING id INTO v_padre;
     ELSE
@@ -169,6 +190,26 @@ UPDATE roldanerp.categorias_productos c
  WHERE c.markup_pct IS NULL
    AND c.descripcion LIKE '%minorista del sistema viejo:%';
 
+-- ---------------------------------------------------------------------------
+-- Reparación: los padres que quedaron sin sucursal
+-- ---------------------------------------------------------------------------
+--   La primera version de este script creaba los padres sin `sucursal_id`. En
+--   esa base quedaron ocho rubros invisibles para la pantalla, con sus hijos
+--   mostrando "—" en la columna Padre. Esto les pone la sucursal de sus
+--   propios grupos. Correr el script de nuevo lo arregla.
+UPDATE roldanerp.categorias_productos p
+   SET sucursal_id = sub.sucursal_id,
+       updated_at = now()
+  FROM (
+    SELECT h.parent_id, min(h.sucursal_id::text)::uuid AS sucursal_id
+      FROM roldanerp.categorias_productos h
+     WHERE h.parent_id IS NOT NULL
+       AND h.sucursal_id IS NOT NULL
+     GROUP BY h.parent_id
+  ) sub
+ WHERE p.id = sub.parent_id
+   AND p.sucursal_id IS NULL;
+
 COMMIT;
 
 -- ---------------------------------------------------------------------------
@@ -178,6 +219,7 @@ DO $resumen$
 DECLARE
   r record;
   v_sin_rem int;
+  v_sin_suc int;
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE 'ARBOL DE RUBROS:';
@@ -198,6 +240,13 @@ BEGIN
   SELECT count(*) INTO v_sin_rem FROM roldanerp.categorias_productos WHERE markup_pct IS NULL AND activo;
   RAISE NOTICE '';
   RAISE NOTICE 'Rubros activos sin remarcacion de referencia: %.', v_sin_rem;
+
+  -- Un rubro sin sucursal no se ve en la pantalla, aunque este en la base.
+  SELECT count(*) INTO v_sin_suc
+    FROM roldanerp.categorias_productos WHERE sucursal_id IS NULL AND activo;
+  IF v_sin_suc > 0 THEN
+    RAISE NOTICE 'ATENCION: % rubros activos sin sucursal: NO se van a ver en la pantalla.', v_sin_suc;
+  END IF;
   RAISE NOTICE 'NINGUN PRECIO DE PRODUCTO FUE MODIFICADO por este script.';
 END
 $resumen$;
