@@ -987,6 +987,15 @@ function ModalMovimiento({
   /** A quién se le pagó. Texto libre: ver el script 58. */
   const [proveedor, setProveedor] = useState("");
   const [proveedoresSug, setProveedoresSug] = useState<string[]>([]);
+  /**
+   * A qué cuenta del plan va cada clase de egreso.
+   *
+   * Se muestra, no se elige: la imputación la define el administrador en
+   * Configuración. Pero mostrarla acá importa, porque es el momento en que
+   * alguien elige la clase de egreso y es donde se nota si la clase elegida
+   * manda la plata a un renglón que no es.
+   */
+  const [cuentasEgreso, setCuentasEgreso] = useState<Record<string, string>>({});
 
   /**
    * Los proveedores del padrón, como sugerencia al escribir.
@@ -1006,6 +1015,28 @@ function ModalMovimiento({
         setProveedoresSug([...new Set(nombres)].sort((a, b) => a.localeCompare(b, "es")));
       })
       .catch(() => { /* sin sugerencias: el campo sigue siendo libre */ });
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/configuracion/cuentas-egreso", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success) return;
+        const mapa: Record<string, string> = {};
+        const cuentas = new Map<string, string>(
+          ((j.data?.cuentas ?? []) as Array<Record<string, unknown>>).map((c) => [
+            String(c.id),
+            `${String(c.cuenta ?? "")} · ${String(c.denominacion ?? "")}`,
+          ])
+        );
+        for (const cl of (j.data?.clases ?? []) as Array<Record<string, unknown>>) {
+          const id = cl.cuenta_id ? String(cl.cuenta_id) : "";
+          if (id && cuentas.has(id)) mapa[String(cl.tipo_egreso)] = cuentas.get(id)!;
+        }
+        setCuentasEgreso(mapa);
+      })
+      // Sin el script 59 esto no existe todavía: el egreso se carga igual.
+      .catch(() => { /* la caja no se frena por una configuración contable */ });
   }, []);
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("0");
@@ -1103,6 +1134,19 @@ function ModalMovimiento({
                 Escribí el motivo en las notas de abajo: es obligatorio para &quot;Otros&quot;.
               </p>
             )}
+            {/* A qué cuenta va. Se muestra para que se vea acá, que es cuando
+                se elige la clase, si la plata va a parar donde corresponde. */}
+            <p className="mt-1 text-[11px] leading-snug">
+              {cuentasEgreso[tipoEgreso] ? (
+                <span className="text-slate-500">
+                  Va a la cuenta <strong className="text-slate-700">{cuentasEgreso[tipoEgreso]}</strong>
+                </span>
+              ) : (
+                <span className="text-amber-700">
+                  Esta clase todavía no tiene cuenta contable asignada.
+                </span>
+              )}
+            </p>
           </div>
         )}
 

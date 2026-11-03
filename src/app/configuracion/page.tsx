@@ -131,6 +131,17 @@ export default function ConfiguracionPage() {
             />
           </li>
           <li>
+            {/* A qué cuenta va cada clase de egreso de caja. */}
+            <SettingsModuleCard
+              title="Cuentas de los egresos de caja"
+              subtitle="GLOBAL · CONTABILIDAD"
+              description="A qué cuenta del plan va cada clase de egreso: proveedor, flete, sueldo, servicios, impuestos. Sin esto, todos los egresos del mes caen en una sola bolsa."
+              icon={Landmark}
+              badge={editorBadge}
+              href="/configuracion/cuentas-egreso"
+            />
+          </li>
+          <li>
             <SettingsModuleCard
               title="Políticas del sistema"
               subtitle="GLOBAL · COMERCIAL"
