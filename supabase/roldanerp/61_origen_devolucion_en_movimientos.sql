@@ -17,8 +17,12 @@
 --   devoluciones. O sea que NINGUNA devolución se pudo cerrar nunca, y el
 --   error aparece recién al confirmar, con el cliente esperando.
 --
---   Los otros orígenes del módulo están en la misma situación:
---   'devolucion_proveedor', 'transferencia_salida' y 'transferencia_entrada'
+--   Los otros orígenes están en la misma situación. 'transferencia' es el
+--   peor de todos: la transferencia entre depósitos MUEVE EL STOCK IGUAL y
+--   después no puede escribir el kardex, así que la ruta contesta "se
+--   transfirió, pero no se pudo registrar el movimiento" y la mercadería
+--   cambia de depósito sin dejar rastro de dónde salió. 'devolucion_proveedor',
+--   'transferencia_salida' y 'transferencia_entrada'
 --   tampoco figuran entre los que la base tiene cargados hoy
 --   (venta, compra, ajuste_manual, inventario_inicial, anulacion_compra,
 --   anulacion_venta, edicion_venta, edicion_venta_reversa). Se agregan los
@@ -50,6 +54,13 @@ DECLARE
   nuevos text[] := ARRAY[
     'devolucion_venta',
     'devolucion_proveedor',
+    -- Transferencia entre depósitos (/depositos). Hoy el stock se mueve pero
+    -- el kardex no se puede escribir: la ruta loguea el fallo y devuelve
+    -- "se transfirió, pero no se pudo registrar el movimiento". O sea que la
+    -- mercadería cambia de depósito sin dejar rastro de dónde salió.
+    'transferencia',
+    -- Entre sucursales (módulo 8). Todavía no se usó: que el primer flete se
+    -- entere de esto el día que se haga sería el mismo problema otra vez.
     'transferencia_salida',
     'transferencia_entrada'
   ];
