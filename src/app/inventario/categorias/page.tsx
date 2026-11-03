@@ -43,7 +43,12 @@ export default function CategoriasProductosPage() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch("/api/inventario/categorias?todas=1", { credentials: "include" });
+      // `no-store`: sin esto el navegador sirve la lista guardada y los
+      // cambios hechos por SQL no se ven hasta vaciar la cache.
+      const r = await fetch("/api/inventario/categorias?todas=1", {
+        credentials: "include",
+        cache: "no-store",
+      });
       const j = await r.json();
       if (r.ok && j?.success) setItems(j.data.categorias as Categoria[]);
       else setError(j?.error ?? "No se pudo cargar.");

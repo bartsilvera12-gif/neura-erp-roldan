@@ -8,7 +8,16 @@ import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } fr
 /**
  * GET/POST de rubros de productos vía PostgREST (cliente Supabase).
  * Reescrito desde pool PG directo porque Hostinger no expone DATABASE_URL.
+ *
+ * ── POR QUÉ `force-dynamic` ───────────────────────────────────────────────
+ * Sin esto Next puede cachear la respuesta. Después de reorganizar los rubros
+ * por SQL, la pantalla seguía mostrando el árbol viejo —los grupos con "—" en
+ * la columna Padre— aunque la base ya estaba bien: lo que se veía era una
+ * respuesta guardada de antes. El listado de rubros cambia cuando alguien lo
+ * cambia; no hay nada que cachear.
  */
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
