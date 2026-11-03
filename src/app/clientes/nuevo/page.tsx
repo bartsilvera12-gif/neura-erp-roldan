@@ -19,7 +19,7 @@ import {
 } from "@/components/clientes/ClientePerfilTributarioForm";
 import { getProspecto, updateProspecto } from "@/lib/crm/storage";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
-import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { getUsuariosActivosEmpresa, type UsuarioEmpresa } from "@/lib/usuarios/empresa";
 import MontoInput from "@/components/ui/MontoInput";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -80,7 +80,8 @@ function NuevoClienteForm() {
    * estos tres campos si vienen de un usuario común, así que esconderlos acá
    * es para que la pantalla diga la verdad, no para que la regla se cumpla.
    */
-  const { isAdmin: puedeCredito } = useIsAdmin();
+  const { tiene: tieneFacultad } = useFacultades();
+  const puedeCredito = tieneFacultad("fijar_credito");
 
   const router       = useRouter();
   const searchParams = useSearchParams();

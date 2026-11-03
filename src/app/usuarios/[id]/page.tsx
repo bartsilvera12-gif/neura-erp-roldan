@@ -42,6 +42,9 @@ type Usuario = {
   dashboard_view_ids?: string[];
   default_dashboard_view_id?: string | null;
   puede_editar_modulos?: boolean;
+  /** El perfil asignado y los que hay para elegir (script 63). */
+  perfil_id?: string | null;
+  perfiles_empresa?: { id: string; nombre: string }[];
   puede_editar_rol?: boolean;
   es_admin_empresa?: boolean;
   omnicanal?: {
@@ -140,6 +143,14 @@ function UsuarioDetailContent() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [editing, setEditing] = useState(editMode);
   const [form, setForm] = useState<UsuarioFormValues>(() => emptyUsuarioForm());
+  /**
+   * El perfil, aparte del resto del formulario.
+   *
+   * No va en `UsuarioFormValues` porque ese tipo lo comparten el alta y la
+   * edición, y en el alta todavía no hay a quién asignarle un perfil: el
+   * usuario se crea primero y se le asigna después, mirando la ficha.
+   */
+  const [perfilId, setPerfilId] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
   // Auto-clear a 5s. Reemplaza setTimeout(() => setSuccessMessage(null), 5000) inseguro.
   const [successMessage, setSuccessMessage] = useAutoClearFlag<string>(5000);
@@ -172,6 +183,7 @@ function UsuarioDetailContent() {
         setOmnicanalWarning(null);
         setUsuario(u);
         setForm(usuarioToForm(u));
+        setPerfilId(u.perfil_id ?? "");
         if (u.omnicanal) {
           setOmniAgent(Boolean(u.omnicanal.agent_enabled));
           setOmniScheduleId(u.omnicanal.work_schedule_id ?? "");
@@ -245,6 +257,9 @@ function UsuarioDetailContent() {
       };
       if (usuario.puede_editar_rol) {
         body.rol = rolFromNivelForm(form.nivel);
+        // Vacío = sacarle el perfil, con lo cual vuelve a regirse por su
+        // nivel. Es una decisión válida y distinta de "no se tocó".
+        body.perfil_id = perfilId;
       }
       if (usuario.puede_editar_modulos && !usuario.es_admin_empresa) {
         body.modulo_ids = form.modulo_ids;
@@ -608,6 +623,33 @@ function UsuarioDetailContent() {
                   </ul>
                 </>
               )}
+            </SectionCard>
+          )}
+
+          {(usuario.perfiles_empresa?.length ?? 0) > 0 && (
+            <SectionCard title="Perfil" icon={<ShieldCheck className="h-4 w-4" />}>
+              <p className="mb-3 text-xs leading-snug text-gray-500">
+                Qué puede <strong>hacer</strong>: anular, autorizar devoluciones, fijar crédito, ver
+                costos. Las facultades de cada perfil se editan en{" "}
+                <Link href="/configuracion/perfiles" className="text-sky-600 hover:underline">
+                  Configuración → Perfiles
+                </Link>.
+              </p>
+              <select
+                value={perfilId}
+                onChange={(e) => setPerfilId(e.target.value)}
+                disabled={!usuario.puede_editar_rol}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm disabled:bg-slate-50"
+              >
+                <option value="">— Sin perfil (se rige por su nivel) —</option>
+                {(usuario.perfiles_empresa ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
+                Sin perfil, el usuario mantiene exactamente las facultades que le daba su nivel
+                hasta hoy. El perfil no se suma al nivel: lo reemplaza.
+              </p>
             </SectionCard>
           )}
 

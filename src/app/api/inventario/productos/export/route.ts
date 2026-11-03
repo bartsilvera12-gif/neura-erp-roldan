@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
-import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-pool";
 import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   if (!ctx) return new Response("Unauthorized", { status: 401 });
   // El costo del depósito no sale por una URL. El botón está escondido para
   // el que no es administrador, pero esconder un botón no cierra una ruta.
-  if (!isAdmin(ctx.auth)) {
+  if (!(await tieneFacultad(ctx.supabase, ctx.auth, "ver_costos"))) {
     return new Response("Esta planilla lleva los costos: solo administrador.", { status: 403 });
   }
   const empresaId = ctx.auth.empresa_id;

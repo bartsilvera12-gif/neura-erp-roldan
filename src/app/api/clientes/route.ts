@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
-import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { emitEvent, EVENT_TYPES } from "@/lib/integrations/events";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { createServiceRoleClient } from "@/lib/supabase/service-admin";
@@ -429,7 +429,7 @@ export async function POST(request: NextRequest) {
      * cacheado seguiría mandándolos. Se descartan acá, que es el único lugar
      * por donde pasan todos.
      */
-    const puedeCredito = isAdmin(auth);
+    const puedeCredito = await tieneFacultad(supabase, auth, "fijar_credito");
 
     const body = await request.json();
     const {

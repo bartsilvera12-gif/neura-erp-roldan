@@ -1,6 +1,7 @@
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { getClientesSupabaseFromAuthWithRol } from "@/lib/clientes/clientes-service-client";
@@ -140,7 +141,7 @@ export async function PATCH(
      * cajero pueda seguir corrigiendo el teléfono o la dirección del mismo
      * cliente sin que se le caiga todo por un campo que ni ve.
      */
-    if (!isAdmin(auth)) {
+    if (!(await tieneFacultad(supabase, auth, "fijar_credito"))) {
       delete patch.limite_credito;
       delete patch.dias_credito;
       delete patch.condicion_pago;

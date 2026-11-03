@@ -253,6 +253,34 @@ export async function GET(
       default_dashboard_view_id = def?.dashboard_view_id ?? null;
     }
 
+    /**
+     * El perfil del usuario y los perfiles para elegir (script 63).
+     *
+     * Si la tabla todavía no existe —script sin correr— se devuelve vacío y
+     * la ficha no muestra el selector, en vez de romperse entera por una
+     * sección que no es la que la persona vino a editar.
+     */
+    let perfil_id: string | null = null;
+    let perfiles_empresa: Array<{ id: string; nombre: string }> = [];
+    try {
+      const pu = await supabase
+        .from("usuarios")
+        .select("perfil_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!pu.error) perfil_id = (pu.data as { perfil_id?: string | null } | null)?.perfil_id ?? null;
+
+      const pl = await supabase
+        .from("perfiles_usuario")
+        .select("id, nombre")
+        .eq("empresa_id", usuario.empresa_id)
+        .eq("activo", true)
+        .order("nombre");
+      if (!pl.error) perfiles_empresa = (pl.data ?? []) as Array<{ id: string; nombre: string }>;
+    } catch {
+      /* sin script 63 no hay perfiles: la ficha sigue andando */
+    }
+
     const es_admin_empresa = esRolAdminEmpresa(usuario.rol);
 
     const puede_editar_modulos =
@@ -280,6 +308,8 @@ export async function GET(
       puede_editar_rol,
       es_admin_empresa,
       omnicanal,
+      perfil_id,
+      perfiles_empresa,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error";
@@ -407,6 +437,45 @@ export async function PATCH(
     if (ips !== undefined) updates.ips = Boolean(ips);
 
     if (rolNormalizado !== undefined) updates.rol = rolNormalizado;
+
+    /**
+     * El perfil: qué puede HACER (script 63).
+     *
+     * Solo lo cambia quien puede cambiar el rol. Asignar perfiles es repartir
+     * facultades, y repartir facultades es la facultad que reparte todas las
+     * demás: quien pudiera hacerlo se las daría todas a sí mismo.
+     *
+     * Cadena vacía = sacarle el perfil, con lo cual vuelve a regirse por su
+     * nivel. Es una decisión válida y distinta de "no se tocó".
+     */
+    if (Object.prototype.hasOwnProperty.call(body, "perfil_id")) {
+      if (!puede_editar_rol) {
+        return NextResponse.json(
+          { error: "Asignar el perfil de un usuario lo hace un administrador." },
+          { status: 403 }
+        );
+      }
+      const pid = body.perfil_id == null ? "" : String(body.perfil_id).trim();
+      if (pid === "") {
+        updates.perfil_id = null;
+      } else {
+        // Que el perfil sea de esta empresa: sin esto, un uuid a mano le
+        // asigna a alguien un perfil de otro tenant.
+        const pQ = await supabase
+          .from("perfiles_usuario")
+          .select("id")
+          .eq("empresa_id", usuario.empresa_id)
+          .eq("id", pid)
+          .maybeSingle();
+        if (pQ.error && !/perfiles_usuario/.test(pQ.error.message)) {
+          return NextResponse.json({ error: pQ.error.message }, { status: 500 });
+        }
+        if (!pQ.data) {
+          return NextResponse.json({ error: "Ese perfil no existe." }, { status: 404 });
+        }
+        updates.perfil_id = pid;
+      }
+    }
 
     if (estado !== undefined && authUserId) {
       const banDuration = estado === "inactivo" ? "876000h" : "none";

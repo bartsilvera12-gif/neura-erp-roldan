@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Briefcase, CalendarClock, FileText, GitBranch, Inbox, Landmark, LayoutGrid, MessageCircle, Percent, PieChart, Receipt, SlidersHorizontal, Store, UsersRound } from "lucide-react";
+import { BarChart3, Briefcase, CalendarClock, FileText, GitBranch, Inbox, Landmark, LayoutGrid, MessageCircle, Percent, PieChart, Receipt, ShieldCheck, SlidersHorizontal, Store, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsModuleCard } from "@/components/config/SettingsModuleCard";
 import { getConfig } from "@/lib/config/storage";
@@ -139,6 +139,16 @@ export default function ConfiguracionPage() {
               icon={Landmark}
               badge={editorBadge}
               href="/configuracion/cuentas-egreso"
+            />
+          </li>
+          <li>
+            <SettingsModuleCard
+              title="Perfiles de usuario"
+              subtitle="GLOBAL · SEGURIDAD"
+              description="Qué puede hacer cada puesto: anular, autorizar devoluciones, fijar crédito, ver costos, cotizar sin stock. Siete perfiles para arrancar y los que quieras agregar."
+              icon={ShieldCheck}
+              badge={editorBadge}
+              href="/configuracion/perfiles"
             />
           </li>
           <li>

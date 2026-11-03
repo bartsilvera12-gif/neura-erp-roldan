@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
@@ -82,9 +83,9 @@ export async function PUT(
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    if (!isAdmin(ctx.auth)) {
+    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "editar_venta"))) {
       return NextResponse.json(
-        errorResponse("Solo un administrador puede editar una venta emitida."),
+        errorResponse("Editar una venta emitida necesita esa facultad en el perfil."),
         { status: 403 }
       );
     }

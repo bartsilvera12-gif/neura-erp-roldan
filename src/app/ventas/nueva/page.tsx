@@ -14,6 +14,7 @@ import HistorialClienteModal from "@/components/clientes/HistorialClienteModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { margenBruto, remarcacionSobreCosto, utilidadBruta, colorMargen, pct } from "@/lib/precios/margen";
 import { sinIva } from "@/lib/precios/iva";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -1195,7 +1196,15 @@ export default function NuevaVentaPage() {
     motivo?: string | null;
   }>>({});
 
-  const { isAdmin: verMargenes, descuentoMaximo } = useIsAdmin();
+  const { descuentoMaximo } = useIsAdmin();
+  /**
+   * Costos, utilidad, margen y dólares: facultad `ver_costos`.
+   *
+   * Antes era "es administrador". Ahora lo decide el perfil, así que se le
+   * puede dar a un encargado sin convertirlo en administrador del sistema.
+   */
+  const { tiene: tieneFacultad } = useFacultades();
+  const verMargenes = tieneFacultad("ver_costos");
 
   /**
    * Rentabilidad de la venta, SIN IVA.

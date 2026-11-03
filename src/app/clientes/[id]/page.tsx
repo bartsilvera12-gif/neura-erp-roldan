@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ClienteReportes from "./ClienteReportes";
@@ -163,7 +163,8 @@ export default function ClienteDetailPage() {
    * servidor también borra esos tres campos del patch cuando el pedido no
    * viene de un administrador.
    */
-  const { isAdmin: puedeCredito } = useIsAdmin();
+  const { tiene: tieneFacultad } = useFacultades();
+  const puedeCredito = tieneFacultad("fijar_credito");
 
   const params = useParams();
   const router = useRouter();

@@ -538,7 +538,7 @@ export async function anularDevolucion(
    * Omitirlo deja pasar todo, para no romper a quien llame desde un script.
    * Las rutas HTTP lo mandan siempre.
    */
-  autorizacion?: { esAdmin: boolean; esSupervisor: boolean }
+  autorizacion?: { esAdmin: boolean; autoriza: boolean }
 ): Promise<Devolucion> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const tD = quoteSchemaTable(schema, "devoluciones_venta");

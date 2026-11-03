@@ -5,6 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { crearPresupuesto, type PresupuestoItemInput } from "@/lib/presupuestos/server/presupuestos-pg";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
 import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
      * Va antes de crear nada: una cotización rechazada no tiene que dejar
      * media ficha de cliente dada de alta.
      */
-    if (!isAdmin(ctx.auth)) {
+    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
       const faltantes = await faltantesDeStock(
         ctx.supabase,
         ctx.auth.empresa_id,

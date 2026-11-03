@@ -45,14 +45,15 @@ const NI_UNO_NI_OTRO =
   "mercadería al stock y saca plata de la caja. Pedile a quien corresponda " +
   "que la confirme.";
 
-/** Hacer una devolución: administrador o supervisor. */
-export function puedeDevolver(params: {
-  esAdmin: boolean;
-  esSupervisor?: boolean;
-}): PermisoDevolucion {
-  if (params.esAdmin || params.esSupervisor === true) {
-    return { permitido: true, motivo: null };
-  }
+/**
+ * Hacer una devolución: hace falta la facultad `autorizar_devolucion`.
+ *
+ * Quién la tiene lo decide el perfil del usuario, y quien no tiene perfil la
+ * hereda de su nivel: administrador y supervisor sí, el resto no, que es lo
+ * que el sistema hacía antes de que existieran los perfiles.
+ */
+export function puedeDevolver(params: { autoriza: boolean }): PermisoDevolucion {
+  if (params.autoriza) return { permitido: true, motivo: null };
   return { permitido: false, motivo: NI_UNO_NI_OTRO };
 }
 
@@ -63,13 +64,15 @@ export function puedeDevolver(params: {
  * ante la duda no se deshace algo que puede estar arqueado.
  */
 export function puedeAnularDevolucion(params: {
+  /** Tiene la facultad Y además es administrador: sin límite de turno. */
   esAdmin: boolean;
-  esSupervisor?: boolean;
+  /** Tiene la facultad, sin ser administrador: acotado al turno abierto. */
+  autoriza?: boolean;
   cajaAbierta?: boolean;
 }): PermisoDevolucion {
   if (params.esAdmin) return { permitido: true, motivo: null };
 
-  if (params.esSupervisor === true) {
+  if (params.autoriza === true) {
     if (params.cajaAbierta === true) return { permitido: true, motivo: null };
     return {
       permitido: false,

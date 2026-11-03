@@ -5,6 +5,7 @@ import { faltantesDelPresupuesto } from "@/lib/presupuestos/faltantes";
 import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
 import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/types";
@@ -232,7 +233,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       // Mismo criterio que al crear: cotizar más de lo que hay lo hace un
       // administrador. Sin esto, se guarda un presupuesto con stock y después
       // se le suben las cantidades desde la edición.
-      if (!isAdmin(ctx.auth)) {
+      if (!(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
         const faltantes = await faltantesDeStock(
           ctx.supabase,
           ctx.auth.empresa_id,

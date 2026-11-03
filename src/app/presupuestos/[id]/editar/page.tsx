@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
@@ -88,6 +89,9 @@ export default function EditarPresupuestoPage() {
 
   // Las condiciones comerciales las cambia solo un administrador.
   const { isAdmin } = useIsAdmin();
+  // Cotizar por más de lo que hay: facultad, no nivel.
+  const { tiene: tieneFacultad } = useFacultades();
+  const puedeSinStock = tieneFacultad("cotizar_sin_stock");
 
   const [productos, setProductos] = useState<ProductoLite[]>([]);
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
@@ -371,7 +375,7 @@ export default function EditarPresupuestoPage() {
 
   // Mismo criterio que al crear: sin esto se guarda con stock y después se le
   // suben las cantidades desde la edición.
-  const sinStock = isAdmin ? [] : lineasSinStock(items, existencias);
+  const sinStock = puedeSinStock ? [] : lineasSinStock(items, existencias);
 
   const valido =
     clienteNombre.trim().length > 0 &&
@@ -759,7 +763,7 @@ export default function EditarPresupuestoPage() {
         </div>
       </div>
 
-      <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={isAdmin} />
+      <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={puedeSinStock} />
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
         <Link href={`/presupuestos/${id}`} className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">

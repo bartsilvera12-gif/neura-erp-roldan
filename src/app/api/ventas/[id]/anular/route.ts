@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { isAdmin } from "@/lib/middleware/auth";
 import { puedeAnularVenta } from "@/lib/ventas/server/permiso-anular";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { anularVentaCore, ventaTieneCobrosAplicados } from "@/lib/ventas/server/anular-venta-core";
@@ -108,9 +109,18 @@ export async function POST(
       cajaAbierta = false;
     }
 
+    /**
+     * La facultad manda; el nivel decide hasta dónde llega.
+     *
+     * Quién puede anular sale del perfil (o del nivel, para el que no tiene
+     * perfil). Pero el administrador anula de cualquier turno y el resto solo
+     * de uno abierto, y eso sigue dependiendo del nivel: es la diferencia
+     * entre corregir algo del día y deshacer un arqueo firmado.
+     */
+    const puedeAnularFacultad = await tieneFacultad(sb, auth, "anular_venta");
     const permiso = puedeAnularVenta({
-      esAdmin: isAdmin(auth),
-      esSupervisor: esSupervisor(auth),
+      esAdmin: isAdmin(auth) && puedeAnularFacultad,
+      esSupervisor: puedeAnularFacultad,
       cajaAbierta,
     });
     if (!permiso.permitido) {

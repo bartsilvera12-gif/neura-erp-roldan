@@ -3,6 +3,7 @@ import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { descuentoMaximoDe } from "@/lib/ventas/server/descuento-maximo";
+import { facultadesDeUsuario } from "@/lib/perfiles/server/facultades-usuario";
 
 /**
  * GET /api/me/rol — devuelve {rol, isAdmin, descuentoMaximo}. Usado por la UI
@@ -17,6 +18,15 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json(errorResponse("No autenticado"), { status: 401 });
 
   let descuentoMaximo: number | null = null;
+  /**
+   * Qué puede HACER, además de qué puede ver.
+   *
+   * Va en la misma respuesta que el rol porque las pantallas ya la piden: una
+   * segunda consulta para esto haría que cada pantalla tenga dos momentos
+   * distintos en los que "todavía no se sabe", y los carteles de permiso
+   * aparecerían y desaparecerían de a uno.
+   */
+  let facultades: string[] = [];
   // El nombre de la sucursal del usuario, para que las pantallas puedan decir
   // de dónde salen los precios que están mostrando. Cada usuario ve solo su
   // sucursal, pero eso no se veía en ningún lado.
@@ -24,6 +34,7 @@ export async function GET(request: NextRequest) {
   try {
     const sb = await createServiceRoleClientForEmpresa(auth.empresa_id);
     descuentoMaximo = await descuentoMaximoDe(sb, auth.empresa_id, auth.usuarioCatalogId);
+    facultades = [...(await facultadesDeUsuario(sb, auth))];
     if (auth.sucursal_id) {
       const r = await sb
         .from("sucursales")
@@ -41,6 +52,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(successResponse({
     rol: auth.rol ?? null,
     isAdmin: isAdmin(auth),
+    facultades,
     descuentoMaximo,
     sucursal_nombre: sucursalNombre,
   }));

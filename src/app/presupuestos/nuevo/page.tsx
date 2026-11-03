@@ -14,6 +14,7 @@ import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/falt
 import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
 type ProductoLite = {
   id: string;
@@ -149,6 +150,14 @@ export default function NuevoPresupuestoPage() {
    * lo pide.
    */
   const { isAdmin, loaded: rolCargado } = useIsAdmin();
+  /**
+   * Cotizar por más de lo que hay: facultad `cotizar_sin_stock`.
+   *
+   * Antes era "es administrador". Ahora el vendedor externo y el call
+   * center la tienen —venden con entrega a plazo— sin ser administradores.
+   */
+  const { tiene: tieneFacultad } = useFacultades();
+  const puedeSinStock = tieneFacultad("cotizar_sin_stock");
 
   /** La sucursal del usuario, para que se vea de dónde salen los precios. */
   const [sucursalNombre, setSucursalNombre] = useState<string | null>(null);
@@ -428,7 +437,7 @@ export default function NuevoPresupuestoPage() {
    * El servidor lo vuelve a validar —la pantalla se puede saltear— pero acá
    * el botón se apaga, para no cargar veinte líneas y enterarse al guardar.
    */
-  const sinStock = isAdmin ? [] : lineasSinStock(items, existencias);
+  const sinStock = puedeSinStock ? [] : lineasSinStock(items, existencias);
 
   const valido =
     clienteNombre.trim().length > 0 &&
@@ -929,7 +938,7 @@ export default function NuevoPresupuestoPage() {
         </div>
       </div>
 
-      <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={isAdmin} />
+      <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={puedeSinStock} />
 
       {/* Qué falta, y qué pasa si falta. Se dice todo antes de guardar: que la
           cotización no se pierde, y que así no se puede cobrar. */}

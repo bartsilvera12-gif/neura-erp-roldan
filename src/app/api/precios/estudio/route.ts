@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import {
   calcularCambio,
@@ -57,9 +58,9 @@ export async function GET(request: NextRequest) {
     // catálogo. Aplicar cambios ya era solo de administrador; verlos también
     // tiene que serlo, o el dato que no se quiere mostrar en pantalla se
     // consigue igual pidiéndole la lista a esta ruta.
-    if (!isAdmin(ctx.auth)) {
+    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "ver_costos"))) {
       return NextResponse.json(
-        errorResponse("El estudio de precios muestra costos y márgenes: solo administrador."),
+        errorResponse("El estudio de precios muestra costos y márgenes: hace falta esa facultad."),
         { status: 403 }
       );
     }

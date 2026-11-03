@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Calendar, ChevronDown, ChevronUp, ClipboardList, Clock, FileDown, FileText, Link2, Printer, Receipt, RefreshCw, SlidersHorizontal } from "lucide-react";
@@ -618,7 +618,8 @@ function GestionClientesPageInner() {
    * usuario común, así que esto es para que la pantalla no ofrezca algo que
    * después se va a ignorar.
    */
-  const { isAdmin: puedeCredito } = useIsAdmin();
+  const { tiene: tieneFacultad } = useFacultades();
+  const puedeCredito = tieneFacultad("fijar_credito");
 
   const router = useRouter();
   const searchParams = useSearchParams();

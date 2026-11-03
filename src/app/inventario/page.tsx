@@ -9,6 +9,7 @@ import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
 import {
   Search,
@@ -99,6 +100,12 @@ function MiniatureProducto({ url, alt }: { url?: string | null; alt: string }) {
 
 export default function InventarioPage() {
   const { isAdmin } = useIsAdmin();
+  // Las columnas de costo, remarcación y margen y los exports que los llevan
+  // van por facultad, no por nivel: se le pueden dar al encargado de depósito
+  // sin hacerlo administrador. `isAdmin` queda para lo que es configuración
+  // (importar el catálogo).
+  const { tiene } = useFacultades();
+  const verCostos = tiene("ver_costos");
 
   // Datos
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -252,22 +259,22 @@ export default function InventarioPage() {
             {/* El export del catálogo lleva el costo de cada artículo: una
                 planilla con los costos del depósito que sale por mail es la
                 forma más fácil de que los costos dejen de ser internos. */}
-            {isAdmin && <ExportExcelButton url="/api/inventario/productos/export" />}
+            {verCostos && <ExportExcelButton url="/api/inventario/productos/export" />}
             {/* La planilla impresa va sin la columna de costo para el que no es
                 administrador. La suma se mueve con ella: con "Costo" el total
                 va en la columna 5 y sin ella en la 4, y si no se corre, el
                 sistema suma los stocks debajo del encabezado de precios. */}
             <ImprimirTablaButton
               titulo="Productos"
-              columnas={isAdmin
+              columnas={verCostos
                 ? ["Producto", "SKU", "Rubro", "Costo", "Precio", "Stock", "Mínimo"]
                 : ["Producto", "SKU", "Rubro", "Precio", "Stock", "Mínimo"]}
-              sumar={isAdmin ? [5] : [4]}
+              sumar={verCostos ? [5] : [4]}
               filas={productosMostrados.map((p) => [
                 p.nombre,
                 p.sku,
                 p.categoria_principal_id ? categoriaById.get(p.categoria_principal_id) ?? "" : "",
-                ...(isAdmin ? [p.costo_promedio] : []),
+                ...(verCostos ? [p.costo_promedio] : []),
                 p.precio_venta,
                 p.controla_stock === false ? "" : p.stock_actual,
                 p.controla_stock === false ? "" : p.stock_minimo,
@@ -281,7 +288,7 @@ export default function InventarioPage() {
               esta es la plata que hay en el depósito. */}
           {/* "Stock con precios" es el valorizado del depósito: costos,
               precios y la plata que hay en estantería. Solo administrador. */}
-          {isAdmin && (
+          {verCostos && (
             <ExportExcelButton
               url="/api/inventario/stock-con-precios/export"
               label="Stock con precios"
@@ -417,10 +424,10 @@ export default function InventarioPage() {
                 {/* Costo, remarcación y margen: solo administrador. Lo que el
                     mostrador necesita es el precio; cuánto nos costó y cuánto
                     se gana no es dato de atención al público. */}
-                {isAdmin && <th className="px-3 py-3 text-right">Costo</th>}
+                {verCostos && <th className="px-3 py-3 text-right">Costo</th>}
                 <th className="px-3 py-3 text-right">Precio</th>
                 <th className="px-3 py-3 text-center">Stock</th>
-                {isAdmin && (
+                {verCostos && (
                   <>
                     <th
                       className="hidden px-3 py-3 text-right lg:table-cell"
@@ -443,14 +450,14 @@ export default function InventarioPage() {
             <tbody className="divide-y divide-slate-100">
               {loading && productos.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 10 : 7} className="px-5 py-16 text-center">
+                  <td colSpan={verCostos ? 10 : 7} className="px-5 py-16 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
                     <p className="mt-2 text-xs text-slate-500">Cargando productos...</p>
                   </td>
                 </tr>
               ) : productosMostrados.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 10 : 7} className="px-5 py-16 text-center">
+                  <td colSpan={verCostos ? 10 : 7} className="px-5 py-16 text-center">
                     <Package className="mx-auto h-8 w-8 text-slate-300" />
                     <p className="mt-3 text-sm font-medium text-slate-700">
                       No se encontraron productos
@@ -516,7 +523,7 @@ export default function InventarioPage() {
                           })()
                         )}
                       </td>
-                      {isAdmin && (
+                      {verCostos && (
                         <td className="px-3 py-3.5 text-right tabular-nums text-slate-700">
                           {formatGs(p.costo_promedio)}
                         </td>
@@ -544,7 +551,7 @@ export default function InventarioPage() {
                           </span>
                         )}
                       </td>
-                      {isAdmin && (
+                      {verCostos && (
                         <>
                           <td className="hidden px-3 py-3.5 text-right tabular-nums text-slate-600 lg:table-cell">
                             {pct(remarcacion)}

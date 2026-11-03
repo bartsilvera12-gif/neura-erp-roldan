@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
-import { esSupervisor } from "@/lib/auth/roles-operativos";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
+import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -25,6 +26,19 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     }
     const body = (await request.json().catch(() => ({}))) as { motivo?: string };
+
+    /**
+     * Deshacer una devolución es la misma facultad que autorizarla: el que
+     * puede hacerla puede deshacerla. Lo que cambia es hasta dónde llega —el
+     * administrador sin límite de turno, el resto solo con la caja abierta—,
+     * y eso se resuelve adentro de la transacción, con el turno ya bloqueado.
+     */
+    const sbPerm = await createServiceRoleClientForEmpresa(auth.empresa_id);
+    const puedeAutorizar = await tieneFacultad(sbPerm, auth, "autorizar_devolucion");
+    const autorizacion = {
+      esAdmin: isAdmin(auth) && puedeAutorizar,
+      autoriza: puedeAutorizar,
+    };
     const schema = await fetchDataSchemaForEmpresaId(auth.empresa_id);
     const devolucion = await anularDevolucion(
       schema,
@@ -34,7 +48,7 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
       typeof body.motivo === "string" ? body.motivo.slice(0, 500) : null,
       // El permiso se resuelve adentro, con el turno ya bloqueado: depende de
       // si la caja de ESA devolución sigue abierta.
-      { esAdmin: isAdmin(auth), esSupervisor: esSupervisor(auth) }
+      autorizacion
     );
     return NextResponse.json(successResponse({ devolucion }));
   } catch (err) {

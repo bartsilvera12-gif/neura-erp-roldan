@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
-import { esUsuarioLimitadoErp } from "@/lib/roles/erp-role-access";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     // Pedido del cliente: las cajeras no ven las órdenes de venta. Esconder
     // el ítem del menú no cierra la ruta, y la pantalla la pide por acá.
-    if (esUsuarioLimitadoErp(ctx.auth.rol)) {
+    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "ver_ordenes_venta"))) {
       return NextResponse.json(
         errorResponse("Las órdenes de venta no son del puesto de caja."),
         { status: 403 }
@@ -56,7 +56,7 @@ export async function DELETE(request: NextRequest, ctxParams: { params: Promise<
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     // Pedido del cliente: las cajeras no ven las órdenes de venta. Esconder
     // el ítem del menú no cierra la ruta, y la pantalla la pide por acá.
-    if (esUsuarioLimitadoErp(ctx.auth.rol)) {
+    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "ver_ordenes_venta"))) {
       return NextResponse.json(
         errorResponse("Las órdenes de venta no son del puesto de caja."),
         { status: 403 }

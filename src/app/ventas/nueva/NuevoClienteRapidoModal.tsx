@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
 import { apiCreateCliente } from "@/lib/api/client";
-import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 
 export interface NuevoClienteCreado {
   id: string;
@@ -43,7 +43,8 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
    * sin crédito y después lo define quien corresponde. El servidor descarta
    * los dos campos si los manda un usuario común.
    */
-  const { isAdmin: puedeCredito } = useIsAdmin();
+  const { tiene: tieneFacultad } = useFacultades();
+  const puedeCredito = tieneFacultad("fijar_credito");
   const [ciudad, setCiudad] = useState("");
   const [profesion, setProfesion] = useState("");
   const [direccion, setDireccion] = useState("");

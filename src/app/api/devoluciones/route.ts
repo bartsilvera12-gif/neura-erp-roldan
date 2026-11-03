@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndEmpresa, getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
-import { esSupervisor } from "@/lib/auth/roles-operativos";
+import { getUserAndEmpresa, getAuthWithRol } from "@/lib/middleware/auth";
 import { puedeDevolver } from "@/lib/devoluciones/permiso-devolver";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
+import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -52,9 +53,11 @@ export async function POST(request: NextRequest) {
      * en el acto: era la única operación del sistema por donde salía dinero
      * sin que nadie la aprobara.
      */
+    // La facultad viene del perfil si tiene uno; si no, del nivel, con la
+    // misma matriz de siempre (ver `facultadesDeUsuario`).
+    const sbPerm = await createServiceRoleClientForEmpresa(auth.empresa_id);
     const permiso = puedeDevolver({
-      esAdmin: isAdmin(auth),
-      esSupervisor: esSupervisor(auth),
+      autoriza: await tieneFacultad(sbPerm, auth, "autorizar_devolucion"),
     });
     if (!permiso.permitido) {
       return NextResponse.json(errorResponse(permiso.motivo), { status: 403 });

@@ -3,7 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
-import { puedeCambiarTipoDePago } from "@/lib/auth/roles-operativos";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 /**
  * POST /api/ventas/[id]/reclasificar-cobro — CJ-01.
  *
@@ -50,9 +50,9 @@ export async function POST(
     // Cambiar el medio de pago mueve plata de una columna del arqueo a otra
     // sin tocar el total: una caja que no cuadra se puede "arreglar" cambiando
     // el medio en vez de buscar el error. Por eso, solo un administrador.
-    if (!puedeCambiarTipoDePago(ctx.auth)) {
+    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "cambiar_medio_pago"))) {
       return NextResponse.json(
-        errorResponse("Solo un administrador puede cambiar el tipo de pago de una venta."),
+        errorResponse("Cambiar el tipo de pago de una venta necesita esa facultad en el perfil."),
         { status: 403 }
       );
     }
