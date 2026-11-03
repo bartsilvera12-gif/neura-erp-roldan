@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Pencil, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
 import ModalCampo from "@/components/ui/ModalCampo";
 import ModalConfirmarAccion from "@/components/ui/ModalConfirmarAccion";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
@@ -143,6 +143,17 @@ export default function CategoriasProductosPage() {
     cuerpo: (v: string) => Record<string, unknown>;
   };
   const [campo, setCampo] = useState<CampoEnEdicion | null>(null);
+  /** Rubros padre plegados. Vacío = todos abiertos. */
+  const [plegados, setPlegados] = useState<Set<string>>(new Set());
+
+  function alternarPlegado(id: string) {
+    setPlegados((prev) => {
+      const sig = new Set(prev);
+      if (sig.has(id)) sig.delete(id);
+      else sig.add(id);
+      return sig;
+    });
+  }
 
   /**
    * Lo que se ve en la tabla. Los rubros se acumulan —los de proveedor se
@@ -150,9 +161,9 @@ export default function CategoriasProductosPage() {
    * así que se busca por nombre, código y rubro padre: no siempre uno recuerda
    * por cuál de los tres lo cargó.
    */
-  const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return items.filter((c) => {
+  const coincide = useCallback(
+    (c: Categoria) => {
+      const q = busqueda.trim().toLowerCase();
       if (filtroEstado === "activos" && !c.activo) return false;
       if (filtroEstado === "inactivos" && c.activo) return false;
       if (soloConDescuento && !(Number(c.descuento_pct ?? 0) > 0)) return false;
@@ -163,8 +174,76 @@ export default function CategoriasProductosPage() {
         (c.codigo ?? "").toLowerCase().includes(q) ||
         padre.toLowerCase().includes(q)
       );
-    });
-  }, [items, busqueda, filtroEstado, soloConDescuento]);
+    },
+    [items, busqueda, filtroEstado, soloConDescuento]
+  );
+
+  /**
+   * Los rubros ordenados como árbol: cada padre seguido de sus grupos.
+   *
+   * ── POR QUÉ NO ALFABÉTICO A SECAS ─────────────────────────────────────
+   * Con los 70 rubros en una lista plana, los cuatro caños quedaban separados
+   * por CEMENTO y las chapas desparramadas entre medio: para saber qué cuelga
+   * de qué había que leer la columna Padre renglón por renglón. Anidados se ve
+   * de un vistazo, y la columna Padre deja de hacer falta.
+   *
+   * ── BUSCANDO SE APLANA ────────────────────────────────────────────────
+   * Si hay búsqueda o filtro, se muestran las coincidencias sueltas: esconder
+   * un grupo porque su padre no coincide sería no encontrarlo. Ahí sí se
+   * muestra de qué rubro es, porque sin el anidado no se vería.
+   *
+   * Un grupo cuyo padre no está en la lista se trata como raíz en vez de
+   * desaparecer.
+   */
+  const hayFiltro =
+    busqueda.trim() !== "" || filtroEstado !== "todos" || soloConDescuento;
+
+  const filas = useMemo(() => {
+    const porNombre = (a: Categoria, b: Categoria) => a.nombre.localeCompare(b.nombre, "es");
+
+    if (hayFiltro) {
+      return items.filter(coincide).sort(porNombre).map((c) => ({ cat: c, nivel: 0, hijos: 0 }));
+    }
+
+    const existe = new Set(items.map((i) => i.id));
+    const hijosDe = new Map<string, Categoria[]>();
+    const raices: Categoria[] = [];
+    for (const c of items) {
+      const padre = c.parent_id && existe.has(c.parent_id) ? c.parent_id : null;
+      if (padre) {
+        const l = hijosDe.get(padre) ?? [];
+        l.push(c);
+        hijosDe.set(padre, l);
+      } else {
+        raices.push(c);
+      }
+    }
+
+    const salida: Array<{ cat: Categoria; nivel: number; hijos: number }> = [];
+    const vistos = new Set<string>();
+    const bajar = (lista: Categoria[], nivel: number) => {
+      for (const c of [...lista].sort(porNombre)) {
+        if (vistos.has(c.id)) continue;
+        vistos.add(c.id);
+        const hijos = hijosDe.get(c.id) ?? [];
+        salida.push({ cat: c, nivel, hijos: hijos.length });
+        // Un padre plegado no muestra sus grupos, pero sigue diciendo cuántos.
+        if (hijos.length > 0 && !plegados.has(c.id)) bajar(hijos, nivel + 1);
+      }
+    };
+    bajar(raices, 0);
+    return salida;
+  }, [items, coincide, hayFiltro, plegados]);
+
+  /** Para el Excel y el contador, que no les importa el anidado. */
+  const visibles = useMemo(() => items.filter(coincide), [items, coincide]);
+
+  /** Los rubros que tienen grupos adentro, para el botón de abrir/cerrar todos. */
+  const padresConHijos = useMemo(() => {
+    const conHijos = new Set<string>();
+    for (const c of items) if (c.parent_id) conHijos.add(c.parent_id);
+    return items.filter((c) => conHijos.has(c.id)).map((c) => c.id);
+  }, [items]);
 
   async function guardarCampo(valor: string) {
     if (!campo) return;
@@ -438,6 +517,23 @@ export default function CategoriasProductosPage() {
               />
               Solo con descuento
             </label>
+            {/* Abrir o cerrar todos los rubros padre de una. Sin esto, ver
+                solo los nueve rubros mayores son nueve clics. */}
+            {!hayFiltro && padresConHijos.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setPlegados((prev) =>
+                    prev.size >= padresConHijos.length
+                      ? new Set()
+                      : new Set(padresConHijos)
+                  )
+                }
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-[#4FAEB2] hover:text-[#3F8E91]"
+              >
+                {plegados.size >= padresConHijos.length ? "Abrir todos" : "Cerrar todos"}
+              </button>
+            )}
             <span className="text-xs text-slate-500">
               {visibles.length === items.length
                 ? `${items.length} rubro${items.length === 1 ? "" : "s"}`
@@ -452,9 +548,8 @@ export default function CategoriasProductosPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
               <tr>
-                <th className="text-left px-4 py-2">Nombre</th>
+                <th className="text-left px-4 py-2">Rubro</th>
                 <th className="text-left px-4 py-2">Código</th>
-                <th className="text-left px-4 py-2">Padre</th>
                 <th className="text-left px-4 py-2" title="Días de stock por debajo de los cuales el rubro se marca crítico en Reposición">
                   Crítico bajo
                 </th>
@@ -469,13 +564,54 @@ export default function CategoriasProductosPage() {
               </tr>
             </thead>
             <tbody>
-              {visibles.map((c) => {
+              {filas.map(({ cat: c, nivel, hijos }) => {
+                const esPadre = hijos > 0;
+                const plegado = plegados.has(c.id);
                 const parent = items.find((i) => i.id === c.parent_id);
                 return (
-                  <tr key={c.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2 font-medium">{c.nombre}</td>
+                  <tr
+                    key={c.id}
+                    className={`border-t border-slate-100 ${
+                      esPadre ? "bg-slate-50/70" : ""
+                    } ${!c.activo ? "opacity-60" : ""}`}
+                  >
+                    {/* El anidado reemplaza a la columna Padre: se ve de dónde
+                        cuelga cada grupo sin tener que leer otra columna. */}
+                    <td className="px-4 py-2">
+                      <span
+                        className="flex items-center gap-1.5"
+                        style={{ paddingLeft: nivel * 22 }}
+                      >
+                        {esPadre ? (
+                          <button
+                            type="button"
+                            onClick={() => alternarPlegado(c.id)}
+                            aria-label={plegado ? `Abrir ${c.nombre}` : `Cerrar ${c.nombre}`}
+                            className="-ml-1 rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                          >
+                            {plegado ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                        ) : nivel > 0 ? (
+                          <span className="select-none text-slate-300" aria-hidden>└</span>
+                        ) : (
+                          <span className="w-4" aria-hidden />
+                        )}
+                        <span className={esPadre ? "font-semibold text-slate-800" : "font-medium text-slate-700"}>
+                          {c.nombre}
+                        </span>
+                        {esPadre && (
+                          <span className="rounded-full bg-[#4FAEB2]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#3F8E91]">
+                            {hijos} {hijos === 1 ? "grupo" : "grupos"}
+                          </span>
+                        )}
+                        {/* Buscando se aplana, así que ahí sí hace falta decir
+                            de qué rubro es: sin el anidado no se vería. */}
+                        {hayFiltro && parent && (
+                          <span className="text-[11px] text-slate-400">· en {parent.nombre}</span>
+                        )}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-gray-500">{c.codigo ?? "—"}</td>
-                    <td className="px-4 py-2 text-gray-500">{parent?.nombre ?? "—"}</td>
                     <td className="px-4 py-2">
                       {/* Se dibuja como un campo editable y no como texto: con
                           el estilo anterior —gris, subrayado solo al pasar por
