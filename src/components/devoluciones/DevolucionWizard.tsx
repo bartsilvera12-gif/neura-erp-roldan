@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, Loader2, Plus, Trash2, AlertTriangle, Check } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { usePuedeDevolver } from "@/lib/devoluciones/use-puede-devolver";
 import type {
   CondicionProducto, MetodoReembolso, ResolucionDevolucion, VentaDevolvible,
 } from "@/lib/devoluciones/types";
@@ -33,6 +34,15 @@ interface Props {
 }
 
 export default function DevolucionWizard({ ventaId, onClose, onDone }: Props) {
+  /**
+   * Una devolución la autoriza un supervisor o un administrador.
+   *
+   * El vendedor puede armarla igual —marcar qué vuelve, elegir la resolución,
+   * mostrársela al cliente— y lo único que no puede es confirmarla. Cerrarle
+   * la pantalla entera obligaría a rehacerla desde cero cuando llegue el que
+   * autoriza, con el cliente parado en el mostrador.
+   */
+  const { puede: puedeAutorizar, cargando: rolCargando, motivo: motivoSinPermiso } = usePuedeDevolver();
   const [venta, setVenta] = useState<VentaDevolvible | null>(null);
   const [cargando, setCargando] = useState(true);
   const [paso, setPaso] = useState<1 | 2 | 3>(1);
@@ -156,7 +166,8 @@ export default function DevolucionWizard({ ventaId, onClose, onDone }: Props) {
   }
 
   const puedePaso2 = seleccion.length > 0;
-  const puedeConfirmar = puedePaso2 && (resolucion === "reembolso" || cambios.length > 0);
+  const puedeConfirmar =
+    puedePaso2 && (resolucion === "reembolso" || cambios.length > 0) && puedeAutorizar;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm">
@@ -390,6 +401,19 @@ export default function DevolucionWizard({ ventaId, onClose, onDone }: Props) {
                 </dl>
               </div>
               <p className="text-xs text-slate-400">Al confirmar se registra el movimiento de inventario y, si corresponde, el de caja. La venta original no se modifica ni se elimina.</p>
+              {/* Se dice acá y no al apretar: el botón gris sin explicación se
+                  lee como que el sistema está roto. */}
+              {!puedeAutorizar && !rolCargando && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <p className="font-semibold">Falta la autorización</p>
+                  <p className="mt-0.5 text-xs leading-snug">{motivoSinPermiso}</p>
+                  <p className="mt-1.5 text-xs leading-snug">
+                    Dejá la pantalla abierta y pedile a quien corresponda que confirme desde su
+                    usuario: la devolución se registra a nombre del que la confirma, que es el
+                    que la está autorizando.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -406,7 +430,10 @@ export default function DevolucionWizard({ ventaId, onClose, onDone }: Props) {
               Continuar
             </button>
           ) : (
-            <button onClick={() => void confirmar()} disabled={guardando || !puedeConfirmar}
+            <button
+              onClick={() => void confirmar()}
+              disabled={guardando || !puedeConfirmar}
+              title={!puedeAutorizar && !rolCargando ? motivoSinPermiso ?? "" : ""}
               className="inline-flex items-center gap-2 rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-bold text-white hover:bg-[#3F8E91] disabled:opacity-50">
               {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Confirmando…</> : <><Check className="h-4 w-4" /> Confirmar devolución</>}
             </button>

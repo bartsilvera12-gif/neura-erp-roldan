@@ -128,7 +128,9 @@ export type BloqueoDevolucion =
   | "sin_items"
   | "stock_insuficiente_cambio"
   | "devolucion_no_encontrada"
-  | "devolucion_ya_anulada";
+  | "devolucion_ya_anulada"
+  /** El que la pidió no tiene la facultad (ver `permiso-devolver.ts`). */
+  | "sin_permiso";
 
 export class DevolucionBloqueadaError extends Error {
   motivo: BloqueoDevolucion;

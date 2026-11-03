@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndEmpresa } from "@/lib/middleware/auth";
+import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
+import { esSupervisor } from "@/lib/auth/roles-operativos";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -18,7 +19,8 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
   }
   try {
     const { id } = await ctxParams.params;
-    const auth = await getUserAndEmpresa(request);
+    // Con el rol: deshacer una devolución mueve stock y plata al revés.
+    const auth = await getAuthWithRol(request);
     if (!auth?.empresa_id) {
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     }
@@ -29,14 +31,22 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
       auth.empresa_id,
       { id: auth.usuarioCatalogId ?? null, nombre: auth.user?.email ?? null },
       id,
-      typeof body.motivo === "string" ? body.motivo.slice(0, 500) : null
+      typeof body.motivo === "string" ? body.motivo.slice(0, 500) : null,
+      // El permiso se resuelve adentro, con el turno ya bloqueado: depende de
+      // si la caja de ESA devolución sigue abierta.
+      { esAdmin: isAdmin(auth), esSupervisor: esSupervisor(auth) }
     );
     return NextResponse.json(successResponse({ devolucion }));
   } catch (err) {
     if (err instanceof DevolucionBloqueadaError) {
       return NextResponse.json(
         { success: false, error: err.message, motivo: err.motivo },
-        { status: err.motivo === "devolucion_no_encontrada" ? 404 : 409 }
+        {
+          status:
+            err.motivo === "devolucion_no_encontrada" ? 404
+            : err.motivo === "sin_permiso" ? 403
+            : 409,
+        }
       );
     }
     const msg = err instanceof Error ? err.message : "No se pudo anular la devolución.";

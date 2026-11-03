@@ -1,3 +1,4 @@
+import { puedeAnularDevolucion } from "@/lib/devoluciones/permiso-devolver";
 /**
  * Motor de devoluciones de ventas.
  *
@@ -524,7 +525,20 @@ export async function anularDevolucion(
   empresaId: string,
   usuario: UsuarioCtx,
   devolucionId: string,
-  motivo: string | null
+  motivo: string | null,
+  /**
+   * Quién lo está pidiendo.
+   *
+   * El permiso se evalúa ACÁ ADENTRO y no en la ruta porque depende de si el
+   * turno de esa devolución sigue abierto, y ese dato se lee unas líneas más
+   * abajo bajo FOR UPDATE. Resuelto afuera, entre la consulta y el UPDATE
+   * cabe un cierre de caja: el supervisor pasaría el control y desharía una
+   * devolución de un turno recién arqueado.
+   *
+   * Omitirlo deja pasar todo, para no romper a quien llame desde un script.
+   * Las rutas HTTP lo mandan siempre.
+   */
+  autorizacion?: { esAdmin: boolean; esSupervisor: boolean }
 ): Promise<Devolucion> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const tD = quoteSchemaTable(schema, "devoluciones_venta");
@@ -552,6 +566,34 @@ export async function anularDevolucion(
       throw new DevolucionBloqueadaError("devolucion_ya_anulada", "La devolución ya está anulada.");
     }
     const numero = String(d.numero_devolucion);
+
+    /**
+     * Permisos, con el turno ya bloqueado.
+     *
+     * Administrador siempre; supervisor solo mientras la caja de ESTA
+     * devolución siga abierta. Si la consulta del turno falla, queda
+     * `undefined` y la regla lo trata como cerrado: ante la duda no se
+     * deshace un arqueo.
+     */
+    if (autorizacion) {
+      let cajaAbierta: boolean | undefined;
+      if (d.caja_id) {
+        const cjQ = await client.query(
+          `SELECT estado FROM ${quoteSchemaTable(schema, "cajas")}
+            WHERE id = $1::uuid AND empresa_id = $2::uuid`,
+          [String(d.caja_id), empresaId]
+        );
+        const est = cjQ.rows[0]?.estado;
+        if (est != null) cajaAbierta = String(est) !== "cerrada";
+      } else {
+        // Sin turno asociado no hay ninguna caja abierta que la contenga.
+        cajaAbierta = false;
+      }
+      const permiso = puedeAnularDevolucion({ ...autorizacion, cajaAbierta });
+      if (!permiso.permitido) {
+        throw new DevolucionBloqueadaError("sin_permiso", permiso.motivo);
+      }
+    }
 
     // Revertir stock de los items devueltos que SI habian reintegrado.
     const itQ = await client.query(

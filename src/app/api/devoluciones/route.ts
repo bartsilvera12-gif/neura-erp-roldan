@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndEmpresa } from "@/lib/middleware/auth";
+import { getUserAndEmpresa, getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
+import { esSupervisor } from "@/lib/auth/roles-operativos";
+import { puedeDevolver } from "@/lib/devoluciones/permiso-devolver";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -36,10 +38,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
   }
   try {
-    const auth = await getUserAndEmpresa(request);
+    // Con el rol: una devolución la autoriza un supervisor o un administrador.
+    const auth = await getAuthWithRol(request);
     if (!auth?.empresa_id) {
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     }
+
+    /**
+     * Bloqueo 0: permisos.
+     *
+     * Va antes de leer el cuerpo y antes de tocar nada. Una devolución
+     * devuelve mercadería al stock y, si es reembolso, saca plata del cajón
+     * en el acto: era la única operación del sistema por donde salía dinero
+     * sin que nadie la aprobara.
+     */
+    const permiso = puedeDevolver({
+      esAdmin: isAdmin(auth),
+      esSupervisor: esSupervisor(auth),
+    });
+    if (!permiso.permitido) {
+      return NextResponse.json(errorResponse(permiso.motivo), { status: 403 });
+    }
+
     const body = (await request.json()) as Partial<CrearDevolucionInput>;
 
     if (!body.venta_id || typeof body.venta_id !== "string") {
