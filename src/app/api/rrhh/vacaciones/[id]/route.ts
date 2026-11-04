@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { contarDiasAusencia } from "@/lib/rrhh/server/dias-ausencia";
 
 const ESTADOS = new Set(["pendiente", "aprobada", "rechazada", "cancelada"]);
 
@@ -10,11 +11,6 @@ const esFecha = (v: unknown): v is string =>
   typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 /** Días corridos entre dos fechas, ambas inclusive. */
-function diasEntre(desde: string, hasta: string): number {
-  const d = Date.parse(`${desde}T00:00:00Z`);
-  const h = Date.parse(`${hasta}T00:00:00Z`);
-  return Math.floor((h - d) / 86400000) + 1;
-}
 
 /**
  * PATCH /api/rrhh/vacaciones/[id]
@@ -56,12 +52,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.fecha_desde !== undefined || body.fecha_hasta !== undefined) {
       const actual = await ctx.supabase
         .from("empleado_vacaciones")
-        .select("fecha_desde, fecha_hasta")
+        .select("fecha_desde, fecha_hasta, tipo_ausencia")
         .eq("id", id).eq("empresa_id", ctx.auth.empresa_id)
         .maybeSingle();
       if (actual.error) return NextResponse.json(errorResponse(actual.error.message), { status: 400 });
       if (!actual.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
-      const prev = actual.data as { fecha_desde: string; fecha_hasta: string };
+      const prev = actual.data as { fecha_desde: string; fecha_hasta: string; tipo_ausencia: string | null };
 
       const desde = body.fecha_desde !== undefined ? body.fecha_desde : prev.fecha_desde;
       const hasta = body.fecha_hasta !== undefined ? body.fecha_hasta : prev.fecha_hasta;
@@ -73,7 +69,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       update.fecha_desde = desde;
       update.fecha_hasta = hasta;
-      update.dias = diasEntre(desde, hasta);
+      // Mismo conteo que al cargarla: antes al editar se recontaba en días
+      // corridos aunque la solicitud se hubiera cargado en hábiles.
+      const tipo = String(update.tipo_ausencia ?? prev.tipo_ausencia ?? "vacaciones");
+      update.dias = (await contarDiasAusencia(ctx.supabase, ctx.auth.empresa_id, desde, hasta, tipo)).dias;
     }
 
     if (Object.keys(update).length === 0) {

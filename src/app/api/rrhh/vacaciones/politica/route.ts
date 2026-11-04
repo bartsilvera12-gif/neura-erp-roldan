@@ -4,21 +4,24 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
 /**
- * Política de vacaciones única por empresa. Si no existe, devolver defaults
- * de España (30 días naturales, requiere aprobación, proporcional por ingreso).
+ * Política de vacaciones única por empresa. Si no existe, la de Paraguay.
+ *
+ * Los días los fija la ley (12/18/30 hábiles según antigüedad, ver
+ * lib/rrhh/vacaciones-py.ts) y ya no salen de acá; estas columnas quedan por
+ * compatibilidad. Antes el default era el de España (30 naturales, 15/15).
+ * Lo único que se usa es `permitir_saldo_negativo` (adelantar vacaciones).
  */
 const DEFAULTS = {
-  dias_anuales: 30,
-  tipo_computo: "naturales" as "naturales" | "laborables",
-  proporcional_ingreso: true,
-  requiere_aprobacion: true,
+  dias_anuales: 12,
+  tipo_computo: "laborables" as "naturales" | "laborables",
+  proporcional_ingreso: false,
+  requiere_aprobacion: false,
   permitir_saldo_negativo: false,
-  arrastra_pendientes: false,
+  arrastra_pendientes: true,
   arrastra_dias_max: null as number | null,
-  pais_region: "ES" as string | null,
-  // Fase H · desglose empresa/empleado (España default 15/15)
-  dias_empresa: 15 as number | null,
-  dias_empleado: 15 as number | null,
+  pais_region: "PY" as string | null,
+  dias_empresa: null as number | null,
+  dias_empleado: null as number | null,
 };
 
 export async function GET(request: NextRequest) {

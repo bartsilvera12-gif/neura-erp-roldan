@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
-import { calcularDias } from "@/lib/rrhh/vacaciones-dias";
+import { contarDiasAusencia } from "@/lib/rrhh/server/dias-ausencia";
+import { saldoVacacionesPy } from "@/lib/rrhh/vacaciones-py";
 
 const TIPOS_AUSENCIA = new Set([
   "vacaciones",
@@ -58,7 +59,8 @@ export async function GET(request: NextRequest) {
  *   empleado_id, fecha_desde, fecha_hasta, tipo_ausencia?, observacion?, modo?
  *
  * modo='admin' → estado='aprobada' al instante. Si no, 'pendiente'.
- * Días se calculan según la política de la empresa (naturales/laborables).
+ * Días como se cuentan en Paraguay: vacaciones en días hábiles (lunes a
+ * sábado, sin feriados); el resto, corridos. Ver contarDiasAusencia.
  * Solapamiento: rechaza si hay otra solicitud aprobada del mismo empleado
  * con rango que se cruce.
  */
@@ -81,24 +83,54 @@ export async function POST(request: NextRequest) {
     }
     if (hasta < desde) return NextResponse.json(errorResponse("fecha_hasta debe ser >= fecha_desde"), { status: 400 });
 
-    // Leer política para tipo de cómputo y flag de aprobación.
     const polQ = await ctx.supabase
       .from("rrhh_politica_vacaciones")
-      .select("tipo_computo, requiere_aprobacion")
+      .select("requiere_aprobacion, permitir_saldo_negativo")
       .eq("empresa_id", ctx.auth.empresa_id)
       .maybeSingle();
-    const forzarComputo = String(body.forzar_computo ?? "").trim();
-    const tipoComputo: "naturales" | "laborables" =
-      forzarComputo === "laborables" || forzarComputo === "naturales"
-        ? (forzarComputo as "laborables" | "naturales")
-        : (polQ.data as { tipo_computo?: string } | null)?.tipo_computo === "laborables"
-          ? "laborables"
-          : "naturales";
     const requiereAprob = (polQ.data as { requiere_aprobacion?: boolean } | null)?.requiere_aprobacion !== false;
 
-    const dias = calcularDias(desde, hasta, tipoComputo);
+    const { dias } = await contarDiasAusencia(ctx.supabase, ctx.auth.empresa_id, desde, hasta, tipo);
     if (dias <= 0) {
-      return NextResponse.json(errorResponse("Los días calculados son 0. Revisá el rango."), { status: 400 });
+      return NextResponse.json(
+        errorResponse(tipo === "vacaciones"
+          ? "En ese rango no hay ningún día hábil (son domingos o feriados)."
+          : "Los días calculados son 0. Revisá el rango."),
+        { status: 400 }
+      );
+    }
+
+    // Más días de los que tiene: solo si la política permite adelantar.
+    // La casilla existía y no la miraba nadie.
+    const permiteAdelanto = (polQ.data as { permitir_saldo_negativo?: boolean } | null)?.permitir_saldo_negativo === true;
+    if (tipo === "vacaciones" && !permiteAdelanto) {
+      const [empQ, usosQ] = await Promise.all([
+        ctx.supabase.from("empleados").select("fecha_ingreso").eq("empresa_id", ctx.auth.empresa_id).eq("id", empleadoId).maybeSingle(),
+        ctx.supabase.from("empleado_vacaciones").select("fecha_desde, dias, tipo_ausencia")
+          .eq("empresa_id", ctx.auth.empresa_id).eq("empleado_id", empleadoId).eq("estado", "aprobada"),
+      ]);
+      if (empQ.error) return NextResponse.json(errorResponse(empQ.error.message), { status: 400 });
+      const ingreso = (empQ.data as { fecha_ingreso?: string | null } | null)?.fecha_ingreso ?? null;
+      if (!ingreso) {
+        return NextResponse.json(
+          errorResponse("El empleado no tiene fecha de ingreso: sin ella no se puede saber cuántos días le corresponden. Cargala en su ficha."),
+          { status: 400 }
+        );
+      }
+      const usos = ((usosQ.data ?? []) as Array<{ fecha_desde: string; dias: number; tipo_ausencia: string | null }>)
+        .filter((u) => (u.tipo_ausencia ?? "vacaciones") === "vacaciones")
+        .map((u) => ({ fecha_desde: String(u.fecha_desde).slice(0, 10), dias: Number(u.dias) || 0 }));
+      const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const saldo = saldoVacacionesPy(String(ingreso).slice(0, 10), hoy, usos);
+      if (dias > saldo.dias_disponibles) {
+        const motivo = saldo.anios === 0
+          ? `todavía no cumplió su primer año (lo cumple el ${saldo.proximo_derecho_fecha?.split("-").reverse().join("/")})`
+          : `tiene ${Math.max(0, saldo.dias_disponibles)} día${saldo.dias_disponibles === 1 ? "" : "s"} disponible${saldo.dias_disponibles === 1 ? "" : "s"}`;
+        return NextResponse.json(
+          errorResponse(`Son ${dias} días hábiles y ${motivo}. Para adelantar vacaciones, habilitalo en la Política de vacaciones.`),
+          { status: 400 }
+        );
+      }
     }
 
     // Solapamiento con aprobadas (solo para tipo='vacaciones' — los otros tipos
