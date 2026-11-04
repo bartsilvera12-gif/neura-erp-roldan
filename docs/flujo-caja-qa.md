@@ -101,6 +101,9 @@ Una factura de hoy con plazo 30 cae **el mes que viene**. Es el error más comú
 | 11 | Pasar a un mes SIN fondos cargados | Abre con el cierre del mes anterior y lo dice en un cartel gris, nombrando el mes. **No** arranca en cero |
 | 12 | Venta a crédito con vencimiento este mes | Aparece en la fila *Cobranzas* el día que vence, y el Disponible sube |
 | 13 | Dejar vencer una cuenta por cobrar y mirar el mes siguiente | Cartel rojo con el total vencido. Ese monto **no** está sumado en Disponible |
+| 14 | Factura en **guaraníes** de un proveedor cuya moneda preferida es **dólares** → emitir | El cheque sale en **guaraníes**, no en dólares. El botón dice "Emitir por Gs." |
+| 15 | Tildar una factura en Gs. y otra en US$ del mismo proveedor | No deja emitir: pide hacer un cheque para cada moneda |
+| 16 | Emitir por un importe muy distinto al de las facturas | Cartel rojo y botón bloqueado si la diferencia es absurda; cartel amarillo si es un pago parcial, que sí se puede |
 
 ---
 
@@ -109,6 +112,8 @@ Una factura de hoy con plazo 30 cae **el mes que viene**. Es el error más comú
 - Un cheque cobrado deja el total de la fila en `—`. Correcto: esa plata ya salió.
 - Hay **dos tipos de cambio** y son distintos. El de la compra convierte esa factura. El de la
   cabecera convierte solo el total del mes, y se pone más alto a propósito, como colchón.
+- La **moneda del cheque sale de las facturas**, no del proveedor. Un proveedor marcado en dólares
+  con una factura en guaraníes se paga con un cheque en guaraníes.
 - Los saldos de bancos, efectivo y mercadería **se cargan a mano**. No hay conciliación bancaria.
 - La **mercadería no suma** a los fondos disponibles: es plata inmovilizada en stock.
 - Las **cobranzas vencidas sin cobrar NO se suman** al Disponible. Van avisadas aparte, arriba de la

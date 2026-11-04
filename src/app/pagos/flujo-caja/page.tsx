@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { monedaDeLasFacturas, revisarCheque } from "@/lib/flujo-caja/coherencia-cheque";
 import type {
   CobranzaProyectada, DiagnosticoFlujo, EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo,
 } from "@/lib/flujo-caja/types";
@@ -633,6 +634,7 @@ export default function FlujoCajaPage() {
           anio={anio}
           mes={mes}
           bancos={bancos}
+          tipoCambio={data?.config.tipo_cambio ?? 0}
           onClose={() => setCelda(null)}
           onCambio={() => { setCelda(null); void cargar(); }}
         />
@@ -737,13 +739,15 @@ function VacioExplicado({
  * qué número y de qué banco. Lo demás ya viene de las compras.
  */
 function PanelCelda({
-  dia, fila, anio, mes, bancos, onClose, onCambio,
+  dia, fila, anio, mes, bancos, tipoCambio, onClose, onCambio,
 }: {
   dia: number;
   fila: FilaFlujo;
   anio: number;
   mes: number;
   bancos: { id: string; nombre: string }[];
+  /** El del mes, para poder comparar un cheque en dólares con una factura en guaraníes. */
+  tipoCambio: number;
   onClose: () => void;
   onCambio: () => void;
 }) {
@@ -767,9 +771,42 @@ function PanelCelda({
 
   // Cheque pendiente al que se le está cargando el número (uno por vez).
   const [editando, setEditando] = useState<{ id: string; numero: string; bancoId: string; cobro: string } | null>(null);
-  const importeSeleccion = sinCheque
-    .filter((e) => e.numero_control && seleccion.includes(e.numero_control))
-    .reduce((a, e) => a + e.importe, 0);
+  const elegidasAhora = sinCheque.filter(
+    (e) => e.numero_control && seleccion.includes(e.numero_control)
+  );
+  const importeSeleccion = elegidasAhora.reduce((a, e) => a + e.importe, 0);
+
+  /**
+   * La moneda del cheque sale de las FACTURAS, no del proveedor.
+   *
+   * Antes acá iba `fila.moneda`, que es la moneda preferida del proveedor. Una
+   * factura en guaraníes de un proveedor en dólares nacía como un cheque en
+   * dólares con el importe en guaraníes, y el flujo después lo multiplicaba por
+   * el tipo de cambio. En producción quedó uno así: 128.000 USD por una factura
+   * de 128.000 Gs., que proyectaba 819 millones de egreso.
+   *
+   * `null` = hay facturas de las dos monedas elegidas; no se puede emitir uno
+   * solo que las represente.
+   */
+  const monedaCheque = monedaDeLasFacturas(
+    elegidasAhora.map((e) => ({
+      numero_control: e.numero_control ?? "",
+      moneda: e.moneda,
+      importe_imputado: e.importe,
+    }))
+  ) ?? (elegidasAhora.length === 0 ? fila.moneda : null);
+
+  const revision = revisarCheque({
+    moneda: monedaCheque ?? fila.moneda,
+    importe: importeSeleccion,
+    tipoCambio,
+    facturas: elegidasAhora.map((e) => ({
+      numero_control: e.numero_control ?? "",
+      moneda: e.moneda,
+      importe_imputado: e.importe,
+    })),
+  });
+  const monedasMezcladas = monedaCheque === null && elegidasAhora.length > 0;
 
   async function llamar(url: string, init: RequestInit, alFallar: string) {
     setTrabajando(true);
@@ -788,14 +825,15 @@ function PanelCelda({
 
   function emitir() {
     if (seleccion.length === 0) { setErr("Elegí al menos una factura."); return; }
-    const elegidas = sinCheque.filter((e) => e.numero_control && seleccion.includes(e.numero_control));
+    if (revision.nivel === "error") { setErr(revision.mensaje); return; }
+    const elegidas = elegidasAhora;
     void llamar("/api/cheques", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         proveedor_id: fila.proveedor_id,
         proveedor_nombre: fila.nombre,
-        moneda: fila.moneda,
+        moneda: monedaCheque ?? fila.moneda,
         importe: importeSeleccion,
         numero: numero.trim() || null,
         entidad_bancaria_id: bancoId || null,
@@ -1012,12 +1050,32 @@ function PanelCelda({
                 />
               </label>
               <button
-                type="button" onClick={emitir} disabled={trabajando || seleccion.length === 0}
+                type="button" onClick={emitir}
+                disabled={trabajando || seleccion.length === 0 || revision.nivel === "error"}
                 className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
               >
-                {trabajando ? "Guardando…" : `Emitir por ${fila.moneda === "USD" ? "US$ " : "Gs. "}${miles(importeSeleccion, fila.moneda === "USD" ? 2 : 0)}`}
+                {trabajando
+                  ? "Guardando…"
+                  /* La moneda del botón es la de las FACTURAS, igual que la del
+                     cheque: si dijera la del proveedor estaría anunciando un
+                     importe en una moneda distinta de la que se va a guardar. */
+                  : `Emitir por ${monedaCheque === "USD" ? "US$ " : "Gs. "}${miles(importeSeleccion, monedaCheque === "USD" ? 2 : 0)}`}
               </button>
             </div>
+
+            {/* Lo que no cierra entre el cheque y las facturas que cubre.
+                El error frena; el aviso deja seguir, porque un pago parcial es
+                legítimo y lo único que hace falta es que no pase en silencio. */}
+            {revision.nivel !== "ok" && (
+              <p className={`mt-2 rounded-lg border px-3 py-2 text-[11px] leading-snug ${
+                revision.nivel === "error"
+                  ? "border-rose-300 bg-rose-50 text-rose-800"
+                  : "border-amber-200 bg-amber-50 text-amber-800"
+              }`}>
+                {monedasMezcladas ? null : <strong>{revision.nivel === "error" ? "No se puede emitir: " : "Ojo: "}</strong>}
+                {revision.mensaje}
+              </p>
+            )}
             <p className="mt-2 text-[10px] leading-snug text-slate-500">
               Sin número el cheque queda <strong>pendiente de emisión</strong> (lila) y se le carga
               después. Con número nace <strong>emitido</strong> (verde). Un cheque cubre varias

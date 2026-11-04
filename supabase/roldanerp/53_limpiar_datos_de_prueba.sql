@@ -12,6 +12,7 @@
 --      46 ventas (VTA-* y SIM-*) con sus ítems y movimientos
 --      13 turnos de caja de prueba, con sus movimientos
 --       9 compras (COMP-*)
+--       2 cheques de esas compras, con su imputación
 --       6 productos (QA-*, PRU-*, REV-*) con su stock
 --       6 clientes de prueba
 --       9 rubros de prueba (A, B, C, D, PRUEBA, EJEMPLO…)
@@ -47,6 +48,7 @@ DECLARE
   v_ventas uuid[];
   v_cajas uuid[];
   v_prods uuid[];
+  v_chq uuid[];
   n int;
 BEGIN
   -- ── Las ventas de prueba y todo lo que cuelga de ellas ────────────────
@@ -83,6 +85,29 @@ BEGIN
 
     DELETE FROM roldanerp.cajas WHERE id = ANY(v_cajas);
     GET DIAGNOSTICS n = ROW_COUNT; RAISE NOTICE 'turnos de caja: %', n;
+  END IF;
+
+  -- ── Cheques de prueba ─────────────────────────────────────────────────
+  --   Van ANTES que las compras: una vez borrada la compra no se puede saber
+  --   a qué apuntaba el cheque. `cheque_compras.compra_numero_control` es
+  --   texto, no una clave foránea, así que al borrar la compra el cheque no
+  --   da error: queda huérfano y sigue proyectando un pago que no existe.
+  --
+  --   Uno de los dos cheques cargados es justamente el de 128.000 USD por una
+  --   factura de 128.000 Gs., que sin esto seguiría apareciendo en el flujo.
+  IF to_regclass('roldanerp.cheques') IS NOT NULL
+     AND to_regclass('roldanerp.cheque_compras') IS NOT NULL THEN
+    SELECT array_agg(DISTINCT cc.cheque_id) INTO v_chq
+      FROM roldanerp.cheque_compras cc
+      LEFT JOIN roldanerp.compras c ON c.numero_control = cc.compra_numero_control
+     WHERE c.numero_control IS NULL OR c.numero_control NOT LIKE 'HCO-%';
+
+    IF v_chq IS NOT NULL THEN
+      DELETE FROM roldanerp.cheque_compras WHERE cheque_id = ANY(v_chq);
+      GET DIAGNOSTICS n = ROW_COUNT; RAISE NOTICE 'cheque_compras: %', n;
+      DELETE FROM roldanerp.cheques WHERE id = ANY(v_chq);
+      GET DIAGNOSTICS n = ROW_COUNT; RAISE NOTICE 'cheques: %', n;
+    END IF;
   END IF;
 
   -- ── Compras y anticipos de prueba ─────────────────────────────────────

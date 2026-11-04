@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { revisarCheque } from "@/lib/flujo-caja/coherencia-cheque";
+import type { MonedaFlujo } from "@/lib/flujo-caja/types";
+
+/** El cliente que devuelve `getTenantSupabaseFromAuth`. */
+type TenantSupabase = NonNullable<
+  Awaited<ReturnType<typeof getTenantSupabaseFromAuth>>
+>["supabase"];
 
 /**
  * Cheques a proveedores.
@@ -23,6 +30,33 @@ const str = (v: unknown, max = 200): string | null =>
   v == null || String(v).trim() === "" ? null : String(v).trim().slice(0, max);
 const esFecha = (v: unknown): string | null =>
   typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+
+/**
+ * El último tipo de cambio cargado en el flujo de caja.
+ *
+ * Hace falta para comparar un cheque en dólares con una factura en guaraníes.
+ * Si no hay ninguno cargado devuelve 0, y la revisión se limita a mirar las
+ * etiquetas: es mejor avisar de menos que inventar una cotización.
+ */
+async function tipoCambioVigente(
+  sb: TenantSupabase,
+  empresaId: string
+): Promise<number> {
+  try {
+    const q = await sb
+      .from("flujo_caja_config")
+      .select("tipo_cambio")
+      .eq("empresa_id", empresaId)
+      .gt("tipo_cambio", 0)
+      .order("anio", { ascending: false })
+      .order("mes", { ascending: false })
+      .limit(1);
+    const fila = ((q.data ?? []) as Array<{ tipo_cambio?: unknown }>)[0];
+    return num(fila?.tipo_cambio);
+  } catch {
+    return 0;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -77,15 +111,24 @@ export async function POST(request: NextRequest) {
       .map((f) => ({ numero_control: str(f.numero_control, 64), importe: num(f.importe_imputado) }))
       .filter((f): f is { numero_control: string; importe: number } => !!f.numero_control);
 
+    /** Moneda de cada factura, por número de control. La llena el bloque de abajo. */
+    const monedasFactura = new Map<string, "PYG" | "USD">();
+
     if (facturas.length > 0) {
       const { data: comprasData, error: comprasErr } = await ctx.supabase
         .from("compras")
-        .select("numero_control, proveedor_id")
+        .select("numero_control, proveedor_id, moneda")
         .eq("empresa_id", empresaId)
         .in("numero_control", facturas.map((f) => f.numero_control));
       if (comprasErr) throw new Error(comprasErr.message);
       const rows = (comprasData ?? []) as Array<Record<string, unknown>>;
       const encontradas = new Set(rows.map((r) => String(r.numero_control)));
+      for (const r of rows) {
+        monedasFactura.set(
+          String(r.numero_control),
+          String(r.moneda ?? "PYG").toUpperCase() === "USD" ? "USD" : "PYG"
+        );
+      }
       const ajenas = rows.filter((r) => String(r.proveedor_id ?? "") !== proveedorId);
 
       const faltan = facturas.filter((f) => !encontradas.has(f.numero_control));
@@ -121,6 +164,30 @@ export async function POST(request: NextRequest) {
     const importe = num(o.importe) || facturas.reduce((a, f) => a + f.importe, 0);
     if (importe <= 0) {
       return NextResponse.json(errorResponse("El importe del cheque tiene que ser mayor a cero."), { status: 400 });
+    }
+
+    // ── El cheque y las facturas tienen que decir lo mismo ──────────────────
+    //
+    // La pantalla ya lo revisa, pero el guard va acá porque es el único lado
+    // que no se puede saltear. En producción quedó un cheque de 128.000 USD
+    // por una factura de 128.000 Gs. —la pantalla mandaba la moneda del
+    // PROVEEDOR en vez de la de las facturas— y el flujo lo proyectaba como
+    // 819 millones de egreso.
+    if (monedasFactura.size > 0) {
+      const tipoCambio = await tipoCambioVigente(ctx.supabase, empresaId);
+      const revision = revisarCheque({
+        moneda,
+        importe,
+        tipoCambio,
+        facturas: facturas.map((f) => ({
+          numero_control: f.numero_control,
+          moneda: (monedasFactura.get(f.numero_control) ?? "PYG") as MonedaFlujo,
+          importe_imputado: f.importe,
+        })),
+      });
+      if (revision.nivel === "error") {
+        return NextResponse.json(errorResponse(revision.mensaje), { status: 400 });
+      }
     }
 
     const ins = await ctx.supabase
