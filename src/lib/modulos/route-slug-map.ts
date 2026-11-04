@@ -195,6 +195,9 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
   if (p.startsWith("/clientes")) return "clientes";
   if (p.startsWith("/proveedores")) return "proveedores";
   if (p.startsWith("/compras")) return "compras";
+  // La orden de compra es el pedido previo a la compra: mismo permiso. No cae
+  // en el `startsWith("/compras")` de arriba porque la ruta es /ordenes-compra.
+  if (p.startsWith("/ordenes-compra")) return "compras";
   // El tipo de cambio es lo que convierte una compra en dólares a guaraníes:
   // su permiso es el de Compras, no un módulo aparte.
   if (p.startsWith("/tipos-cambio")) return "compras";

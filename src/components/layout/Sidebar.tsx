@@ -231,6 +231,9 @@ const MENU_STRUCTURE: MenuItem[] = [
     icon: Package,
     children: [
       { label: "Compras", href: "/compras", exactMatch: true },
+      // El PEDIDO al proveedor, previo a la compra: no toca stock ni cuentas
+      // por pagar. Se arma a mano o desde Inventario → Bajo mínimo.
+      { label: "Órdenes de compra", href: "/ordenes-compra" },
       // Punto 7.2: el historial de cotizaciones. Cargar una nueva se hace desde
       // el Dashboard (7.1), que es donde se mira el dólar todos los días.
       { label: "Tipos de cambio", href: "/tipos-cambio" },

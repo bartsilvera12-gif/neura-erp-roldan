@@ -7,9 +7,11 @@ import AccionesTabla from "@/components/ui/AccionesTabla";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import {
-  faltante, severidad, valorFaltante,
-  type GrupoRubro, type ResumenBajoMinimo,
+  faltante, severidad, valorFaltante, lineasParaOrden,
+  type ArticuloBajoMinimo, type GrupoRubro, type ResumenBajoMinimo,
 } from "@/lib/inventario/bajo-minimo";
+import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
+import { ShoppingCart } from "lucide-react";
 
 /**
  * Reposición: qué está por debajo del mínimo, por rubro.
@@ -40,6 +42,11 @@ export default function BajoMinimoPage() {
   const [q, setQ] = useState("");
   const [soloSinStock, setSoloSinStock] = useState(false);
   const [colapsados, setColapsados] = useState<Set<string>>(new Set());
+  // Lo tildado para llevar a una orden de compra. Se guarda por id y no por
+  // índice: los filtros reordenan la lista y un índice apuntaría a otra cosa.
+  const [elegidos, setElegidos] = useState<Set<string>>(new Set());
+  const [armandoOrden, setArmandoOrden] = useState(false);
+  const [ordenCreada, setOrdenCreada] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -74,6 +81,33 @@ export default function BajoMinimoPage() {
       return next;
     });
   }
+
+  function elegir(id: string) {
+    setElegidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  /** Tilda o destilda todo un rubro de una. */
+  function elegirRubro(g: GrupoRubro, marcar: boolean) {
+    setElegidos((prev) => {
+      const next = new Set(prev);
+      for (const a of g.articulos) {
+        if (marcar) next.add(a.producto_id);
+        else next.delete(a.producto_id);
+      }
+      return next;
+    });
+  }
+
+  /** Los artículos tildados, en el orden en que se ven en pantalla. */
+  const seleccionados: ArticuloBajoMinimo[] = useMemo(() => {
+    if (!data) return [];
+    return data.grupos.flatMap((g) => g.articulos.filter((a) => elegidos.has(a.producto_id)));
+  }, [data, elegidos]);
 
   /** Una fila por artículo, con su rubro, para Excel y para la hoja impresa. */
   const filasExport = useMemo(() => {
@@ -149,6 +183,42 @@ export default function BajoMinimoPage() {
         )}
       </div>
 
+      {/* Barra de la selección. Aparece solo cuando hay algo tildado: el resto
+          del tiempo sería una franja vacía ocupando lugar. */}
+      {seleccionados.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#4FAEB2] bg-[#4FAEB2]/10 px-3 py-2">
+          <span className="text-sm font-semibold text-[#2F6E71]">
+            {uni(seleccionados.length)} {seleccionados.length === 1 ? "artículo elegido" : "artículos elegidos"}
+          </span>
+          <span className="text-[11px] text-slate-600">
+            Gs. {gs(seleccionados.reduce((acc, a) => acc + valorFaltante(a), 0))} al costo
+          </span>
+          <button
+            type="button" onClick={() => setElegidos(new Set())}
+            className="text-[11px] font-medium text-slate-500 underline underline-offset-2 hover:text-slate-700"
+          >
+            Limpiar
+          </button>
+          <button
+            type="button" onClick={() => setArmandoOrden(true)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3F8E91]"
+          >
+            <ShoppingCart className="h-4 w-4" /> Armar orden de compra
+          </button>
+        </div>
+      )}
+
+      {ordenCreada && (
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] text-emerald-800">
+          <span className="flex-1">
+            Se creó la orden <strong>{ordenCreada}</strong>. Está en Compras → Órdenes de compra, para
+            imprimirla o mandársela al proveedor.
+          </span>
+          <Link href="/ordenes-compra" className="font-semibold underline underline-offset-2">Ver</Link>
+          <button type="button" onClick={() => setOrdenCreada(null)} className="text-emerald-600">✕</button>
+        </div>
+      )}
+
       {/* ── Resumen ───────────────────────────────────────────────────── */}
       {r && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -198,12 +268,22 @@ export default function BajoMinimoPage() {
           {data.grupos.map((g) => {
             const clave = g.rubro_id ?? "__sin__";
             const cerrado = colapsados.has(clave);
+            const todosElegidos = g.articulos.every((a) => elegidos.has(a.producto_id));
             return (
               <section key={clave} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="flex w-full items-center gap-3 bg-slate-50 px-4 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={todosElegidos}
+                    onChange={(e) => elegirRubro(g, e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 shrink-0 rounded border-slate-300"
+                    title="Elegir todo el rubro para la orden de compra"
+                  />
                 <button
                   type="button"
                   onClick={() => alternar(clave)}
-                  className="flex w-full items-center gap-3 bg-slate-50 px-4 py-2.5 text-left hover:bg-slate-100"
+                  className="flex flex-1 items-center gap-3 text-left"
                 >
                   <span className="text-xs text-slate-400">{cerrado ? "▸" : "▾"}</span>
                   <span className="font-semibold text-slate-800">{g.rubro_nombre}</span>
@@ -219,12 +299,14 @@ export default function BajoMinimoPage() {
                     Gs. {gs(g.valor_total)}
                   </span>
                 </button>
+                </div>
 
                 {!cerrado && (
                   <EdgeScrollArea>
                     <table className="w-full border-collapse text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 text-xs text-slate-500">
+                          <th className="w-8 px-2 py-2" />
                           <th className="px-4 py-2 text-left font-semibold">Artículo</th>
                           <th className="px-3 py-2 text-right font-semibold">Stock</th>
                           <th className="px-3 py-2 text-right font-semibold">Mínimo</th>
@@ -238,6 +320,15 @@ export default function BajoMinimoPage() {
                           const cero = severidad(a) === "sin_stock";
                           return (
                             <tr key={a.producto_id} className="border-b border-slate-100 last:border-0">
+                              <td className="px-2 py-2 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={elegidos.has(a.producto_id)}
+                                  onChange={() => elegir(a.producto_id)}
+                                  className="h-4 w-4 rounded border-slate-300"
+                                  title="Llevar a la orden de compra"
+                                />
+                              </td>
                               <td className="px-4 py-2">
                                 <Link
                                   href={`/inventario/${a.producto_id}`}
@@ -274,7 +365,26 @@ export default function BajoMinimoPage() {
         </div>
       )}
 
+      {armandoOrden && (
+        <NuevaOrdenCompraModal
+          itemsIniciales={lineasParaOrden(seleccionados)}
+          origen="la lista de bajo mínimo"
+          onClose={() => setArmandoOrden(false)}
+          onCreada={(numero) => {
+            setArmandoOrden(false);
+            setElegidos(new Set());
+            setOrdenCreada(numero);
+          }}
+        />
+      )}
+
       <div className="space-y-1.5 text-[11px] leading-relaxed text-slate-500">
+        <p>
+          Tildá lo que vas a pedir y apretá <strong>Armar orden de compra</strong>: se arma con la
+          cantidad que falta y el costo promedio de cada artículo, y los dos se pueden corregir antes
+          de crearla. El proveedor se elige a mano, porque ningún artículo tiene proveedor principal
+          cargado y adivinarlo sería presentar una suposición como un dato.
+        </p>
         <p>
           Un artículo entra acá cuando su <strong>stock está por debajo del mínimo</strong> cargado en la
           ficha. <strong>Faltan</strong> es cuánto hay que comprar para volver al mínimo — no es una
