@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import type { DiagnosticoFlujo, EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo } from "@/lib/flujo-caja/types";
+import type {
+  CobranzaProyectada, DiagnosticoFlujo, EntradaFlujo, FilaFlujo, FlujoCajaMes, SaldoLiquidez, TipoSaldo,
+} from "@/lib/flujo-caja/types";
 
 import { X } from "lucide-react";
 
@@ -35,6 +37,25 @@ const ETIQUETA: Record<string, string> = {
   cobrado:           "Cheque cobrado — no suma al flujo",
   anulado:           "Anulado",
 };
+
+/**
+ * Quién paga ese día, para el tooltip de la celda de cobranzas.
+ *
+ * El número solo no sirve para decidir nada: "entran 4.300.000 el martes" se
+ * actúa distinto según sean cuarenta clientes o uno que ya debe.
+ */
+function tooltipCobranzas(cobranzas?: CobranzaProyectada[]): string | undefined {
+  if (!cobranzas || cobranzas.length === 0) return undefined;
+  const lineas = cobranzas
+    .slice(0, 12)
+    .map((c) => {
+      const venta = c.numero_venta ? ` (${c.numero_venta})` : "";
+      const parcial = c.estado === "parcial" ? " · cobro parcial" : "";
+      return `${c.cliente_nombre}${venta}: ${c.moneda === "USD" ? "US$ " : ""}${miles(c.saldo)}${parcial}`;
+    });
+  if (cobranzas.length > 12) lineas.push(`…y ${cobranzas.length - 12} más`);
+  return lineas.join("\n");
+}
 
 function miles(v: number, decimales = 0): string {
   return v.toLocaleString("es-PY", {
@@ -416,11 +437,29 @@ export default function FlujoCajaPage() {
         </div>
       ) : (
         <>
-        {data.liquidez.total_gs === 0 && (
+        {data.liquidez.origen === "sin_datos" && (
           <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-            Este mes no tiene fondos cargados, por eso <strong>Disponible</strong> da cero en todos
-            los días. Escribilos arriba en “Fondos disponibles” y apretá Guardar, o cargá la posición
-            de liquidez.
+            No hay fondos cargados en este mes ni en los doce anteriores, así que{" "}
+            <strong>Disponible</strong> arranca en cero y cualquier pago lo deja en rojo. Ese rojo no
+            es una deuda: es que falta el dato. Escribilos arriba en “Fondos disponibles” y apretá
+            Guardar, o cargá la posición de liquidez.
+          </div>
+        )}
+        {data.liquidez.origen === "arrastre" && data.liquidez.arrastre_de && (
+          <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+            Este mes no tiene fondos propios cargados, así que abre con{" "}
+            <strong>{miles(data.liquidez.total_gs)} Gs.</strong>, que es el Disponible con que cerró{" "}
+            {MESES[data.liquidez.arrastre_de.mes - 1]} {data.liquidez.arrastre_de.anio}. Es una
+            proyección, no un saldo de banco: si querés que arranque del dinero real, cargá la
+            posición de liquidez de este mes y manda ella.
+          </div>
+        )}
+        {data.resumen.cobranzas_vencidas_gs > 0 && (
+          <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-800">
+            Hay <strong>{miles(data.resumen.cobranzas_vencidas_gs)} Gs.</strong> que vencieron antes
+            de este mes y siguen sin cobrarse. <strong>No</strong> están sumados en Disponible: es
+            plata que ya tendría que haber entrado, y contarla como disponible sería contar
+            justamente lo que no está.
           </div>
         )}
         {(ocultos > 0 || mesCompleto) && (
@@ -526,6 +565,25 @@ export default function FlujoCajaPage() {
                 ))}
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">{miles(data.resumen.total_gs)}</td>
               </tr>
+              <tr className="bg-emerald-50/40">
+                <td className="sticky left-0 z-10 whitespace-nowrap bg-emerald-50/60 px-3 py-1.5 font-semibold text-emerald-800">
+                  Cobranzas Gs.
+                </td>
+                {data.totales.filter((t) => dias.includes(t.dia)).map((t) => (
+                  <td
+                    key={t.dia}
+                    title={tooltipCobranzas(data.cobranzas?.[t.dia])}
+                    className={`px-1.5 py-1.5 text-right tabular-nums ${
+                      t.ingreso_gs > 0 ? "text-emerald-700" : "text-slate-300"
+                    } ${esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""}`}
+                  >
+                    {t.ingreso_gs ? miles(t.ingreso_gs) : ""}
+                  </td>
+                ))}
+                <td className="px-3 py-2 text-right font-semibold tabular-nums text-emerald-800">
+                  {data.resumen.ingreso_total_gs ? miles(data.resumen.ingreso_total_gs) : "—"}
+                </td>
+              </tr>
               <tr className="bg-white">
                 <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-3 py-1.5 font-semibold text-slate-600">
                   Disponible Gs.
@@ -534,7 +592,9 @@ export default function FlujoCajaPage() {
                   <td
                     key={t.dia}
                     className={`px-1.5 py-1.5 text-right tabular-nums ${
-                      t.acumulado_gs < 0 ? "text-red-600" : t.egreso_gs > 0 ? "text-slate-700" : "text-slate-300"
+                      t.acumulado_gs < 0 ? "text-red-600"
+                      : t.egreso_gs > 0 || t.ingreso_gs > 0 ? "text-slate-700"
+                      : "text-slate-300"
                     } ${esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""}`}
                   >
                     {miles(t.acumulado_gs)}
@@ -552,7 +612,7 @@ export default function FlujoCajaPage() {
                   <td
                     key={t.dia}
                     className={`px-1.5 py-1.5 text-right text-[11px] tabular-nums ${
-                      t.egreso_gs > 0 ? "text-slate-400" : "text-slate-300"
+                      t.egreso_gs > 0 || t.ingreso_gs > 0 ? "text-slate-400" : "text-slate-300"
                     } ${esHoy(t.dia) ? "bg-[#4FAEB2]/5" : esFinde(t.dia) ? "bg-slate-50/60" : ""}`}
                   >
                     {miles(t.acumulado_usd, 0)}
@@ -578,12 +638,23 @@ export default function FlujoCajaPage() {
         />
       )}
 
-      <p className="text-[11px] leading-relaxed text-slate-500">
-        <strong>Disponible</strong> arranca en los fondos del mes y baja con cada pago
-        proyectado. En la planilla este número se llevaba en negativo; acá es positivo
-        mientras quede plata, y pasa a rojo si los pagos del mes superan los fondos.
-        Los cheques ya cobrados no suman: ya salieron del banco.
-      </p>
+      <div className="space-y-1.5 text-[11px] leading-relaxed text-slate-500">
+        <p>
+          <strong>Disponible</strong> arranca en los fondos del mes, <strong>suma</strong> las
+          cobranzas que vencen ese día y <strong>resta</strong> los pagos proyectados. Pasa a rojo
+          cuando los pagos del mes superan a lo que hay más lo que entra.
+        </p>
+        <p>
+          Si el mes no tiene fondos propios cargados, abre con lo que quedó del mes anterior, igual
+          que la caja con el sobrante del día. Cargar la posición de liquidez (bancos + efectivo) lo
+          vuelve a anclar a la plata real: cuando está cargada, manda ella.
+        </p>
+        <p>
+          Los cheques ya cobrados no suman: ya salieron del banco. Las cobranzas vencidas sin cobrar
+          tampoco: van avisadas aparte, arriba. En la planilla el Disponible se llevaba en negativo;
+          acá es positivo mientras quede plata.
+        </p>
+      </div>
     </div>
   );
 }

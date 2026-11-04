@@ -6,12 +6,39 @@
 
 ## Qué hace
 
-Muestra, día por día, cuánto hay que pagarle a cada proveedor este mes.
+Muestra, día por día, cuánto hay que pagarle a cada proveedor este mes, cuánto se espera cobrar, y
+con cuánta plata se queda la empresa después de cada día.
 
 Una fila por proveedor, una columna por día. Cada celda es un pago, pintada según el estado del
 cheque.
 
 Las facturas **aparecen solas**: salen de las compras ya cargadas. No se tipea nada dos veces.
+
+---
+
+## Las tres filas del pie
+
+| Fila | Qué dice |
+|---|---|
+| **Subtotal** | Lo que se paga ese día, separado por moneda |
+| **Cobranzas** | Lo que vence ese día en cuentas por cobrar. Pasá el mouse y salen los clientes |
+| **Disponible** | Con cuánto queda la empresa: fondos **+ cobranzas − pagos**, arrastrado día a día |
+
+**Disponible en rojo** = los pagos del mes superan a lo que hay más lo que entra.
+
+### De dónde salen los fondos con que abre el mes
+
+En este orden, y la pantalla avisa cuál usó:
+
+1. **Posición de liquidez** del mes (bancos + efectivo). Si está cargada, manda ella.
+2. **Fondos disponibles**, el monto escrito a mano arriba.
+3. **Arrastre**: el Disponible con que cerró el mes anterior, igual que la caja chica abre con el
+   sobrante del día. Encadena hasta doce meses hacia atrás.
+4. Nada de lo anterior → arranca en cero **y lo dice**, con un cartel amarillo.
+
+El arrastre es una **proyección**, no un extracto bancario: usa lo que estaba previsto cobrar y
+pagar, no lo que de verdad pasó por el banco. Cargar la posición de liquidez es la forma de volver a
+anclarlo a la plata real.
 
 ---
 
@@ -51,7 +78,7 @@ Una factura de hoy con plazo 30 cae **el mes que viene**. Es el error más comú
 
 ## Antes de empezar
 
-- Scripts `07_flujo_caja_cheques.sql` y `08_flujo_caja_saldos.sql` corridos
+- Tablas `cheques`, `cheque_compras`, `flujo_caja_config` y `flujo_caja_saldos` creadas
 - Un banco cargado en **Pagos → Bancos y cajas**
 - Tipo de cambio y fondos del mes guardados, arriba en la misma pantalla
 
@@ -70,7 +97,10 @@ Una factura de hoy con plazo 30 cae **el mes que viene**. Es el error más comú
 | 7 | "Marcar cobrado hoy" | Pasa a **amarillo** y deja de sumar |
 | 8 | "Anular" | Pasa a **gris** y deja de sumar |
 | 9 | Dos cheques con el mismo número en el mismo banco | Se rechaza |
-| 10 | Cargar fondos y tipo de cambio | La fila *Disponible* arranca en los fondos y baja con cada pago. Rojo si no alcanza |
+| 10 | Cargar fondos y tipo de cambio | La fila *Disponible* arranca en los fondos, sube con las cobranzas y baja con cada pago. Rojo si no alcanza |
+| 11 | Pasar a un mes SIN fondos cargados | Abre con el cierre del mes anterior y lo dice en un cartel gris, nombrando el mes. **No** arranca en cero |
+| 12 | Venta a crédito con vencimiento este mes | Aparece en la fila *Cobranzas* el día que vence, y el Disponible sube |
+| 13 | Dejar vencer una cuenta por cobrar y mirar el mes siguiente | Cartel rojo con el total vencido. Ese monto **no** está sumado en Disponible |
 
 ---
 
@@ -80,8 +110,9 @@ Una factura de hoy con plazo 30 cae **el mes que viene**. Es el error más comú
 - Hay **dos tipos de cambio** y son distintos. El de la compra convierte esa factura. El de la
   cabecera convierte solo el total del mes, y se pone más alto a propósito, como colchón.
 - Los saldos de bancos, efectivo y mercadería **se cargan a mano**. No hay conciliación bancaria.
-- La **mercadería no suma** a los fondos disponibles.
-- Al cambiar de mes, los **fondos no se arrastran** (el tipo de cambio sí).
+- La **mercadería no suma** a los fondos disponibles: es plata inmovilizada en stock.
+- Las **cobranzas vencidas sin cobrar NO se suman** al Disponible. Van avisadas aparte, arriba de la
+  grilla. Contar como disponible la plata que justamente no entró sería mentirse.
 - La fila **VARIOS** junta a los proveedores chicos y no permite emitir cheques desde ahí.
 
 ---

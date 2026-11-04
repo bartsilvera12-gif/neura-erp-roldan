@@ -10,7 +10,15 @@
  *  · Un cheque cobrado ya salió del banco: deja de proyectarse (en la planilla
  *    se lo multiplicaba por cero).
  *  · Los proveedores chicos o locales no llevan fila propia: se suman en VARIOS.
+ *  · El mes abre con lo que quedó del anterior, salvo que tenga fondos propios
+ *    cargados (ver `arrastre.ts`).
+ *  · El Disponible suma las cobranzas que vencen y resta los pagos. Antes solo
+ *    restaba, y por eso todo mes nuevo salía en rojo.
  */
+
+import type { OrigenFondos } from "./arrastre";
+
+export type { OrigenFondos };
 
 export type MonedaFlujo = "PYG" | "USD";
 
@@ -74,10 +82,31 @@ export interface TotalesDia {
   subtotal_gs: number;
   /** subtotal_usd × tipo_cambio + subtotal_gs */
   egreso_gs: number;
-  /** Fondos que quedan después de los pagos de ese día. */
+  /**
+   * Cobranzas que vencen ese día: el saldo de las cuentas por cobrar.
+   *
+   * Hasta que existió esta columna el Disponible solo restaba, y un flujo de
+   * caja de una sola dirección contesta "cuánto me queda si no cobro nada en
+   * todo el mes", que no es la pregunta que nadie hace.
+   */
+  ingreso_gs: number;
+  /** Fondos que quedan después de los cobros y los pagos de ese día. */
   acumulado_gs: number;
   /** El acumulado llevado a dólares al tipo de cambio del mes. */
   acumulado_usd: number;
+}
+
+/** Una cobranza proyectada dentro de una celda. */
+export interface CobranzaProyectada {
+  cuenta_id: string;
+  cliente_nombre: string;
+  numero_venta: string | null;
+  /** Lo que falta cobrar, no el total de la venta. */
+  saldo: number;
+  moneda: MonedaFlujo;
+  /** `parcial` si ya se cobró una parte. */
+  estado: string;
+  fecha_vencimiento: string;
 }
 
 export interface FlujoCajaConfig {
@@ -96,11 +125,23 @@ export interface FlujoCajaMes {
   dias: number;
   filas: FilaFlujo[];
   totales: TotalesDia[];
+  /** Las cobranzas que vencen en el mes, por día (clave 1..31). */
+  cobranzas: Record<number, CobranzaProyectada[]>;
   /** Suma del mes, sin contar cobrados ni anulados. */
   resumen: {
     total_usd: number;
     total_gs: number;
     egreso_total_gs: number;
+    /** Lo que se espera cobrar en el mes, en guaraníes. */
+    ingreso_total_gs: number;
+    /**
+     * Saldos por cobrar que vencieron ANTES del mes y siguen sin cobrarse.
+     *
+     * NO se suma al Disponible: es plata que ya debería haber entrado y no
+     * entró, y meterla en la proyección sería contar como disponible algo que
+     * justamente no está. Va aparte, como aviso.
+     */
+    cobranzas_vencidas_gs: number;
     acumulado_final_gs: number;
   };
   /**
@@ -109,8 +150,14 @@ export interface FlujoCajaMes {
    * de bancos + efectivo; la mercadería va aparte porque no es plata disponible.
    */
   liquidez: {
-    /** `saldos` si hay cuentas cargadas; `manual` si vale el monto de la config. */
-    origen: "saldos" | "manual";
+    /**
+     * De dónde salieron los fondos iniciales: `saldos` (posición de liquidez),
+     * `manual` (el monto escrito en la config), `arrastre` (el cierre del mes
+     * anterior) o `sin_datos` (no había de dónde sacarlo).
+     */
+    origen: OrigenFondos;
+    /** Si vino arrastrado, de qué mes salió el último monto cargado. */
+    arrastre_de?: { anio: number; mes: number };
     total_gs: number;
     mercaderia_gs: number;
     detalle: SaldoLiquidez[];
