@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import EmpleadoForm, { cuerpoDesdeForm, formDesdeEmpleado } from "@/components/rrhh/EmpleadoForm";
-import EmpleadoEspecialidades from "@/components/rrhh/EmpleadoEspecialidades";
 import EmpleadoArchivos from "@/components/rrhh/EmpleadoArchivos";
 import EmpleadoSalarios from "@/components/rrhh/EmpleadoSalarios";
 import { EstadoEmpleadoBadge, Iniciales } from "@/components/rrhh/EmpleadoBadges";
@@ -140,7 +139,6 @@ export default function EmpleadoDetallePage() {
       <EmpleadoForm form={form} setF={setF} usuarios={usuarios} falta73={falta73} esNuevo={false} onSubmit={guardar} />
 
       <EmpleadoSalarios empleadoId={params.id} />
-      <EmpleadoEspecialidades empleadoId={params.id} />
       <EmpleadoArchivos empleadoId={params.id} />
     </div>
   );
