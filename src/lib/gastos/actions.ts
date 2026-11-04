@@ -77,6 +77,16 @@ export type Gasto = {
   proveedor_ruc?: string | null;
   nro_timbrado?: string | null;
   numero_factura?: string | null;
+  /**
+   * A qué cuenta del plan se imputa el gasto: el DEBE del asiento.
+   *
+   * La contrapartida —de dónde salió la plata— es `cuenta_contrapartida_id`.
+   * NULL = sin clasificar, que es como quedaron todos los gastos anteriores al
+   * script 69: ponerles "Gastos varios" en masa habría sido inventarles una
+   * clasificación, y un gasto mal imputado es peor que uno sin imputar porque
+   * el segundo se ve.
+   */
+  cuenta_contable_id?: string | null;
 };
 
 /** Unidad de negocio del gasto. */
@@ -98,6 +108,8 @@ export type GastoInput = {
   proveedor_ruc?: string | null;
   nro_timbrado?: string | null;
   numero_factura?: string | null;
+  /** Cuenta del plan a la que se imputa. Vacío = sin clasificar. */
+  cuenta_contable_id?: string | null;
   /** Desglose de IVA de una factura mixta (montos con IVA INCLUIDO). Si alguno
    * es > 0, mandan sobre `monto`/`tipo_iva`. */
   inc_exenta?: number;
@@ -133,6 +145,7 @@ function mapRow(r: Record<string, unknown>): Gasto {
     proveedor_ruc: r.proveedor_ruc == null || String(r.proveedor_ruc).trim() === "" ? null : String(r.proveedor_ruc),
     nro_timbrado: r.nro_timbrado == null || String(r.nro_timbrado).trim() === "" ? null : String(r.nro_timbrado),
     numero_factura: r.numero_factura == null || String(r.numero_factura).trim() === "" ? null : String(r.numero_factura),
+    cuenta_contable_id: r.cuenta_contable_id == null ? null : String(r.cuenta_contable_id),
   };
 }
 
@@ -224,6 +237,7 @@ export async function createGasto(input: GastoInput): Promise<Gasto> {
       proveedor_ruc: input.proveedor_ruc?.trim() || null,
       nro_timbrado: input.nro_timbrado?.trim() || null,
       numero_factura: input.numero_factura?.trim() || null,
+      cuenta_contable_id: input.cuenta_contable_id || null,
     })
     .select()
     .single();
@@ -248,6 +262,7 @@ export async function updateGasto(id: string, input: Partial<GastoInput>): Promi
   if (input.proveedor_ruc !== undefined) update.proveedor_ruc = input.proveedor_ruc?.trim() || null;
   if (input.nro_timbrado !== undefined) update.nro_timbrado = input.nro_timbrado?.trim() || null;
   if (input.numero_factura !== undefined) update.numero_factura = input.numero_factura?.trim() || null;
+  if (input.cuenta_contable_id !== undefined) update.cuenta_contable_id = input.cuenta_contable_id || null;
   if (input.unidad_negocio !== undefined) update.unidad_negocio = input.unidad_negocio;
   // Recalcular el desglose de IVA si el form mandó monto/tipo o buckets (siempre
   // los manda al editar). Actualiza monto + bases + IVAs + tipo.

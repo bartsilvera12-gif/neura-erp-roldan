@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { getGastos, deleteGasto } from "@/lib/gastos/actions";
 import type { Gasto } from "@/lib/gastos/actions";
 import { useModoPersistido } from "@/components/ui/ToggleNutricionConsig";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 import { ClipboardList } from "lucide-react";
 
@@ -44,6 +45,8 @@ const metodoPagoBadge: Record<string, { label: string; className: string }> = {
 export default function GastosPage() {
   const [modo, setModo] = useModoPersistido("gastos.modo");
   const [gastos, setGastos] = useState<Gasto[]>([]);
+  /** id de cuenta → "5.2.03 · Alquileres", para no mostrar un uuid en la tabla. */
+  const [cuentas, setCuentas] = useState<Map<string, string>>(new Map());
   const [cargando, setCargando] = useState(true);
   const [eliminando, setEliminando] = useState<string | null>(null);
 
@@ -90,7 +93,24 @@ export default function GastosPage() {
       .then(setGastos)
       .catch(() => setGastos([]))
       .finally(() => setCargando(false));
+
+    // Los nombres de las cuentas, para no mostrar un uuid. Si falla, la
+    // columna dice el código y listo: no vale la pena romper la lista.
+    fetchWithSupabaseSession("/api/gastos/cuentas", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success) return;
+        const m = new Map<string, string>();
+        for (const c of (j.data?.cuentas ?? []) as { id: string; etiqueta: string }[]) {
+          m.set(c.id, c.etiqueta);
+        }
+        setCuentas(m);
+      })
+      .catch(() => { /* la columna cae a "—" */ });
   }, []);
+
+  /** Nombre legible de la cuenta, o un guion si no se pudo resolver. */
+  const cuentaDe = (id: string) => cuentas.get(id) ?? "—";
 
   async function handleEliminar(g: Gasto) {
     if (!confirm(`¿Eliminar el gasto "${g.descripcion || g.categoria || "sin descripción"}"?`)) return;
@@ -270,6 +290,7 @@ export default function GastosPage() {
               <tr className="border-b border-slate-200 bg-slate-50">
                 <th className="text-left text-sm font-semibold text-slate-600 px-5 py-3">Fecha</th>
                 <th className="text-left text-sm font-semibold text-slate-600 px-5 py-3 hidden lg:table-cell">Rubro</th>
+                <th className="text-left text-sm font-semibold text-slate-600 px-5 py-3 hidden xl:table-cell">Cuenta</th>
                 <th className="text-left text-sm font-semibold text-slate-600 px-5 py-3">Beneficiario</th>
                 <th className="text-left text-sm font-semibold text-slate-600 px-5 py-3">Descripción</th>
                 <th className="text-left text-sm font-semibold text-slate-600 px-5 py-3">Monto</th>
@@ -281,7 +302,7 @@ export default function GastosPage() {
             <tbody className="divide-y divide-slate-200">
               {filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-sm text-gray-400">
+                  <td colSpan={9} className="py-12 text-center text-sm text-gray-400">
                     Ningún gasto coincide con los filtros aplicados.
                   </td>
                 </tr>
@@ -290,6 +311,17 @@ export default function GastosPage() {
                 <tr key={g.id} className="hover:bg-[#4FAEB2]/[0.04] transition-colors">
                   <td className="px-5 py-3.5 text-sm text-gray-600">{formatFecha(g.fecha)}</td>
                   <td className="px-5 py-3.5 text-sm font-medium text-gray-800 hidden lg:table-cell">{g.categoria || "—"}</td>
+                  {/* Un gasto sin cuenta no es un error, pero tiene que verse:
+                      es trabajo que alguien va a tener que hacer después. */}
+                  <td className="px-5 py-3.5 text-sm hidden xl:table-cell">
+                    {g.cuenta_contable_id ? (
+                      <span className="text-slate-700">{cuentaDe(g.cuenta_contable_id)}</span>
+                    ) : (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                        Sin clasificar
+                      </span>
+                    )}
+                  </td>
                   <td className="px-5 py-3.5 text-sm text-gray-800 max-w-[180px] truncate">
                     {g.beneficiario || <span className="text-slate-400">—</span>}
                   </td>

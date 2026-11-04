@@ -7,6 +7,8 @@ import MontoInput from "@/components/ui/MontoInput";
 import type { Gasto, GastoInput } from "@/lib/gastos/actions";
 import { hoyAsuncionYmd } from "@/lib/fecha/asuncion";
 import { formatearNumeroFactura } from "@/lib/formato/numero-factura";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { getGastos } from "@/lib/gastos/actions";
 
 import { ClipboardList } from "lucide-react";
 
@@ -19,12 +21,26 @@ type Props = {
   onSuccess?: () => void;
 };
 
+/** Una cuenta del plan, como la devuelve /api/gastos/cuentas. */
+type CuentaOpcion = { id: string; cuenta: string; denominacion: string; etiqueta: string };
+
 export default function GastoForm({ gasto, onSuccess }: Props) {
   const router = useRouter();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** null mientras carga; [] si el plan no tiene cuentas de gasto. */
+  const [cuentas, setCuentas] = useState<CuentaOpcion[] | null>(null);
+  /**
+   * Qué cuenta se usó la última vez para este mismo rubro.
+   *
+   * No se aplica sola: se ofrece. El sistema puede sugerir por dónde fue la
+   * última vez, pero clasificar un gasto es una decisión contable y ponerla
+   * automáticamente haría que nadie la mire.
+   */
+  const [porRubro, setPorRubro] = useState<Map<string, string>>(new Map());
 
   const [form, setForm] = useState<GastoInput>({
+    cuenta_contable_id: gasto?.cuenta_contable_id ?? "",
     categoria: gasto?.categoria ?? "",
     descripcion: gasto?.descripcion ?? "",
     monto: gasto?.monto ?? 0,
@@ -57,6 +73,47 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
       setForm((prev) => ({ ...prev, unidad_negocio: "consignataria" }));
     }
   }, [gasto]);
+
+  // Las cuentas del plan a las que se puede imputar, y qué se usó la última
+  // vez para cada rubro. Si algo de esto falla, el formulario sigue andando:
+  // la cuenta es un campo más, no un requisito para registrar un gasto.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const r = await fetchWithSupabaseSession("/api/gastos/cuentas", { cache: "no-store" });
+        const j = await r.json();
+        if (!vivo) return;
+        setCuentas(r.ok && j?.success ? ((j.data?.cuentas ?? []) as CuentaOpcion[]) : []);
+      } catch {
+        if (vivo) setCuentas([]);
+      }
+      try {
+        const previos = await getGastos();
+        if (!vivo) return;
+        // Del más reciente al más viejo: el primero que aparece para cada
+        // rubro es el último que se usó.
+        const m = new Map<string, string>();
+        for (const g of previos) {
+          const k = (g.categoria ?? "").trim().toLowerCase();
+          if (!k || !g.cuenta_contable_id || m.has(k)) continue;
+          m.set(k, g.cuenta_contable_id);
+        }
+        setPorRubro(m);
+      } catch {
+        /* sin sugerencia, nada más */
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  /** La cuenta que se usó la última vez para el rubro que está escrito. */
+  const sugerida = (() => {
+    const k = (form.categoria ?? "").trim().toLowerCase();
+    if (!k || !cuentas) return null;
+    const id = porRubro.get(k);
+    return id ? cuentas.find((c) => c.id === id) ?? null : null;
+  })();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value, type } = e.target;
@@ -132,6 +189,46 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
               placeholder="Ej: Servicios, Alquiler, Salarios"
               className={fInput}
             />
+          </div>
+          {/* A qué cuenta del plan se imputa. Va pegado al rubro porque es la
+              misma pregunta vista por el contador: el rubro es el nombre que
+              usa la casa, la cuenta es el nombre que usa la contabilidad. */}
+          <div>
+            <label className={fLabel}>
+              Cuenta contable
+              <span className="ml-1 font-normal text-gray-400">(a qué cuenta va)</span>
+            </label>
+            {cuentas === null ? (
+              <p className="py-2 text-xs text-gray-400">Cargando cuentas…</p>
+            ) : cuentas.length === 0 ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
+                No hay cuentas de gasto cargadas en el plan de cuentas, o falta correr el script 69.
+                El gasto se puede guardar igual y clasificarlo después.
+              </p>
+            ) : (
+              <>
+                <select
+                  name="cuenta_contable_id"
+                  value={form.cuenta_contable_id ?? ""}
+                  onChange={handleChange}
+                  className={fInput}
+                >
+                  <option value="">Sin clasificar</option>
+                  {cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>{c.etiqueta}</option>
+                  ))}
+                </select>
+                {sugerida && !form.cuenta_contable_id && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, cuenta_contable_id: sugerida.id }))}
+                    className="mt-1 text-[11px] font-medium text-[#3F8E91] hover:underline"
+                  >
+                    Usar {sugerida.etiqueta} — es la que se usó la última vez para «{form.categoria.trim()}»
+                  </button>
+                )}
+              </>
+            )}
           </div>
           <div>
             <label className={fLabel}>Descripción</label>
