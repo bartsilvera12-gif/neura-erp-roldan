@@ -3,8 +3,22 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { leerPermisosDeUsuario, puede } from "@/lib/rrhh/permisos";
+import {
+  AVISO_FALTA_73,
+  faltaScript73,
+  normalizarLegajo,
+  siguienteLegajo,
+  sinColumnas73,
+  usuariosDeLaEmpresa,
+  validarLegajoYUsuario,
+} from "@/lib/rrhh/empleado-vinculo";
 
-/** GET /api/rrhh/empleados — lista todos los empleados del tenant. */
+/**
+ * GET /api/rrhh/empleados — lista todos los empleados del tenant.
+ *
+ * Cada empleado trae el nombre de su usuario del sistema, si tiene. A quien
+ * puede editar se le manda además la lista de usuarios, para el selector.
+ */
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -20,7 +34,21 @@ export async function GET(request: NextRequest) {
       .order("nombre", { ascending: true });
 
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
-    return NextResponse.json(successResponse({ empleados: data ?? [] }));
+
+    const usuarios = await usuariosDeLaEmpresa(ctx.supabase, ctx.auth.empresa_id);
+    const porId = new Map(usuarios.map((u) => [u.id, u]));
+    const empleados = ((data ?? []) as Array<Record<string, unknown>>).map((e) => {
+      const u = e.usuario_id ? porId.get(String(e.usuario_id)) : undefined;
+      return { ...e, usuario_nombre: u ? (u.nombre || u.email) : null, usuario_email: u?.email ?? null };
+    });
+    // Si la primera fila no trae la columna, el script 73 no corrió todavía.
+    const falta73 = (data ?? []).length > 0 && !("legajo" in ((data ?? [])[0] as object));
+
+    return NextResponse.json(successResponse({
+      empleados,
+      usuarios: puede(perms, "empleados.editar") ? usuarios : [],
+      ...(falta73 ? { aviso: "Falta correr 73_legajo_y_usuario_del_empleado.sql: todavía no se pueden cargar legajos ni usuarios." } : {}),
+    }));
   } catch (err) {
     console.error("[/api/rrhh/empleados GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("Error al listar empleados"), { status: 500 });
@@ -62,9 +90,17 @@ export async function POST(request: NextRequest) {
 
     const moneda = ["PYG","USD"].includes(String(body.moneda ?? "")) ? String(body.moneda) : "PYG";
 
+    // Legajo: el que se cargó, o el siguiente de la serie si quedó vacío.
+    const legajo = normalizarLegajo(body.legajo) ?? (await siguienteLegajo(ctx.supabase, ctx.auth.empresa_id));
+    const usuarioId = str("usuario_id");
+    const invalido = await validarLegajoYUsuario(ctx.supabase, ctx.auth.empresa_id, { legajo, usuario_id: usuarioId });
+    if (invalido) return NextResponse.json(errorResponse(invalido), { status: 409 });
+
     const insert = {
       empresa_id: ctx.auth.empresa_id,
       nombre,
+      legajo,
+      usuario_id: usuarioId,
       tipo_documento: str("tipo_documento") ?? "CI",
       documento: str("documento"),
       estado,
@@ -116,9 +152,14 @@ export async function POST(request: NextRequest) {
       activo: body.activo === undefined ? true : Boolean(body.activo),
     };
 
-    const { data, error } = await ctx.supabase.from("empleados").insert([insert]).select().single();
+    let { data, error } = await ctx.supabase.from("empleados").insert([insert]).select().single();
+    let aviso: string | undefined;
+    if (error && faltaScript73(error.message)) {
+      ({ data, error } = await ctx.supabase.from("empleados").insert([sinColumnas73(insert)]).select().single());
+      aviso = AVISO_FALTA_73;
+    }
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
-    return NextResponse.json(successResponse({ empleado: data }), { status: 201 });
+    return NextResponse.json(successResponse({ empleado: data, ...(aviso ? { aviso } : {}) }), { status: 201 });
   } catch (err) {
     console.error("[/api/rrhh/empleados POST]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("Error al crear empleado"), { status: 500 });

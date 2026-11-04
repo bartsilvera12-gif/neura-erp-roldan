@@ -32,6 +32,25 @@ export default function UsuariosPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  // Qué empleado de RRHH es cada usuario (script 73). Se cruza por el id del
+  // usuario y, si no, por el correo. Sin permiso de RRHH la columna queda vacía.
+  const [empleadoDe, setEmpleadoDe] = useState<Map<string, { id: string; nombre: string; legajo: string | null }>>(new Map());
+
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/rrhh/empleados", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const m = new Map<string, { id: string; nombre: string; legajo: string | null }>();
+        for (const e of (j?.data?.empleados ?? []) as Array<Record<string, unknown>>) {
+          if (!e.usuario_id) continue;
+          const v = { id: String(e.id), nombre: String(e.nombre ?? ""), legajo: (e.legajo as string | null) ?? null };
+          m.set(String(e.usuario_id), v);
+          if (e.usuario_email) m.set(`mail:${String(e.usuario_email).toLowerCase()}`, v);
+        }
+        setEmpleadoDe(m);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchWithSupabaseSession("/api/empresas/usuarios", { cache: "no-store" })
@@ -118,6 +137,7 @@ export default function UsuariosPage() {
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Email</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden md:table-cell">Teléfono</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Rol</th>
+                <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Empleado</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden md:table-cell">Estado</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Acciones</th>
               </tr>
@@ -142,6 +162,19 @@ export default function UsuariosPage() {
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{usr.telefono ?? "—"}</td>
                   <td className="px-4 py-3">
                     <span className="text-xs font-medium text-gray-600 capitalize">{usr.rol ?? "—"}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const emp = empleadoDe.get(usr.id) ?? empleadoDe.get(`mail:${usr.email.toLowerCase()}`);
+                      return emp ? (
+                        <Link href={`/rrhh/empleados/${emp.id}`} className="text-xs text-[#3F8E91] hover:underline">
+                          {emp.legajo ? <span className="mr-1 font-mono font-semibold">{emp.legajo}</span> : null}
+                          {emp.nombre}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <span

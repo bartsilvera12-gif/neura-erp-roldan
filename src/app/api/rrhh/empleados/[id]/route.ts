@@ -3,6 +3,14 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { leerPermisosDeUsuario, puede } from "@/lib/rrhh/permisos";
+import {
+  AVISO_FALTA_73,
+  faltaScript73,
+  normalizarLegajo,
+  sinColumnas73,
+  usuariosDeLaEmpresa,
+  validarLegajoYUsuario,
+} from "@/lib/rrhh/empleado-vinculo";
 
 /** GET /api/rrhh/empleados/[id] */
 export async function GET(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
@@ -22,7 +30,13 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
     if (!data) return NextResponse.json(errorResponse("Empleado no encontrado"), { status: 404 });
-    return NextResponse.json(successResponse({ empleado: data }));
+    // Los usuarios, para el selector de "usuario del sistema" en la ficha.
+    const usuarios = puede(perms, "empleados.editar") ? await usuariosDeLaEmpresa(ctx.supabase, ctx.auth.empresa_id) : [];
+    return NextResponse.json(successResponse({
+      empleado: data,
+      usuarios,
+      falta_script_73: !("legajo" in (data as object)),
+    }));
   } catch (err) {
     console.error("[/api/rrhh/empleados/:id GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("Error"), { status: 500 });
@@ -79,21 +93,43 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       if (["activo","baja","suspendido","pendiente"].includes(e)) update.estado = e;
     }
     if (body.moneda !== undefined && ["PYG","USD"].includes(String(body.moneda))) update.moneda = body.moneda;
+    // Legajo y usuario del sistema (script 73). Un legajo vacío no se guarda
+    // como vacío: el empleado se queda con el que tenía.
+    if (body.legajo !== undefined) {
+      const l = normalizarLegajo(body.legajo);
+      if (l) update.legajo = l;
+    }
+    if (body.usuario_id !== undefined) update.usuario_id = body.usuario_id ? String(body.usuario_id) : null;
+    const invalido = await validarLegajoYUsuario(
+      ctx.supabase,
+      ctx.auth.empresa_id,
+      { legajo: (update.legajo as string | undefined) ?? null, usuario_id: (update.usuario_id as string | null | undefined) ?? null },
+      id
+    );
+    if (invalido) return NextResponse.json(errorResponse(invalido), { status: 409 });
+
     if (Array.isArray(body.tipos_empleado)) {
       update.tipos_empleado = Array.from(new Set(
         (body.tipos_empleado as unknown[]).map((v) => String(v ?? "").trim().toLowerCase()).filter((s) => s.length > 0)
       ));
     }
 
-    const { data, error } = await ctx.supabase
-      .from("empleados")
-      .update(update)
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .eq("id", id)
-      .select()
-      .single();
+    const escribir = (patch: Record<string, unknown>) =>
+      ctx.supabase
+        .from("empleados")
+        .update(patch)
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("id", id)
+        .select()
+        .single();
+    let { data, error } = await escribir(update);
+    let aviso: string | undefined;
+    if (error && faltaScript73(error.message)) {
+      ({ data, error } = await escribir(sinColumnas73(update)));
+      aviso = AVISO_FALTA_73;
+    }
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
-    return NextResponse.json(successResponse({ empleado: data }));
+    return NextResponse.json(successResponse({ empleado: data, ...(aviso ? { aviso } : {}) }));
   } catch (err) {
     console.error("[/api/rrhh/empleados/:id PATCH]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("Error"), { status: 500 });
