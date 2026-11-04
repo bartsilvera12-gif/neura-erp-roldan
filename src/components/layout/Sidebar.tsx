@@ -212,6 +212,10 @@ const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { label: "Cobros a clientes", href: "/pagos", exactMatch: true },
       { label: "Pagos a proveedores", href: "/pagos/proveedores" },
+      // Juntar varias facturas de un proveedor en un cheque, imprimir la orden
+      // y cargar el recibo que él firma. Es la prueba de que esas facturas ya
+      // se pagaron, para cuando las vuelve a reclamar.
+      { label: "Orden de pago", href: "/pagos/orden-pago" },
       { label: "Flujo de caja", href: "/pagos/flujo-caja" },
       { label: "Bancos y cajas", href: "/configuracion/entidades-bancarias" },
     ],
