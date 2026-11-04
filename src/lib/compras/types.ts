@@ -2,7 +2,14 @@ export type TipoPago = "contado" | "credito";
 export type TipoIva = "exenta" | "5" | "10";
 export type Moneda = "PYG" | "USD";
 /** Método de pago (cómo se pagó). Distinto a TipoPago (contado/crédito, plazo). */
-export type MetodoPago = "efectivo" | "transferencia" | "tarjeta";
+/**
+ * Los medios con los que se paga una compra.
+ *
+ * La lista viva es `MEDIOS_PAGO_COMPRA`, en `pago-caja.ts`, que además dice
+ * cuál de ellos baja el efectivo esperado del arqueo (solo el efectivo).
+ * Este alias existe para no romper lo que ya lo importa de acá.
+ */
+export type MetodoPago = "efectivo" | "transferencia" | "tarjeta" | "cheque";
 
 export interface Compra {
   id: string;

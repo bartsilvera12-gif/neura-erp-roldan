@@ -9,6 +9,7 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { FancySelect } from "@/components/ui/FancySelect";
 import MobileFab from "@/components/ui/MobileFab";
 import AnularCompraModal from "./AnularCompraModal";
+import PagarCompraModal from "./PagarCompraModal";
 import { useModoPersistido } from "@/components/ui/ToggleNutricionConsig";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
@@ -73,6 +74,7 @@ type GrupoCompra = {
   total: number;
   comprobante: boolean;
   anulada: boolean;
+  pagada: boolean;
 };
 
 function agrupar(rows: Compra[]): GrupoCompra[] {
@@ -95,6 +97,7 @@ function agrupar(rows: Compra[]): GrupoCompra[] {
         total: 0,
         comprobante: false,
         anulada: c.estado === "anulada",
+        pagada: c.estado === "pagada",
       };
       map.set(key, g);
     }
@@ -102,6 +105,8 @@ function agrupar(rows: Compra[]): GrupoCompra[] {
     g.total += Number(c.total) || 0;
     if (c.comprobante_storage_path) g.comprobante = true;
     if (c.estado === "anulada") g.anulada = true;
+    // Una compra son varias filas: alcanza con que una esté pagada.
+    if (c.estado === "pagada") g.pagada = true;
   }
   return [...map.values()].sort(
     (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
@@ -144,6 +149,8 @@ function VistaNutricion() {
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [anularTarget, setAnularTarget] = useState<{ numero: string; proveedor: string } | null>(null);
   const [ncTarget, setNcTarget] = useState<GrupoCompra | null>(null);
+  const [pagarTarget, setPagarTarget] = useState<GrupoCompra | null>(null);
+  const [avisoPago, setAvisoPago] = useState<{ nivel: "ok" | "aviso"; mensaje: string } | null>(null);
   // Notas de crédito de compra imputadas, sumadas por numero_control. Se usan para
   // mostrar el saldo neto (total − NC) en la fila, así el descuento se ve acá mismo.
   const [ncMap, setNcMap] = useState<Map<string, number>>(new Map());
@@ -409,6 +416,16 @@ function VistaNutricion() {
                               Nota de crédito
                             </button>
                           )}
+                          {!g.anulada && !g.pagada && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPagarTarget(g); }}
+                              className="mr-2 inline-flex items-center justify-center rounded-md border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+                              title="Registrar el pago y descontarlo del turno de caja abierto"
+                            >
+                              Pagar
+                            </button>
+                          )}
                           {!g.anulada && (
                             <button
                               type="button"
@@ -451,7 +468,37 @@ function VistaNutricion() {
         </EdgeScrollArea>
       </div>
 
+      {/* Qué pasó con el pago. El caso que hay que avisar sí o sí es que no
+          hubiera turno abierto: la compra queda pagada igual, pero la plata no
+          salió de ninguna caja y antes eso pasaba en silencio. */}
+      {avisoPago && (
+        <div className={`mt-3 flex items-start gap-3 rounded-lg border px-3 py-2 text-[12px] leading-snug ${
+          avisoPago.nivel === "aviso"
+            ? "border-amber-200 bg-amber-50 text-amber-800"
+            : "border-emerald-200 bg-emerald-50 text-emerald-800"
+        }`}>
+          <span className="flex-1">{avisoPago.mensaje}</span>
+          <button
+            type="button" onClick={() => setAvisoPago(null)}
+            className="shrink-0 text-xs font-semibold underline underline-offset-2"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
       <MobileFab href="/compras/nueva" label="Nueva compra" />
+
+      {pagarTarget && (
+        <PagarCompraModal
+          numero={pagarTarget.numero_control}
+          proveedor={pagarTarget.proveedor_nombre}
+          total={pagarTarget.total}
+          moneda={pagarTarget.moneda}
+          onClose={() => setPagarTarget(null)}
+          onPagada={(aviso) => { setPagarTarget(null); setAvisoPago(aviso); void recargar(); }}
+        />
+      )}
 
       {anularTarget && (
         <AnularCompraModal

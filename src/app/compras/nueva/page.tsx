@@ -8,6 +8,9 @@ import { saveCompraMulti, uploadComprobante, type CompraItemPayload } from "@/li
 import { getProveedores, proveedorExiste, createProveedor } from "@/lib/proveedores/storage";
 import { getProductos, productoExiste, saveProducto } from "@/lib/inventario/storage";
 import type { TipoIva, TipoPago, Moneda } from "@/lib/compras/types";
+import {
+  MEDIOS_PAGO_COMPRA, normalizarMedioCompra, type MedioPagoCompra,
+} from "@/lib/compras/pago-caja";
 import type { Proveedor } from "@/lib/proveedores/types";
 import type { MetodoValuacion, Producto } from "@/lib/inventario/types";
 import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib/formato/numero-factura";
@@ -140,7 +143,7 @@ export default function NuevaCompraPage() {
     moneda: "PYG" as Moneda,
     tipo_cambio: "",
     fecha_factura: "" as string,
-    metodo_pago: "" as "" | "efectivo" | "transferencia" | "tarjeta",
+    metodo_pago: "" as "" | MedioPagoCompra,
     ubicacion_id: "",
   });
 
@@ -278,7 +281,7 @@ export default function NuevaCompraPage() {
           moneda: (c.moneda === "USD" ? "USD" : "PYG") as Moneda,
           tipo_cambio: c.moneda === "USD" ? String(c.tipo_cambio ?? "") : "",
           fecha_factura: c.fecha_factura ? String(c.fecha_factura).slice(0, 10) : "",
-          metodo_pago: (c.metodo_pago === "efectivo" || c.metodo_pago === "transferencia" || c.metodo_pago === "tarjeta") ? c.metodo_pago : "",
+          metodo_pago: normalizarMedioCompra(c.metodo_pago) ?? "",
           ubicacion_id: typeof c.ubicacion_id === "string" ? c.ubicacion_id : "",
         });
         setEstadoEdit(c.estado === "anulada" ? "anulada" : "registrada");
@@ -777,24 +780,18 @@ export default function NuevaCompraPage() {
                 <select
                   value={cab.metodo_pago}
                   onChange={(e) =>
-                    setCab((p) => ({
-                      ...p,
-                      metodo_pago:
-                        e.target.value === "efectivo" ||
-                        e.target.value === "transferencia" ||
-                        e.target.value === "tarjeta"
-                          ? e.target.value
-                          : "",
-                    }))
+                    setCab((p) => ({ ...p, metodo_pago: normalizarMedioCompra(e.target.value) ?? "" }))
                   }
                   className={inputClass}
                 >
                   <option value="">Sin especificar</option>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="tarjeta">Tarjeta</option>
+                  {MEDIOS_PAGO_COMPRA.map((m) => (
+                    <option key={m.clave} value={m.clave}>{m.label}</option>
+                  ))}
                 </select>
-                <p className="mt-1 text-[11px] text-slate-500">Cómo se hizo el pago.</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Cómo se hizo el pago. Solo el efectivo baja el efectivo esperado del arqueo.
+                </p>
               </div>
               <div>
                 <label className={labelClass}>Moneda</label>

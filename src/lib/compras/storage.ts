@@ -1,4 +1,5 @@
-import type { Compra } from "./types";
+import { normalizarMedioCompra } from "@/lib/compras/pago-caja";
+import type { Compra, MetodoPago } from "./types";
 
 interface CompraApiRow {
   id: string; numero_control: string; proveedor_id: string; proveedor_nombre: string;
@@ -45,10 +46,7 @@ function mapRow(r: CompraApiRow): Compra {
     comprobante_mime_type: r.comprobante_mime_type ?? null,
     fecha: r.fecha,
     fecha_factura: r.fecha_factura ?? null,
-    metodo_pago: (() => {
-      const mp = r.metodo_pago;
-      return mp === "efectivo" || mp === "transferencia" || mp === "tarjeta" ? mp : null;
-    })(),
+    metodo_pago: normalizarMedioCompra(r.metodo_pago),
     estado: (r.estado === "anulada" || r.estado === "pendiente" || r.estado === "pagada" ? r.estado : "registrada") as Compra["estado"],
     anulada_at: r.anulada_at ?? null,
     anulacion_motivo: r.anulacion_motivo ?? null,
@@ -128,7 +126,7 @@ export interface CompraHeaderPayload {
   nro_timbrado: string;
   numero_factura?: string | null;
   fecha_factura?: string | null;
-  metodo_pago?: "efectivo" | "transferencia" | "tarjeta" | null;
+  metodo_pago?: MetodoPago | null;
   comprobante_storage_path?: string | null;
   comprobante_nombre?: string | null;
   comprobante_mime_type?: string | null;

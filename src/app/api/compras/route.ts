@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enlazarConCaja } from "@/lib/caja/enlace-movimientos";
+import { normalizarMedioCompra } from "@/lib/compras/pago-caja";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
@@ -134,7 +135,10 @@ export async function PUT(request: NextRequest) {
     const nroTimbrado = String(body.nro_timbrado ?? "").trim().toUpperCase() || null;
     const numeroFactura = body.numero_factura != null && String(body.numero_factura).trim() !== "" ? String(body.numero_factura).trim() : null;
     const fechaFactura = typeof body.fecha_factura === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha_factura) ? body.fecha_factura : null;
-    const metodoPago = body.metodo_pago === "efectivo" || body.metodo_pago === "transferencia" || body.metodo_pago === "tarjeta" ? body.metodo_pago : null;
+    // Los cuatro medios viven en un solo lugar (`pago-caja.ts`). Antes la lista
+    // estaba escrita a mano acá y en otros dos puntos de este archivo, y un
+    // "cheque" se guardaba como null sin que nadie se enterara.
+    const metodoPago = normalizarMedioCompra(body.metodo_pago);
     const estado = body.estado === "anulada" ? "anulada" : "registrada";
     const proveedorId = body.proveedor_id != null && String(body.proveedor_id).trim() !== "" ? String(body.proveedor_id) : null;
     const proveedorNombre = String(body.proveedor_nombre ?? "").trim() || null;
@@ -223,11 +227,7 @@ export async function POST(request: NextRequest) {
       typeof fechaFacturaRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fechaFacturaRaw)
         ? fechaFacturaRaw
         : null;
-    const metodoPagoRaw = body.metodo_pago;
-    const metodoPago =
-      metodoPagoRaw === "efectivo" || metodoPagoRaw === "transferencia" || metodoPagoRaw === "tarjeta"
-        ? metodoPagoRaw
-        : null;
+    const metodoPago = normalizarMedioCompra(body.metodo_pago);
 
     // ── Condición de pago del proveedor (punto 6.2) ──────────────────────────
     // El plazo en días vive en el proveedor. Si la compra es a crédito y nadie
@@ -459,9 +459,7 @@ export async function PATCH(request: NextRequest) {
     if (body.tipo_pago !== undefined)
       patch.tipo_pago = body.tipo_pago === "credito" ? "credito" : "contado";
     if (body.metodo_pago !== undefined) {
-      patch.metodo_pago =
-        body.metodo_pago === "efectivo" || body.metodo_pago === "transferencia" || body.metodo_pago === "tarjeta"
-          ? body.metodo_pago : null;
+      patch.metodo_pago = normalizarMedioCompra(body.metodo_pago);
     }
     if (body.plazo_dias !== undefined) {
       const n = parseInt(String(body.plazo_dias), 10);
@@ -522,10 +520,20 @@ export async function PATCH(request: NextRequest) {
         observacion: typeof patch.referencia_pago === "string" ? patch.referencia_pago : null,
         usuarioId: ctx.auth.user?.id ?? null,
         usuarioEmail: ctx.auth.user?.email ?? null,
+        // Sin esto el egreso entra como "otros" y el reporte de Ganancias lo
+        // cuenta como gasto operativo, además de tenerlo ya en el CMV.
+        tipoEgreso: "proveedor",
+        proveedor: proveedor || null,
       });
     }
 
-    return NextResponse.json(successResponse({ ok: true, caja_movimiento_id: cajaMovimientoId }));
+    return NextResponse.json(successResponse({
+      ok: true,
+      caja_movimiento_id: cajaMovimientoId,
+      // La pantalla necesita poder distinguir "salió de la caja" de "quedó
+      // pagada pero no había turno abierto". Antes las dos devolvían lo mismo.
+      metodo_pago: (patch.metodo_pago ?? null) as string | null,
+    }));
   } catch (err) {
     console.error("[/api/compras PATCH]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudo actualizar la compra."), { status: 500 });

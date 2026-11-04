@@ -76,6 +76,15 @@ export type EnlaceCajaInput = {
   cobroId?: string | null;
   pagoId?: string | null;
   ventaId?: string | null;
+  /**
+   * Clase del egreso. Importa de verdad en un pago a proveedor: el reporte de
+   * Ganancias excluye `tipo_egreso = 'proveedor'` de los gastos operativos
+   * porque esa plata ya está contada en el CMV. Sin esto, un pago a proveedor
+   * entra como "otros" y se cuenta DOS VECES.
+   */
+  tipoEgreso?: string | null;
+  /** Nombre del proveedor, para que el egreso se pueda leer sin abrir la compra. */
+  proveedor?: string | null;
 };
 
 /**
@@ -112,6 +121,8 @@ export async function enlazarConCaja(
   if (input.cobroId) refs.cobro_id = input.cobroId;
   if (input.pagoId) refs.pago_id = input.pagoId;
   if (input.ventaId) refs.venta_id = input.ventaId;
+  if (input.tipoEgreso) refs.tipo_egreso = input.tipoEgreso;
+  if (input.proveedor) refs.proveedor = input.proveedor.trim().slice(0, 200);
 
   const intentar = async (fila: Record<string, unknown>) =>
     sb.from("caja_movimientos").insert(fila).select("id").single();
