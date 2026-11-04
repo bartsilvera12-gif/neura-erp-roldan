@@ -367,6 +367,9 @@ const MENU_STRUCTURE: MenuItem[] = [
       { label: "Libro mayor", href: "/reportes/libro-mayor" },
       { label: "Libro de ventas", href: "/reportes/libro-ventas" },
       { label: "Libro de compras", href: "/reportes/libro-compras" },
+      // No es un libro: es el indicador de gestión que pidió Joaquín. Va acá
+      // porque se mira con los mismos números del cierre del mes.
+      { label: "Punto de equilibrio", href: "/reportes/punto-equilibrio" },
       { label: "Plan de cuentas", href: "/configuracion/plan-de-cuentas" },
       { label: "Configuración contable", href: "/configuracion/contable" },
     ],

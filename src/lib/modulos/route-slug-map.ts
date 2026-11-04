@@ -212,7 +212,10 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
     p.startsWith("/reportes/libro-mayor") ||
     p.startsWith("/reportes/libro-ventas") ||
     p.startsWith("/reportes/libro-compras") ||
-    p.startsWith("/reportes/paquete-mensual")
+    p.startsWith("/reportes/paquete-mensual") ||
+    // El punto de equilibrio muestra márgenes, costos y gastos del mes: es el
+    // mismo permiso que los libros, no el de Reportes operativos.
+    p.startsWith("/reportes/punto-equilibrio")
   ) {
     return "contabilidad";
   }
