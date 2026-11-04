@@ -15,6 +15,7 @@ import {
   asuncionTrimestreDesdeHasta,
 } from "@/lib/fechas/asuncion-bounds";
 import type { GananciasReporte, GananciasPeriodo, Segmento } from "@/lib/reportes/ganancias-types";
+import { etiquetaTipoEgreso } from "@/lib/caja/tipos-egreso";
 
 function formatGs(v: number) {
   return `Gs. ${Math.round(v).toLocaleString("es-PY")}`;
@@ -115,7 +116,7 @@ export default function GananciasReportePage() {
       <PageHeader
         eyebrow="Zentra · Reportes"
         title="Ganancias"
-        description="Estado de resultados del período: ventas, costo, utilidad bruta, gastos y resultado neto"
+        description="Estado de resultados del período: ventas, costo, utilidad bruta, gastos y resultado neto. El pago a proveedor no cuenta como gasto: ya está en el costo de la mercadería."
         backHref="/reportes"
         backLabel="Reportes"
         actions={
@@ -268,6 +269,27 @@ function ContenidoGanancias({ data }: { data: GananciasReporte }) {
         />
       </div>
 
+      {/* El aviso más importante del informe: si falta el costo de las ventas,
+          la utilidad bruta está inflada y el resultado neto también. Va arriba
+          de la tabla, no en una nota al pie. */}
+      {(a.ventasSinCosto ?? 0) > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">
+            La utilidad bruta de este período está sobrestimada
+          </p>
+          <p className="mt-0.5 text-xs leading-snug">
+            {a.ventasSinCosto} de las {a.cantidadVentas} ventas del período no tienen costo
+            registrado, así que su mercadería entró al informe con costo cero. El costo sale del
+            movimiento de inventario de cada venta, y las ventas que vinieron del sistema anterior
+            no lo tienen.
+          </p>
+          <p className="mt-1.5 text-xs leading-snug">
+            Los gastos sí están completos: lo que falta es del lado del costo. El resultado neto que
+            figura abajo es, entonces, el techo de lo que realmente se ganó, no la cifra.
+          </p>
+        </div>
+      )}
+
       {/* Tabla comparativa detallada */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
@@ -293,6 +315,31 @@ function ContenidoGanancias({ data }: { data: GananciasReporte }) {
               <Fila label="= Utilidad bruta" actual={a.gananciaBruta} anterior={p.gananciaBruta} fmt={formatGs} fuerte />
               <Fila label="Margen bruto %" actual={a.margenBruto} anterior={p.margenBruto} fmt={formatPct} sinGs />
               <Fila label="(−) Gastos operativos" actual={a.gastos} anterior={p.gastos} fmt={formatGs} mejorSiSube={false} />
+              {/* De dónde salen esos gastos. Antes el renglón sumaba solo el
+                  módulo de Gastos —tres filas cargadas— y la ganancia neta
+                  daba igual que la bruta. Los gastos de esta casa viven en los
+                  egresos de caja, así que ahora se cuentan y se abren por
+                  tipo: un número que baja millones sin decir en qué se fue no
+                  se puede discutir con nadie. */}
+              {(a.egresosCaja ?? 0) > 0 && (
+                <Fila label="· de los egresos de caja" actual={a.egresosCaja ?? 0} anterior={p.egresosCaja ?? 0} fmt={formatGs} mejorSiSube={false} tenue />
+              )}
+              {(a.gastosModulo ?? 0) > 0 && (
+                <Fila label="· del módulo de Gastos" actual={a.gastosModulo ?? 0} anterior={p.gastosModulo ?? 0} fmt={formatGs} mejorSiSube={false} tenue />
+              )}
+              {Object.entries(a.egresosPorTipo ?? {})
+                .sort((x, y) => y[1] - x[1])
+                .map(([tipo, monto]) => (
+                  <Fila
+                    key={tipo}
+                    label={`      ${etiquetaTipoEgreso(tipo)}`}
+                    actual={monto}
+                    anterior={(p.egresosPorTipo ?? {})[tipo] ?? 0}
+                    fmt={formatGs}
+                    mejorSiSube={false}
+                    tenue
+                  />
+                ))}
               <Fila label="= Resultado operativo" actual={a.gananciaNeta} anterior={p.gananciaNeta} fmt={formatGs} fuerte />
               <Fila label="(±) Otros ingresos / gastos" actual={0} anterior={0} fmt={formatGs} tenue />
               <Fila label="= Resultado neto" actual={a.gananciaNeta} anterior={p.gananciaNeta} fmt={formatGs} fuerte />

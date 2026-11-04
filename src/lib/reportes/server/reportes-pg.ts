@@ -604,7 +604,18 @@ export interface GananciasBounds {
  *   unidos a la venta por venta_id y filtrando ventas NO anuladas — así el costo
  *   corresponde exactamente a lo vendido (no a todas las compras) y no arrastra
  *   ventas anuladas (cuya reversa entra como movimiento 'anulacion_venta').
- * - Gastos = SUM(gastos.monto) del período.
+ * - Gastos operativos = los gastos cargados en el módulo de Gastos MÁS los
+ *   EGRESOS DE CAJA del período, que es donde esta empresa viene registrando
+ *   sus gastos de verdad: hay 3 filas en `gastos` y más de 14.000 egresos de
+ *   caja. Sin los egresos, la "ganancia neta" era igual a la bruta y el
+ *   renglón no decía nada.
+ *
+ *   NO se cuenta el egreso tipificado como PAGO A PROVEEDOR: esa plata es el
+ *   costo de la mercadería, que ya está en el CMV. Contarla también como gasto
+ *   descontaría dos veces lo mismo y daría una ganancia neta inventada.
+ *
+ *   Tampoco los RETIROS (tipo='retiro'): llevar plata al banco no es un gasto,
+ *   es moverla de lugar. Y los egresos ANULADOS quedan afuera.
  */
 export async function getGananciasPeriodo(
   schemaRaw: string,
@@ -663,12 +674,69 @@ export async function getGananciasPeriodo(
         AND COALESCE(unidad_negocio,'nutricion') <> 'consignataria'`,
     [empresaId, b.desde, b.hasta]);
 
-  const [ventas, cmv, gastos] = await Promise.all([ventasQ, cmvQ, gastosQ]);
+  /**
+   * Los egresos de caja del período, por tipo.
+   *
+   * Se agrupa por tipo para poder mostrar el desglose: una ganancia neta que
+   * baja Gs. 30.000.000 sin decir en qué se fue no se puede discutir con
+   * nadie. El período se mide por `created_at` porque la tabla no tiene una
+   * fecha propia: el egreso se carga cuando ocurre.
+   */
+  const tCM = quoteSchemaTable(schema, "caja_movimientos");
+  const egresosQ = p.query<{ tipo_egreso: string | null; total: number }>(
+    `SELECT COALESCE(tipo_egreso,'otros') AS tipo_egreso,
+            COALESCE(SUM(monto),0)::float8 AS total
+       FROM ${tCM}
+      WHERE empresa_id=$1::uuid${SUC}
+        AND tipo = 'egreso'
+        AND anulado_at IS NULL
+        AND COALESCE(tipo_egreso,'otros') <> 'proveedor'
+        AND created_at>=$2::timestamptz AND created_at<=$3::timestamptz
+      GROUP BY 1`,
+    argsV);
+
+  /**
+   * Cuántas ventas del período NO tienen costo registrado.
+   *
+   * ── POR QUÉ ESTE NÚMERO ES EL MÁS IMPORTANTE DEL INFORME ────────────────
+   *   El CMV sale de los movimientos de inventario de cada venta. Las 85.711
+   *   ventas que vinieron de la migración NO tienen esos movimientos —hay 48
+   *   en toda la base— así que para esos períodos el costo da casi cero y la
+   *   utilidad bruta sale igual a la venta.
+   *
+   *   Un informe que muestra 108 millones de utilidad bruta sin avisar que le
+   *   falta el costo de 134 de sus 156 ventas no es un informe incompleto: es
+   *   un informe que miente. Por eso se cuenta y se avisa arriba del número.
+   */
+  const sinCostoQ = p.query<{ cant: number }>(
+    `SELECT count(*)::int AS cant
+       FROM ${tV} v
+      WHERE ${perV}
+        AND NOT EXISTS (
+          SELECT 1 FROM ${tM} m
+           WHERE m.venta_id = v.id AND m.empresa_id = v.empresa_id
+             AND m.tipo = 'SALIDA' AND m.origen = 'venta'
+        )`, argsV);
+
+  const [ventas, cmv, gastos, egresos, sinCosto] = await Promise.all([
+    ventasQ, cmvQ, gastosQ, egresosQ, sinCostoQ,
+  ]);
 
   const netas = num(ventas.rows[0]?.netas);
   const totales = num(ventas.rows[0]?.totales);
   const costo = num(cmv.rows[0]?.cmv);
-  const gastosTot = num(gastos.rows[0]?.total);
+  const gastosModulo = num(gastos.rows[0]?.total);
+
+  const egresosPorTipo: Record<string, number> = {};
+  let egresosCaja = 0;
+  for (const r of egresos.rows) {
+    const t = String(r.tipo_egreso ?? "otros");
+    const v = num(r.total);
+    egresosPorTipo[t] = (egresosPorTipo[t] ?? 0) + v;
+    egresosCaja += v;
+  }
+
+  const gastosTot = gastosModulo + egresosCaja;
   const gananciaBruta = netas - costo;
   const gananciaNeta = gananciaBruta - gastosTot;
 
@@ -679,6 +747,10 @@ export async function getGananciasPeriodo(
     gananciaBruta,
     margenBruto: netas > 0 ? (gananciaBruta / netas) * 100 : 0,
     gastos: gastosTot,
+    gastosModulo,
+    egresosCaja,
+    egresosPorTipo,
+    ventasSinCosto: num(sinCosto.rows[0]?.cant),
     gananciaNeta,
     margenNeto: netas > 0 ? (gananciaNeta / netas) * 100 : 0,
     cantidadVentas: num(ventas.rows[0]?.cant),
@@ -1091,8 +1163,21 @@ export function sumarGananciasPeriodo(a: GananciasPeriodo, b: GananciasPeriodo):
     gananciaBruta,
     margenBruto: ventasNetas > 0 ? (gananciaBruta / ventasNetas) * 100 : 0,
     gastos: a.gastos + b.gastos,
+    gastosModulo: (a.gastosModulo ?? 0) + (b.gastosModulo ?? 0),
+    egresosCaja: (a.egresosCaja ?? 0) + (b.egresosCaja ?? 0),
+    // Los desgloses se suman tipo por tipo: consolidar dos unidades de negocio
+    // y perder en qué se fue la plata haría que el renglón de gastos vuelva a
+    // ser un número sin explicación.
+    egresosPorTipo: (() => {
+      const out: Record<string, number> = { ...(a.egresosPorTipo ?? {}) };
+      for (const [k, v] of Object.entries(b.egresosPorTipo ?? {})) {
+        out[k] = (out[k] ?? 0) + v;
+      }
+      return out;
+    })(),
     gananciaNeta,
     margenNeto: ventasNetas > 0 ? (gananciaNeta / ventasNetas) * 100 : 0,
     cantidadVentas: a.cantidadVentas + b.cantidadVentas,
+    ventasSinCosto: (a.ventasSinCosto ?? 0) + (b.ventasSinCosto ?? 0),
   };
 }
