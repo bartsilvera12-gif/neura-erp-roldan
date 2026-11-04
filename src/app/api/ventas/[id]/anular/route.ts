@@ -191,7 +191,10 @@ export async function POST(
         const nowIso = new Date().toISOString();
         const uf = await sb
           .from("facturas")
-          .update({ estado: "anulada", saldo: 0, updated_at: nowIso })
+          // "Anulado": es lo que admite facturas_estado_check (y lo que
+          // escriben los demás). Con "anulada" el update fallaba, se logueaba
+          // nomás, y la factura quedaba viva con su saldo.
+          .update({ estado: "Anulado", saldo: 0, updated_at: nowIso })
           .eq("empresa_id", empresaId)
           .eq("id", facturaEDescartar.facturaId);
         if (uf.error) {

@@ -69,25 +69,14 @@ export async function POST(request: NextRequest) {
     const nombreOrigen = nombrePorUbi.get(origenId)!;
     const nombreDestino = nombrePorUbi.get(destinoId)!;
 
-    // 1) Sacar del origen. Si no alcanza, acá corta y no se tocó nada.
-    const errSalida = await ajustarStockUbicacion(sb, empresaId, origenId, productoId, -cantidad);
-    if (errSalida) {
-      return NextResponse.json(errorResponse(`No se pudo sacar del origen: ${errSalida}`), { status: 400 });
-    }
-
-    // 2) Meter en el destino. Si falla, se devuelve al origen para no evaporar
-    //    stock: no hay transacción entre estas dos llamadas.
-    const errEntrada = await ajustarStockUbicacion(sb, empresaId, destinoId, productoId, cantidad);
-    if (errEntrada) {
-      await ajustarStockUbicacion(sb, empresaId, origenId, productoId, cantidad);
-      return NextResponse.json(
-        errorResponse(`No se pudo ingresar al destino: ${errEntrada}. La transferencia se deshizo.`),
-        { status: 400 }
-      );
-    }
-
-    // 3) Rastro en el kardex. El stock global no cambia, así que los dos
-    //    movimientos se compensan: lo que explican es el traslado.
+    // ORDEN: primero el kardex, después el stock.
+    //
+    // Antes era al revés: se movía el stock y recién ahí se escribía el
+    // kardex. Como el CHECK de `origen` no admitía 'transferencia' (hasta el
+    // script 61), el insert fallaba siempre y la mercadería cambiaba de
+    // depósito sin dejar rastro: en producción hay 0 movimientos con ese
+    // origen. Con el kardex adelante, si no se puede registrar no se mueve
+    // nada; si después falla el stock, se borran los dos asientos.
     const firma = await firmaUsuario(sb, ctx.auth);
     const ahora = new Date().toISOString();
     const comun = {
@@ -104,18 +93,43 @@ export async function POST(request: NextRequest) {
       usuario_nombre: firma.nombre,
     };
     const sufijo = motivo ? ` — ${motivo}` : "";
-    const mov = await sb.from("movimientos_inventario").insert([
-      { ...comun, tipo: "SALIDA", referencia: `Transferencia a ${nombreDestino}${sufijo}` },
-      { ...comun, tipo: "ENTRADA", referencia: `Transferencia desde ${nombreOrigen}${sufijo}` },
-    ]);
+    const mov = await sb
+      .from("movimientos_inventario")
+      .insert([
+        { ...comun, tipo: "SALIDA", referencia: `Transferencia a ${nombreDestino}${sufijo}` },
+        { ...comun, tipo: "ENTRADA", referencia: `Transferencia desde ${nombreOrigen}${sufijo}` },
+      ])
+      .select("id");
     if (mov.error) {
-      // El stock ya se movió. Avisamos en vez de fingir que no pasó nada.
       console.error("[/api/inventario/transferencias] kardex", mov.error.message);
       return NextResponse.json(
-        successResponse({
-          ok: true,
-          aviso: "El stock se transfirió, pero no se pudo registrar el movimiento en el kardex.",
-        })
+        errorResponse("No se pudo registrar la transferencia en el kardex; el stock no se movió."),
+        { status: 500 }
+      );
+    }
+    const idsKardex = ((mov.data ?? []) as Array<{ id: string }>).map((m) => m.id);
+    const deshacerKardex = async () => {
+      if (idsKardex.length === 0) return;
+      const del = await sb.from("movimientos_inventario").delete().eq("empresa_id", empresaId).in("id", idsKardex);
+      if (del.error) console.error("[/api/inventario/transferencias] deshacer kardex", del.error.message);
+    };
+
+    // 1) Sacar del origen. Si no alcanza, se borra el kardex y no se tocó stock.
+    const errSalida = await ajustarStockUbicacion(sb, empresaId, origenId, productoId, -cantidad);
+    if (errSalida) {
+      await deshacerKardex();
+      return NextResponse.json(errorResponse(`No se pudo sacar del origen: ${errSalida}`), { status: 400 });
+    }
+
+    // 2) Meter en el destino. Si falla, se devuelve al origen y se borra el
+    //    kardex: no hay transacción entre estas llamadas.
+    const errEntrada = await ajustarStockUbicacion(sb, empresaId, destinoId, productoId, cantidad);
+    if (errEntrada) {
+      await ajustarStockUbicacion(sb, empresaId, origenId, productoId, cantidad);
+      await deshacerKardex();
+      return NextResponse.json(
+        errorResponse(`No se pudo ingresar al destino: ${errEntrada}. La transferencia se deshizo.`),
+        { status: 400 }
       );
     }
 

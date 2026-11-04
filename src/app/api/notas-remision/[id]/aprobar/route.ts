@@ -40,6 +40,10 @@ async function ajustarStock(
   }
 }
 
+/** Orígenes que admite el CHECK de movimientos_inventario (script 61). */
+const ORIGEN_NR_SALIDA = "transferencia_salida";
+const ORIGEN_NR_ENTRADA = "transferencia_entrada";
+
 /**
  * POST /api/notas-remision/[id]/aprobar
  * Body: { aprobador: string }
@@ -140,7 +144,11 @@ export async function POST(
           tipo: "SALIDA",
           cantidad: cant,
           costo_unitario: 0,
-          origen: "nota_remision",
+          // 'nota_remision' no está en movimientos_inventario_origen_check:
+          // el insert fallaba siempre y la mercadería cambiaba de depósito
+          // sin pasar por el kardex. Una NR es un traslado entre depósitos,
+          // y la referencia dice de qué nota viene.
+          origen: ORIGEN_NR_SALIDA,
           referencia: nr.numero,
           fecha: nowIso,
           ubicacion_id: nr.ubicacion_origen_id,
@@ -153,7 +161,7 @@ export async function POST(
           tipo: "ENTRADA",
           cantidad: cant,
           costo_unitario: 0,
-          origen: "nota_remision",
+          origen: ORIGEN_NR_ENTRADA,
           referencia: nr.numero,
           fecha: nowIso,
           ubicacion_id: nr.ubicacion_destino_id,
@@ -161,8 +169,9 @@ export async function POST(
       ];
       const movIns = await supabase.from("movimientos_inventario").insert(movs);
       if (movIns.error) {
-        // Log warning pero no bloquear si es CHECK constraint
-        console.warn(`[NR aprobar] movimiento falló: ${movIns.error.message}`);
+        // Sin kardex no se aprueba: se revierte el stock como cualquier otro error.
+        errores.push(`Kardex ${it.producto_id}: ${movIns.error.message}`);
+        break;
       }
     }
 
@@ -176,7 +185,7 @@ export async function POST(
           .delete()
           .eq("empresa_id", auth.empresa_id)
           .eq("referencia", nr.numero)
-          .eq("origen", "nota_remision");
+          .in("origen", [ORIGEN_NR_SALIDA, ORIGEN_NR_ENTRADA]);
       } catch {}
       return NextResponse.json(errorResponse(`Errores parciales: ${errores.join(" | ")}. La NR queda en pendiente.`), { status: 500 });
     }
