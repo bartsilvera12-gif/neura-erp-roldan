@@ -981,6 +981,12 @@ export async function getFlujoCaja(
   const tG = quoteSchemaTable(schema, "gastos");
   const p = pool();
   const args = [empresaId, b.start, b.end, b.desde, b.hasta];
+  // Postgres rechaza un parámetro que el SQL no usa ("could not determine data
+  // type of parameter $4"). Mandar los cinco a todas las consultas tiraba abajo
+  // el reporte entero, y en compras —que tiene .catch— dejaba los pagos a
+  // proveedores en cero sin avisar. Cada consulta lleva solo los que usa.
+  const argsTs = [empresaId, b.start, b.end];
+  const argsDia = [empresaId, b.desde, b.hasta];
 
   // Cada query devuelve el total del período y el acumulado "antes" (para el saldo inicial).
   const ventasQ = p.query<{ periodo: number; antes: number }>(
@@ -989,15 +995,15 @@ export async function getFlujoCaja(
        FROM ${tV} v
       WHERE v.empresa_id=$1::uuid${SUC_V}
         AND COALESCE(v.tipo_venta,'') <> 'CREDITO'
-        AND COALESCE(v.estado,'completada') <> 'anulada'`, args);
+        AND COALESCE(v.estado,'completada') <> 'anulada'`, argsTs);
   const cobrosQ = p.query<{ periodo: number; antes: number }>(
     `SELECT COALESCE(SUM(monto) FILTER (WHERE fecha_pago>=$2::timestamptz AND fecha_pago<=$3::timestamptz),0)::float8 AS periodo,
             COALESCE(SUM(monto) FILTER (WHERE fecha_pago<$2::timestamptz),0)::float8 AS antes
-       FROM ${tCob} WHERE empresa_id=$1::uuid AND anulado_at IS NULL`, args);
+       FROM ${tCob} WHERE empresa_id=$1::uuid AND anulado_at IS NULL`, argsTs);
   const gastosQ = p.query<{ periodo: number; antes: number }>(
-    `SELECT COALESCE(SUM(monto) FILTER (WHERE fecha>=$4::date AND fecha<=$5::date),0)::float8 AS periodo,
-            COALESCE(SUM(monto) FILTER (WHERE fecha<$4::date),0)::float8 AS antes
-       FROM ${tG} WHERE empresa_id=$1::uuid${SUC}`, args);
+    `SELECT COALESCE(SUM(monto) FILTER (WHERE fecha>=$2::date AND fecha<=$3::date),0)::float8 AS periodo,
+            COALESCE(SUM(monto) FILTER (WHERE fecha<$2::date),0)::float8 AS antes
+       FROM ${tG} WHERE empresa_id=$1::uuid${SUC}`, argsDia);
 
   // Entradas + gastos (siempre disponibles).
   const movsMainQ = p.query<MovimientoCaja>(
@@ -1025,10 +1031,10 @@ export async function getFlujoCaja(
   const ZERO = { rows: [{ periodo: 0, antes: 0 }] };
   const comprasQ = p
     .query<{ periodo: number; antes: number }>(
-      `SELECT COALESCE(SUM(c.total) FILTER (WHERE c.fecha_pago::date>=$4::date AND c.fecha_pago::date<=$5::date),0)::float8 AS periodo,
-              COALESCE(SUM(c.total) FILTER (WHERE c.fecha_pago::date<$4::date),0)::float8 AS antes
+      `SELECT COALESCE(SUM(c.total) FILTER (WHERE c.fecha_pago::date>=$2::date AND c.fecha_pago::date<=$3::date),0)::float8 AS periodo,
+              COALESCE(SUM(c.total) FILTER (WHERE c.fecha_pago::date<$2::date),0)::float8 AS antes
          FROM ${tC} c
-        WHERE c.empresa_id=$1::uuid${SUC_C} AND COALESCE(c.estado,'registrada')='pagada' AND c.fecha_pago IS NOT NULL`, args)
+        WHERE c.empresa_id=$1::uuid${SUC_C} AND COALESCE(c.estado,'registrada')='pagada' AND c.fecha_pago IS NOT NULL`, argsDia)
     .catch(() => ZERO);
   const movsComprasQ = p
     .query<MovimientoCaja>(
@@ -1038,8 +1044,8 @@ export async function getFlujoCaja(
                       MIN(metodo_pago) AS met, SUM(total)::float8 AS total
                  FROM ${tC} c
                 WHERE c.empresa_id=$1::uuid${SUC_C} AND COALESCE(c.estado,'registrada')='pagada'
-                  AND c.fecha_pago::date>=$4::date AND c.fecha_pago::date<=$5::date
-                GROUP BY numero_control) cp`, args)
+                  AND c.fecha_pago::date>=$2::date AND c.fecha_pago::date<=$3::date
+                GROUP BY numero_control) cp`, argsDia)
     .catch(() => ({ rows: [] as MovimientoCaja[] }));
 
   const [ventas, cobros, gastos, movsMain, compras, movsCompras] = await Promise.all([
