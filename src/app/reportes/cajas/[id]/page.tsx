@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 import ComprobantesMovimiento from "@/components/caja/ComprobantesMovimiento";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import { useRolErp } from "@/lib/auth/use-rol-erp";
-import { isErpRolSupervisor } from "@/lib/usuarios/erp-rol-normalize";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import DetalleVentaModal, { type VentaDetalleLite } from "@/components/ventas/DetalleVentaModal";
 import type { CajaReporteRow, CajaDetalleVenta, CajaDetalleMovimiento } from "@/lib/caja/types";
@@ -72,11 +71,22 @@ export default function DetalleCierreCajaPage() {
   const [anularTarget, setAnularTarget] = useState<CajaDetalleVenta | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Anular una factura: administrador o supervisor. La misma regla que aplica
-  // el servidor en /api/ventas/[id]/anular.
+  /**
+   * Anular una factura: la MISMA regla que aplica el servidor en
+   * /api/ventas/[id]/anular, para no mostrar un botón que va a fallar.
+   *
+   *   · El administrador, con cualquier turno.
+   *   · Los demás, con la facultad `anular_venta` Y solo mientras el turno
+   *     siga abierto: un turno cerrado ya se contó y su diferencia se informó.
+   *
+   * Antes esto miraba el ROL —"admin o supervisor"— y no la facultad, así que
+   * a un supervisor al que le hubieran sacado `anular_venta` igual le aparecía
+   * el botón, y recién al apretarlo se enteraba de que no podía.
+   */
   const { isAdmin } = useIsAdmin();
-  const { rol } = useRolErp();
-  const puedeAnular = isAdmin || isErpRolSupervisor(rol);
+  const { tiene } = useFacultades();
+  const cajaCerrada = (data?.caja.estado ?? "") === "cerrada";
+  const puedeAnular = isAdmin || (tiene("anular_venta") && !cajaCerrada);
 
   useEffect(() => {
     if (!id) return;

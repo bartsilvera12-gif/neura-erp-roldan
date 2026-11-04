@@ -6,6 +6,8 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useRolErp } from "@/lib/auth/use-rol-erp";
 import { isErpRolSupervisor } from "@/lib/usuarios/erp-rol-normalize";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
+import { muestraBotonReabrir } from "@/lib/caja/permiso-reabrir";
 import type { CajasReporte } from "@/lib/caja/types";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
@@ -36,6 +38,10 @@ export default function ReporteCajasPage() {
   // que para él no se muestra el link de vuelta.
   const { rol } = useRolErp();
   const soloCierres = isErpRolSupervisor(rol);
+  // El supervisor reabre los turnos del día; los de otro día, solo el admin.
+  // Se usa la misma cuenta que el servidor para no mostrar botones que fallan.
+  const { tiene } = useFacultades();
+  const puedeReabrirAlguno = tiene("reabrir_caja");
   const [reabriendo, setReabriendo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -213,7 +219,11 @@ export default function ReporteCajasPage() {
                         >
                           Ver cierre
                         </Link>
-                        {!abierta && isAdmin && (
+                        {!abierta && muestraBotonReabrir({
+                          esAdmin: isAdmin,
+                          puedeReabrir: puedeReabrirAlguno,
+                          fechaApertura: c.fecha_apertura,
+                        }) && (
                           <button
                             type="button"
                             onClick={() => void reabrir(c.id, c.numero_caja)}

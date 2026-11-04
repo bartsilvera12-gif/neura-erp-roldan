@@ -7,6 +7,8 @@ import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/fi
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 
 import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
+import { puedeReabrirCaja } from "@/lib/caja/permiso-reabrir";
 /**
  * POST /api/cajas/[id]/reabrir — reabre un turno cerrado (punto 5.1).
  *
@@ -14,7 +16,9 @@ import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modi
  * controles y registro de operaciones."
  *
  * LOS CONTROLES, CONCRETAMENTE
- *   · Solo administradores.
+ *   · Administrador: cualquier turno. Con la facultad `reabrir_caja` (la trae
+ *     el supervisor): solo los turnos del día. Un cierre de otro día ya se
+ *     rindió y se firmó; cambiarlo es decisión del administrador.
  *   · Motivo obligatorio.
  *   · No se puede reabrir si el mismo número de caja ya tiene un turno activo:
  *     habría dos turnos abiertos sobre el mismo cajón y las ventas nuevas no
@@ -36,9 +40,12 @@ export async function POST(
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    if (!isAdmin(ctx.auth)) {
+    const esAdmin = isAdmin(ctx.auth);
+    const conFacultad = esAdmin
+      || (await tieneFacultad(ctx.supabase, ctx.auth, "reabrir_caja"));
+    if (!conFacultad) {
       return NextResponse.json(
-        errorResponse("Solo un administrador puede reabrir un turno de caja."),
+        errorResponse("No tenés la facultad de reabrir turnos de caja."),
         { status: 403 }
       );
     }
@@ -58,7 +65,7 @@ export async function POST(
 
     const cQ = await ctx.supabase
       .from("cajas")
-      .select("id, numero_caja, estado, observacion_cierre, fecha_cierre")
+      .select("id, numero_caja, estado, observacion_cierre, fecha_cierre, fecha_apertura")
       .eq("empresa_id", empresaId)
       .eq("sucursal_id", sucursalId)
       .eq("id", cajaId)
@@ -67,8 +74,21 @@ export async function POST(
     if (!cQ.data) return NextResponse.json(errorResponse("Turno no encontrado."), { status: 404 });
 
     const caja = cQ.data as {
-      numero_caja: number; estado: string; observacion_cierre: string | null; fecha_cierre: string | null;
+      numero_caja: number; estado: string; observacion_cierre: string | null;
+      fecha_cierre: string | null; fecha_apertura: string | null;
     };
+
+    // El corte del día se verifica ACÁ y no al entrar: hasta no leer el turno
+    // no se sabe de qué día es, y el permiso depende de eso.
+    const veredicto = puedeReabrirCaja({
+      esAdmin,
+      puedeReabrir: conFacultad,
+      fechaApertura: caja.fecha_apertura,
+    });
+    if (!veredicto.ok) {
+      return NextResponse.json(errorResponse(veredicto.motivo), { status: 403 });
+    }
+
     if (caja.estado !== "cerrada") {
       return NextResponse.json(
         errorResponse("Ese turno no está cerrado."),

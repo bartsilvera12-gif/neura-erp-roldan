@@ -25,7 +25,8 @@ export type Facultad =
   | "fijar_credito"
   | "ver_costos"
   | "cotizar_sin_stock"
-  | "ver_ordenes_venta";
+  | "ver_ordenes_venta"
+  | "reabrir_caja";
 
 export interface FacultadInfo {
   clave: Facultad;
@@ -42,6 +43,17 @@ export const FACULTADES: readonly FacultadInfo[] = [
     descripcion:
       "Deshacer una venta ya cobrada. El administrador puede con cualquiera; " +
       "los demás, solo mientras el turno de caja siga abierto.",
+    grupo: "Caja y ventas",
+  },
+  {
+    clave: "reabrir_caja",
+    label: "Reabrir turnos de caja",
+    descripcion:
+      "Volver a abrir un turno ya cerrado para corregirlo. El administrador " +
+      "puede con cualquiera; los demás, solo con los turnos del día. Un cierre " +
+      "de la semana pasada ya se rindió y se firmó: corregirlo no es corregir, " +
+      "es cambiar un número que alguien dio por bueno. Siempre pide motivo y " +
+      "queda asentado.",
     grupo: "Caja y ventas",
   },
   {
@@ -131,6 +143,6 @@ export function soloFacultadesConocidas(valores: readonly unknown[] | null | und
  */
 export function facultadesDeNivel(nivel: "administrador" | "supervisor" | "usuario"): Facultad[] {
   if (nivel === "administrador") return FACULTADES.map((f) => f.clave);
-  if (nivel === "supervisor") return ["anular_venta", "autorizar_devolucion"];
+  if (nivel === "supervisor") return ["anular_venta", "autorizar_devolucion", "reabrir_caja"];
   return [];
 }

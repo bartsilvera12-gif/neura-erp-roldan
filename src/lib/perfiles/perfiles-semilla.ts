@@ -33,15 +33,17 @@ export const PERFILES_SEMILLA: readonly PerfilSemilla[] = [
     facultades: [
       "anular_venta", "cambiar_medio_pago", "editar_venta", "autorizar_devolucion",
       "fijar_credito", "ver_costos", "cotizar_sin_stock", "ver_ordenes_venta",
+      "reabrir_caja",
     ],
   },
   {
     nombre: "Supervisor",
     descripcion:
-      "Puesto de control. Entra a los cierres de caja, anula lo que está mal y " +
-      "autoriza devoluciones. No configura ni ve costos.",
+      "Puesto de control. Entra a los cierres de caja, reabre los turnos del " +
+      "día para corregirlos, anula lo que está mal y autoriza devoluciones. " +
+      "No configura, no ve costos y no toca los cierres de otros días.",
     nivel: "supervisor",
-    facultades: ["anular_venta", "autorizar_devolucion"],
+    facultades: ["anular_venta", "autorizar_devolucion", "reabrir_caja"],
   },
   {
     nombre: "Cajero",
