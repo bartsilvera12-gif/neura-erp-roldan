@@ -238,6 +238,10 @@ const MENU_STRUCTURE: MenuItem[] = [
       // El PEDIDO al proveedor, previo a la compra: no toca stock ni cuentas
       // por pagar. Se arma a mano o desde Inventario → Bajo mínimo.
       { label: "Órdenes de compra", href: "/ordenes-compra" },
+      // Pedir el mismo listado a varios proveedores y comparar: artículos en
+      // las filas, proveedores en las columnas. "Cotizaciones" acá es precio
+      // de proveedor, no el dólar de Tipos de cambio.
+      { label: "Comparativo de cotizaciones", href: "/compras/cotizaciones" },
       // Punto 7.2: el historial de cotizaciones. Cargar una nueva se hace desde
       // el Dashboard (7.1), que es donde se mira el dólar todos los días.
       { label: "Tipos de cambio", href: "/tipos-cambio" },
