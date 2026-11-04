@@ -34,7 +34,8 @@ const metodoBadge: Record<MetodoValuacion, string> = {
 };
 
 function formatGs(valor: number) {
-  return `Gs. ${valor.toLocaleString("es-PY")}`;
+  // Sin decimales: el costo promedio ponderado los arrastra y el guaraní no tiene.
+  return `Gs. ${Math.round(valor).toLocaleString("es-PY")}`;
 }
 
 function formatStock(valor: number) {

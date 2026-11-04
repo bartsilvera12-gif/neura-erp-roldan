@@ -132,6 +132,17 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    // Entre comprador y vendedor hay unos pocos guaraníes de diferencia. Se
+    // cargó un comprador de 640 con vendedor de 6.400 (un cero de menos) y
+    // pasó: todo lo cobrado en dólares se habría convertido a la décima parte.
+    if (venta > compra * 1.2) {
+      return NextResponse.json(
+        errorResponse(
+          `El comprador (${compra.toLocaleString("es-PY")}) está muy por debajo del vendedor (${venta.toLocaleString("es-PY")}). ¿Le falta un cero?`
+        ),
+        { status: 400 }
+      );
+    }
 
     const firma = await firmaUsuario(ctx.supabase, ctx.auth);
     const ins = await ctx.supabase

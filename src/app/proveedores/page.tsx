@@ -198,11 +198,15 @@ export default function ProveedoresPage() {
                               : p.condicion_pago === "mixto" ? "Mixto"
                               : "Sin definir"}
                           </div>
-                          <div className="text-xs text-slate-400">
-                            {p.plazo_pago_dias != null && p.plazo_pago_dias > 0
-                              ? `${p.plazo_pago_dias} días`
-                              : "sin plazo"}
-                          </div>
+                          {/* Al contado no hay plazo: la migración les puso 1 día
+                              y se leía "Contado · 1 días". */}
+                          {p.condicion_pago !== "contado" && (
+                            <div className="text-xs text-slate-400">
+                              {p.plazo_pago_dias != null && p.plazo_pago_dias > 0
+                                ? `${p.plazo_pago_dias} ${p.plazo_pago_dias === 1 ? "día" : "días"}`
+                                : "sin plazo"}
+                            </div>
+                          )}
                         </>
                       )}
                     </td>

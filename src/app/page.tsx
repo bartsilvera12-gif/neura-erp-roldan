@@ -1216,8 +1216,9 @@ const DashFinanciero = memo(function DashFinanciero({
     for (const c of list) {
       let raw = "";
       if (dim === "tipo_servicio") raw = (c.tipo_servicio_cliente ?? "").trim();
-      else if (dim === "condicion") raw = (c.condicion_pago ?? "").trim();
-      else raw = (c.origen ?? "").trim();
+      // En minúscula: conviven "contado" y "CONTADO" y salían dos porciones "Contado".
+      else if (dim === "condicion") raw = (c.condicion_pago ?? "").trim().toLowerCase();
+      else raw = (c.origen ?? "").trim().toLowerCase();
       const key = raw || "__sin__";
       map.set(key, (map.get(key) ?? 0) + 1);
     }
@@ -1563,7 +1564,10 @@ const DashFinanciero = memo(function DashFinanciero({
               variant="light"
               label="Ventas mensuales"
               value={ventas
-                .filter((v) => enMesCalendarioActual(toCalendarDateStr(v.fecha)))
+                .filter((v) => {
+                  const { desde, hasta } = getRango("mes");
+                  return enRango(v.fecha, desde, hasta);
+                })
                 .reduce((s, v) => {
                   const t = Number(v.total);
                   return s + (Number.isFinite(t) ? t : 0);
@@ -1615,7 +1619,10 @@ const DashInventario = memo(function DashInventario({
 
   const totalProductos = productos.length;
   const totalUnidades  = productosConStock.reduce((s, p) => s + p.stock_actual, 0);
-  const bajosStock     = productosConStock.filter(p => p.stock_actual <= p.stock_minimo).length;
+  // Mismo criterio que el gráfico de estado (Bajo + Crítico): sin mínimo
+  // cargado no hay "bajo el mínimo". Antes contaba los de mínimo 0 y stock 0,
+  // y la tarjeta decía 635 al lado de un gráfico que sumaba 345.
+  const bajosStock     = productosConStock.filter(p => (p.stock_minimo ?? 0) > 0 && p.stock_actual <= p.stock_minimo).length;
   // Valor de inventario: solo productos con stock real (excluye "Menú sin control"),
   // misma definición que el módulo Inventario. Fuente única en lib/inventario/valorizacion.
   const valorTotal     = productos.reduce((s, p) => tieneStockRealValorizable(p) ? s + p.stock_actual * p.costo_promedio : s, 0);

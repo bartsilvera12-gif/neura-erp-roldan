@@ -128,6 +128,16 @@ export default function GastosPage() {
           <p className="mt-0.5 text-xs text-slate-500">
             Servicios, alquiler, sueldos y todo lo que no es mercadería.
           </p>
+          {/* La casa registra los egresos desde la caja (14.000+ movimientos);
+              acá están solo los que se cargan a mano. Sin este aviso, la
+              pantalla dice que la empresa gasta Gs. 220.000 en total. */}
+          <p className="mt-1 text-xs text-slate-500">
+            Los egresos pagados desde caja no se cargan acá: se ven en{" "}
+            <Link href="/reportes/ingresos-egresos" className="font-medium text-[#4FAEB2] hover:underline">
+              Reportes → Ingresos y egresos
+            </Link>
+            .
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Link

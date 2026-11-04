@@ -569,11 +569,6 @@ export default function ClientesPage() {
           )}
         </p>
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex gap-3 text-xs text-gray-400">
-            <span>{clientes.filter((c) => c.estado === "activo").length} activos</span>
-            <span>·</span>
-            <span>{clientes.filter((c) => c.tipo_cliente === "empresa").length} empresas</span>
-          </div>
           <div className="relative">
             <button
               type="button"

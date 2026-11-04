@@ -47,7 +47,9 @@ const origenBadge: Record<OrigenMovimiento, string> = {
 };
 
 function formatGs(valor: number) {
-  return `Gs. ${valor.toLocaleString("es-PY")}`;
+  // El guaraní no tiene decimales: el costo promedio sí los arrastra
+  // (38.848,82) y en pantalla parecía un precio en otra moneda.
+  return `Gs. ${Math.round(valor).toLocaleString("es-PY")}`;
 }
 
 function formatFecha(iso: string) {

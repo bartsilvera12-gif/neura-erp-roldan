@@ -128,6 +128,18 @@ export async function DELETE(request: NextRequest, ctxParams: { params: Promise<
 function asIva(v: unknown): "EXENTA" | "5%" | "10%" {
   return v === "EXENTA" || v === "5%" || v === "10%" ? v : "10%";
 }
+/**
+ * Misma cuenta que al crear (presupuestos-pg.ts): contando el día de emisión,
+ * en fecha de Paraguay (UTC−3).
+ */
+function vencimientoDesde(fechaEmision: string | null | undefined, validez: number | null): string | null {
+  if (!validez || validez <= 0) return null;
+  const t = fechaEmision ? new Date(fechaEmision).getTime() : NaN;
+  const d = new Date((Number.isFinite(t) ? t : Date.now()) - 3 * 60 * 60 * 1000);
+  d.setUTCDate(d.getUTCDate() + (validez - 1));
+  return d.toISOString().slice(0, 10);
+}
+
 export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctxParams.params;
@@ -145,7 +157,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     // Verificar estado actual (no editable si convertido).
     const cur = await ctx.supabase
       .from("presupuestos")
-      .select("estado, cliente_ruc, cliente_id")
+      .select("estado, cliente_ruc, cliente_id, fecha")
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("id", id)
       .maybeSingle();
@@ -326,6 +338,10 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         descuento_total: Math.round(descuento_total),
         total: Math.round(total),
         validez_dias: validez,
+        // El vencimiento acompaña a la validez. Antes se guardaba la validez
+        // nueva y el vencimiento quedaba el de la creación: el PDF decía
+        // "30 días" y el listado lo daba por vencido a los 15.
+        fecha_vencimiento: vencimientoDesde((cur.data as { fecha?: string | null }).fecha, validez),
         forma_pago: body.forma_pago ? String(body.forma_pago) : null,
         plazo_entrega: body.plazo_entrega ? String(body.plazo_entrega) : null,
         observaciones: body.observaciones ? String(body.observaciones).slice(0, 4000) : null,

@@ -92,8 +92,14 @@ export default function TiposCambioPage() {
     () =>
       lista.map((c, i) => {
         const prev = lista[i + 1];
-        const varVenta =
-          prev && prev.venta > 0 ? ((c.venta - prev.venta) / prev.venta) * 100 : null;
+        const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
+        const vV = prev ? pct(c.venta, prev.venta) : null;
+        const vC = prev ? pct(c.compra, prev.compra) : null;
+        // Se muestra la que más se movió de las dos. Antes solo el vendedor:
+        // un comprador cargado en 640 (−90%) aparecía como "−0,0%".
+        const crudo = vV == null ? vC : vC == null ? vV : Math.abs(vC) > Math.abs(vV) ? vC : vV;
+        // Redondeado antes de decidir el signo: −0,004% no es "−0,0%".
+        const varVenta = crudo == null ? null : Math.round(crudo * 10) / 10 || 0;
         return { ...c, varVenta, futura: c.vigente_desde > ahora };
       }),
     [lista, ahora]
