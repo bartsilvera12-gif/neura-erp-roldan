@@ -337,11 +337,10 @@ export async function insertComprasConImpacto(
                   ELSE $2::numeric
                 END,
                 precio_venta = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE precio_venta END,
-                -- Si la compra vino en dólares y trae precio de venta, el
-                -- producto pasa a venderse en dólares: de ahí en más el precio
-                -- en guaraníes se calcula al vender, con la cotización del día.
-                -- La columna precio_venta queda con el equivalente de hoy, para que
-                -- lo que ya la lee siga mostrando un número con sentido.
+                -- Si la compra vino en dólares y trae precio de venta, se
+                -- guarda el dólar y precio_venta queda con el guaraní al
+                -- cambio de ESTA compra. Ese guaraní es el que se cobra, aunque
+                -- después cambie la cotización (ver precioListaGs).
                 precio_usd = CASE WHEN $6::numeric > 0 THEN $6::numeric ELSE precio_usd END,
                 updated_at = now()
           WHERE id = $4::uuid AND empresa_id = $5::uuid`,

@@ -125,10 +125,10 @@ export default function CostoDolarDescuento({
         </div>
 
         <div>
-          {/* El costo en dólares se congela al guardar; el PRECIO en dólares
-              no. Mientras esté cargado, el precio en guaraníes se recalcula
-              al vender con la cotización del día, que es como trabajaba el
-              cliente en su sistema anterior. */}
+          {/* Al guardar un precio en dólares nuevo, el guaraní se fija con la
+              cotización de ese momento y queda así aunque el dólar cambie
+              (pedido del cliente). Para moverlo hay que volver a cargar el
+              precio. */}
           <label className={labelClass}>
             Precio de venta en dólares <span className="text-gray-400 font-normal">(opcional)</span>
           </label>
@@ -147,8 +147,8 @@ export default function CostoDolarDescuento({
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
             {precioUsdNum && precioUsdNum > 0 && tcVenta
-              ? `Hoy sale ${fmtGs(precioUsdNum * tcVenta)} al cambio de ${fmtGs(tcVenta)}. Si el dólar se mueve, el precio acompaña solo.`
-              : "Cargalo y el precio en guaraníes se calcula al vender, con la cotización del día. Vacío = se vende en guaraníes."}
+              ? `Al guardar un precio nuevo queda en ${fmtGs(precioUsdNum * tcVenta)} (cambio de ${fmtGs(tcVenta)}) y no cambia aunque se mueva el dólar.`
+              : "Al guardarlo, el precio en guaraníes se fija con la cotización de ese momento. Vacío = se vende en guaraníes."}
           </p>
         </div>
 

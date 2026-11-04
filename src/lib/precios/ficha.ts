@@ -100,30 +100,31 @@ export function precioConDescuento(
 /**
  * Precio de lista en guaraníes de un producto.
  *
- * ── POR QUÉ NO ALCANZA CON `precio_venta` ─────────────────────────────────
- *   Un producto con `precio_usd` cargado se vende en dólares: su precio en
- *   guaraníes es el dólar por la cotización del día, y cambia cuando cambia
- *   el dólar. `precio_venta` guarda el equivalente del último guardado, que
- *   sirve para que los informes viejos muestren algo con sentido, pero no es
- *   el precio de hoy.
+ * ── EL GUARANÍ QUEDA FIJO DESDE QUE SE CARGA ──────────────────────────────
+ *   Un producto con precio en dólares guarda también su equivalente en
+ *   guaraníes (`precio_venta`), calculado con la cotización del momento en que
+ *   se cargó o se cambió el precio. Ese es el precio de venta.
  *
- *   Sin cotización a mano se cae a `precio_venta`: es el último valor
- *   conocido y está cerca. Vender a cero porque no se pudo leer el tipo de
- *   cambio sería mucho peor.
+ *   Antes se recalculaba al vender con la cotización del día: cambiar el dólar
+ *   en el Dashboard cambiaba el precio de los 939 productos en dólares que ya
+ *   estaban cargados. Pedido del cliente: lo ya cargado conserva el cambio de
+ *   cuando se cargó.
  *
- * Sin redondeo, por decisión del cliente: el precio es exactamente el dólar
- * por la cotización, al guaraní entero porque no existe la fracción.
+ *   Solo si el producto no tiene guaraní guardado (vacío, cero o negativo, como
+ *   los −1,14 de la migración) se convierte con la cotización que se pase.
  */
 export function precioListaGs(
   p: { precio_venta?: number | string | null; precio_usd?: number | string | null },
   cotizacionVenta: number | null | undefined
 ): number {
+  const gs = num(p.precio_venta);
+  if (gs !== null && gs > 0) return Math.round(gs);
   const usd = num(p.precio_usd);
   const tc = num(cotizacionVenta);
   if (usd !== null && usd > 0 && tc !== null && tc > 0) {
     return Math.round(usd * tc);
   }
-  return Math.round(num(p.precio_venta) ?? 0);
+  return Math.round(gs ?? 0);
 }
 
 /** ¿Este producto tiene el precio puesto en dólares? */

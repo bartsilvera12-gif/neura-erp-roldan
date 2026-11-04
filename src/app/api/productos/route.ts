@@ -7,6 +7,7 @@ import { normalizeUpperText, normalizeUpperCodigoBarras } from "@/lib/text/norma
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { preciosDeDeposito, stockDeDeposito, aplicarDeposito } from "@/lib/precios/server/precio-deposito";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { cotizacionVentaUsd } from "@/lib/precios/server/precio-para-cliente";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
 import { applyTokenSearch } from "@/lib/productos/token-search";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
@@ -378,6 +379,15 @@ export async function POST(request: NextRequest) {
     // Ficha en dolares y descuentos. El costo en dolares queda null cuando no
     // se carga: un 0 pasaria el CHECK de la base como si fuera un costo real.
     insertPayload.costo_usd = toNumberOrNull(body.costo_usd);
+    // El precio en dólares se guardaba nunca al crear (el formulario lo manda).
+    // Con dólares, el guaraní se fija acá con la cotización de hoy y no se
+    // mueve más aunque cambie el dólar: ver precioListaGs.
+    const precioUsd = toNumberOrNull(body.precio_usd);
+    insertPayload.precio_usd = precioUsd != null && precioUsd > 0 ? precioUsd : null;
+    if (precioUsd != null && precioUsd > 0) {
+      const tc = await cotizacionVentaUsd(sb, empresaId);
+      if (tc) insertPayload.precio_venta = Math.round(precioUsd * tc);
+    }
     insertPayload.markup_pct = toNumberOrNull(body.markup_pct);
     insertPayload.descuento_pct = toNumberOrNull(body.descuento_pct) ?? 0;
     if (body.modo_receta === "produccion_previa" || body.modo_receta === "preparado_al_vender") {

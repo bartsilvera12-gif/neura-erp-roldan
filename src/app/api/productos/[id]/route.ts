@@ -7,6 +7,7 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { cotizacionVentaUsd } from "@/lib/precios/server/precio-para-cliente";
 import { guardarDelta } from "@/lib/inventario/server/movimiento-delta";
 
 const PRODUCTO_COLS =
@@ -214,6 +215,17 @@ export async function PATCH(
     // Precio de lista en dólares (script 37). Vacío vuelve a NULL: el
     // producto pasa a venderse en guaraníes y manda `precio_venta`.
     if (body.precio_usd !== undefined) patch.precio_usd = toNumberOrNull(body.precio_usd);
+    // Si cambia el precio en dólares, el guaraní se fija con la cotización de
+    // hoy: es el "momento de carga" de ese precio. Si no cambia, el guaraní
+    // guardado queda como está aunque el dólar se haya movido.
+    if (patch.precio_usd != null && Number(patch.precio_usd) > 0) {
+      const actualQ = await sb.from("productos").select("precio_usd").eq("empresa_id", empresaId).eq("id", id).maybeSingle();
+      const anterior = Number((actualQ.data as { precio_usd?: number | string | null } | null)?.precio_usd);
+      if (!actualQ.error && anterior !== Number(patch.precio_usd)) {
+        const tc = await cotizacionVentaUsd(sb, empresaId);
+        if (tc) patch.precio_venta = Math.round(Number(patch.precio_usd) * tc);
+      }
+    }
     if (body.markup_pct !== undefined) patch.markup_pct = toNumberOrNull(body.markup_pct);
     if (body.descuento_pct !== undefined) patch.descuento_pct = toNumberOrNull(body.descuento_pct) ?? 0;
     if (body.modo_receta !== undefined) {

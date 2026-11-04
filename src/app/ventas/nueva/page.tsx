@@ -1822,30 +1822,19 @@ export default function NuevaVentaPage() {
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
           <SectionTitle>Datos de la venta</SectionTitle>
 
-          {/* La venta se cobra siempre en guaraníes. Lo que cambia es de dónde
-              sale el precio: si el producto tiene precio en dólares, el guaraní
-              es el dólar por la cotización del día. Decirlo acá evita la
-              pregunta de por qué hoy el mismo producto cuesta distinto. */}
+          {/* La venta se cobra siempre en guaraníes. Un producto con precio en
+              dólares se vende al guaraní que quedó fijado cuando se cargó su
+              precio (ver precioListaGs): cambiar el dólar no lo mueve. La
+              cotización del día solo entra si la ficha no tiene guaraní. */}
           {/* Solo admin: para el vendedor el precio es el guaraní que está en
               la pantalla, y de dónde salió ese guaraní no es su decisión ni
               puede hacer nada al respecto. */}
           {verMargenes && hayLineaEnDolares && (
-            tcVenta ? (
-              <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-                Hay productos con precio en <strong>dólares</strong>. Se cobra en
-                guaraníes al cambio de <strong>{formatGs(tcVenta)}</strong> por US$ 1
-                {tcDesde ? <> (cotización cargada el {formatFecha(tcDesde)})</> : null}.
-              </div>
-            ) : (
-              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Hay productos con precio en <strong>dólares</strong> y no hay
-                cotización cargada: se está usando el último precio en guaraníes
-                de cada ficha, que puede estar viejo.{" "}
-                <a href="/tipos-cambio" className="font-semibold underline" target="_blank" rel="noreferrer">
-                  Cargar la cotización de hoy
-                </a>
-              </div>
-            )
+            <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              Hay productos con precio en <strong>dólares</strong>. Se cobran en
+              guaraníes al cambio con que se cargó cada precio, no al de hoy
+              {tcVenta ? <> ({formatGs(tcVenta)}{tcDesde ? <>, cargado el {formatFecha(tcDesde)}</> : null})</> : null}.
+            </div>
           )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -2237,19 +2226,18 @@ export default function NuevaVentaPage() {
                                 })()}
                                 {/* Lo mismo acá: el dólar y la cotización son
                                     datos de costo, no del cobro. */}
-                                {verMargenes && prod && precioEnDolares(prod) && (
-                                  tcVenta ? (
+                                {verMargenes && prod && precioEnDolares(prod) && (() => {
+                                  // El cambio con que se fijó el guaraní de la ficha.
+                                  const usd = Number(prod.precio_usd);
+                                  const gs = precioListaGs(prod, tcVenta);
+                                  return (
                                     <p className="text-[11px] leading-snug text-sky-700">
-                                      US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                                      {" × "}{formatGs(tcVenta).replace("Gs. ", "")}{" = "}{formatGs(precioListaGs(prod, tcVenta))}
+                                      US$ {usd.toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                      {" = "}{formatGs(gs)}
+                                      {usd > 0 && gs > 0 && <> (cargado a {formatGs(gs / usd).replace("Gs. ", "")} por US$)</>}
                                     </p>
-                                  ) : (
-                                    <p className="text-[11px] leading-snug text-amber-700">
-                                      Precio en US$ {Number(prod.precio_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ·
-                                      sin cotización: se usa el último precio en guaraníes
-                                    </p>
-                                  )
-                                )}
+                                  );
+                                })()}
                                 {verMargenes && costoMin > 0 && (() => {
                                   // Con las dos tasas: la del artículo para el
                                   // costo, la de la línea para la venta.
