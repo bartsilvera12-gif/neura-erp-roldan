@@ -64,13 +64,32 @@ function fmtGs(n: number | string, moneda: string) {
  * en una fila de botones es más corto que dos filas de filtros que se
  * combinan de seis maneras y confunden más de lo que ayudan.
  */
-type FiltroPresupuesto = "todos" | "vencidos" | EstadoPresupuesto;
+type FiltroPresupuesto = "todos" | "vencidos" | "pendientes" | EstadoPresupuesto;
 
+/**
+ * "Pendientes" son los que se mandaron y todavía no contestaron, Y SIGUEN
+ * VIGENTES.
+ *
+ * ── POR QUÉ NO ES LO MISMO QUE "ENVIADOS" ─────────────────────────────────
+ *   Un presupuesto en estado "enviado" no tiene respuesta por definición: en
+ *   cuanto el cliente contesta pasa a aprobado o rechazado. Pero entre esos
+ *   enviados hay dos cosas distintas:
+ *
+ *     - El que todavía está a tiempo: hay que llamarlo, se puede cerrar.
+ *     - El que ya venció: nadie está esperando nada, el precio no rige y lo
+ *       que hace falta es recotizar.
+ *
+ *   Mezclados en una sola lista, el vendedor llama a los que ya no sirven y
+ *   deja enfriando los que sí. Por eso "Pendientes" deja afuera los vencidos,
+ *   que tienen su propio botón: uno es "lo que puedo cerrar hoy", el otro es
+ *   "lo que hay que rehacer".
+ */
 const FILTROS: { id: FiltroPresupuesto; label: string }[] = [
   { id: "todos", label: "Todos" },
   { id: "borrador", label: "Borradores" },
   { id: "creado", label: "Creados" },
   { id: "enviado", label: "Enviados" },
+  { id: "pendientes", label: "Pendientes" },
   { id: "aprobado", label: "Aprobados" },
   { id: "rechazado", label: "Rechazados" },
   { id: "convertido", label: "Convertidos" },
@@ -212,6 +231,7 @@ export default function PresupuestosPage() {
       .filter((r) =>
         filtro === "todos" ? true
         : filtro === "vencidos" ? estaVencido(r)
+        : filtro === "pendientes" ? (r.estado === "enviado" && !estaVencido(r))
         : r.estado === filtro
       )
       .filter((r) => {
@@ -286,6 +306,7 @@ export default function PresupuestosPage() {
             subtitulo={
               filtro === "todos" ? undefined
               : filtro === "vencidos" ? "Vencidos"
+              : filtro === "pendientes" ? "Pendientes: mandados, sin contestar y vigentes"
               : `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}`
             }
             columnas={["Número", "Cliente", "Fecha", "Vence", "Emitió", "Total", "Moneda", "Estado"]}
@@ -388,6 +409,7 @@ export default function PresupuestosPage() {
             No hay presupuestos{" "}
             {filtro === "todos" ? "todavía"
              : filtro === "vencidos" ? "vencidos"
+             : filtro === "pendientes" ? "pendientes de respuesta"
              : `en estado "${ESTADO_LABEL[filtro as EstadoPresupuesto]}"`}.
           </div>
         ) : (
