@@ -49,7 +49,7 @@ import { isBootstrapSuperAdminEmail } from "@/lib/auth/super-admin-bootstrap-ema
 import { supabase } from "@/lib/supabase";
 import type { ModuloEmpresa } from "@/lib/empresas/actions";
 import { getFavoritos, toggleFavorito } from "@/lib/favorites";
-import { canAccessSidebarSlug } from "@/lib/modulos/route-slug-map";
+import { canAccessSidebarSlug, esAtajoRedundante } from "@/lib/modulos/route-slug-map";
 import { useBoot } from "@/components/BootContext";
 import { getModuleAccessCached, peekModuleAccessCache } from "@/lib/modulos/module-access-cache";
 import { useRolErp } from "@/lib/auth/use-rol-erp";
@@ -245,6 +245,8 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "reportes", slug: "reportes", label: "Reportes", href: "/reportes", icon: BarChart3 },
   // Cierres de caja aparte de Reportes: es el único lugar al que entra un
   // supervisor, y no se llega escondido dentro del hub de reportería.
+  // Para quien SÍ tiene Reportes completo este atajo sobra —sería el mismo link
+  // dos veces— y se oculta solo. Ver `esAtajoRedundante`.
   {
     key: "cierres-caja",
     slug: "cierres-caja",
@@ -755,6 +757,7 @@ export default function Sidebar() {
       (item) =>
         favoritos.includes(idForSlug(item.slug)) &&
         access(item.slug) &&
+        !esAtajoRedundante(item.slug, slugs, esSuperAdmin, inactiveSlugsSet, { strict: strictAllowlist }) &&
         puedeVerSidebarSlugPorRol(item.slug, rolErp) &&
         menuItemMatchesQuery(item, menuSearchQuery)
     );
@@ -769,6 +772,7 @@ export default function Sidebar() {
       (item) =>
         !favoritos.includes(idForSlug(item.slug)) &&
         access(item.slug) &&
+        !esAtajoRedundante(item.slug, slugs, esSuperAdmin, inactiveSlugsSet, { strict: strictAllowlist }) &&
         puedeVerSidebarSlugPorRol(item.slug, rolErp) &&
         menuItemMatchesQuery(item, menuSearchQuery)
     );

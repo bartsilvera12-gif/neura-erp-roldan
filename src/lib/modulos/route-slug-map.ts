@@ -117,6 +117,38 @@ export function canAccessSidebarSlug(
   return isModuleSlugGranted(slug, grantedSlugs, inactiveSlugs, opts);
 }
 
+/**
+ * Ítems del menú que son un ATAJO a una pantalla que ya se alcanza desde otro
+ * lado, y que por eso sobran para quien tiene las dos puertas.
+ *
+ * `cierres-caja` abre `/reportes/cajas`, que además es una tarjeta adentro del
+ * hub de Reportes. El atajo existe por el permiso: al supervisor se le dan los
+ * arqueos SIN darle el resto de la reportería —rentabilidad, márgenes, costos—,
+ * y si la única puerta fuera la tarjeta habría que abrirle el hub entero.
+ *
+ * Pero a quien tiene Reportes completo el atajo le muestra dos veces el mismo
+ * link, sin ninguna diferencia entre uno y otro. Para esa persona se oculta.
+ */
+const ATAJOS_REDUNDANTES: Record<string, string> = {
+  "cierres-caja": "reportes",
+};
+
+/**
+ * `true` si este ítem del menú es un atajo que ya está cubierto por otro módulo
+ * al que la persona también entra. No cambia permisos: solo saca el duplicado.
+ */
+export function esAtajoRedundante(
+  slug: string,
+  grantedSlugs: Set<string>,
+  esSuperAdmin: boolean,
+  inactiveSlugs?: Set<string>,
+  opts?: { strict?: boolean }
+): boolean {
+  const cubiertoPor = ATAJOS_REDUNDANTES[slug];
+  if (!cubiertoPor) return false;
+  return canAccessSidebarSlug(cubiertoPor, grantedSlugs, esSuperAdmin, inactiveSlugs, opts);
+}
+
 /** Primera ruta de app a la que puede entrar el usuario (p. ej. tras login en `/` sin módulo dashboard). */
 export function firstAccessibleHref(
   grantedSlugs: Set<string>,
