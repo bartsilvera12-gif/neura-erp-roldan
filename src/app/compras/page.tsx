@@ -17,6 +17,9 @@ import NotaCreditoCompraModal from "@/components/compras/NotaCreditoCompraModal"
 
 import { FileText, Paperclip } from "lucide-react";
 
+/** Igual que LIMITE_COMPRAS_LISTADO en compras-pg.ts: llegar a ese número no es "el total". */
+const LIMITE_LISTADO = 300;
+
 const inputFilterClass =
   "border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white";
 
@@ -279,7 +282,7 @@ function VistaNutricion() {
             </button>
           )}
           <span className="ml-auto text-sm text-gray-400">
-            {filtrados.length} de {grupos.length} compras
+            {filtrados.length} de {grupos.length >= LIMITE_LISTADO ? `las últimas ${grupos.length}` : grupos.length} compras
           </span>
         </div>
 

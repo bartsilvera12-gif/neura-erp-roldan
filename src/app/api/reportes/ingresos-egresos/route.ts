@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -82,21 +83,35 @@ export async function GET(request: NextRequest) {
     const fin = hasta ? `${hasta}T23:59:59.999${OFFSET_PY}` : null;
 
     // ── Movimientos de caja ───────────────────────────────────────────────
-    let movQ = aplicarFiltroSucursal(
-      ctx.supabase
-        .from("caja_movimientos")
-        .select(
-          "id, caja_id, tipo, concepto, monto, medio_pago, usuario_email, observacion, created_at, tipo_egreso, adjuntos"
-        )
-        .eq("empresa_id", empresaId)
-        // Los anulados no son plata que se movió: ensucian el total.
-        .is("anulado_at", null),
-      sucursalId
-    );
-    if (ini) movQ = movQ.gte("created_at", ini);
-    if (fin) movQ = movQ.lte("created_at", fin);
-    const mov = await movQ.order("created_at", { ascending: false }).limit(5000);
-    if (mov.error) throw new Error(mov.error.message);
+    // Paginado. El `.limit(5000)` de antes no traía 5000: PostgREST corta en
+    // 1000 y no avisa, así que un rango de un año (más de 14.000 egresos)
+    // sumaba solo los mil más recientes.
+    const armarMovQ = () => {
+      let movQ = aplicarFiltroSucursal(
+        ctx.supabase
+          .from("caja_movimientos")
+          .select(
+            "id, caja_id, tipo, concepto, monto, medio_pago, usuario_email, observacion, created_at, tipo_egreso, adjuntos"
+          )
+          .eq("empresa_id", empresaId)
+          // Los anulados no son plata que se movió: ensucian el total.
+          .is("anulado_at", null),
+        sucursalId
+      );
+      if (ini) movQ = movQ.gte("created_at", ini);
+      if (fin) movQ = movQ.lte("created_at", fin);
+      return movQ;
+    };
+    const mov = {
+      data: await traerTodas<Record<string, unknown>>(
+        (d, h) =>
+          armarMovQ().order("created_at", { ascending: false }).order("id", { ascending: true }).range(d, h) as unknown as PromiseLike<{
+            data: Record<string, unknown>[] | null;
+            error: { message: string } | null;
+          }>,
+        { tope: 50_000 }
+      ),
+    };
     const movRows = (mov.data ?? []) as unknown as Array<Record<string, unknown>>;
 
     // Número de caja de cada turno, en una sola consulta.

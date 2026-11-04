@@ -7,6 +7,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { ymdInicioFinMesLocal } from "@/lib/fechas/calendario";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-pool";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 import {
   assertAllowedChatDataSchema,
   isLikelyUnexposedTenantChatSchema,
@@ -201,6 +202,29 @@ function pickRows<T>(
   return result.data ?? [];
 }
 
+type Resultado<T> = { data: T[] | null; error: { message: string } | null };
+
+/**
+ * Todas las filas, no las primeras mil, en la forma que espera `pickRows`.
+ * Sin esto el dashboard veía 1000 de las ventas de 13 meses — las primeras
+ * físicas, de octubre 2025 — y el mes actual salía en cero. Lo mismo con
+ * clientes (1000 de más de mil) y compras.
+ */
+async function paginado<T>(pedir: (desde: number, hasta: number) => PromiseLike<Resultado<T>>): Promise<Resultado<T>> {
+  try {
+    return { data: await traerTodas(pedir), error: null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+  }
+}
+
+/** `.in("venta_id", ids)` con miles de ids revienta el largo de la URL: va en tandas. */
+const TANDA_IDS = 100;
+
+/** Solo lo que mapea `getDashboardData`: con todas las ventas del año, `*` pesaba megas. */
+const COLS_VENTAS = "id, numero_control, subtotal, monto_iva, total, tipo_venta, moneda, tipo_cambio, fecha, estado";
+const COLS_ITEMS = "id, venta_id, producto_id, producto_nombre, sku, cantidad, precio_venta, subtotal, monto_iva, total_linea";
+
 /**
  * GET /api/dashboard/tenant-tables
  * Filas de tablas operativas para el dashboard (misma empresa, service role + schema tenant).
@@ -249,7 +273,7 @@ export async function GET(request: NextRequest) {
       return range ? base.gte("fecha", range.desde).lt("fecha", range.hastaExclusive) : base;
     };
     const buildVentasQ = () => {
-      const base = supabase.from("ventas").select("*").eq("empresa_id", empresaId).eq("sucursal_id", sucursalId);
+      const base = supabase.from("ventas").select(COLS_VENTAS).eq("empresa_id", empresaId).eq("sucursal_id", sucursalId);
       return range ? base.gte("fecha", range.desde).lt("fecha", range.hastaExclusive) : base;
     };
     const buildComprasQ = () => {
@@ -268,7 +292,7 @@ export async function GET(request: NextRequest) {
      */
     const ventasItemsParalelo = range
       ? Promise.resolve({ data: null as unknown[] | null, error: null as { message: string } | null })
-      : supabase.from("ventas_items").select("*").eq("empresa_id", empresaId);
+      : paginado((d, h) => supabase.from("ventas_items").select("*").eq("empresa_id", empresaId).order("id").range(d, h));
 
     const [
       clientesQ,
@@ -286,18 +310,20 @@ export async function GET(request: NextRequest) {
       notaCreditoQ,
     ] = await Promise.all([
       /** Sin `.is("deleted_at", null)` en PostgREST: en tenants viejos la columna puede no existir y rompía todo el batch. */
-      supabase.from("clientes").select("*").eq("empresa_id", empresaId),
-      buildFacturasQ(),
-      buildPagosQ(),
-      buildTipificacionesQ(),
-      aplicarFiltroSucursal(
-        supabase.from("productos").select("*").eq("empresa_id", empresaId).eq("activo", true),
-        exigirSucursal(auth.sucursal_id)
+      paginado((d, h) => supabase.from("clientes").select("*").eq("empresa_id", empresaId).order("id").range(d, h)),
+      paginado((d, h) => buildFacturasQ().order("id").range(d, h)),
+      paginado((d, h) => buildPagosQ().order("id").range(d, h)),
+      paginado((d, h) => buildTipificacionesQ().order("id").range(d, h)),
+      paginado((d, h) =>
+        aplicarFiltroSucursal(
+          supabase.from("productos").select("*").eq("empresa_id", empresaId).eq("activo", true),
+          exigirSucursal(auth.sucursal_id)
+        ).order("id").range(d, h)
       ),
-      buildVentasQ(),
+      paginado((d, h) => buildVentasQ().order("id").range(d, h)),
       ventasItemsParalelo,
-      buildComprasQ(),
-      buildGastosQ(),
+      paginado((d, h) => buildComprasQ().order("id").range(d, h)),
+      paginado((d, h) => buildGastosQ().order("id").range(d, h)),
       supabase
         .from("suscripciones")
         .select("id, cliente_id, precio, moneda, fecha_inicio, created_at")
@@ -335,7 +361,7 @@ export async function GET(request: NextRequest) {
       comprasRows = await fallbackComprasPg(dataSchema, empresaId, sucursalId, range);
       if (comprasRows.length > 0) delete queryErrors.compras;
     }
-    let ventasRows = pickRows("ventas", ventasQ, queryErrors);
+    let ventasRows: unknown[] = pickRows("ventas", ventasQ, queryErrors);
     if ((ventasRows.length === 0 && queryErrors.ventas) || (usarPg && ventasRows.length === 0)) {
       ventasRows = await fallbackVentasPg(dataSchema, empresaId, sucursalId, range);
       if (ventasRows.length > 0) delete queryErrors.ventas;
@@ -353,12 +379,25 @@ export async function GET(request: NextRequest) {
       if (ventaIds.length === 0) {
         ventasItemsRows = [];
       } else {
-        const itemsRes = await supabase
-          .from("ventas_items")
-          .select("*")
-          .eq("empresa_id", empresaId)
-          .in("venta_id", ventaIds);
-        ventasItemsRows = pickRows("ventas_items", itemsRes, queryErrors);
+        const tandas: string[][] = [];
+        for (let i = 0; i < ventaIds.length; i += TANDA_IDS) tandas.push(ventaIds.slice(i, i + TANDA_IDS));
+        const filas: unknown[] = [];
+        let errorItems: { message: string } | null = null;
+        // De a 6 tandas en paralelo: rápido sin ahogar a PostgREST.
+        for (let i = 0; i < tandas.length && !errorItems; i += 6) {
+          const res = await Promise.all(
+            tandas.slice(i, i + 6).map((ids) =>
+              paginado((d, h) =>
+                supabase.from("ventas_items").select(COLS_ITEMS).eq("empresa_id", empresaId).in("venta_id", ids).order("id").range(d, h)
+              )
+            )
+          );
+          for (const r of res) {
+            if (r.error) errorItems = r.error;
+            else filas.push(...(r.data ?? []));
+          }
+        }
+        ventasItemsRows = pickRows("ventas_items", { data: filas, error: errorItems }, queryErrors);
         if ((ventasItemsRows.length === 0 && queryErrors.ventas_items) || (usarPg && ventasItemsRows.length === 0)) {
           ventasItemsRows = await fallbackVentasItemsPg(dataSchema, empresaId, sucursalId, ventaIds);
           if (ventasItemsRows.length > 0) delete queryErrors.ventas_items;

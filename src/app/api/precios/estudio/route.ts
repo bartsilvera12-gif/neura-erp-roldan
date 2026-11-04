@@ -14,6 +14,7 @@ import {
 } from "@/lib/precios/estudio";
 import { margenSobreVenta, remarcacionSobreCosto } from "@/lib/precios/margen";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 
 /**
  * Estudio de precios (punto 10.5).
@@ -73,21 +74,35 @@ export async function GET(request: NextRequest) {
     // "sin_costo", "sin_precio", "bajo_costo" o vacío.
     const solo = (sp.get("solo") ?? "").trim();
 
-    let qb = ctx.supabase
-      .from("productos")
-      .select("id, nombre, sku, costo_promedio, precio_venta, stock_actual, categoria_principal_id")
-      .eq("empresa_id", empresaId)
-      .eq("sucursal_id", sucursalId);
-    if (rubro === "__sin__") qb = qb.is("categoria_principal_id", null);
-    else if (rubro) qb = qb.eq("categoria_principal_id", rubro);
-    if (q) {
-      const t = q.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
-      if (t) qb = qb.or(`nombre.ilike.%${t}%,sku.ilike.%${t}%`);
-    }
+    // Una consulta nueva por página: el builder de supabase acumula los
+    // `order` si se reusa, y la segunda página pediría otro orden.
+    const armar = () => {
+      let qb = ctx.supabase
+        .from("productos")
+        .select("id, nombre, sku, costo_promedio, precio_venta, stock_actual, categoria_principal_id")
+        .eq("empresa_id", empresaId)
+        .eq("sucursal_id", sucursalId);
+      if (rubro === "__sin__") qb = qb.is("categoria_principal_id", null);
+      else if (rubro) qb = qb.eq("categoria_principal_id", rubro);
+      if (q) {
+        const t = q.replace(/[(),]/g, " ").trim().replace(/[%_\\]/g, (m) => `\\${m}`);
+        if (t) qb = qb.or(`nombre.ilike.%${t}%,sku.ilike.%${t}%`);
+      }
+      return qb;
+    };
 
-    const r = await qb.order("nombre", { ascending: true }).limit(TOPE);
-    if (r.error) throw new Error(r.error.message);
-    const crudas = (r.data ?? []) as unknown as Array<Record<string, unknown>>;
+    // Paginado: `.limit(2000)` no trae 2000, trae las 1000 que corta
+    // PostgREST, y `recortado` decía false. Con 1002 artículos, los dos
+    // últimos por nombre no aparecían en el estudio ni en sus totales.
+    let alcanzoTope = false;
+    const crudas = await traerTodas<Record<string, unknown>>(
+      (desde, hasta) =>
+        armar().order("nombre", { ascending: true }).order("id", { ascending: true }).range(desde, hasta) as unknown as PromiseLike<{
+          data: Record<string, unknown>[] | null;
+          error: { message: string } | null;
+        }>,
+      { tope: TOPE, onTope: () => { alcanzoTope = true; } }
+    );
 
     // Nombres de rubro. Consulta aparte: la tabla de rubros es chica y un
     // embed que falle por una relación no declarada dejaría la pantalla vacía.
@@ -133,8 +148,14 @@ export async function GET(request: NextRequest) {
       const k = f.rubro_id ?? "__sin__";
       const a = porRubro.get(k) ?? { rubro_id: f.rubro_id, rubro: f.rubro, articulos: 0, costo: 0, precio: 0, sin_costo: 0, bajo_costo: 0 };
       a.articulos += 1;
-      a.costo += f.costo;
-      a.precio += f.precio;
+      // Al margen del rubro entran solo los que tienen costo Y precio. La
+      // migración dejó artículos con precio −1,14: sumaban su costo entero
+      // contra un precio nulo y hundían el rubro (CHAPA TRAPEZIO Nº 28 daba
+      // −43,5% con todos sus artículos vendiéndose a +12%).
+      if (f.costo > 0 && f.precio > 0) {
+        a.costo += f.costo;
+        a.precio += f.precio;
+      }
       if (f.costo <= 0) a.sin_costo += 1;
       if (f.costo > 0 && f.precio > 0 && f.precio < f.costo) a.bajo_costo += 1;
       porRubro.set(k, a);
@@ -146,7 +167,7 @@ export async function GET(request: NextRequest) {
       por_rubro: [...porRubro.values()]
         .map((a) => ({ ...a, margen: margenSobreVenta(a.costo, a.precio) }))
         .sort((a, b) => b.articulos - a.articulos),
-      recortado: crudas.length >= TOPE,
+      recortado: alcanzoTope,
     }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);

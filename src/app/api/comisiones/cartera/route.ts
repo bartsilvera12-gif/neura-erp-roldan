@@ -7,14 +7,19 @@ import { enCartera, diasRestantesCartera } from "@/lib/comisiones/calculo";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 
 /**
- * Tope de clientes que se traen de una. PostgREST corta en 1000 y el padrón
- * tiene 21.000: sin el tope, la pantalla mostraría los primeros mil y nadie
- * sabría que faltan veinte mil.
+ * Cuántos clientes libres se listan para asignar. El padrón tiene 21.000:
+ * antes se traían los primeros 1000 por nombre (el corte de PostgREST) y con
+ * eso se armaba todo —los totales decían "1000 clientes" y un cliente en
+ * cartera que no cayera entre esos mil no aparecía en ningún lado—.
  *
- * Se pide el máximo que la base devuelve y la pantalla filtra sobre eso. Es la
- * misma limitación que tenía antes; lo que cambia es que ahora está dicha.
+ * Ahora: los totales se cuentan sobre el padrón entero, los clientes en
+ * cartera se listan todos, y de los libres se muestran los que coinciden con
+ * la búsqueda (o los primeros, sin búsqueda).
  */
-const TOPE_CLIENTES = 1000;
+const TOPE_LIBRES = 200;
+
+/** `.in("id", ids)` con miles de ids no entra en la URL. */
+const TANDA_IDS = 100;
 
 const FALTA_64 = "Falta correr 64_cartera_por_sucursal.sql en la base.";
 
@@ -97,14 +102,15 @@ export async function GET(request: NextRequest) {
       .eq("empresa_id", auth.empresa_id).maybeSingle();
     const diasCartera = Number((cfg.data as { dias_cartera?: number } | null)?.dias_cartera) || 30;
 
-    const r = await supabase
+    const buscar = (sp.get("q") ?? "").trim().replace(/[(),]/g, " ").replace(/[%_\\]/g, (m) => `\\${m}`).trim();
+
+    const totalQ = await supabase
       .from("clientes")
-      .select("id, nombre, empresa, nombre_contacto")
+      .select("id", { count: "exact", head: true })
       .eq("empresa_id", auth.empresa_id)
-      .is("deleted_at", null)
-      .order("nombre")
-      .limit(TOPE_CLIENTES);
-    if (r.error) throw new Error(r.error.message);
+      .is("deleted_at", null);
+    if (totalQ.error) throw new Error(totalQ.error.message);
+    const totalClientes = totalQ.count ?? 0;
 
     /**
      * La cartera de ESTA sucursal. Sin fila, el cliente está libre acá.
@@ -141,8 +147,33 @@ export async function GET(request: NextRequest) {
       nombreUsuario.set(String(u.id), String(u.nombre ?? u.email ?? ""));
     }
 
+    // Clientes a listar: todos los que tienen fila de cartera acá, más los
+    // libres que pide la búsqueda (o los primeros por nombre, sin búsqueda).
+    type ClienteFila = Record<string, unknown>;
+    const asignados: ClienteFila[] = [];
+    const idsCartera = [...cartera.keys()];
+    for (let i = 0; i < idsCartera.length; i += TANDA_IDS) {
+      const t = await supabase
+        .from("clientes")
+        .select("id, nombre, empresa, nombre_contacto")
+        .eq("empresa_id", auth.empresa_id)
+        .is("deleted_at", null)
+        .in("id", idsCartera.slice(i, i + TANDA_IDS));
+      if (t.error) throw new Error(t.error.message);
+      asignados.push(...((t.data ?? []) as ClienteFila[]));
+    }
+    let libresQ = supabase
+      .from("clientes")
+      .select("id, nombre, empresa, nombre_contacto")
+      .eq("empresa_id", auth.empresa_id)
+      .is("deleted_at", null);
+    if (buscar) libresQ = libresQ.or(`nombre.ilike.%${buscar}%,empresa.ilike.%${buscar}%,ruc.ilike.%${buscar}%`);
+    const lq = await libresQ.order("nombre").limit(TOPE_LIBRES + idsCartera.length);
+    if (lq.error) throw new Error(lq.error.message);
+    const libresCrudos = ((lq.data ?? []) as ClienteFila[]).filter((c) => !cartera.has(String(c.id)));
+
     const ahora = new Date();
-    const filas = ((r.data ?? []) as Array<Record<string, unknown>>).map((c) => {
+    const aFila = (c: ClienteFila) => {
       const id = String(c.id);
       const en = cartera.get(id);
       const desde = en?.cartera_desde ?? null;
@@ -159,7 +190,13 @@ export async function GET(request: NextRequest) {
         en_cartera: activa,
         dias_restantes: activa ? diasRestantesCartera(desde, diasCartera, ahora) : 0,
       };
-    });
+    };
+    const filasAsignadas = asignados.map(aFila);
+    const coincide = (n: string) => !buscar || n.toLowerCase().includes(buscar.toLowerCase());
+    const filas = [
+      ...filasAsignadas.filter((f) => coincide(f.nombre)).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+      ...libresCrudos.slice(0, TOPE_LIBRES).map(aFila),
+    ];
 
     const porVendedor = vendedorFiltro
       ? filas.filter((f) => f.vendedor_id === vendedorFiltro)
@@ -172,11 +209,14 @@ export async function GET(request: NextRequest) {
       sucursal_id: sucursalId,
       sucursal_nombre: await nombreDeSucursal(supabase, auth.empresa_id, sucursalId),
       resumen: {
-        total: filas.length,
-        en_cartera: filas.filter((f) => f.en_cartera).length,
-        libres: filas.filter((f) => !f.en_cartera).length,
-        sin_vendedor: filas.filter((f) => !f.vendedor_id).length,
+        // Sobre el padrón entero, no sobre lo que se lista.
+        total: totalClientes,
+        en_cartera: filasAsignadas.filter((f) => f.en_cartera).length,
+        libres: totalClientes - filasAsignadas.filter((f) => f.en_cartera).length,
+        sin_vendedor: totalClientes - filasAsignadas.filter((f) => f.vendedor_id).length,
       },
+      // Hay más libres que los listados: la pantalla pide buscar.
+      libres_recortados: libresCrudos.length > TOPE_LIBRES || (!buscar && totalClientes > filas.length),
     }));
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { exigirSucursal, respuestaSucursalNoAsignada, aplicarFiltroSucursal } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
@@ -52,15 +53,23 @@ export async function POST(request: NextRequest) {
     }
 
     // El mínimo actual, para escribir solo lo que cambia.
-    const actualesQ = await aplicarFiltroSucursal(
-      supabase
-        .from("productos")
-        .select("id, stock_minimo, controla_stock")
-        .eq("empresa_id", empresaId)
-        .eq("activo", true),
-      sucursalId
-    );
-    if (actualesQ.error) throw new Error(actualesQ.error.message);
+    // Paginado: con más de mil productos activos, los que quedaran afuera
+    // se tomarían como "sin mínimo actual".
+    const actualesQ = {
+      data: await traerTodas<Record<string, unknown>>((d, h) =>
+        aplicarFiltroSucursal(
+          supabase
+            .from("productos")
+            .select("id, stock_minimo, controla_stock")
+            .eq("empresa_id", empresaId)
+            .eq("activo", true),
+          sucursalId
+        ).order("id").range(d, h) as unknown as PromiseLike<{
+          data: Record<string, unknown>[] | null;
+          error: { message: string } | null;
+        }>
+      ),
+    };
 
     const actuales = new Map<string, { minimo: number; controla: boolean }>();
     for (const p of (actualesQ.data ?? []) as Array<Record<string, unknown>>) {

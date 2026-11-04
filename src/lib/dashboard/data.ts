@@ -305,12 +305,13 @@ export async function getDashboardData(): Promise<DashboardData> {
    * Si querés ver TODO el histórico explícitamente, pasá `?desde=&hasta=` vacíos en URL
    * o llamá al endpoint sin el query string.
    */
+  // El período más largo del filtro es "Año" (desde el 1 de enero) y el que
+  // más atrás puede ir en enero es "30 días": con eso alcanza. Traer 13 meses
+  // eran ~13.000 ventas con sus líneas para no mostrar la mitad nunca.
   const dashboardNow = new Date();
-  const dashboardDesde = new Date(
-    dashboardNow.getFullYear(),
-    dashboardNow.getMonth() - 13,
-    dashboardNow.getDate()
-  );
+  const hace30 = new Date(dashboardNow.getFullYear(), dashboardNow.getMonth(), dashboardNow.getDate() - 31);
+  const inicioAnio = new Date(dashboardNow.getFullYear(), 0, 1);
+  const dashboardDesde = hace30 < inicioAnio ? hace30 : inicioAnio;
   const fmtYmd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const dashboardRangeQs = `?desde=${fmtYmd(dashboardDesde)}&hasta=${fmtYmd(dashboardNow)}`;
@@ -479,7 +480,10 @@ export async function getDashboardData(): Promise<DashboardData> {
         tipo_venta: (r.tipo_venta as string) ?? "CONTADO",
         moneda: (r.moneda as string) ?? "GS",
         tipo_cambio: Number(r.tipo_cambio) ?? 1,
-        fecha: toCalendarDateStr(r.fecha as string) || toIsoTimestampStr(r.fecha as string),
+        // Se conserva la hora: `ventas.fecha` es timestamptz en UTC. Recortada
+        // a YYYY-MM-DD, una venta de las 21:30 de Asunción caía al día
+        // siguiente y "Ventas por hora" ponía todo a las 00h.
+        fecha: toIsoTimestampStr(r.fecha as string) || toCalendarDateStr(r.fecha as string),
       };
     });
 

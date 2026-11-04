@@ -136,12 +136,28 @@ export async function listCompras(
 ): Promise<CompraRow[]> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const t = quoteSchemaTable(schema, "compras");
+  // El tope va por COMPRA, no por fila. Una compra son varias filas (una por
+  // ítem) y `LIMIT 500` sobre filas cortaba la última compra por la mitad:
+  // aparecía con menos ítems y un total menor al real.
   const { rows } = await pool().query<CompraRow>(
-    `SELECT ${COLS} FROM ${t} WHERE empresa_id = $1::uuid AND sucursal_id = $2::uuid ORDER BY fecha DESC LIMIT 500`,
+    `WITH ult AS (
+       SELECT numero_control FROM ${t}
+        WHERE empresa_id = $1::uuid AND sucursal_id = $2::uuid
+        GROUP BY numero_control
+        ORDER BY MAX(fecha) DESC
+        LIMIT ${LIMITE_COMPRAS_LISTADO}
+     )
+     SELECT ${COLS} FROM ${t}
+      WHERE empresa_id = $1::uuid AND sucursal_id = $2::uuid
+        AND numero_control IN (SELECT numero_control FROM ult)
+      ORDER BY fecha DESC`,
     [empresaId, sucursalId]
   );
   return rows;
 }
+
+/** Cuántas compras (no filas) trae el listado. El histórico completo está en Libro de compras. */
+export const LIMITE_COMPRAS_LISTADO = 300;
 
 /** Genera proximo COMP-XXXXXX leyendo el maximo existente. */
 async function nextNumeroControl(

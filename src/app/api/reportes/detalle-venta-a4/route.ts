@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
@@ -42,15 +43,22 @@ export async function GET(request: NextRequest) {
     const desde = RE_FECHA.test(sp.get("desde") ?? "") ? sp.get("desde")! : hoy;
     const hasta = RE_FECHA.test(sp.get("hasta") ?? "") ? sp.get("hasta")! : desde;
 
-    const vq = await ctx.supabase
-      .from("ventas")
-      .select("numero_control, fecha, total, estado, tipo_venta, metodo_pago, cliente_nombre, usuario_nombre, vendedor_nombre")
-      .eq("empresa_id", empresaId)
-      .eq("sucursal_id", sucursalId)
-      .gte("fecha", `${desde}T00:00:00-03:00`)
-      .lte("fecha", `${hasta}T23:59:59.999-03:00`)
-      .order("fecha", { ascending: false });
-    if (vq.error) throw new Error(vq.error.message);
+    // Paginado: un mes de esta casa tiene más de mil ventas y PostgREST
+    // devolvía las primeras mil como si fueran todas.
+    const vq = {
+      data: await traerTodas<Record<string, unknown>>((d, h) =>
+        ctx.supabase
+          .from("ventas")
+          .select("numero_control, fecha, total, estado, tipo_venta, metodo_pago, cliente_nombre, usuario_nombre, vendedor_nombre")
+          .eq("empresa_id", empresaId)
+          .eq("sucursal_id", sucursalId)
+          .gte("fecha", `${desde}T00:00:00-03:00`)
+          .lte("fecha", `${hasta}T23:59:59.999-03:00`)
+          .order("fecha", { ascending: false })
+          .order("id", { ascending: true })
+          .range(d, h)
+      ),
+    };
 
     type V = {
       numero_control?: string | null; fecha?: string; total?: number | string;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 
 /**
  * GET /api/pagos/por-pagar — Cuentas por pagar a proveedores.
@@ -32,15 +33,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(successResponse({ porPagar: [] }));
     }
 
-    const { data, error } = await ctx.supabase
-      .from("compras")
-      .select("id, numero_control, proveedor_id, proveedor_nombre, fecha, fecha_factura, plazo_dias, total, estado, tipo_pago, moneda")
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .eq("tipo_pago", "credito")
-      .not("estado", "in", '("pagada","anulada")')
-      .order("fecha", { ascending: false });
-
-    if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
+    // Paginado: sin esto llegaban las 1000 filas más recientes de ~14.600 y
+    // la lista de "Por pagar" quedaba corta sin decirlo.
+    let data: unknown[];
+    try {
+      data = await traerTodas<unknown>((desde, hasta) =>
+        ctx.supabase
+          .from("compras")
+          .select("id, numero_control, proveedor_id, proveedor_nombre, fecha, fecha_factura, plazo_dias, total, estado, tipo_pago, moneda")
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("tipo_pago", "credito")
+          .not("estado", "in", '("pagada","anulada")')
+          .order("fecha", { ascending: false })
+          .order("id", { ascending: true })
+          .range(desde, hasta)
+      );
+    } catch (e) {
+      return NextResponse.json(errorResponse(e instanceof Error ? e.message : "Error"), { status: 400 });
+    }
 
     // Agrupar por numero_control (una compra = N filas)
     type Row = {

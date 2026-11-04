@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -116,21 +117,34 @@ export async function GET(request: NextRequest) {
     const hasta = RE_FECHA.test(sp.get("hasta") ?? "") ? sp.get("hasta")! : null;
     const limite = Math.min(2000, Math.max(1, parseInt(sp.get("limite") ?? "500", 10) || 500));
 
-    let q = ctx.supabase
-      .from("ventas")
-      .select(
-        "id, empresa_id, numero_control, moneda, tipo_cambio, subtotal, monto_iva, total, tipo_venta, plazo_dias, metodo_pago, fecha, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, factura_id, cliente_id, origen, usuario_nombre, vendedor_nombre"
-      )
-      .eq("empresa_id", empresaId)
-      .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id));
+    // Se arma de nuevo por página: el builder acumula los order si se reusa.
+    const armar = () => {
+      let q = ctx.supabase
+        .from("ventas")
+        .select(
+          "id, empresa_id, numero_control, moneda, tipo_cambio, subtotal, monto_iva, total, tipo_venta, plazo_dias, metodo_pago, fecha, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, factura_id, cliente_id, origen, usuario_nombre, vendedor_nombre"
+        )
+        .eq("empresa_id", empresaId)
+        .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id));
 
-    // El día "hasta" entra entero: quien filtra del 1 al 31 espera que el 31
-    // esté incluido, no que corte a la medianoche del 30.
-    if (desde) q = q.gte("fecha", `${desde}T00:00:00${OFFSET_PY}`);
-    if (hasta) q = q.lte("fecha", `${hasta}T23:59:59.999${OFFSET_PY}`);
+      // El día "hasta" entra entero: quien filtra del 1 al 31 espera que el 31
+      // esté incluido, no que corte a la medianoche del 30.
+      if (desde) q = q.gte("fecha", `${desde}T00:00:00${OFFSET_PY}`);
+      if (hasta) q = q.lte("fecha", `${hasta}T23:59:59.999${OFFSET_PY}`);
+      return q;
+    };
 
-    const ventasQ = await q.order("fecha", { ascending: false }).limit(limite);
-    if (ventasQ.error) throw new Error(ventasQ.error.message);
+    // Hasta `limite` filas de a páginas: `.limit(2000)` devolvía 1000 (el
+    // corte de PostgREST) y el Historial, que pide 2000 y avisa al llegar al
+    // tope, mostraba un mes de 1.500 ventas con 1.000 y sin aviso.
+    const ventasQ = {
+      data: (
+        await traerTodas<Record<string, unknown>>(
+          (d, h) => armar().order("fecha", { ascending: false }).order("id", { ascending: true }).range(d, h),
+          { tope: limite, tam: Math.min(1000, limite) }
+        )
+      ).slice(0, limite),
+    };
 
     // Cargar nombre del cliente para las ventas asociadas a un cliente.
     // Batch por eficiencia; si el join falla se degrada silenciosamente
@@ -252,7 +266,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const ventasRows = (ventasQ.data ?? []) as VentaRow[];
+    const ventasRows = (ventasQ.data ?? []) as unknown as VentaRow[];
 
     // Ítems de la empresa, PAGINADO. Antes se traían sin límite: PostgREST corta
     // en 1000 filas por defecto, así que al superar las 1000 líneas (histórico

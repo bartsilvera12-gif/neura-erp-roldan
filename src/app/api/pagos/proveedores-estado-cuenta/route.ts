@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,16 +43,23 @@ export async function GET(req: NextRequest) {
     const ctx = await getTenantSupabaseFromAuth(req);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 
-    const { data, error } = await ctx.supabase
-      .from("compras")
-      .select("numero_control, proveedor_id, proveedor_nombre, numero_factura, fecha, fecha_factura, plazo_dias, tipo_pago, estado, metodo_pago, referencia_pago, fecha_pago, total")
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .eq("tipo_pago", "credito")
-      .neq("estado", "anulada");
-    if (error) return NextResponse.json(errorResponse(error.message), { status: 500 });
-
-    const rows = (data ?? []) as Record<string, unknown>[];
-    const hoy = new Date().toISOString().slice(0, 10);
+    // Todas las filas, no las primeras mil: hay ~14.600 compras a crédito y
+    // sin paginar el total pendiente salía con una fracción de ellas.
+    // `estado` NULL cuenta como vigente (igual que COALESCE(estado,'registrada')
+    // en el Estado de cuenta): `.neq` a secas descarta los NULL.
+    const rows = await traerTodas<Record<string, unknown>>((desde, hasta) =>
+      ctx.supabase
+        .from("compras")
+        .select("numero_control, proveedor_id, proveedor_nombre, numero_factura, fecha, fecha_factura, plazo_dias, tipo_pago, estado, metodo_pago, referencia_pago, fecha_pago, total")
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("tipo_pago", "credito")
+        .or("estado.is.null,estado.neq.anulada")
+        .order("id")
+        .range(desde, hasta)
+    );
+    // Hoy en Paraguay (UTC−3): con la fecha UTC, desde las 21:00 una factura
+    // que vence mañana ya figuraba vencida.
+    const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     // Agrupar por numero_control (una factura tiene varias líneas).
     const facturas = new Map<string, FacturaRow>();

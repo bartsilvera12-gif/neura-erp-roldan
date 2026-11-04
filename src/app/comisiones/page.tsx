@@ -96,6 +96,8 @@ type Cartera = {
   sucursal_id?: string | null;
   sucursal_nombre?: string | null;
   resumen: { total: number; en_cartera: number; libres: number; sin_vendedor: number };
+  /** Hay más clientes libres que los listados: hay que buscar. */
+  libres_recortados?: boolean;
 };
 
 type Solapa = "informe" | "cartera" | "config";
@@ -404,6 +406,13 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
   const [data, setData] = useState<Cartera | null>(null);
   const [cfg, setCfg] = useState<Config | null>(null);
   const [soloLibres, setSoloLibres] = useState(false);
+  // Con 21.000 clientes no se listan todos: se busca el que se quiere asignar.
+  const [busqueda, setBusqueda] = useState("");
+  const [buscar, setBuscar] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setBuscar(busqueda.trim()), 350);
+    return () => clearTimeout(t);
+  }, [busqueda]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState<string | null>(null);
 
@@ -419,7 +428,10 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
     onError(null);
     try {
       const r = await fetchWithSupabaseSession(
-        `/api/comisiones/cartera${soloLibres ? "?libres=1" : ""}`, { cache: "no-store" }
+        `/api/comisiones/cartera?${new URLSearchParams({
+          ...(soloLibres ? { libres: "1" } : {}),
+          ...(buscar ? { q: buscar } : {}),
+        })}`, { cache: "no-store" }
       );
       const j = await r.json();
       if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo cargar la cartera.");
@@ -429,7 +441,7 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
     } finally {
       setCargando(false);
     }
-  }, [soloLibres, onError]);
+  }, [soloLibres, buscar, onError]);
 
   useEffect(() => { void cargar(); }, [cargar]);
 
@@ -475,7 +487,14 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
           <b>{data?.dias_cartera ?? 30} días</b> desde su última operación. Pasado ese plazo queda
           libre solo, sin borrar quién lo atendía.
         </p>
-        <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
+        <input
+          type="search"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar cliente por nombre o RUC…"
+          className="ml-auto w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+        />
+        <label className="flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={soloLibres} onChange={(e) => setSoloLibres(e.target.checked)} />
           Ver solo los libres
         </label>
@@ -488,6 +507,13 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
           <Tarjeta label="Libres" valor={String(r.libres)} tono="ambar" />
           <Tarjeta label="Sin vendedor" valor={String(r.sin_vendedor)} />
         </div>
+      )}
+
+      {data?.libres_recortados && (
+        <p className="text-xs text-slate-500">
+          Se listan todos los clientes en cartera y los primeros libres
+          {buscar ? " que coinciden con la búsqueda" : " por nombre"}. Para asignar otro, buscalo arriba.
+        </p>
       )}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

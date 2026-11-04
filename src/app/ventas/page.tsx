@@ -39,6 +39,9 @@ function formatFecha(iso: string) {
 
 // ── Constantes de estilo ───────────────────────────────────────────────────────
 
+/** Tope por defecto de GET /api/ventas: si llegan tantas, no es "el total". */
+const LIMITE_LISTADO = 500;
+
 const inputFilterClass =
   "border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none";
 
@@ -101,7 +104,9 @@ export default function VentasPage() {
   // meses no está en el navegador, así que filtrarla acá no la encontraría.
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
-  const [mostrarAnuladas, setMostrarAnuladas] = useState(true);
+  // Arranca apagado, igual que lo deja "Limpiar filtros": arrancaba prendido y
+  // el botón de limpiar aparecía siempre, sin ningún filtro puesto.
+  const [mostrarAnuladas, setMostrarAnuladas] = useState(false);
   const [detalle,    setDetalle]    = useState<Venta | null>(null);
   const [anularTarget, setAnularTarget] = useState<Venta | null>(null);
   const [reclasificar, setReclasificar] = useState<Venta | null>(null);
@@ -285,7 +290,7 @@ export default function VentasPage() {
             </button>
           )}
           <span className="ml-auto text-sm text-gray-400">
-            {filtradas.length} de {todas.length} ventas
+            {filtradas.length} de {todas.length >= LIMITE_LISTADO ? `las últimas ${todas.length}` : todas.length} ventas
             {(desde || hasta) && <span className="ml-1 text-slate-300">en el período</span>}
           </span>
         </div>
