@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import QueAbastece from "@/components/proveedores/QueAbastece";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ProveedorForm, { emptyProveedorForm, type ProveedorFormValues } from "@/app/proveedores/ProveedorForm";
@@ -124,6 +125,12 @@ export default function EditarProveedorPage() {
           </div>
         </form>
       )}
+
+      {/* Va DESPUÉS del formulario y se guarda aparte: son dos cosas que se
+          editan en momentos distintos. Los datos del proveedor se cargan una
+          vez al darlo de alta; lo que abastece se ajusta con el tiempo, a
+          medida que se le compra. */}
+      {!loading && id && <QueAbastece proveedorId={id} />}
     </div>
   );
 }
