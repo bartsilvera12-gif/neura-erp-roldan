@@ -37,6 +37,10 @@ export default function PagarCompraModal({
   const [referencia, setReferencia] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El recibo se puede adjuntar acá mismo: es el momento en que el papel está
+  // sobre el escritorio. Si no se adjunta, se puede cargar después desde
+  // Pagos → Proveedores.
+  const [recibo, setRecibo] = useState<File | null>(null);
 
   const info = MEDIOS_PAGO_COMPRA.find((m) => m.clave === medio)!;
   // El número de cheque no es un adorno: sin él no se puede conciliar después.
@@ -64,11 +68,34 @@ export default function PagarCompraModal({
       });
       const j = await r.json();
       if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
-      onPagada(resultadoDelPago({
+
+      // El recibo va DESPUÉS de registrar el pago y no lo tumba si falla: un
+      // pago registrado sin su papel se arregla subiéndolo; un pago que no se
+      // registró porque el archivo pesaba de más, no.
+      let avisoRecibo = "";
+      if (recibo) {
+        try {
+          const fd = new FormData();
+          fd.append("file", recibo);
+          fd.append("numero_control", numero);
+          const rr = await apiFetch("/api/compras/recibo", { method: "POST", body: fd });
+          const jr = await rr.json();
+          if (!rr.ok || !jr?.success) throw new Error(jr?.error ?? "No se pudo subir el recibo.");
+        } catch (e) {
+          avisoRecibo = ` El pago quedó registrado, pero el recibo no se subió: ${
+            e instanceof Error ? e.message : "error al subir"
+          } Podés cargarlo desde Pagos → Proveedores.`;
+        }
+      }
+
+      const base = resultadoDelPago({
         medio,
         cajaMovimientoId: j.data?.caja_movimiento_id ?? null,
         numeroControl: numero,
-      }));
+      });
+      onPagada(avisoRecibo
+        ? { nivel: "aviso", mensaje: base.mensaje + avisoRecibo }
+        : base);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo registrar el pago.");
     } finally {
@@ -134,6 +161,22 @@ export default function PagarCompraModal({
             />
           </label>
         )}
+
+        <label className="mt-3 block">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Recibo del pago <span className="font-normal normal-case text-slate-400">(opcional)</span>
+          </span>
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            onChange={(e) => setRecibo(e.target.files?.[0] ?? null)}
+            className="mt-1 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border file:border-slate-200 file:bg-white file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-slate-600"
+          />
+          <span className="mt-1 block text-[10px] leading-snug text-slate-400">
+            El papel que firma el proveedor al cobrar. Si no lo tenés ahora, se carga después desde
+            Pagos → Proveedores.
+          </span>
+        </label>
 
         {error && (
           <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-800">

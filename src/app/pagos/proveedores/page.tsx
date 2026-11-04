@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 import { Printer } from "lucide-react";
+import ReciboProveedor from "@/components/pagos/ReciboProveedor";
 
 type Factura = {
   numero_control: string;
@@ -15,6 +16,9 @@ type Factura = {
   metodo_pago: string | null;
   referencia_pago: string | null;
   fecha_pago: string | null;
+  recibo_storage_path: string | null;
+  recibo_nombre: string | null;
+  recibo_subido_at: string | null;
   total: number;
   vencimiento: string | null;
   vencida: boolean;
@@ -60,24 +64,28 @@ export default function EstadoCuentaProveedoresPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  // false = falta el script 68 y la base todavía no tiene dónde guardar el
+  // recibo. La pantalla lo dice en vez de mostrar un botón que va a fallar.
+  const [recibosDisponibles, setRecibosDisponibles] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetchWithSupabaseSession("/api/pagos/proveedores-estado-cuenta");
-        const j = await res.json();
-        if (!res.ok || !j?.success) throw new Error(j?.error ?? `Error ${res.status}`);
-        setRows((j.data?.proveedores ?? []) as Proveedor[]);
-        setTotales(j.data?.totales ?? { pendiente: 0, vencido: 0, pagado: 0 });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Error");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchWithSupabaseSession("/api/pagos/proveedores-estado-cuenta", { cache: "no-store" });
+      const j = await res.json();
+      if (!res.ok || !j?.success) throw new Error(j?.error ?? `Error ${res.status}`);
+      setRows((j.data?.proveedores ?? []) as Proveedor[]);
+      setTotales(j.data?.totales ?? { pendiente: 0, vencido: 0, pagado: 0 });
+      setRecibosDisponibles(j.data?.recibos_disponibles !== false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void cargar(); }, [cargar]);
 
   const filtrados = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -154,7 +162,10 @@ export default function EstadoCuentaProveedoresPage() {
                 const key = p.proveedor_id ?? p.proveedor_nombre;
                 const abierto = abiertos.has(key);
                 return (
-                  <ProvRows key={key} p={p} abierto={abierto} onToggle={() => toggle(key)} badge={badge} />
+                  <ProvRows
+                    key={key} p={p} abierto={abierto} onToggle={() => toggle(key)} badge={badge}
+                    recibosDisponibles={recibosDisponibles} onRecargar={() => void cargar()}
+                  />
                 );
               })}
             </tbody>
@@ -166,12 +177,15 @@ export default function EstadoCuentaProveedoresPage() {
 }
 
 function ProvRows({
-  p, abierto, onToggle, badge,
+  p, abierto, onToggle, badge, recibosDisponibles, onRecargar,
 }: {
   p: Proveedor;
   abierto: boolean;
   onToggle: () => void;
   badge: (f: Factura) => React.ReactNode;
+  /** false = falta el script 68 y la base no tiene dónde guardar el recibo. */
+  recibosDisponibles: boolean;
+  onRecargar: () => void;
 }) {
   return (
     <>
@@ -197,6 +211,7 @@ function ProvRows({
                   <th className="text-left py-1">Estado</th>
                   <th className="text-left py-1">Pago</th>
                   <th className="text-right py-1">Total</th>
+                  <th className="text-left py-1">Recibo</th>
                   <th className="py-1"></th>
                 </tr>
               </thead>
@@ -220,6 +235,15 @@ function ProvRows({
                         : "—"}
                     </td>
                     <td className="py-1.5 text-right tabular-nums font-medium text-slate-800">{fmtGs(f.total)}</td>
+                    <td className="py-1.5">
+                      <ReciboProveedor
+                        numeroControl={f.numero_control}
+                        path={f.recibo_storage_path}
+                        nombre={f.recibo_nombre}
+                        disponible={recibosDisponibles}
+                        onCambio={onRecargar}
+                      />
+                    </td>
                     <td className="py-1.5 text-right">
                       <button type="button" onClick={() => abrirOrdenPago(f.numero_control)}
                         className="text-[11px] font-medium text-sky-700 hover:underline whitespace-nowrap"><Printer className="h-4 w-4" /> Orden</button>

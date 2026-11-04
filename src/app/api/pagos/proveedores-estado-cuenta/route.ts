@@ -36,6 +36,10 @@ type FacturaRow = {
   vencimiento: string | null;
   vencida: boolean;
   dias_para_vencer: number | null;
+  /** Recibo del pago. Null mientras no se haya cargado, o si falta el script 68. */
+  recibo_storage_path: string | null;
+  recibo_nombre: string | null;
+  recibo_subido_at: string | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -47,16 +51,41 @@ export async function GET(req: NextRequest) {
     // sin paginar el total pendiente salía con una fracción de ellas.
     // `estado` NULL cuenta como vigente (igual que COALESCE(estado,'registrada')
     // en el Estado de cuenta): `.neq` a secas descarta los NULL.
-    const rows = await traerTodas<Record<string, unknown>>((desde, hasta) =>
-      ctx.supabase
-        .from("compras")
-        .select("numero_control, proveedor_id, proveedor_nombre, numero_factura, fecha, fecha_factura, plazo_dias, tipo_pago, estado, metodo_pago, referencia_pago, fecha_pago, total")
-        .eq("empresa_id", ctx.auth.empresa_id)
-        .eq("tipo_pago", "credito")
-        .or("estado.is.null,estado.neq.anulada")
-        .order("id")
-        .range(desde, hasta)
-    );
+    // Las columnas del recibo las agrega el script 68. Mientras no se haya
+    // corrido, PostgREST rechaza la consulta ENTERA con 42703 —no devuelve la
+    // fila sin la columna— y la pantalla quedaría vacía. Por eso se reintenta
+    // sin ellas: es preferible un estado de cuenta sin recibos que ninguno.
+    // El `select` de supabase-js se tipa desde el LITERAL, así que no puede
+    // salir de una variable ni de un ternario: van dos consultas escritas
+    // enteras, una con las columnas del recibo y otra sin ellas.
+    let hayRecibos = true;
+    let rows: Record<string, unknown>[];
+    try {
+      rows = await traerTodas<Record<string, unknown>>((desde, hasta) =>
+        ctx.supabase
+          .from("compras")
+          .select("numero_control, proveedor_id, proveedor_nombre, numero_factura, fecha, fecha_factura, plazo_dias, tipo_pago, estado, metodo_pago, referencia_pago, fecha_pago, total, recibo_storage_path, recibo_nombre, recibo_subido_at")
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("tipo_pago", "credito")
+          .or("estado.is.null,estado.neq.anulada")
+          .order("id")
+          .range(desde, hasta)
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (!/recibo_/.test(msg)) throw e;
+      hayRecibos = false;
+      rows = await traerTodas<Record<string, unknown>>((desde, hasta) =>
+        ctx.supabase
+          .from("compras")
+          .select("numero_control, proveedor_id, proveedor_nombre, numero_factura, fecha, fecha_factura, plazo_dias, tipo_pago, estado, metodo_pago, referencia_pago, fecha_pago, total")
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("tipo_pago", "credito")
+          .or("estado.is.null,estado.neq.anulada")
+          .order("id")
+          .range(desde, hasta)
+      );
+    }
     // Hoy en Paraguay (UTC−3): con la fecha UTC, desde las 21:00 una factura
     // que vence mañana ya figuraba vencida.
     const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -88,6 +117,9 @@ export async function GET(req: NextRequest) {
           vencimiento: venc,
           vencida: false,
           dias_para_vencer: null,
+          recibo_storage_path: r.recibo_storage_path ? String(r.recibo_storage_path) : null,
+          recibo_nombre: r.recibo_nombre ? String(r.recibo_nombre) : null,
+          recibo_subido_at: r.recibo_subido_at ? String(r.recibo_subido_at) : null,
         };
         facturas.set(nc, f);
       }
@@ -190,7 +222,9 @@ export async function GET(req: NextRequest) {
       { pendiente: 0, vencido: 0, pagado: 0 }
     );
 
-    return NextResponse.json(successResponse({ proveedores, totales }));
+    // `recibos_disponibles` deja que la pantalla distinga "no hay recibo
+    // cargado" de "la base todavía no tiene dónde guardarlo".
+    return NextResponse.json(successResponse({ proveedores, totales, recibos_disponibles: hayRecibos }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error interno";
     return NextResponse.json(errorResponse(msg), { status: 500 });
