@@ -109,6 +109,8 @@ export default function FlujoCajaPage() {
   // Posición de liquidez: bancos, efectivo y mercadería. Carga manual.
   const [saldos, setSaldos] = useState<SaldoLiquidez[]>([]);
   const [editandoSaldos, setEditandoSaldos] = useState(false);
+  const [trayendoMercaderia, setTrayendoMercaderia] = useState(false);
+  const [errorMercaderia, setErrorMercaderia] = useState<string | null>(null);
   const [guardandoSaldos, setGuardandoSaldos] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -195,6 +197,60 @@ export default function FlujoCajaPage() {
   function agregarSaldo(tipo: TipoSaldo) {
     setSaldos((prev) => [...prev, { tipo, descripcion: "", moneda: "PYG", importe: 0 }]);
     setEditandoSaldos(true);
+  }
+
+  /**
+   * Trae el valor de la mercadería del propio inventario, un renglón por
+   * depósito, en vez de tipearlo.
+   *
+   * Reemplaza las filas de mercadería que haya, no las suma: si se aprieta dos
+   * veces, el valor quedaría duplicado y nadie lo notaría mirando el total.
+   *
+   * Lo que no está asignado a ningún depósito entra en su propio renglón, con
+   * ese nombre. No se reparte ni se manda al principal: sería inventar una
+   * ubicación, y encima hoy es casi todo el inventario, porque la migración
+   * nunca escribió el stock por depósito (lo arregla el script 66).
+   */
+  async function traerMercaderia() {
+    setTrayendoMercaderia(true);
+    setErrorMercaderia(null);
+    try {
+      const r = await fetchWithSupabaseSession("/api/inventario/valor-por-deposito", { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo valorizar la mercadería.");
+      const d = j.data as {
+        depositos: { nombre: string; sucursal_nombre: string; es_central: boolean; valor_gs: number }[];
+        sin_ubicar: { valor_gs: number; articulos: number };
+        valor_total_gs: number;
+      };
+
+      const filas: SaldoLiquidez[] = d.depositos
+        .filter((x) => x.valor_gs > 0)
+        .map((x) => ({
+          tipo: "mercaderia" as TipoSaldo,
+          descripcion: `${x.nombre}${x.sucursal_nombre && x.sucursal_nombre !== "—" ? ` · ${x.sucursal_nombre}` : ""}`,
+          moneda: "PYG" as const,
+          importe: Math.round(x.valor_gs),
+        }));
+      if (d.sin_ubicar.valor_gs > 0) {
+        filas.push({
+          tipo: "mercaderia",
+          descripcion: `Sin depósito asignado (${d.sin_ubicar.articulos} art.)`,
+          moneda: "PYG",
+          importe: Math.round(d.sin_ubicar.valor_gs),
+        });
+      }
+      if (filas.length === 0) {
+        setErrorMercaderia("No hay stock valorizado: o no hay existencias, o los artículos no tienen costo cargado.");
+        return;
+      }
+      setSaldos((prev) => [...prev.filter((x) => x.tipo !== "mercaderia"), ...filas]);
+      setEditandoSaldos(true);
+    } catch (e) {
+      setErrorMercaderia(e instanceof Error ? e.message : "No se pudo valorizar la mercadería.");
+    } finally {
+      setTrayendoMercaderia(false);
+    }
   }
 
   /**
@@ -335,15 +391,34 @@ export default function FlujoCajaPage() {
                 <div key={tipo} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-700">{titulo}</span>
-                    {editandoSaldos && (
-                      <button
-                        type="button" onClick={() => agregarSaldo(tipo)}
-                        className="text-[11px] font-semibold text-[#3F8E91] hover:underline"
-                      >
-                        + Agregar
-                      </button>
-                    )}
+                    <span className="flex items-center gap-2">
+                      {/* La mercadería no se tipea: sale del inventario, que ya
+                          sabe cuántas unidades hay y cuánto costó cada una. */}
+                      {tipo === "mercaderia" && editandoSaldos && (
+                        <button
+                          type="button" onClick={() => void traerMercaderia()}
+                          disabled={trayendoMercaderia}
+                          className="text-[11px] font-semibold text-[#3F8E91] hover:underline disabled:opacity-50"
+                          title="Valoriza el stock al costo promedio y lo separa por depósito"
+                        >
+                          {trayendoMercaderia ? "Calculando…" : "Traer del inventario"}
+                        </button>
+                      )}
+                      {editandoSaldos && (
+                        <button
+                          type="button" onClick={() => agregarSaldo(tipo)}
+                          className="text-[11px] font-semibold text-[#3F8E91] hover:underline"
+                        >
+                          + Agregar
+                        </button>
+                      )}
+                    </span>
                   </div>
+                  {tipo === "mercaderia" && errorMercaderia && (
+                    <p className="mb-1.5 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] leading-snug text-rose-800">
+                      {errorMercaderia}
+                    </p>
+                  )}
                   {delTipo.length === 0 ? (
                     <p className="text-[11px] text-slate-400">Sin cargar</p>
                   ) : (

@@ -6,7 +6,8 @@ import AccionesTabla from "@/components/ui/AccionesTabla";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
-import { Printer, Plus, Check, X } from "lucide-react";
+import EnviarOrdenModal from "@/components/compras/EnviarOrdenModal";
+import { Printer, Plus, Check, X, Mail } from "lucide-react";
 
 /**
  * Órdenes de compra: el PEDIDO que se le manda al proveedor.
@@ -59,6 +60,8 @@ export default function OrdenesCompraPage() {
   const [abierta, setAbierta] = useState<string | null>(null);
   const [nueva, setNueva] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState<Orden | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -181,6 +184,13 @@ export default function OrdenesCompraPage() {
         <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>
       )}
 
+      {aviso && (
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] text-emerald-800">
+          <span className="flex-1">{aviso}</span>
+          <button type="button" onClick={() => setAviso(null)} className="text-emerald-600">✕</button>
+        </div>
+      )}
+
       {cargando ? (
         <p className="py-12 text-center text-sm text-slate-500">Cargando…</p>
       ) : filtradas.length === 0 ? (
@@ -237,6 +247,16 @@ export default function OrdenesCompraPage() {
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          {o.estado !== "anulada" && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEnviando(o); }}
+                              className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-[#3F8E91] hover:underline"
+                              title="Mandarle la orden al vendedor del proveedor"
+                            >
+                              <Mail className="h-3.5 w-3.5" /> Mandar
+                            </button>
+                          )}
                           <a
                             href={`/api/ordenes-compra/imprimir?id=${o.id}`}
                             target="_blank" rel="noopener"
@@ -320,6 +340,15 @@ export default function OrdenesCompraPage() {
         que es lo que sí toca inventario y cuentas por pagar. Marcar una orden como{" "}
         <strong>recibida</strong> no crea esa compra: solo deja constancia de que el pedido se cumplió.
       </p>
+
+      {enviando && (
+        <EnviarOrdenModal
+          ordenId={enviando.id}
+          numeroControl={enviando.numero_control}
+          onClose={() => setEnviando(null)}
+          onEnviada={(m) => { setEnviando(null); setAviso(m); }}
+        />
+      )}
 
       {nueva && (
         <NuevaOrdenCompraModal
