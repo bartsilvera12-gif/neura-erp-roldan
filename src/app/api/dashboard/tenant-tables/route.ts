@@ -224,6 +224,10 @@ const TANDA_IDS = 100;
 /** Solo lo que mapea `getDashboardData`: con todas las ventas del año, `*` pesaba megas. */
 const COLS_VENTAS = "id, numero_control, subtotal, monto_iva, total, tipo_venta, moneda, tipo_cambio, fecha, estado";
 const COLS_ITEMS = "id, venta_id, producto_id, producto_nombre, sku, cantidad, precio_venta, subtotal, monto_iva, total_linea";
+// Clientes: 21.000 filas de 67 columnas eran 36 MB por cada apertura del dashboard.
+const COLS_CLIENTES =
+  "id, empresa, nombre_contacto, nombre, origen, created_at, vendedor_asignado, tipo_servicio_cliente, condicion_pago, deleted_at";
+const COLS_COMPRAS = "id, producto_id, producto_nombre, proveedor_nombre, total, fecha";
 
 /**
  * GET /api/dashboard/tenant-tables
@@ -277,7 +281,7 @@ export async function GET(request: NextRequest) {
       return range ? base.gte("fecha", range.desde).lt("fecha", range.hastaExclusive) : base;
     };
     const buildComprasQ = () => {
-      const base = supabase.from("compras").select("*").eq("empresa_id", empresaId).eq("sucursal_id", sucursalId);
+      const base = supabase.from("compras").select(COLS_COMPRAS).eq("empresa_id", empresaId).eq("sucursal_id", sucursalId);
       return range ? base.gte("fecha", range.desde).lt("fecha", range.hastaExclusive) : base;
     };
     const buildGastosQ = () => {
@@ -310,7 +314,7 @@ export async function GET(request: NextRequest) {
       notaCreditoQ,
     ] = await Promise.all([
       /** Sin `.is("deleted_at", null)` en PostgREST: en tenants viejos la columna puede no existir y rompía todo el batch. */
-      paginado((d, h) => supabase.from("clientes").select("*").eq("empresa_id", empresaId).order("id").range(d, h)),
+      paginado((d, h) => supabase.from("clientes").select(COLS_CLIENTES).eq("empresa_id", empresaId).order("id").range(d, h)),
       paginado((d, h) => buildFacturasQ().order("id").range(d, h)),
       paginado((d, h) => buildPagosQ().order("id").range(d, h)),
       paginado((d, h) => buildTipificacionesQ().order("id").range(d, h)),
@@ -356,7 +360,7 @@ export async function GET(request: NextRequest) {
       productosRows = await fallbackProductosPg(dataSchema, empresaId, sucursalId);
       if (productosRows.length > 0) delete queryErrors.productos;
     }
-    let comprasRows = pickRows("compras", comprasQ, queryErrors);
+    let comprasRows: unknown[] = pickRows("compras", comprasQ, queryErrors);
     if ((comprasRows.length === 0 && queryErrors.compras) || (usarPg && comprasRows.length === 0)) {
       comprasRows = await fallbackComprasPg(dataSchema, empresaId, sucursalId, range);
       if (comprasRows.length > 0) delete queryErrors.compras;
