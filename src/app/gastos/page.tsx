@@ -158,6 +158,16 @@ export default function GastosPage() {
             </Link>
             .
           </p>
+          {/* Un gasto con factura cargada pero sin timbrado o sin RUC se ve
+              igual que uno bueno en esta tabla, y el problema aparece recién
+              cuando el contador arma la declaración. El reporte los separa. */}
+          <p className="mt-1 text-xs text-slate-500">
+            Para ver cuáles no sirven para la declaración:{" "}
+            <Link href="/reportes/gastos-no-deducibles" className="font-medium text-[#4FAEB2] hover:underline">
+              Gastos sin factura o no deducibles
+            </Link>
+            .
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Link

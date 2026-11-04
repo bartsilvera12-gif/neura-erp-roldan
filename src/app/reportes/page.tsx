@@ -2,7 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { ArrowLeftRight, Banknote, FileArchive, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Users, Wallet } from "lucide-react";
+import { ArrowLeftRight, Banknote, FileArchive, FileWarning, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Users, Wallet } from "lucide-react";
 
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
@@ -148,6 +148,15 @@ export default function ReportesPage() {
             icon={ArrowLeftRight}
             description="Toda la plata que entró y salió sin ser una venta, con rango de fechas y filtros. Desde acá también se cargan."
             href="/reportes/ingresos-egresos"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Gastos sin factura"
+            subtitle="Lo que no es deducible"
+            icon={FileWarning}
+            description="Los gastos que no se pueden usar en la declaración, separando los que no tienen factura de los que la tienen incompleta y todavía se pueden reclamar al proveedor."
+            href="/reportes/gastos-no-deducibles"
           />
         </li>
         <li>
