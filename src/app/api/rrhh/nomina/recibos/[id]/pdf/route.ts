@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { membreteA4 } from "@/lib/documentos/membrete";
+import { antiguedadTexto } from "@/lib/rrhh/vacaciones-py";
+import { nombreMes } from "@/lib/rrhh/nomina-py";
 
 export const dynamic = "force-dynamic";
 
@@ -43,96 +45,101 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const devengos = (devQ.data ?? []) as Row[];
   const deducciones = (dedQ.data ?? []) as Row[];
 
-  const totalDevengado = devengos.reduce((a, d) => a + n(d.importe_total), 0);
-  const dedTrab = deducciones.filter((d) => d.tipo !== "ips_patronal");
-  const aportEmp = deducciones.filter((d) => d.tipo === "ips_patronal");
-  const totalDeducTrab = dedTrab.reduce((a, d) => a + n(d.importe), 0);
-  const totalAportEmp = aportEmp.reduce((a, d) => a + n(d.importe), 0);
-  const liquido = totalDevengado - totalDeducTrab;
-  const costeEmpresa = totalDevengado + totalAportEmp;
+  // Recibo del TRABAJADOR, como se usa en Paraguay: lo que cobra, lo que se le
+  // descuenta (IPS 9% y lo demás) y el neto, con "recibí conforme". El aporte
+  // patronal es un costo de la empresa y no va en su recibo. Antes salían
+  // "devengos", "líquido a percibir" y "costo total empresa", de una nómina
+  // española, y la antigüedad como una fecha suelta.
+  const totalIngresos = devengos.reduce((a, d) => a + Math.round(n(d.importe_total)), 0);
+  const descuentos = deducciones.filter((d) => d.tipo !== "ips_patronal");
+  const totalDescuentos = descuentos.reduce((a, d) => a + Math.round(n(d.importe)), 0);
+  const neto = totalIngresos - totalDescuentos;
+  const hoyPy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const ingreso = String(r.empleado_antiguedad_snapshot ?? "").slice(0, 10);
+  const antig = /^\d{4}-\d{2}-\d{2}$/.test(ingreso) ? `${antiguedadTexto(ingreso, hoyPy) ?? ""} (desde ${fecha(ingreso)})` : "—";
+  const mes = nombreMes(String(r.periodo_desde ?? ""));
+  const empresa = esc(r.empresa_nombre_snapshot) || "la empresa";
 
-  const filaDev = (d: Row) => `
+  const filaIng = (d: Row) => `
+    <tr>
+      <td>${esc(d.concepto)}${d.es_salarial === false ? ' <span class="muted">(no aporta IPS)</span>' : ""}</td>
+      <td class="r muted">${d.cantidad != null && d.importe_unitario != null ? `${esc(d.cantidad)} × ${gs(d.importe_unitario)}` : ""}</td>
+      <td class="r">${gs(d.importe_total)}</td>
+    </tr>`;
+  const filaDes = (d: Row) => `
     <tr>
       <td>${esc(d.concepto)}</td>
-      <td style="text-align:right;">${d.cantidad != null ? esc(d.cantidad) : ""}</td>
-      <td style="text-align:right;">${d.importe_unitario != null ? gs(d.importe_unitario) : ""}</td>
-      <td style="text-align:right;">${gs(d.importe_total)}</td>
+      <td class="r muted">${d.tipo_pct != null ? `${String(d.tipo_pct).replace(".", ",")}%` : ""}</td>
+      <td class="r">${gs(d.importe)}</td>
     </tr>`;
-  const filaDed = (d: Row) => `
-    <tr>
-      <td>${esc(d.concepto)}</td>
-      <td style="text-align:right;">${d.tipo_pct != null ? `${esc(d.tipo_pct)}%` : ""}</td>
-      <td style="text-align:right;">${gs(d.importe)}</td>
-    </tr>`;
+
+  // Dos copias en la hoja: una para la empresa y otra para el trabajador.
+  const copia = (titulo: string) => `
+  <section class="copia">
+    <div class="head">
+      <div><h1>Recibo de salario</h1><div class="sub">${esc(mes)} · ${esc(r.dias_trabajados ?? 30)} días trabajados</div></div>
+      <div class="tag">${titulo}</div>
+    </div>
+    <div class="grid">
+      <div><span>Trabajador:</span> <strong>${esc(r.empleado_nombre_snapshot)}</strong></div>
+      <div><span>C.I.:</span> ${esc(r.empleado_documento_snapshot) || "—"}</div>
+      <div><span>Cargo:</span> ${esc(r.empleado_cargo_snapshot) || "—"}</div>
+      <div><span>N.º asegurado IPS:</span> ${esc(r.empleado_afiliacion_ips_snapshot) || "—"}</div>
+      <div><span>Antigüedad:</span> ${esc(antig)}</div>
+      <div><span>Período:</span> ${fecha(r.periodo_desde)} al ${fecha(r.periodo_hasta)}</div>
+    </div>
+    <table>
+      <thead><tr><th>Ingresos</th><th></th><th class="r">Importe</th></tr></thead>
+      <tbody>${devengos.map(filaIng).join("") || '<tr><td colspan="3" class="muted">Sin ingresos</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="2">Total ingresos</td><td class="r">${gs(totalIngresos)}</td></tr></tfoot>
+    </table>
+    <table>
+      <thead><tr><th>Descuentos</th><th></th><th class="r">Importe</th></tr></thead>
+      <tbody>${descuentos.map(filaDes).join("") || '<tr><td colspan="3" class="muted">Sin descuentos</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="2">Total descuentos</td><td class="r">${gs(totalDescuentos)}</td></tr></tfoot>
+    </table>
+    <div class="neto"><span>Neto a cobrar</span><span>${gs(neto)}</span></div>
+    ${r.observaciones ? `<div class="obs">${esc(r.observaciones)}</div>` : ""}
+    <p class="recibi">Recibí de ${empresa} la suma de <strong>${gs(neto)}</strong> en concepto de salario correspondiente a ${esc(mes)}, de conformidad con el detalle que antecede.</p>
+    <div class="foot">
+      <div class="firma">Firma del empleador</div>
+      <div class="firma">Firma del trabajador<br /><span class="muted">Aclaración y C.I.</span></div>
+    </div>
+  </section>`;
 
   const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8" />
-<title>Recibo de salario ${esc(r.empleado_nombre_snapshot)}</title>
+<title>Recibo de salario ${esc(r.empleado_nombre_snapshot)} · ${esc(mes)}</title>
 <style>
   html, body { margin: 0; padding: 0; }
-  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #1f2937; padding: 24px; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #1f2937; padding: 20px; }
   .wrap { max-width: 800px; margin: 0 auto; }
-  h1 { font-size: 18px; margin: 8px 0 2px; }
-  .sub { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; font-size: 12px; margin-bottom: 18px; }
-  .grid div span { color: #6b7280; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 6px; }
-  th { text-align: left; background: #f3f4f6; padding: 6px 8px; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
-  td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
-  h2 { font-size: 13px; margin: 16px 0 6px; }
-  .tot { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 8px; }
-  .tot.big { font-weight: 800; font-size: 15px; background: #ecfdf5; border-radius: 6px; margin-top: 4px; }
-  .foot { margin-top: 40px; display: flex; justify-content: space-around; font-size: 12px; }
+  .copia { padding: 10px 0 18px; }
+  .copia + .copia { border-top: 1px dashed #9ca3af; padding-top: 18px; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; }
+  h1 { font-size: 16px; margin: 4px 0 0; }
+  .sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; text-transform: capitalize; }
+  .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #3F8E91; border: 1px solid #4FAEB2; border-radius: 999px; padding: 2px 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 24px; font-size: 11px; margin-bottom: 10px; }
+  .grid span, .muted { color: #6b7280; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 6px; }
+  th { text-align: left; background: #f3f4f6; padding: 5px 8px; font-weight: 600; }
+  td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
+  tfoot td { font-weight: 700; border-bottom: none; }
+  .r { text-align: right; }
+  .neto { display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; background: #E5F4F4; border-radius: 6px; padding: 6px 8px; margin-top: 4px; }
+  .obs { font-size: 11px; color: #374151; margin-top: 8px; }
+  .recibi { font-size: 11px; margin: 12px 0 0; }
+  .foot { margin-top: 34px; display: flex; justify-content: space-around; font-size: 11px; }
   .firma { border-top: 1px solid #9ca3af; padding-top: 4px; width: 220px; text-align: center; }
-  @media print { body { padding: 0; } .noprint { display: none; } }
+  @media print { body { padding: 0; } .noprint { display: none; } .copia { break-inside: avoid; } }
 </style></head>
 <body><div class="wrap">
   ${membreteA4()}
-
-  <h1>Recibo de salario</h1>
-  <div class="sub">Período ${fecha(r.periodo_desde)} — ${fecha(r.periodo_hasta)} · ${esc(r.total_dias)} días</div>
-
-  <div class="grid">
-    <div><span>Empleado:</span> <strong>${esc(r.empleado_nombre_snapshot)}</strong></div>
-    <div><span>Documento:</span> ${esc(r.empleado_documento_snapshot) || "—"}</div>
-    <div><span>Cargo:</span> ${esc(r.empleado_cargo_snapshot) || "—"}</div>
-    <div><span>Antigüedad:</span> ${esc(r.empleado_antiguedad_snapshot) || "—"}</div>
-    <div><span>Afiliación IPS:</span> ${esc(r.empleado_afiliacion_ips_snapshot) || "—"}</div>
-    <div><span>Categoría IPS:</span> ${esc(r.empleado_categoria_ips_snapshot) || "—"}</div>
-  </div>
-
-  <h2>Devengos</h2>
-  <table>
-    <thead><tr><th>Concepto</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">Unitario</th><th style="text-align:right;">Importe</th></tr></thead>
-    <tbody>${devengos.map(filaDev).join("") || `<tr><td colspan="4" style="color:#9ca3af;">Sin devengos</td></tr>`}</tbody>
-  </table>
-  <div class="tot"><span>Total devengado</span><strong>${gs(totalDevengado)}</strong></div>
-
-  <h2>Deducciones (trabajador)</h2>
-  <table>
-    <thead><tr><th>Concepto</th><th style="text-align:right;">%</th><th style="text-align:right;">Importe</th></tr></thead>
-    <tbody>${dedTrab.map(filaDed).join("") || `<tr><td colspan="3" style="color:#9ca3af;">Sin deducciones</td></tr>`}</tbody>
-  </table>
-  <div class="tot"><span>Total deducciones</span><strong>${gs(totalDeducTrab)}</strong></div>
-
-  <div class="tot big"><span>Líquido a percibir</span><span>${gs(liquido)}</span></div>
-
-  <h2>Aporte patronal (IPS 16,5%)</h2>
-  <table>
-    <thead><tr><th>Concepto</th><th style="text-align:right;">%</th><th style="text-align:right;">Importe</th></tr></thead>
-    <tbody>${aportEmp.map(filaDed).join("") || `<tr><td colspan="3" style="color:#9ca3af;">Sin aportes</td></tr>`}</tbody>
-  </table>
-  <div class="tot"><span>Costo total empresa</span><strong>${gs(costeEmpresa)}</strong></div>
-
-  ${r.observaciones ? `<h2>Observaciones</h2><div style="font-size:12px;color:#374151;">${esc(r.observaciones)}</div>` : ""}
-
-  <div class="foot">
-    <div class="firma">Firma empleador</div>
-    <div class="firma">Firma empleado</div>
-  </div>
-
-  <div class="noprint" style="margin-top:24px;text-align:center;">
-    <button onclick="window.print()" style="background:#0EA5E9;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;">Imprimir / Guardar PDF</button>
+  ${copia("Copia empresa")}
+  ${copia("Copia trabajador")}
+  <div class="noprint" style="margin-top:20px;text-align:center;">
+    <button onclick="window.print()" style="background:#4FAEB2;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;">Imprimir / Guardar PDF</button>
   </div>
 </div>
 <script>window.addEventListener("load", () => { try { window.print(); } catch (e) {} });</script>

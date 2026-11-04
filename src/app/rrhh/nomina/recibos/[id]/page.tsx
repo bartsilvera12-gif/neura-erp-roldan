@@ -1,11 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import PageHeader from "@/components/ui/PageHeader";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-
-import { FileText } from "lucide-react";
+import { Iniciales } from "@/components/rrhh/EmpleadoBadges";
+import {
+  DIAS_MES,
+  IPS_PATRONAL_PCT,
+  IPS_TRABAJADOR_PCT,
+  conIpsRecalculado,
+  lineaSalario,
+  nombreMes,
+  totalesRecibo,
+  type Descuento,
+  type Ingreso,
+  type TipoDescuento,
+} from "@/lib/rrhh/nomina-py";
+import { FileText, Minus, Plus, X } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,379 +26,296 @@ type Recibo = {
   empleado_id: string;
   periodo_desde: string;
   periodo_hasta: string;
-  total_dias: number;
-  dias_trabajados: number;
+  dias_trabajados: number | null;
   empresa_nombre_snapshot: string | null;
-  empresa_ruc_snapshot: string | null;
-  empresa_ips_patronal_snapshot: string | null;
-  empresa_centro_snapshot: string | null;
   empleado_nombre_snapshot: string | null;
   empleado_documento_snapshot: string | null;
   empleado_afiliacion_ips_snapshot: string | null;
-  empleado_categoria_ips_snapshot: string | null;
   empleado_cargo_snapshot: string | null;
-  empleado_antiguedad_snapshot: string | null;
-  total_devengado: number;
-  total_deducciones: number;
-  liquido: number;
-  coste_empresa: number;
   estado: string;
   observaciones: string | null;
 };
 
-type Devengo = {
-  id?: string;
-  concepto: string;
-  cantidad: number | null;
-  importe_unitario: number | null;
-  importe_total: number;
-  es_salarial: boolean;
-  orden: number;
-};
-type Deduccion = {
-  id?: string;
-  tipo: "ips_trabajador" | "prestamo" | "otro" | "ips_patronal";
-  concepto: string;
-  base: number | null;
-  tipo_pct: number | null;
-  importe: number;
-  orden: number;
-};
+/** Lo que más se agrega a un recibo, a un clic. */
+const INGRESOS_RAPIDOS: Array<{ concepto: string; es_salarial: boolean; hint: string }> = [
+  { concepto: "Horas extra", es_salarial: true, hint: "aporta IPS" },
+  { concepto: "Comisiones", es_salarial: true, hint: "aporta IPS" },
+  { concepto: "Bonificación familiar", es_salarial: false, hint: "no aporta IPS" },
+  { concepto: "Otro ingreso", es_salarial: true, hint: "" },
+];
+const DESCUENTOS_RAPIDOS: Array<{ tipo: TipoDescuento; concepto: string }> = [
+  { tipo: "prestamo", concepto: "Anticipo de salario" },
+  { tipo: "prestamo", concepto: "Préstamo" },
+  { tipo: "judicial", concepto: "Embargo judicial" },
+  { tipo: "otro", concepto: "Otro descuento" },
+];
 
-const num = (v: unknown): number => {
-  if (v === null || v === undefined || v === "") return 0;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-const numn = (v: unknown): number | null => {
-  if (v === null || v === undefined || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
-const fmt = (n: number) => (Number(n) || 0).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
+const esSalario = (i: Ingreso) => /^(salario|jornales)/i.test(i.concepto);
 
-export default function RecibePage() {
+export default function ReciboPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params?.id as string | undefined;
   const [cab, setCab] = useState<Recibo | null>(null);
-  const [devengos, setDevengos] = useState<Devengo[]>([]);
-  const [deducciones, setDeducciones] = useState<Deduccion[]>([]);
+  const [empleado, setEmpleado] = useState<{ salario_base: number; tipo_periodo: string | null } | null>(null);
+  const [ingresos, setIngresos] = useState<Ingreso[]>([]);
+  const [descuentos, setDescuentos] = useState<Descuento[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
-    fetchWithSupabaseSession(`/api/rrhh/nomina/recibos/${id}`, { cache: "no-store" })
-      .then(async (r) => {
-        const j = (await r.json().catch(() => ({}))) as { success?: boolean; data?: { recibo: Recibo; devengos: Devengo[]; deducciones: Deduccion[] }; error?: string };
-        if (r.ok && j.success && j.data) {
-          setCab(j.data.recibo);
-          setDevengos(j.data.devengos.map((d, i) => ({ ...d, orden: d.orden ?? i })));
-          setDeducciones(j.data.deducciones.map((d, i) => ({ ...d, orden: d.orden ?? i })));
-          setErr(null);
-        } else setErr(j.error ?? "No se pudo cargar");
-      })
-      .finally(() => setLoading(false));
+    (async () => {
+      setLoading(true);
+      try {
+        const r = await fetchWithSupabaseSession(`/api/rrhh/nomina/recibos/${id}`, { cache: "no-store" });
+        const j = (await r.json().catch(() => ({}))) as {
+          success?: boolean; error?: string;
+          data?: { recibo: Recibo; devengos: Ingreso[]; deducciones: Descuento[] };
+        };
+        if (!r.ok || !j.success || !j.data) { setMsg({ ok: false, text: j.error ?? "No se pudo cargar" }); return; }
+        setCab(j.data.recibo);
+        setIngresos(j.data.devengos.map((d) => ({ ...d, importe_total: Math.round(Number(d.importe_total) || 0) })));
+        setDescuentos(j.data.deducciones.map((d) => ({ ...d, importe: Math.round(Number(d.importe) || 0) })));
+        const e = await fetchWithSupabaseSession(`/api/rrhh/empleados/${j.data.recibo.empleado_id}`, { cache: "no-store" });
+        const je = (await e.json().catch(() => ({}))) as { data?: { empleado?: { salario_base?: number; tipo_periodo?: string | null } } };
+        if (je?.data?.empleado) {
+          setEmpleado({ salario_base: Number(je.data.empleado.salario_base) || 0, tipo_periodo: je.data.empleado.tipo_periodo ?? null });
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [id]);
 
-  const totalDevengado = useMemo(() => devengos.reduce((a, d) => a + num(d.importe_total), 0), [devengos]);
-  const totalDeducTrab = useMemo(
-    () => deducciones.filter((d) => d.tipo !== "ips_patronal").reduce((a, d) => a + num(d.importe), 0),
-    [deducciones]
-  );
-  const totalAportEmp = useMemo(
-    () => deducciones.filter((d) => d.tipo === "ips_patronal").reduce((a, d) => a + num(d.importe), 0),
-    [deducciones]
-  );
-  const liquido = totalDevengado - totalDeducTrab;
-  const costeEmpresa = totalDevengado + totalAportEmp;
+  // El IPS siempre acompaña a lo que se cobra (el servidor hace la misma cuenta).
+  const descuentosVista = useMemo(() => conIpsRecalculado(ingresos, descuentos), [ingresos, descuentos]);
+  const tot = useMemo(() => totalesRecibo(ingresos, descuentosVista), [ingresos, descuentosVista]);
+  const ipsTrab = descuentosVista.find((d) => d.tipo === "ips_trabajador");
+  const ipsPatr = descuentosVista.find((d) => d.tipo === "ips_patronal");
+  const otrosDescuentos = descuentos.map((d, i) => ({ d, i })).filter(({ d }) => d.tipo !== "ips_trabajador" && d.tipo !== "ips_patronal");
 
-  const setCabField = (k: keyof Recibo, v: unknown) => {
+  const marcar = () => { setDirty(true); setMsg(null); };
+
+  function cambiarDias(dias: number) {
     if (!cab) return;
-    setCab({ ...cab, [k]: v as never });
-  };
+    const d = Math.max(0, Math.min(DIAS_MES, Math.trunc(dias) || 0));
+    setCab({ ...cab, dias_trabajados: d });
+    // La línea de salario se recalcula con los días; el resto no se toca.
+    if (empleado && empleado.salario_base > 0) {
+      const nueva = lineaSalario(empleado.salario_base, d, empleado.tipo_periodo);
+      setIngresos((xs) => {
+        const i = xs.findIndex(esSalario);
+        return i === -1 ? [nueva, ...xs] : xs.map((x, k) => (k === i ? nueva : x));
+      });
+    }
+    marcar();
+  }
 
-  const addDevengo = (es_salarial = true) => {
-    setDevengos((d) => [...d, { concepto: "", cantidad: null, importe_unitario: null, importe_total: 0, es_salarial, orden: d.length }]);
-  };
-  const updateDevengo = (i: number, patch: Partial<Devengo>) => {
-    setDevengos((d) => d.map((x, idx) => {
-      if (idx !== i) return x;
-      const next = { ...x, ...patch };
-      // Auto-cálculo si están cantidad y importe_unitario
-      if (patch.cantidad !== undefined || patch.importe_unitario !== undefined) {
-        if (next.cantidad !== null && next.importe_unitario !== null) {
-          next.importe_total = Number((next.cantidad * next.importe_unitario).toFixed(2));
-        }
-      }
-      return next;
-    }));
-  };
-  const removeDevengo = (i: number) => setDevengos((d) => d.filter((_, idx) => idx !== i));
+  const setIngreso = (i: number, patch: Partial<Ingreso>) => { setIngresos((xs) => xs.map((x, k) => (k === i ? { ...x, ...patch } : x))); marcar(); };
+  const setDescuento = (i: number, patch: Partial<Descuento>) => { setDescuentos((xs) => xs.map((x, k) => (k === i ? { ...x, ...patch } : x))); marcar(); };
 
-  const addDeduccion = (tipo: Deduccion["tipo"]) => {
-    setDeducciones((d) => [...d, { tipo, concepto: "", base: null, tipo_pct: null, importe: 0, orden: d.length }]);
-  };
-  const updateDeduccion = (i: number, patch: Partial<Deduccion>) => {
-    setDeducciones((d) => d.map((x, idx) => {
-      if (idx !== i) return x;
-      const next = { ...x, ...patch };
-      if (patch.base !== undefined || patch.tipo_pct !== undefined) {
-        if (next.base !== null && next.tipo_pct !== null) {
-          next.importe = Number(((next.base * next.tipo_pct) / 100).toFixed(2));
-        }
-      }
-      return next;
-    }));
-  };
-  const removeDeduccion = (i: number) => setDeducciones((d) => d.filter((_, idx) => idx !== i));
-
-  const guardar = async () => {
+  async function guardar() {
     if (!cab || !id) return;
     setSaving(true);
-    const body = {
-      periodo_desde: cab.periodo_desde,
-      periodo_hasta: cab.periodo_hasta,
-      total_dias: cab.total_dias,
-      dias_trabajados: cab.dias_trabajados,
-      estado: cab.estado,
-      observaciones: cab.observaciones,
-      devengos: devengos.map((d, i) => ({ ...d, orden: i })),
-      deducciones: deducciones.map((d, i) => ({ ...d, orden: i })),
-    };
-    const r = await fetchWithSupabaseSession(`/api/rrhh/nomina/recibos/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
-    setSaving(false);
-    if (r.ok && j.success) {
-      alert("Guardado");
-    } else {
-      alert(j.error ?? "Error al guardar");
+    setMsg(null);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/rrhh/nomina/recibos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dias_trabajados: cab.dias_trabajados ?? DIAS_MES,
+          total_dias: DIAS_MES,
+          observaciones: cab.observaciones,
+          devengos: ingresos,
+          deducciones: descuentos.filter((d) => d.tipo !== "ips_trabajador" && d.tipo !== "ips_patronal"),
+        }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string; data?: { deducciones?: Descuento[] } };
+      if (r.ok && j.success) {
+        if (j.data?.deducciones) setDescuentos(j.data.deducciones);
+        setDirty(false);
+        setMsg({ ok: true, text: "Recibo guardado." });
+        setTimeout(() => setMsg(null), 2500);
+      } else {
+        setMsg({ ok: false, text: j.error ?? "No se pudo guardar" });
+      }
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
-  if (loading) return <div className="p-6 text-slate-500">Cargando…</div>;
-  if (err || !cab) return <div className="p-6 text-rose-600">{err ?? "Recibo no encontrado"}</div>;
+  if (loading) return <div className="p-6 text-sm text-slate-500">Cargando…</div>;
+  if (!cab) return <div className="p-6 text-sm text-rose-600">{msg?.text ?? "Recibo no encontrado"}</div>;
 
-  const deducPorTipo = (tipo: Deduccion["tipo"]) => deducciones.map((d, i) => ({ d, i })).filter((x) => x.d.tipo === tipo);
+  const nombre = cab.empleado_nombre_snapshot ?? "Empleado";
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow={`Recibo · ${cab.periodo_desde}`}
-        title={cab.empleado_nombre_snapshot ?? "Recibo"}
-        description="Cargá los devengos y deducciones. Los totales se recalculan automáticamente."
-        backHref="/rrhh/nomina/recibos"
-        backLabel="Recibos"
-        actions={
-          <div className="flex items-center gap-2">
-            <a href={`/api/rrhh/nomina/recibos/${cab.id}/pdf`} target="_blank" rel="noreferrer"
-               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
-              <FileText className="h-4 w-4" /> Descargar PDF
-            </a>
-            <button onClick={guardar} disabled={saving}
-              className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F9EA2] disabled:opacity-50">
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-          </div>
-        }
-      />
+      <Link href="/rrhh/nomina/recibos" className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-[#3F8E91]">
+        <span aria-hidden>←</span> Recibos de {nombreMes(cab.periodo_desde)}
+      </Link>
 
-      {/* Cabecera */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="text-sm font-semibold text-slate-800 mb-3">Cabecera</h3>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Field label="Periodo desde" type="date" value={cab.periodo_desde} onChange={(v) => setCabField("periodo_desde", v)} />
-          <Field label="Periodo hasta" type="date" value={cab.periodo_hasta} onChange={(v) => setCabField("periodo_hasta", v)} />
-          <Field label="Total días" type="number" value={String(cab.total_dias)} onChange={(v) => setCabField("total_dias", parseInt(v, 10) || 0)} />
-          <Field label="Días cotizados" type="number" value={String(cab.dias_trabajados)} onChange={(v) => setCabField("dias_trabajados", parseInt(v, 10) || 0)} />
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          <Iniciales nombre={nombre} grande />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3F8E91]">Recibo de salario · <span className="capitalize">{nombreMes(cab.periodo_desde)}</span></p>
+            <h1 className="truncate text-xl font-bold text-slate-900">{nombre}</h1>
+            <p className="text-xs text-slate-500">
+              {[cab.empleado_cargo_snapshot, cab.empleado_documento_snapshot ? `CI ${cab.empleado_documento_snapshot}` : null,
+                cab.empleado_afiliacion_ips_snapshot ? `IPS ${cab.empleado_afiliacion_ips_snapshot}` : null].filter(Boolean).join(" · ") || "—"}
+            </p>
+          </div>
         </div>
-        <p className="mt-3 text-xs text-slate-500">
-          <strong>Empresa:</strong> {cab.empresa_nombre_snapshot ?? "—"} ({cab.empresa_ruc_snapshot ?? "sin RUC"}) ·{" "}
-          <strong>IPS patronal:</strong> {cab.empresa_ips_patronal_snapshot ?? "—"} ·{" "}
-          <strong>Centro:</strong> {cab.empresa_centro_snapshot ?? "—"}<br />
-          <strong>Trabajador:</strong> {cab.empleado_nombre_snapshot} · RUC {cab.empleado_documento_snapshot ?? "—"} · Afiliación {cab.empleado_afiliacion_ips_snapshot ?? "—"} · Categoría IPS {cab.empleado_categoria_ips_snapshot ?? "—"} · Cargo {cab.empleado_cargo_snapshot ?? "—"}
-        </p>
-        <p className="mt-1 text-xs text-amber-700">
-          Si faltan estos datos, editalos en la <a className="underline" href={`/rrhh/empleados`}>ficha del empleado</a> o en la configuración de la empresa, y volvé a crear el recibo (los snapshots se toman al crearlo).
-        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <a href={`/api/rrhh/nomina/recibos/${cab.id}/pdf`} target="_blank" rel="noreferrer"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 ${dirty ? "pointer-events-none opacity-50" : ""}`}
+            title={dirty ? "Guardá primero" : "Imprimir el recibo"}>
+            <FileText className="h-4 w-4" /> Imprimir
+          </a>
+          <button onClick={guardar} disabled={saving || !dirty}
+            className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50">
+            {saving ? "Guardando…" : dirty ? "Guardar" : "Guardado"}
+          </button>
+        </div>
       </div>
 
-      {/* Devengos */}
-      <Seccion titulo="I. Devengos">
-        <TablaDevengos devengos={devengos} onUpdate={updateDevengo} onRemove={removeDevengo} />
-        <div className="flex gap-2 p-3">
-          <button onClick={() => addDevengo(true)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">+ Concepto salarial</button>
-          <button onClick={() => addDevengo(false)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">+ Concepto no salarial</button>
-          <div className="ml-auto text-sm">
-            <strong>Total devengado:</strong> <span className="font-bold">Gs {fmt(totalDevengado)}</span>
-          </div>
-        </div>
-      </Seccion>
-
-      {/* Deducciones */}
-      <Seccion titulo="II. Deducciones">
-        <TablaDeducciones titulo="1. Aportación del trabajador a la Seguridad Social y recaudación conjunta"
-          rows={deducPorTipo("ips_trabajador")} onUpdate={updateDeduccion} onRemove={removeDeduccion}
-          onAdd={() => addDeduccion("ips_trabajador")} />
-        <TablaDeducciones titulo="2. I.R.P.F."
-          rows={deducPorTipo("prestamo")} onUpdate={updateDeduccion} onRemove={removeDeduccion}
-          onAdd={() => addDeduccion("prestamo")} />
-        <TablaDeducciones titulo="3. Productos en especie"
-          rows={deducPorTipo("otro")} onUpdate={updateDeduccion} onRemove={removeDeduccion}
-          onAdd={() => addDeduccion("otro")} />
-        <div className="flex items-center gap-4 border-t border-slate-100 p-3 text-sm">
-          <div><strong>Total a deducir:</strong> Gs {fmt(totalDeducTrab)}</div>
-          <div className="rounded-lg bg-[#E5F4F4] px-3 py-1.5 text-base font-bold text-[#0F6F73]">
-            Líquido a percibir: Gs {fmt(liquido)}
-          </div>
-        </div>
-      </Seccion>
-
-      {/* Bases / Aportación empresa */}
-      <Seccion titulo="Bases de cotización y aportación de la empresa">
-        <TablaDeducciones titulo="Aportaciones de la empresa"
-          rows={deducPorTipo("ips_patronal")} onUpdate={updateDeduccion} onRemove={removeDeduccion}
-          onAdd={() => addDeduccion("ips_patronal")} />
-        <div className="flex items-center justify-end gap-3 p-3 text-sm">
-          <strong>Coste empresa:</strong> <span className="font-bold">Gs {fmt(costeEmpresa)}</span>
-        </div>
-      </Seccion>
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-600">{label}</label>
-      <input type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-    </div>
-  );
-}
-
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-800">{titulo}</div>
-      {children}
-    </div>
-  );
-}
-
-function TablaDevengos({ devengos, onUpdate, onRemove }: {
-  devengos: Devengo[];
-  onUpdate: (i: number, patch: Partial<Devengo>) => void;
-  onRemove: (i: number) => void;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-slate-50/60 text-slate-600">
-          <tr>
-            <th className="px-3 py-2 text-xs font-semibold">Concepto</th>
-            <th className="px-3 py-2 text-xs font-semibold text-right w-24">Cantidad</th>
-            <th className="px-3 py-2 text-xs font-semibold text-right w-28">Importe Gs</th>
-            <th className="px-3 py-2 text-xs font-semibold text-right w-32">Total Gs</th>
-            <th className="px-3 py-2 text-xs font-semibold w-24">Tipo</th>
-            <th className="px-3 py-2 w-10"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {devengos.map((d, i) => (
-            <tr key={i} className="border-t border-slate-100">
-              <td className="px-3 py-1.5">
-                <input value={d.concepto} onChange={(e) => onUpdate(i, { concepto: e.target.value })}
-                  className="w-full rounded border border-slate-200 px-2 py-1 text-sm" placeholder="Concepto" />
-              </td>
-              <td className="px-3 py-1.5">
-                <input type="number" step="0.01" value={d.cantidad ?? ""} onChange={(e) => onUpdate(i, { cantidad: numn(e.target.value) })}
-                  className="w-full rounded border border-slate-200 px-2 py-1 text-sm text-right" />
-              </td>
-              <td className="px-3 py-1.5">
-                <input type="number" step="0.01" value={d.importe_unitario ?? ""} onChange={(e) => onUpdate(i, { importe_unitario: numn(e.target.value) })}
-                  className="w-full rounded border border-slate-200 px-2 py-1 text-sm text-right" />
-              </td>
-              <td className="px-3 py-1.5">
-                <input type="number" step="0.01" value={d.importe_total} onChange={(e) => onUpdate(i, { importe_total: num(e.target.value) })}
-                  className="w-full rounded border border-slate-200 px-2 py-1 text-sm text-right font-semibold" />
-              </td>
-              <td className="px-3 py-1.5">
-                <select value={d.es_salarial ? "s" : "n"} onChange={(e) => onUpdate(i, { es_salarial: e.target.value === "s" })}
-                  className="w-full rounded border border-slate-200 px-2 py-1 text-sm">
-                  <option value="s">Salarial</option>
-                  <option value="n">No salarial</option>
-                </select>
-              </td>
-              <td className="px-2 py-1.5 text-right">
-                <button onClick={() => onRemove(i)} className="text-rose-600 hover:underline text-xs">×</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TablaDeducciones({ titulo, rows, onUpdate, onRemove, onAdd }: {
-  titulo: string;
-  rows: Array<{ d: Deduccion; i: number }>;
-  onUpdate: (i: number, patch: Partial<Deduccion>) => void;
-  onRemove: (i: number) => void;
-  onAdd: () => void;
-}) {
-  return (
-    <div className="border-t border-slate-100">
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-50/40">
-        <span className="text-xs font-semibold text-slate-700">{titulo}</span>
-        <button onClick={onAdd} className="rounded border border-slate-200 bg-white px-2 py-0.5 text-xs hover:bg-slate-50">+ Añadir</button>
-      </div>
-      {rows.length > 0 && (
-        <table className="w-full text-left text-sm">
-          <thead className="text-slate-500">
-            <tr>
-              <th className="px-3 py-1.5 text-xs">Concepto</th>
-              <th className="px-3 py-1.5 text-xs text-right w-28">Base</th>
-              <th className="px-3 py-1.5 text-xs text-right w-20">%</th>
-              <th className="px-3 py-1.5 text-xs text-right w-28">Importe Gs</th>
-              <th className="px-3 py-1.5 w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ d, i }) => (
-              <tr key={i} className="border-t border-slate-100">
-                <td className="px-3 py-1.5">
-                  <input value={d.concepto} onChange={(e) => onUpdate(i, { concepto: e.target.value })}
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-sm" />
-                </td>
-                <td className="px-3 py-1.5">
-                  <input type="number" step="0.01" value={d.base ?? ""} onChange={(e) => onUpdate(i, { base: numn(e.target.value) })}
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-sm text-right" />
-                </td>
-                <td className="px-3 py-1.5">
-                  <input type="number" step="0.01" value={d.tipo_pct ?? ""} onChange={(e) => onUpdate(i, { tipo_pct: numn(e.target.value) })}
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-sm text-right" />
-                </td>
-                <td className="px-3 py-1.5">
-                  <input type="number" step="0.01" value={d.importe} onChange={(e) => onUpdate(i, { importe: num(e.target.value) })}
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-sm text-right font-semibold" />
-                </td>
-                <td className="px-2 py-1.5 text-right">
-                  <button onClick={() => onRemove(i)} className="text-rose-600 hover:underline text-xs">×</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {msg && (
+        <div className={`rounded-lg border px-3 py-2 text-sm ${msg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-900"}`}>{msg.text}</div>
       )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          {/* Días */}
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Días trabajados</h2>
+              <p className="text-xs text-slate-500">El mes se liquida sobre 30 días. Con menos, el salario se ajusta solo.</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => cambiarDias((cab.dias_trabajados ?? DIAS_MES) - 1)} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="Un día menos"><Minus className="h-4 w-4" /></button>
+              <input type="number" min={0} max={30} value={cab.dias_trabajados ?? DIAS_MES} onChange={(e) => cambiarDias(Number(e.target.value))}
+                className="w-16 rounded-lg border border-slate-200 px-2 py-2 text-center text-sm font-semibold tabular-nums" />
+              <button type="button" onClick={() => cambiarDias((cab.dias_trabajados ?? DIAS_MES) + 1)} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="Un día más"><Plus className="h-4 w-4" /></button>
+            </div>
+          </section>
+
+          {/* Ingresos */}
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+              <h2 className="text-sm font-semibold text-slate-800">Ingresos</h2>
+              <span className="text-sm font-semibold tabular-nums text-slate-800">{gs(tot.total_ingresos)}</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {ingresos.length === 0 && <p className="px-5 py-4 text-sm text-slate-400">Sin ingresos. El empleado no tiene salario cargado en su ficha.</p>}
+              {ingresos.map((x, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                  <input value={x.concepto} onChange={(e) => setIngreso(i, { concepto: e.target.value })}
+                    className="min-w-[160px] flex-1 rounded-lg border border-transparent px-2 py-1 text-sm font-medium text-slate-800 hover:border-slate-200 focus:border-[#4FAEB2] focus:outline-none" />
+                  {x.cantidad != null && x.importe_unitario != null && (
+                    <span className="text-xs text-slate-400">{x.cantidad} × {gs(x.importe_unitario)}</span>
+                  )}
+                  <button type="button" onClick={() => setIngreso(i, { es_salarial: !x.es_salarial })}
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${x.es_salarial ? "bg-[#4FAEB2]/10 text-[#3F8E91] ring-[#4FAEB2]/30" : "bg-slate-50 text-slate-500 ring-slate-200"}`}
+                    title="Si aporta o no al IPS">
+                    {x.es_salarial ? "aporta IPS" : "no aporta IPS"}
+                  </button>
+                  <MontoGs value={x.importe_total} onChange={(v) => setIngreso(i, { importe_total: v, cantidad: null, importe_unitario: null })} />
+                  <button type="button" onClick={() => { setIngresos((xs) => xs.filter((_, k) => k !== i)); marcar(); }}
+                    className="rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-600" aria-label="Quitar"><X className="h-4 w-4" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
+              {INGRESOS_RAPIDOS.map((q) => (
+                <button key={q.concepto} type="button" title={q.hint}
+                  onClick={() => { setIngresos((xs) => [...xs, { concepto: q.concepto, cantidad: null, importe_unitario: null, importe_total: 0, es_salarial: q.es_salarial }]); marcar(); }}
+                  className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+                  + {q.concepto}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Descuentos */}
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+              <h2 className="text-sm font-semibold text-slate-800">Descuentos</h2>
+              <span className="text-sm font-semibold tabular-nums text-slate-800">− {gs(tot.total_descuentos)}</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              <div className="flex items-center gap-3 bg-slate-50/50 px-5 py-3">
+                <span className="flex-1 text-sm font-medium text-slate-800">
+                  IPS · aporte del trabajador
+                  <span className="ml-2 text-xs font-normal text-slate-400">{IPS_TRABAJADOR_PCT}% de {gs(ipsTrab?.base ?? 0)} · se calcula solo</span>
+                </span>
+                <span className="w-36 text-right text-sm font-semibold tabular-nums text-slate-700">{gs(ipsTrab?.importe ?? 0)}</span>
+                <span className="w-6" />
+              </div>
+              {otrosDescuentos.map(({ d, i }) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-3">
+                  <input value={d.concepto} onChange={(e) => setDescuento(i, { concepto: e.target.value })}
+                    className="min-w-[160px] flex-1 rounded-lg border border-transparent px-2 py-1 text-sm font-medium text-slate-800 hover:border-slate-200 focus:border-[#4FAEB2] focus:outline-none" />
+                  <MontoGs value={d.importe} onChange={(v) => setDescuento(i, { importe: v, base: null, tipo_pct: null })} />
+                  <button type="button" onClick={() => { setDescuentos((xs) => xs.filter((_, k) => k !== i)); marcar(); }}
+                    className="rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-600" aria-label="Quitar"><X className="h-4 w-4" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
+              {DESCUENTOS_RAPIDOS.map((q) => (
+                <button key={q.concepto} type="button"
+                  onClick={() => { setDescuentos((xs) => [...xs, { tipo: q.tipo, concepto: q.concepto, base: null, tipo_pct: null, importe: 0 }]); marcar(); }}
+                  className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+                  + {q.concepto}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <label className="text-xs font-medium text-slate-600">Observaciones (salen en el recibo)</label>
+            <textarea rows={2} value={cab.observaciones ?? ""} onChange={(e) => { setCab({ ...cab, observaciones: e.target.value }); marcar(); }}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
+          </section>
+        </div>
+
+        {/* Resumen, siempre a la vista */}
+        <aside className="h-fit space-y-4 lg:sticky lg:top-4">
+          <div className="rounded-xl border border-[#4FAEB2]/30 bg-gradient-to-b from-[#4FAEB2]/10 to-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#3F8E91]">Neto a cobrar</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{gs(tot.neto)}</p>
+            <dl className="mt-4 space-y-1.5 text-sm">
+              <div className="flex justify-between"><dt className="text-slate-500">Ingresos</dt><dd className="tabular-nums text-slate-800">{gs(tot.total_ingresos)}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">Descuentos</dt><dd className="tabular-nums text-slate-800">− {gs(tot.total_descuentos)}</dd></div>
+            </dl>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Para la empresa</p>
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="flex justify-between"><dt className="text-slate-500">IPS patronal ({String(IPS_PATRONAL_PCT).replace(".", ",")}%)</dt><dd className="tabular-nums text-slate-800">{gs(ipsPatr?.importe ?? 0)}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">IPS a depositar (total)</dt><dd className="tabular-nums text-slate-800">{gs((ipsPatr?.importe ?? 0) + (ipsTrab?.importe ?? 0))}</dd></div>
+              <div className="flex justify-between border-t border-slate-100 pt-1.5 font-semibold"><dt className="text-slate-700">Costo total</dt><dd className="tabular-nums text-slate-900">{gs(tot.costo_empresa)}</dd></div>
+            </dl>
+            <p className="mt-3 text-[11px] text-slate-400">El aporte patronal no se descuenta al trabajador ni sale en su recibo.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+/** Monto en guaraníes con separador de miles mientras se escribe. */
+function MontoGs({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="relative w-36">
+      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Gs.</span>
+      <input inputMode="numeric" value={value ? Math.round(value).toLocaleString("es-PY") : ""} placeholder="0"
+        onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, "")) || 0)}
+        className="w-full rounded-lg border border-slate-200 py-1.5 pl-9 pr-2.5 text-right text-sm font-semibold tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
     </div>
   );
 }

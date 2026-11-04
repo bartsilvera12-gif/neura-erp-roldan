@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { conIpsRecalculado, totalesRecibo, type Descuento, type Ingreso } from "@/lib/rrhh/nomina-py";
 
 const num = (v: unknown): number => {
   if (v === null || v === undefined || v === "") return 0;
@@ -16,7 +17,6 @@ const numn = (v: unknown): number | null => {
 
 const TIPOS_DEDUCCION = ["ips_trabajador","ips_patronal","prestamo","judicial","otro"] as const;
 type TipoDed = typeof TIPOS_DEDUCCION[number];
-const TIPOS_TRABAJADOR: TipoDed[] = ["ips_trabajador","prestamo","judicial","otro"];
 
 /** GET /api/rrhh/nomina/recibos/[id] — cabecera + devengos + deducciones. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -56,26 +56,37 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
-    const devengos = Array.isArray(body.devengos) ? (body.devengos as Array<Record<string, unknown>>) : [];
-    const deducciones = Array.isArray(body.deducciones) ? (body.deducciones as Array<Record<string, unknown>>) : [];
+    const ingresosRaw = Array.isArray(body.devengos) ? (body.devengos as Array<Record<string, unknown>>) : [];
+    const descuentosRaw = Array.isArray(body.deducciones) ? (body.deducciones as Array<Record<string, unknown>>) : [];
 
-    const totalDevengado = devengos.reduce((acc, d) => acc + num(d.importe_total), 0);
-    const totalDeducTrab = deducciones
-      .filter((d) => TIPOS_TRABAJADOR.includes(d.tipo as TipoDed))
-      .reduce((acc, d) => acc + num(d.importe), 0);
-    const aportePatronal = deducciones
-      .filter((d) => d.tipo === "ips_patronal")
-      .reduce((acc, d) => acc + num(d.importe), 0);
-    const liquido = totalDevengado - totalDeducTrab;
-    const costeEmpresa = totalDevengado + aportePatronal;
+    // Guaraníes enteros. El IPS lo calcula el servidor sobre lo imponible: lo
+    // que mande la pantalla para esas dos líneas se descarta.
+    const devengos: Ingreso[] = ingresosRaw.map((d) => ({
+      concepto: String(d.concepto ?? "").trim() || "Concepto",
+      cantidad: numn(d.cantidad),
+      importe_unitario: numn(d.importe_unitario) === null ? null : Math.round(num(d.importe_unitario)),
+      importe_total: Math.round(num(d.importe_total)),
+      es_salarial: d.es_salarial !== false,
+    }));
+    const deducciones: Descuento[] = conIpsRecalculado(
+      devengos,
+      descuentosRaw.map((d) => ({
+        tipo: TIPOS_DEDUCCION.includes(d.tipo as TipoDed) ? (d.tipo as TipoDed) : "otro",
+        concepto: String(d.concepto ?? "").trim() || "Concepto",
+        base: numn(d.base),
+        tipo_pct: numn(d.tipo_pct),
+        importe: Math.round(num(d.importe)),
+      }))
+    );
+    const t = totalesRecibo(devengos, deducciones);
 
     const update: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
-      total_devengado: totalDevengado,
-      total_deducciones: totalDeducTrab,
-      liquido,
-      aporte_patronal: aportePatronal,
-      coste_empresa: costeEmpresa,
+      total_devengado: t.total_ingresos,
+      total_deducciones: t.total_descuentos,
+      liquido: t.neto,
+      aporte_patronal: t.aporte_patronal,
+      coste_empresa: t.costo_empresa,
     };
     if (body.periodo_desde !== undefined) update.periodo_desde = String(body.periodo_desde);
     if (body.periodo_hasta !== undefined) update.periodo_hasta = String(body.periodo_hasta);
@@ -96,33 +107,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (delDed.error) return NextResponse.json(errorResponse(delDed.error.message), { status: 400 });
 
     if (devengos.length > 0) {
-      const rows = devengos.map((d, i) => ({
-        recibo_id: id, empresa_id: ctx.auth.empresa_id,
-        concepto: String(d.concepto ?? "").trim() || "Concepto",
-        cantidad: numn(d.cantidad), importe_unitario: numn(d.importe_unitario),
-        importe_total: num(d.importe_total),
-        es_salarial: d.es_salarial !== false,
-        orden: typeof d.orden === "number" ? d.orden : i,
-      }));
+      const rows = devengos.map((d, i) => ({ recibo_id: id, empresa_id: ctx.auth.empresa_id, ...d, orden: i }));
       const { error } = await ctx.supabase.from("nomina_recibo_devengos").insert(rows);
       if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
     }
     if (deducciones.length > 0) {
-      const rows = deducciones.map((d, i) => {
-        const tipo = TIPOS_DEDUCCION.includes(d.tipo as TipoDed) ? d.tipo as TipoDed : "otro";
-        return {
-          recibo_id: id, empresa_id: ctx.auth.empresa_id,
-          tipo, concepto: String(d.concepto ?? "").trim() || "Concepto",
-          base: numn(d.base), tipo_pct: numn(d.tipo_pct),
-          importe: num(d.importe),
-          orden: typeof d.orden === "number" ? d.orden : i,
-        };
-      });
+      const rows = deducciones.map((d, i) => ({ recibo_id: id, empresa_id: ctx.auth.empresa_id, ...d, orden: i }));
       const { error } = await ctx.supabase.from("nomina_recibo_deducciones").insert(rows);
       if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
     }
 
-    return NextResponse.json(successResponse({ ok: true }));
+    return NextResponse.json(successResponse({ ok: true, totales: t, deducciones }));
   } catch (err) {
     return NextResponse.json(errorResponse(err instanceof Error ? err.message : "Error"), { status: 500 });
   }
