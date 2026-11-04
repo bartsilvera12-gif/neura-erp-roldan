@@ -5,6 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { minimosSugeridosOVacio, MESES_VENTANA } from "@/lib/inventario/server/stock-minimo-pg";
+import { traerTodas } from "@/lib/supabase/traer-todo";
 
 /**
  * GET /api/inventario/sugerencias?dias=60&cobertura=30
@@ -107,15 +108,20 @@ export async function GET(request: NextRequest) {
     const schema = await fetchDataSchemaForEmpresaId(empresaId);
     const minimos = await minimosSugeridosOVacio(schema, empresaId, sucursalId);
 
-    const prodQ = await ctx.supabase
-      .from("productos")
-      .select("id, nombre, sku, unidad_medida, stock_actual, stock_minimo, costo_promedio, proveedor_principal_id, controla_stock, activo")
-      .eq("empresa_id", empresaId)
-      .eq("activo", true);
-    if (prodQ.error) throw new Error(prodQ.error.message);
+    // Paginado: son 983 artículos activos y PostgREST corta en 1000 sin avisar.
+    // Hoy entra justo, pero una lista de reposición a la que le falten los
+    // últimos artículos es peor que no tenerla, porque nadie nota cuáles.
+    const prodFilas = await traerTodas<Record<string, unknown>>((d, h) =>
+      ctx.supabase
+        .from("productos")
+        .select("id, nombre, sku, unidad_medida, stock_actual, stock_minimo, costo_promedio, proveedor_principal_id, controla_stock, activo")
+        .eq("empresa_id", empresaId)
+        .eq("activo", true)
+        .order("id", { ascending: true })
+        .range(d, h)
+    );
 
-    const productos = ((prodQ.data ?? []) as Array<Record<string, unknown>>)
-      .filter((p) => p.controla_stock !== false);
+    const productos = prodFilas.filter((p) => p.controla_stock !== false);
     if (productos.length === 0) {
       return NextResponse.json(successResponse({
         dias, cobertura, filas: [], resumen: vacio(),

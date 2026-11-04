@@ -171,6 +171,12 @@ const MENU_STRUCTURE: MenuItem[] = [
     { label: "Rubros", href: "/inventario/categorias" },
     { label: "Ubicaciones", href: "/inventario/ubicaciones" },
     { label: "Depósitos", href: "/depositos" },
+    // Dos pantallas de reposición que contestan preguntas distintas y no se
+    // reemplazan: "Bajo mínimo" compara el stock contra el mínimo de la ficha
+    // —qué bajó de donde dijimos que no debía bajar— y "Reposición" mira el
+    // consumo —cuánto conviene comprar—. Un artículo que no se vende hace
+    // meses no aparece en la segunda y sí en la primera.
+    { label: "Bajo mínimo", href: "/inventario/bajo-minimo" },
     { label: "Reposición", href: "/inventario/sugerencias" },
   ]},
   // Módulo propio (no hijo de Inventario): un `usuario` puede tener acceso a
