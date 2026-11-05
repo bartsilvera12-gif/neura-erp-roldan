@@ -111,7 +111,7 @@ export default function EmpleadoDetallePage() {
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono font-semibold text-slate-700">
-                Legajo {legajo ?? "—"}
+                Código {legajo ?? "—"}
               </span>
               {(() => {
                 const h = normalizarHorario(empleado.horario_semanal);

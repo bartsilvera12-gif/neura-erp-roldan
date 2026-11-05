@@ -13,7 +13,7 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
  * (42703): se reintenta sin ellas y se avisa cuál falta.
  */
 const COLUMNAS_POR_SCRIPT: Array<{ script: string; columnas: string[]; que: string }> = [
-  { script: "73_legajo_y_usuario_del_empleado.sql", columnas: ["legajo", "usuario_id"], que: "legajo ni usuario" },
+  { script: "73_legajo_y_usuario_del_empleado.sql", columnas: ["legajo", "usuario_id"], que: "código de empleado ni usuario" },
   { script: "74_horario_y_domicilio_del_empleado.sql", columnas: ["horario_semanal", "ciudad", "barrio"], que: "horario ni ciudad y barrio" },
 ];
 
@@ -89,7 +89,7 @@ export async function validarLegajoYUsuario(
     const r = await q.limit(1);
     if (r.error && !faltaScript73(r.error.message)) throw new Error(r.error.message);
     const otro = (r.data ?? [])[0] as { nombre?: string } | undefined;
-    if (otro) return `El legajo ${datos.legajo} ya es de ${otro.nombre ?? "otro empleado"}.`;
+    if (otro) return `El código ${datos.legajo} ya es de ${otro.nombre ?? "otro empleado"}.`;
   }
   if (datos.usuario_id) {
     const u = await sb.from("usuarios").select("id").eq("empresa_id", empresaId).eq("id", datos.usuario_id).maybeSingle();

@@ -111,7 +111,7 @@ export default function EmpleadosPage() {
       <PageHeader
         eyebrow="RRHH"
         title="Empleados"
-        description="Legajos, puestos y el usuario del sistema de cada persona."
+        description="Código, puesto y el usuario del sistema de cada persona."
         actions={
           <Link href="/rrhh/empleados/nuevo"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#3F8E91]">
@@ -136,7 +136,7 @@ export default function EmpleadosPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative w-full sm:max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input type="text" placeholder="Buscar por nombre, legajo, CI, cargo o usuario…" value={q} onChange={(e) => setQ(e.target.value)}
+          <input type="text" placeholder="Buscar por nombre, código, CI, cargo o usuario…" value={q} onChange={(e) => setQ(e.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
         </div>
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
@@ -159,7 +159,7 @@ export default function EmpleadosPage() {
             <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Legajo</th>
+                  <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Empleado</th>
                   <th className="px-4 py-3">Puesto</th>
                   <th className="px-4 py-3">Usuario del sistema</th>

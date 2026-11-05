@@ -156,15 +156,15 @@ export default function EmpleadoForm({
   return (
     <form id="empleado-form" onSubmit={onSubmit} className="space-y-5">
       <Section icon={<IdCard className="h-4 w-4" />} title="Identificación"
-        hint="El legajo es el código del empleado. El usuario es con el que entra al sistema, si entra.">
+        hint="El código identifica al empleado. El usuario es con el que entra al sistema, si entra.">
         {falta73 && (
           <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Falta correr <b>73_legajo_y_usuario_del_empleado.sql</b> en la base: hasta entonces el legajo y el
+            Falta correr <b>73_legajo_y_usuario_del_empleado.sql</b> en la base: hasta entonces el código de empleado y el
             usuario no se guardan.
           </p>
         )}
         <Grid>
-          <TextField label="Legajo" value={F("legajo")} onChange={(v) => setF("legajo", v.toUpperCase())}
+          <TextField label="Código de empleado" value={F("legajo")} onChange={(v) => setF("legajo", v.toUpperCase())}
             placeholder={esNuevo ? "Automático (siguiente número)" : "Ej: 0001"} disabled={falta73} />
           <div className="md:col-span-2">
             <label className={labelCls}>Usuario del sistema</label>

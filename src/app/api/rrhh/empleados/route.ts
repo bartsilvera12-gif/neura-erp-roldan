@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       empleados,
       usuarios: puede(perms, "empleados.editar") ? usuarios : [],
       falta_script_74: falta74,
-      ...(falta73 ? { aviso: "Falta correr 73_legajo_y_usuario_del_empleado.sql: todavía no se pueden cargar legajos ni usuarios." } : {}),
+      ...(falta73 ? { aviso: "Falta correr 73_legajo_y_usuario_del_empleado.sql: todavía no se pueden cargar códigos de empleado ni usuarios." } : {}),
     }));
   } catch (err) {
     console.error("[/api/rrhh/empleados GET]", err instanceof Error ? err.message : err);

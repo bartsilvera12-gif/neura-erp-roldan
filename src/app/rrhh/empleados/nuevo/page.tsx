@@ -55,7 +55,7 @@ export default function NuevoEmpleadoPage() {
       <PageHeader
         eyebrow="RRHH · Empleados"
         title="Nuevo empleado"
-        description="Si dejás el legajo vacío, se le asigna el siguiente número."
+        description="Si dejás el código de empleado vacío, se le asigna el siguiente número."
         backHref="/rrhh/empleados"
         backLabel="Empleados"
         actions={
