@@ -9,7 +9,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import { Iniciales } from "@/components/rrhh/EmpleadoBadges";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { nombreMes } from "@/lib/rrhh/nomina-py";
-import { ChevronLeft, ChevronRight, FileText, Landmark, Receipt, Sparkles, Trash2, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -160,7 +160,6 @@ export default function RecibosPage() {
               disabled={sinRecibo.length === 0 || generando !== null}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50"
             >
-              <Sparkles className="h-4 w-4" />
               {generando === "todos" ? "Generando…" : sinRecibo.length === 0 ? "Todos generados" : `Generar ${sinRecibo.length} recibo${sinRecibo.length === 1 ? "" : "s"}`}
             </button>
           </div>
