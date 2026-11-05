@@ -118,7 +118,8 @@ export default function OrdenPagoPage() {
 
   // El cheque
   const [numeroCheque, setNumeroCheque] = useState("");
-  const [banco, setBanco] = useState("");
+  const [bancoId, setBancoId] = useState("");
+  const [bancos, setBancos] = useState<{ id: string; nombre: string }[]>([]);
   const [fechaPago, setFechaPago] = useState(hoyPy);
   const [imagenCheque, setImagenCheque] = useState<File | null>(null);
   const [emitiendo, setEmitiendo] = useState(false);
@@ -132,6 +133,28 @@ export default function OrdenPagoPage() {
   const inputImagenDespues = useRef<HTMLInputElement>(null);
 
   useEffect(() => { void getProveedores().then(setProveedores); }, []);
+
+  // Los bancos cargados en el ERP (Configuración → entidades). Para un cheque
+  // solo sirven los de tipo banco; si no hay ninguno marcado así, se muestran
+  // todas las entidades activas para no dejar el desplegable vacío.
+  useEffect(() => {
+    let cancel = false;
+    apiFetch("/api/entidades-bancarias")
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel || !j?.success) return;
+        const todas = ((j.data?.entidades ?? []) as Array<{ id: string; nombre?: string; tipo?: string }>)
+          .map((e) => ({ id: String(e.id), nombre: String(e.nombre ?? ""), tipo: String(e.tipo ?? "") }))
+          .filter((e) => e.nombre);
+        const soloBancos = todas.filter((e) => e.tipo === "banco");
+        const lista = (soloBancos.length ? soloBancos : todas)
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        setBancos(lista.map(({ id, nombre }) => ({ id, nombre })));
+        if (lista.length === 1) setBancoId(lista[0].id);
+      })
+      .catch(() => undefined);
+    return () => { cancel = true; };
+  }, []);
 
   /**
    * Se puede llegar con el proveedor ya elegido: /pagos/orden-pago?proveedor=<id>,
@@ -259,7 +282,8 @@ export default function OrdenPagoPage() {
           moneda,
           importe: total,
           numero: numeroCheque.trim() || null,
-          banco_nombre: banco.trim() || null,
+          entidad_bancaria_id: bancoId || null,
+          banco_nombre: bancos.find((b) => b.id === bancoId)?.nombre ?? null,
           fecha_pago_prevista: fechaPago,
           facturas: seleccionadas.map((f) => ({
             numero_control: f.numero_control,
@@ -285,7 +309,6 @@ export default function OrdenPagoPage() {
       if (errImg) setError(`El pago quedó armado, pero la foto del cheque no se subió: ${errImg}`);
       setImagenCheque(null);
       setNumeroCheque("");
-      setBanco("");
       await cargar();
       document.getElementById("neura-main-content")?.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -621,11 +644,13 @@ export default function OrdenPagoPage() {
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Banco</span>
-                <input
-                  value={banco} onChange={(e) => setBanco(e.target.value)}
-                  placeholder="Itaú"
-                  className="h-[38px] w-36 rounded-lg border border-slate-200 px-3 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
-                />
+                <select
+                  value={bancoId} onChange={(e) => setBancoId(e.target.value)}
+                  className={`h-[38px] w-44 rounded-lg border border-slate-200 bg-white px-2.5 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20 ${bancoId ? "text-slate-800" : "text-slate-400"}`}
+                >
+                  <option value="">{bancos.length ? "Elegí el banco…" : "No hay bancos cargados"}</option>
+                  {bancos.map((b) => <option key={b.id} value={b.id} className="text-slate-800">{b.nombre}</option>)}
+                </select>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fecha de pago</span>
