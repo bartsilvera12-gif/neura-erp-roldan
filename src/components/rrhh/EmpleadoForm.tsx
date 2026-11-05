@@ -224,7 +224,7 @@ export default function EmpleadoForm({
             onCreate={(n) => crear(CATALOGS.tipos_empleado, n, setTiposEmpleado, "tipo_empleado")} />
           <TextField label="Supervisor" placeholder="Nombre del supervisor" value={F("supervisor")} onChange={(v) => setF("supervisor", v)} />
           <SelectField label="Tipo de contrato" value={F("tipo_contrato")} onChange={(v) => setF("tipo_contrato", v)}
-            options={opcionesConActual(F("tipo_contrato"), [["", "—"], ["indefinido", "Indefinido"], ["temporal", "Temporal"], ["prueba", "Prueba"], ["obra", "Obra"]])} />
+            options={opcionesConActual(F("tipo_contrato"), [["", "—"], ["indefinido", "Por tiempo indefinido"], ["temporal", "Plazo fijo"], ["prueba", "Período de prueba"], ["obra", "Por obra determinada"]])} />
           <SelectField label="Jornada laboral" value={F("jornada_laboral")} onChange={(v) => setF("jornada_laboral", v)}
             options={opcionesConActual(F("jornada_laboral"), [["", "—"], ["completa", "Completa"], ["parcial", "Parcial"], ["turnos", "Turnos"]])} />
           <TextField label="Fecha de ingreso" type="date" value={F("fecha_ingreso")} onChange={(v) => setF("fecha_ingreso", v)} />
@@ -241,10 +241,34 @@ export default function EmpleadoForm({
         onTolerancia={(v) => setF("tolerancia_minutos", v)}
       />
 
-      <Section icon={<Wallet className="h-4 w-4" />} title="Sueldo y cobro">
+      <Section icon={<Wallet className="h-4 w-4" />} title="Sueldo y cobro"
+        hint="Mensualero cobra un sueldo fijo por mes; jornalero cobra por día trabajado. Con esto se arma el recibo de salario.">
+        <div className="mb-4">
+          <label className={labelCls}>Cómo cobra</label>
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            {([
+              ["mensual", "Mensualero", "Sueldo fijo por mes"],
+              ["jornal", "Jornalero", "Jornal por día trabajado"],
+            ] as const).map(([v, t, d]) => {
+              const on = (F("tipo_periodo") || "mensual") === v;
+              return (
+                <button key={v} type="button" onClick={() => setF("tipo_periodo", v)} aria-pressed={on}
+                  className={`rounded-lg border px-4 py-2.5 text-left transition-colors ${
+                    on ? "border-[#4FAEB2] bg-[#4FAEB2]/10 ring-1 ring-[#4FAEB2]" : "border-slate-200 bg-white hover:border-[#4FAEB2]/50"
+                  }`}>
+                  <span className={`block text-sm font-semibold ${on ? "text-[#2F6E71]" : "text-slate-800"}`}>{t}</span>
+                  <span className="block text-xs text-slate-500">{d}</span>
+                </button>
+              );
+            })}
+          </div>
+          {!["", "mensual", "jornal"].includes(F("tipo_periodo")) && (
+            <p className="mt-1.5 text-xs text-amber-700">Tiene cargado “{F("tipo_periodo")}”: elegí una de las dos opciones.</p>
+          )}
+        </div>
         <Grid>
           <div>
-            <label className={labelCls}>Salario base</label>
+            <label className={labelCls}>{F("tipo_periodo") === "jornal" ? "Jornal diario" : "Salario mensual"}</label>
             <div className="mt-1 flex gap-2">
               <select value={F("moneda")} onChange={(e) => setF("moneda", e.target.value)}
                 className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20">
@@ -254,6 +278,13 @@ export default function EmpleadoForm({
               <input type="number" min="0" value={F("salario_base")} onChange={(e) => setF("salario_base", e.target.value)}
                 className={`${inputCls} mt-0 flex-1 tabular-nums`} />
             </div>
+            {Number(F("salario_base")) > 0 && F("moneda") === "PYG" && (
+              <p className="mt-1 text-xs text-slate-400">
+                {F("tipo_periodo") === "jornal"
+                  ? `≈ Gs. ${Math.round(Number(F("salario_base")) * 30).toLocaleString("es-PY")} por mes de 30 días`
+                  : `≈ Gs. ${Math.round(Number(F("salario_base")) / 30).toLocaleString("es-PY")} por día`}
+              </p>
+            )}
           </div>
           <CatalogSelectField label="Banco" value={F("banco")} onChange={(v) => setF("banco", v)} options={bancos}
             onCreate={(n) => crear(CATALOGS.bancos, n, setBancos, "banco")} />

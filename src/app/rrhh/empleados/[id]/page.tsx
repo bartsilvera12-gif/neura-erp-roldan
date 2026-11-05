@@ -113,6 +113,9 @@ export default function EmpleadoDetallePage() {
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono font-semibold text-slate-700">
                 Código {legajo ?? "—"}
               </span>
+              <span className="rounded-md bg-slate-50 px-2 py-0.5 font-medium text-slate-600">
+                {empleado.tipo_periodo === "jornal" ? "Jornalero" : "Mensualero"}
+              </span>
               {(() => {
                 const h = normalizarHorario(empleado.horario_semanal);
                 return h ? (
