@@ -67,6 +67,24 @@ export default function OrdenPagoPage() {
 
   useEffect(() => { void getProveedores().then(setProveedores); }, []);
 
+  /**
+   * Se puede llegar con el proveedor ya elegido: /pagos/orden-pago?proveedor=<id>
+   *
+   * Es como se entra desde Pagos a proveedores, que es donde se ve a quién hay
+   * que pagarle. Sin esto había que acordarse de que esta pantalla existe y
+   * volver a buscar el proveedor en el selector, y por eso el botón que estaba
+   * en la lista imprimía la orden de UNA factura en vez de la consolidada, que
+   * es justo lo que se había pedido.
+   *
+   * Se lee de `window.location` y no con useSearchParams a propósito: ese hook
+   * obliga a envolver la página en un Suspense para poder prerenderizarla, y
+   * acá no hace falta tanto para leer un parámetro una sola vez.
+   */
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("proveedor");
+    if (id) setProveedorId(id);
+  }, []);
+
   const cargar = useCallback(async () => {
     if (!proveedorId) { setFacturas([]); return; }
     setCargando(true);
