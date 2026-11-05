@@ -281,6 +281,9 @@ export default function EmpleadoForm({
 /**
  * Horario por día. Antes era una sola "hora de entrada" para toda la semana:
  * el sábado corto no se podía cargar y la tardanza del sábado se medía mal.
+ *
+ * Arriba se eligen los días con un toque; abajo, cada día que trabaja con su
+ * entrada, su salida y una barra que muestra el turno en la jornada.
  */
 function EditorHorario({ valor, onChange, tolerancia, onTolerancia }: {
   valor: string;
@@ -296,62 +299,129 @@ function EditorHorario({ valor, onChange, tolerancia, onTolerancia }: {
     const h = { ...horario };
     if (h[clave]) delete h[clave];
     else {
-      // Al prender un día, copia el horario del último día cargado.
+      // Al prender un día, copia el horario del primer día que ya trabaja.
       const base = DIAS_SEMANA.map((d) => horario[d.clave]).find(Boolean) ?? { entrada: "07:00", salida: "17:00" };
       h[clave] = { ...base };
     }
     guardar(h);
   };
-  const lunes = horario["1"];
-  const vacio = Object.keys(horario).length === 0;
+  const activos = DIAS_SEMANA.filter((d) => horario[d.clave]);
+  const primero = activos[0] ? horario[activos[0].clave] : undefined;
+  const vacio = activos.length === 0;
+  const horas = horasSemanales(horario);
 
   return (
     <Section icon={<Clock className="h-4 w-4" />} title="Horario"
-      hint={vacio ? "Los días que trabaja y a qué hora entra y sale. Sin horario, el control horario no mide tardanzas." : `${resumenHorario(horario)} · ${horasSemanales(horario)} h por semana`}>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <button type="button" onClick={() => guardar(HORARIO_SUGERIDO)}
-          className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
-          Lunes a viernes 07:00–17:00 y sábado 07:00–11:00
-        </button>
-        {lunes && (
-          <button type="button"
-            onClick={() => guardar(Object.fromEntries(DIAS_SEMANA.filter((d) => horario[d.clave]).map((d) => [d.clave, { ...lunes }])) as HorarioSemanal)}
-            className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
-            Mismo horario del lunes a todos los días
+      hint="Los días que trabaja y a qué hora entra y sale. Con esto el control horario mide las tardanzas.">
+      {/* Días */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1.5">
+          {DIAS_SEMANA.map(({ clave, corto, largo }) => {
+            const on = !!horario[clave];
+            return (
+              <button key={clave} type="button" onClick={() => alternar(clave)} title={on ? `${largo}: trabaja` : `${largo}: no trabaja`}
+                aria-pressed={on}
+                className={`h-10 w-12 rounded-lg text-sm font-semibold transition-colors ${
+                  on ? "bg-[#4FAEB2] text-white shadow-sm hover:bg-[#3F8E91]" : "border border-slate-200 bg-white text-slate-400 hover:border-[#4FAEB2]/50 hover:text-slate-600"
+                }`}>
+                {corto}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button type="button" onClick={() => guardar(HORARIO_SUGERIDO)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+            L a V 07–17 · Sáb 07–11
           </button>
-        )}
-        {!vacio && (
-          <button type="button" onClick={() => guardar({})} className="px-2 py-1 text-xs text-slate-400 hover:text-rose-600">Borrar horario</button>
-        )}
+          {primero && activos.length > 1 && (
+            <button type="button"
+              onClick={() => guardar(Object.fromEntries(activos.map((d) => [d.clave, { ...primero }])) as HorarioSemanal)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+              Igualar todos al {activos[0].largo.toLowerCase()}
+            </button>
+          )}
+          {!vacio && (
+            <button type="button" onClick={() => guardar({})} className="px-2 py-2 text-slate-400 hover:text-rose-600">Borrar</button>
+          )}
+        </div>
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        {DIAS_SEMANA.map(({ clave, largo }) => {
-          const t = horario[clave];
-          return (
-            <div key={clave} className={`flex flex-wrap items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0 ${t ? "" : "bg-slate-50/60"}`}>
-              <label className="flex w-32 cursor-pointer items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!t} onChange={() => alternar(clave)} className="h-4 w-4 rounded border-slate-300 accent-[#4FAEB2]" />
-                <span className={t ? "font-medium text-slate-800" : "text-slate-400"}>{largo}</span>
-              </label>
-              {t ? (
-                <>
+
+      {/* Turnos */}
+      {vacio ? (
+        <div className="mt-4 rounded-lg border border-dashed border-slate-300 py-8 text-center">
+          <Clock className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+          <p className="text-sm text-slate-500">Tocá los días que trabaja, o usá el horario de la casa.</p>
+        </div>
+      ) : (
+        <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {activos.map(({ clave, largo }) => {
+            const t = horario[clave]!;
+            return (
+              <div key={clave} className="grid grid-cols-[92px_auto_1fr] items-center gap-4 px-4 py-2.5 max-md:grid-cols-[92px_1fr]">
+                <span className="text-sm font-medium text-slate-800">{largo}</span>
+                <div className="flex items-center gap-2">
                   <input type="time" value={t.entrada ?? ""} onChange={(e) => cambiar(clave, "entrada", e.target.value)} aria-label={`Entrada ${largo}`}
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none" />
-                  <span className="text-xs text-slate-400">a</span>
+                    className="w-[104px] rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
+                  <span className="text-slate-300">→</span>
                   <input type="time" value={t.salida ?? ""} onChange={(e) => cambiar(clave, "salida", e.target.value)} aria-label={`Salida ${largo}`}
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none" />
-                </>
-              ) : (
-                <span className="text-xs text-slate-400">No trabaja</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-3 max-w-[220px]">
-        <TextField label="Tolerancia para la entrada (minutos)" type="number" value={tolerancia} onChange={onTolerancia} />
+                    className="w-[104px] rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
+                </div>
+                <BarraTurno entrada={t.entrada} salida={t.salida} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pie: total y tolerancia */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3">
+        <div className="text-sm text-slate-600">
+          {vacio ? "Sin horario cargado" : (
+            <>
+              <b className="text-slate-900">{horas} h</b> por semana
+              <span className="ml-2 text-xs text-slate-400">{resumenHorario(horario)}</span>
+            </>
+          )}
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          Tolerancia para la entrada
+          <span className="relative">
+            <input type="number" min={0} max={120} value={tolerancia} onChange={(e) => onTolerancia(e.target.value)}
+              className="w-20 rounded-lg border border-slate-200 bg-white py-1.5 pl-2.5 pr-9 text-right text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">min</span>
+          </span>
+        </label>
       </div>
     </Section>
+  );
+}
+
+/** El turno dibujado sobre la jornada de 05:00 a 22:00, con la duración. */
+function BarraTurno({ entrada, salida }: { entrada: string | null; salida: string | null }) {
+  const aMin = (h: string | null) => {
+    const m = h ? /^(\d{1,2}):(\d{2})/.exec(h) : null;
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const ini = 5 * 60, fin = 22 * 60;
+  const a = aMin(entrada), b = aMin(salida);
+  const ok = a != null && b != null && b > a;
+  const pos = (m: number) => `${Math.max(0, Math.min(100, ((m - ini) / (fin - ini)) * 100))}%`;
+  const dur = ok ? (b! - a!) / 60 : 0;
+  return (
+    <div className="flex items-center gap-3 max-md:col-span-2">
+      <div className="relative h-2.5 flex-1 rounded-full bg-slate-100">
+        {[6, 12, 18].map((h) => (
+          <span key={h} className="absolute top-0 h-full w-px bg-slate-200" style={{ left: pos(h * 60) }} />
+        ))}
+        {ok && (
+          <span className="absolute top-0 h-full rounded-full bg-[#4FAEB2]" style={{ left: pos(a!), width: `calc(${pos(b!)} - ${pos(a!)})` }} />
+        )}
+      </div>
+      <span className={`w-12 text-right text-xs tabular-nums ${ok ? "font-medium text-slate-600" : "text-slate-300"}`}>
+        {ok ? `${Number.isInteger(dur) ? dur : dur.toFixed(1).replace(".", ",")} h` : "—"}
+      </span>
+    </div>
   );
 }
 
