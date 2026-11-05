@@ -33,6 +33,8 @@ COMMENT ON COLUMN roldanerp.cheques.imagen_storage_path IS
   'Foto o escaneo del cheque emitido (bucket de comprobantes de compras, '
   'carpeta cheques). No es el recibo del proveedor: ese va en recibo_storage_path.';
 
+NOTIFY pgrst, 'reload schema';
+
 -- ── Resumen ────────────────────────────────────────────────────────────────
 SELECT
   count(*)                   AS cheques,

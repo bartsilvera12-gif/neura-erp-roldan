@@ -8,12 +8,13 @@ import EmpleadoForm, { cuerpoDesdeForm, formDesdeEmpleado } from "@/components/r
 import EmpleadoArchivos from "@/components/rrhh/EmpleadoArchivos";
 import EmpleadoSalarios from "@/components/rrhh/EmpleadoSalarios";
 import EmpleadoVacaciones from "@/components/rrhh/EmpleadoVacaciones";
+import EmpleadoNovedades from "@/components/rrhh/EmpleadoNovedades";
 import { normalizarHorario, resumenHorario } from "@/lib/rrhh/horario";
 import { EstadoEmpleadoBadge, Iniciales } from "@/components/rrhh/EmpleadoBadges";
 import type { UsuarioParaVincular } from "@/lib/rrhh/empleado-vinculo";
-import { Clock, FileText, KeyRound, Palmtree, UserRound, UserX, Wallet } from "lucide-react";
+import { ClipboardList, Clock, FileText, KeyRound, Palmtree, UserRound, UserX, Wallet } from "lucide-react";
 
-type Pestana = "datos" | "vacaciones" | "salarios" | "documentos";
+type Pestana = "datos" | "vacaciones" | "novedades" | "salarios" | "documentos";
 
 type Empleado = Record<string, unknown> & { id: string; nombre: string };
 
@@ -21,7 +22,7 @@ export default function EmpleadoDetallePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const sp = useSearchParams();
-  const pestana: Pestana = (["vacaciones", "salarios", "documentos"] as const).find((t) => t === sp?.get("tab")) ?? "datos";
+  const pestana: Pestana = (["vacaciones", "novedades", "salarios", "documentos"] as const).find((t) => t === sp?.get("tab")) ?? "datos";
   const irA = (t: Pestana) => router.replace(t === "datos" ? "?" : `?tab=${t}`, { scroll: false });
   const [empleado, setEmpleado] = useState<Empleado | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioParaVincular[]>([]);
@@ -159,15 +160,19 @@ export default function EmpleadoDetallePage() {
       {/* Pestañas: los datos se editan acá mismo y las vacaciones se registran
           sin salir de la ficha. Lo que se edita en Datos no se pierde al
           cambiar de pestaña: el formulario vive en esta página. */}
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+      {/* La línea de abajo va como sombra y no como borde: con borde, el
+          subrayado de la pestaña (-mb-px) desbordaba y el navegador mostraba
+          unas flechitas de scroll vertical al costado. */}
+      <div className="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_#e2e8f0]">
         {([
           ["datos", "Datos y horario", <UserRound key="d" className="h-4 w-4" />],
           ["vacaciones", "Vacaciones", <Palmtree key="v" className="h-4 w-4" />],
+          ["novedades", "Amonestaciones y observaciones", <ClipboardList key="n" className="h-4 w-4" />],
           ["salarios", "Historial salarial", <Wallet key="s" className="h-4 w-4" />],
           ["documentos", "Documentos", <FileText key="f" className="h-4 w-4" />],
         ] as const).map(([t, label, icon]) => (
           <button key={t} type="button" onClick={() => irA(t)}
-            className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               pestana === t ? "border-[#4FAEB2] text-[#3F8E91]" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}>
             {icon} {label}
@@ -179,6 +184,7 @@ export default function EmpleadoDetallePage() {
         <EmpleadoForm form={form} setF={setF} usuarios={usuarios} falta73={falta73} esNuevo={false} onSubmit={guardar} />
       )}
       {pestana === "vacaciones" && <EmpleadoVacaciones empleadoId={params.id} />}
+      {pestana === "novedades" && <EmpleadoNovedades empleadoId={params.id} />}
       {pestana === "salarios" && <EmpleadoSalarios empleadoId={params.id} />}
       {pestana === "documentos" && <EmpleadoArchivos empleadoId={params.id} />}
     </div>
