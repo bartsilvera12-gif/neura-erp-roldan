@@ -136,7 +136,7 @@ export default function PoliticaVacacionesPage() {
 
           <p className="mt-4 text-xs text-slate-500">
             Los feriados que el gobierno traslada cada año (1 de marzo, 12 de junio, 29 de septiembre) se cargan en{" "}
-            <Link href="/rrhh/feriados-ausencias" className="font-medium text-[#3F8E91] hover:underline">RRHH → Feriados</Link>.
+            <Link href="/rrhh/feriados-ausencias?tab=feriados" className="font-medium text-[#3F8E91] hover:underline">RRHH → Feriados</Link>.
             Los de fecha fija y la Semana Santa ya los conoce el sistema.
           </p>
 
