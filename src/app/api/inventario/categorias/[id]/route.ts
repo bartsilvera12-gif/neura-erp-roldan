@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize";
+import { puedeSerPadre } from "@/lib/inventario/arbol-rubros";
 
 export async function PATCH(
   request: NextRequest,
@@ -18,7 +19,10 @@ export async function PATCH(
     if (body.nombre !== undefined) patch.nombre = normalizeUpperText(body.nombre);
     if (body.codigo !== undefined) patch.codigo = normalizeUpperNullable(body.codigo);
     if (body.descripcion !== undefined) patch.descripcion = normalizeUpperNullable(body.descripcion);
-    if (body.parent_id !== undefined) patch.parent_id = body.parent_id == null ? null : String(body.parent_id);
+    if (body.parent_id !== undefined) {
+      patch.parent_id =
+        body.parent_id == null || body.parent_id === "" ? null : String(body.parent_id);
+    }
     if (body.activo !== undefined) patch.activo = body.activo === true;
     // Punto 1.3: días de cobertura por debajo de los cuales el rubro es
     // crítico. Vacío vuelve a NULL = "usa el umbral general".
@@ -52,6 +56,46 @@ export async function PATCH(
         body.descuento_pct === null || body.descuento_pct === "" || !Number.isFinite(n)
           ? 0
           : Math.min(100, Math.max(0, n));
+    }
+
+    /**
+     * Un rubro no puede colgar de sí mismo ni de uno de sus descendientes.
+     *
+     * Si se permite, el árbol queda en círculo y el resultado no es que se vea
+     * mal: esos rubros DESAPARECEN de la pantalla con todos sus productos,
+     * porque la lista se arma bajando desde los que no tienen padre y un
+     * círculo no cuelga de ninguno. Después nadie lo relaciona con haber
+     * cambiado un combo días antes.
+     *
+     * El modal ya no ofrece a los descendientes, pero eso es la pantalla y la
+     * pantalla se puede saltear: el chequeo que cuenta es éste.
+     */
+    if (patch.parent_id != null) {
+      const nuevoPadre = String(patch.parent_id);
+      if (nuevoPadre === id) {
+        return NextResponse.json(
+          errorResponse("Un rubro no puede colgar de sí mismo."),
+          { status: 400 }
+        );
+      }
+      const todos = await ctx.supabase
+        .from("categorias_productos")
+        .select("id, parent_id")
+        .eq("empresa_id", ctx.auth.empresa_id);
+      if (todos.error) throw new Error(todos.error.message);
+
+      const filas = (todos.data ?? []) as { id: string; parent_id: string | null }[];
+      if (!filas.some((f) => f.id === nuevoPadre)) {
+        return NextResponse.json(errorResponse("Ese rubro padre no existe."), { status: 400 });
+      }
+      // El mismo chequeo que hace el modal, con la función que está probada,
+      // para no tener dos versiones que puedan quedar distintas.
+      if (!puedeSerPadre(filas, id, nuevoPadre)) {
+        return NextResponse.json(
+          errorResponse("No se puede: ese rubro cuelga de éste, y quedarían en círculo."),
+          { status: 400 }
+        );
+      }
     }
 
     if (Object.keys(patch).length === 0) {

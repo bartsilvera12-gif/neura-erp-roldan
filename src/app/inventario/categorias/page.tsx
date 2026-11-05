@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
 import ModalCampo from "@/components/ui/ModalCampo";
+import EditarRubroModal from "@/components/inventario/EditarRubroModal";
 import ModalConfirmarAccion from "@/components/ui/ModalConfirmarAccion";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
@@ -204,6 +205,7 @@ export default function CategoriasProductosPage() {
     cuerpo: (v: string) => Record<string, unknown>;
   };
   const [campo, setCampo] = useState<CampoEnEdicion | null>(null);
+  const [editando, setEditando] = useState<Categoria | null>(null);
   /** Rubros padre plegados. Vacío = todos abiertos. */
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
 
@@ -422,18 +424,16 @@ export default function CategoriasProductosPage() {
     });
   }
 
+  /**
+   * El lápiz abre el rubro ENTERO.
+   *
+   * Antes abría "Renombrar rubro", con el nombre y nada más: el código, la
+   * descripción, de quién cuelga y si está activo no se podían tocar desde
+   * ninguna pantalla. Los tres números siguen teniendo su atajo haciendo clic
+   * en la columna, que sirve para corregir uno solo sin abrir todo.
+   */
   function startEdit(cat: Categoria) {
-    setCampo({
-      cat,
-      titulo: "Renombrar rubro",
-      descripcion: `Se cambia en todos los productos que hoy están en "${cat.nombre}".`,
-      etiqueta: "Nombre",
-      valorInicial: cat.nombre,
-      tipo: "text",
-      ayuda: "",
-      validar: (v) => (v.trim() === "" ? "El nombre no puede quedar vacío." : null),
-      cuerpo: (v) => ({ nombre: v }),
-    });
+    setEditando(cat);
   }
 
 
@@ -835,6 +835,15 @@ export default function CategoriasProductosPage() {
           validar={campo.validar}
           onGuardar={guardarCampo}
           onCerrar={() => setCampo(null)}
+        />
+      )}
+
+      {editando && (
+        <EditarRubroModal
+          rubro={editando}
+          todos={items}
+          onClose={() => setEditando(null)}
+          onGuardado={() => { setEditando(null); load(); }}
         />
       )}
     </div>
