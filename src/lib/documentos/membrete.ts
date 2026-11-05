@@ -30,18 +30,25 @@ function esc(v: unknown): string {
 /**
  * Membrete A4: logo a la izquierda, datos comerciales a la derecha, línea divisoria.
  * `origin` opcional para URL absoluta del logo (útil al imprimir/guardar PDF).
+ *
+ * `linea`: el color de la divisoria. Por defecto la verde de siempre; el recibo
+ * de salario usa una gris fina (el cliente la pidió más sobria).
+ * `compacto`: logo más bajo y menos aire, para que entren dos copias por hoja.
  */
-export function membreteA4(origin = ""): string {
+export function membreteA4(origin = "", opts: { linea?: string; compacto?: boolean } = {}): string {
   const e = EMPRESA_DOC;
   const logo = origin ? `${origin}${e.logoUrl}` : e.logoUrl;
+  const linea = opts.linea ?? "2px solid #2E7D32";
+  const alto = opts.compacto ? 58 : 92;
+  const aire = opts.compacto ? 8 : 12;
   return `
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;border-bottom:2px solid #2E7D32;padding-bottom:12px;margin-bottom:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;border-bottom:${linea};padding-bottom:${aire}px;margin-bottom:${aire + 4}px;">
     <div style="flex:0 0 auto;">
-      <img src="${esc(logo)}" alt="${esc(e.nombre)}" style="max-width:180px;max-height:92px;width:auto;height:auto;object-fit:contain;display:block;" />
+      <img src="${esc(logo)}" alt="${esc(e.nombre)}" style="max-width:180px;max-height:${alto}px;width:auto;height:auto;object-fit:contain;display:block;" />
     </div>
-    <div style="flex:1;min-width:0;text-align:right;font-size:11px;color:#374151;line-height:1.55;">
+    <div style="flex:1;min-width:0;text-align:right;font-size:${opts.compacto ? 10 : 11}px;color:#374151;line-height:${opts.compacto ? 1.45 : 1.55};">
       <div style="font-size:14px;font-weight:800;color:#1f2937;">${esc(e.nombre)}</div>
-      <div style="font-size:11px;font-weight:600;color:#374151;">${esc(e.propietario)}</div>
+      ${e.propietario ? `<div style="font-size:11px;font-weight:600;color:#374151;">${esc(e.propietario)}</div>` : ""}
       ${e.ruc ? `<div style="font-size:12px;font-weight:700;color:#1f2937;">RUC: ${esc(e.ruc)}</div>` : ""}
       ${e.actividad.map((a) => `<div style="color:#6b7280;">${esc(a)}</div>`).join("")}
       <div style="margin-top:4px;"><strong>Tel:</strong> ${esc(e.telefono)}</div>

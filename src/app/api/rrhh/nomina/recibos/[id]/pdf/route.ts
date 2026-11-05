@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { membreteA4 } from "@/lib/documentos/membrete";
 import { antiguedadTexto } from "@/lib/rrhh/vacaciones-py";
 import { nombreMes } from "@/lib/rrhh/nomina-py";
+import { numeroALetras } from "@/lib/documentos/numero-a-letras";
 
 export const dynamic = "force-dynamic";
 
@@ -60,89 +61,148 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const mes = nombreMes(String(r.periodo_desde ?? ""));
   const empresa = esc(r.empresa_nombre_snapshot) || "la empresa";
 
-  const filaIng = (d: Row) => `
-    <tr>
-      <td>${esc(d.concepto)}${d.es_salarial === false ? ' <span class="muted">(no aporta IPS)</span>' : ""}</td>
-      <td class="r muted">${d.cantidad != null && d.importe_unitario != null ? `${esc(d.cantidad)} × ${gs(d.importe_unitario)}` : ""}</td>
-      <td class="r">${gs(d.importe_total)}</td>
-    </tr>`;
-  const filaDes = (d: Row) => `
-    <tr>
-      <td>${esc(d.concepto)}</td>
-      <td class="r muted">${d.tipo_pct != null ? `${String(d.tipo_pct).replace(".", ",")}%` : ""}</td>
-      <td class="r">${gs(d.importe)}</td>
-    </tr>`;
+  // "noviembre 2026" → "Noviembre de 2026". Antes un text-transform:capitalize
+  // en el subtítulo ponía en mayúscula cada palabra: "30 Días Trabajados".
+  const mesTitulo = mes.replace(/^(\p{L})(\S*) (\d{4})$/u, (_m, a: string, b: string, y: string) => `${a.toUpperCase()}${b} de ${y}`);
+  const diasTrab = Number(r.dias_trabajados ?? 30);
+  const pct = (v: unknown) => (v != null ? ` (${String(v).replace(".", ",")}%)` : "");
 
-  // Dos copias en la hoja: una para la empresa y otra para el trabajador.
+  const filaIng = (d: Row) => `
+      <tr>
+        <td>${esc(d.concepto)}${d.cantidad != null && d.importe_unitario != null ? `<span class="det">${esc(d.cantidad)} × ${gs(d.importe_unitario)}</span>` : ""}${d.es_salarial === false ? '<span class="det">No aporta IPS</span>' : ""}</td>
+        <td class="num">${gs(d.importe_total)}</td>
+      </tr>`;
+  const filaDes = (d: Row) => `
+      <tr>
+        <td>${esc(d.concepto)}${d.tipo === "ips_trabajador" ? pct(d.tipo_pct) : ""}</td>
+        <td class="num">${gs(d.importe)}</td>
+      </tr>`;
+
+  // Dos copias en la hoja: una para la empresa y otra para el trabajador. Cada
+  // una con su membrete: se cortan por la línea punteada y van por separado.
   const copia = (titulo: string) => `
   <section class="copia">
-    <div class="head">
-      <div><h1>Recibo de salario</h1><div class="sub">${esc(mes)} · ${esc(r.dias_trabajados ?? 30)} días trabajados</div></div>
-      <div class="tag">${titulo}</div>
+    ${membreteA4("", { linea: "1px solid #D4D4D8", compacto: true })}
+    <div class="titulo">
+      <div>
+        <h1>Recibo de salario</h1>
+        <p class="periodo">${esc(mesTitulo)} · ${diasTrab} ${diasTrab === 1 ? "día trabajado" : "días trabajados"}</p>
+      </div>
+      <span class="copia-tag">${titulo}</span>
     </div>
-    <div class="grid">
-      <div><span>Trabajador:</span> <strong>${esc(r.empleado_nombre_snapshot)}</strong></div>
-      <div><span>C.I.:</span> ${esc(r.empleado_documento_snapshot) || "—"}</div>
-      <div><span>Cargo:</span> ${esc(r.empleado_cargo_snapshot) || "—"}</div>
-      <div><span>N.º asegurado IPS:</span> ${esc(r.empleado_afiliacion_ips_snapshot) || "—"}</div>
-      <div><span>Antigüedad:</span> ${esc(antig)}</div>
-      <div><span>Período:</span> ${fecha(r.periodo_desde)} al ${fecha(r.periodo_hasta)}</div>
+
+    <div class="datos">
+      <div><span class="lbl">Trabajador</span><span class="val fuerte">${esc(r.empleado_nombre_snapshot)}</span></div>
+      <div><span class="lbl">C.I.</span><span class="val">${esc(r.empleado_documento_snapshot) || "—"}</span></div>
+      <div><span class="lbl">Cargo</span><span class="val">${esc(r.empleado_cargo_snapshot) || "—"}</span></div>
+      <div><span class="lbl">N.º asegurado IPS</span><span class="val">${esc(r.empleado_afiliacion_ips_snapshot) || "—"}</span></div>
+      <div><span class="lbl">Antigüedad</span><span class="val">${esc(antig)}</span></div>
+      <div><span class="lbl">Período</span><span class="val">${fecha(r.periodo_desde)} al ${fecha(r.periodo_hasta)}</span></div>
     </div>
-    <table>
-      <thead><tr><th>Ingresos</th><th></th><th class="r">Importe</th></tr></thead>
-      <tbody>${devengos.map(filaIng).join("") || '<tr><td colspan="3" class="muted">Sin ingresos</td></tr>'}</tbody>
-      <tfoot><tr><td colspan="2">Total ingresos</td><td class="r">${gs(totalIngresos)}</td></tr></tfoot>
-    </table>
-    <table>
-      <thead><tr><th>Descuentos</th><th></th><th class="r">Importe</th></tr></thead>
-      <tbody>${descuentos.map(filaDes).join("") || '<tr><td colspan="3" class="muted">Sin descuentos</td></tr>'}</tbody>
-      <tfoot><tr><td colspan="2">Total descuentos</td><td class="r">${gs(totalDescuentos)}</td></tr></tfoot>
-    </table>
-    <div class="neto"><span>Neto a cobrar</span><span>${gs(neto)}</span></div>
-    ${r.observaciones ? `<div class="obs">${esc(r.observaciones)}</div>` : ""}
-    <p class="recibi">Recibí de ${empresa} la suma de <strong>${gs(neto)}</strong> en concepto de salario correspondiente a ${esc(mes)}, de conformidad con el detalle que antecede.</p>
-    <div class="foot">
+
+    <div class="cuentas">
+      <table>
+        <thead><tr><th>Ingresos</th><th class="num">Importe</th></tr></thead>
+        <tbody>${devengos.map(filaIng).join("") || '<tr><td class="vacio" colspan="2">Sin ingresos</td></tr>'}</tbody>
+        <tfoot><tr><td>Total ingresos</td><td class="num">${gs(totalIngresos)}</td></tr></tfoot>
+      </table>
+      <table>
+        <thead><tr><th>Descuentos</th><th class="num">Importe</th></tr></thead>
+        <tbody>${descuentos.map(filaDes).join("") || '<tr><td class="vacio" colspan="2">Sin descuentos</td></tr>'}</tbody>
+        <tfoot><tr><td>Total descuentos</td><td class="num">${gs(totalDescuentos)}</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="neto">
+      <span>Neto a cobrar</span>
+      <span class="num">${gs(neto)}</span>
+    </div>
+    <p class="letras">Son guaraníes: ${esc(numeroALetras(neto).toLowerCase())}.</p>
+
+    ${r.observaciones ? `<p class="obs"><span class="lbl">Observaciones</span> ${esc(r.observaciones)}</p>` : ""}
+
+    <p class="recibi">Recibí de <strong>${empresa}</strong> la suma de <strong>${gs(neto)}</strong> en concepto de salario correspondiente a ${esc(mes)}, de conformidad con el detalle que antecede.</p>
+
+    <div class="firmas">
       <div class="firma">Firma del empleador</div>
-      <div class="firma">Firma del trabajador<br /><span class="muted">Aclaración y C.I.</span></div>
+      <div class="firma">Firma del trabajador<span>Aclaración y C.I.</span></div>
     </div>
   </section>`;
 
   const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8" />
-<title>Recibo de salario ${esc(r.empleado_nombre_snapshot)} · ${esc(mes)}</title>
+<title>Recibo de salario ${esc(r.empleado_nombre_snapshot)} · ${esc(mesTitulo)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
+  @page { size: A4; margin: 12mm 14mm; }
   html, body { margin: 0; padding: 0; }
-  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #1f2937; padding: 20px; }
-  .wrap { max-width: 800px; margin: 0 auto; }
-  .copia { padding: 10px 0 18px; }
-  .copia + .copia { border-top: 1px dashed #9ca3af; padding-top: 18px; }
-  .head { display: flex; justify-content: space-between; align-items: flex-start; }
-  h1 { font-size: 16px; margin: 4px 0 0; }
-  .sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; text-transform: capitalize; }
-  .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #3F8E91; border: 1px solid #4FAEB2; border-radius: 999px; padding: 2px 8px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 24px; font-size: 11px; margin-bottom: 10px; }
-  .grid span, .muted { color: #6b7280; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 6px; }
-  th { text-align: left; background: #f3f4f6; padding: 5px 8px; font-weight: 600; }
-  td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
-  tfoot td { font-weight: 700; border-bottom: none; }
-  .r { text-align: right; }
-  .neto { display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; background: #E5F4F4; border-radius: 6px; padding: 6px 8px; margin-top: 4px; }
-  .obs { font-size: 11px; color: #374151; margin-top: 8px; }
-  .recibi { font-size: 11px; margin: 12px 0 0; }
-  .foot { margin-top: 34px; display: flex; justify-content: space-around; font-size: 11px; }
-  .firma { border-top: 1px solid #9ca3af; padding-top: 4px; width: 220px; text-align: center; }
-  @media print { body { padding: 0; } .noprint { display: none; } .copia { break-inside: avoid; } }
+  body {
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    font-size: 10.5px; line-height: 1.45; color: #18181B;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    padding: 20px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .copia { padding-bottom: 10px; }
+  .copia + .copia { border-top: 1px dashed #A1A1AA; padding-top: 14px; }
+
+  .titulo { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
+  h1 { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin: 0; }
+  .periodo { margin: 2px 0 0; color: #52525B; font-size: 10.5px; }
+  .copia-tag { font-size: 8.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #52525B; border: 1px solid #D4D4D8; border-radius: 3px; padding: 3px 7px; }
+
+  .datos { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 5px 20px; padding: 8px 12px; border: 1px solid #E4E4E7; border-radius: 4px; margin-bottom: 10px; }
+  .datos div { display: flex; flex-direction: column; }
+  .lbl { font-size: 8px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #71717A; }
+  .val { font-size: 10.5px; color: #18181B; }
+  .fuerte { font-weight: 600; }
+
+  .cuentas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 8px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #71717A; text-align: left; padding: 0 0 5px; border-bottom: 1px solid #18181B; }
+  td { padding: 4px 0; border-bottom: 1px solid #F4F4F5; vertical-align: top; }
+  .det { display: block; font-size: 9px; color: #71717A; }
+  .vacio { color: #A1A1AA; }
+  tfoot td { font-weight: 600; border-bottom: none; border-top: 1px solid #D4D4D8; padding-top: 6px; }
+
+  .neto { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 8px 12px; background: #18181B; color: #fff; border-radius: 4px; }
+  .neto span:first-child { font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+  .neto .num { font-size: 15px; font-weight: 700; }
+  .letras { margin: 5px 0 0; font-size: 9.5px; color: #52525B; text-align: right; }
+  .obs { margin: 10px 0 0; font-size: 10px; color: #3F3F46; }
+  .recibi { margin: 8px 0 0; font-size: 10px; color: #27272A; }
+
+  .firmas { display: flex; justify-content: space-between; gap: 60px; margin-top: 30px; }
+  .firma { flex: 1; border-top: 1px solid #52525B; padding-top: 5px; text-align: center; font-size: 9.5px; color: #3F3F46; }
+  .firma span { display: block; font-size: 8.5px; color: #A1A1AA; }
+
+  @media print {
+    body { padding: 0; }
+    .noprint { display: none; }
+    .copia { break-inside: avoid; }
+    /* Las dos copias en una sola hoja A4, para cortar por la línea punteada.
+       Con muchos renglones no entran y la segunda pasa entera a otra hoja. */
+    .wrap { zoom: .9; }
+  }
 </style></head>
 <body><div class="wrap">
-  ${membreteA4()}
   ${copia("Copia empresa")}
   ${copia("Copia trabajador")}
   <div class="noprint" style="margin-top:20px;text-align:center;">
-    <button onclick="window.print()" style="background:#4FAEB2;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;">Imprimir / Guardar PDF</button>
+    <button onclick="window.print()" style="font-family:inherit;background:#18181B;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;cursor:pointer;">Imprimir / Guardar PDF</button>
   </div>
 </div>
-<script>window.addEventListener("load", () => { try { window.print(); } catch (e) {} });</script>
+<script>
+  // Se imprime cuando la tipografía terminó de cargar: si no, la primera
+  // impresión sale con la fuente del sistema.
+  window.addEventListener("load", () => {
+    const listo = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+    listo.then(() => { try { window.print(); } catch (e) {} });
+  });
+</script>
 </body></html>`;
 
   return new NextResponse(html, {
