@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { hoyParaguay } from "@/lib/pagos/deuda-proveedores";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Marcar como pagada UNA factura de proveedor.
@@ -95,7 +96,7 @@ export default function MarcarFacturaPagadaModal({
         <div className="mt-4 space-y-3">
           <label className="block">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cómo se pagó</span>
-            <select
+            <Selector
               value={metodo}
               onChange={(e) => { setMetodo(e.target.value as typeof metodo); setReferencia(""); }}
               className={fld}
@@ -104,7 +105,7 @@ export default function MarcarFacturaPagadaModal({
               <option value="cheque">Cheque</option>
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
-            </select>
+            </Selector>
           </label>
 
           {requiereRef && (

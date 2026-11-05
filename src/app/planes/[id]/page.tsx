@@ -8,6 +8,7 @@ import { getPlan, updatePlan, toggleEstadoPlan, deletePlan } from "@/lib/planes/
 import type { Plan, PlanMarketingItem } from "@/lib/planes/types";
 import { TIPOS_CONTENIDO } from "@/lib/marketing/types";
 import { Suspense } from "react";
+import Selector from "@/components/ui/Selector";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -316,10 +317,10 @@ function PlanDetailContent() {
               </div>
               <div>
                 <label className={fLabelClass}>Estado</label>
-                <select name="estado" value={form.estado} onChange={handleChange} className={fSelectClass}>
+                <Selector name="estado" value={form.estado} onChange={handleChange} className={fSelectClass}>
                   <option value="activo">Activo</option>
                   <option value="inactivo">Inactivo</option>
-                </select>
+                </Selector>
               </div>
             </div>
           </section>
@@ -339,18 +340,18 @@ function PlanDetailContent() {
               </div>
               <div>
                 <label className={fLabelClass}>Moneda</label>
-                <select name="moneda" value={form.moneda} onChange={handleChange} className={fSelectClass}>
+                <Selector name="moneda" value={form.moneda} onChange={handleChange} className={fSelectClass}>
                   <option value="GS">Guaraníes (GS)</option>
                   <option value="USD">Dólares (USD)</option>
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className={fLabelClass}>Periodicidad</label>
-                <select name="periodicidad" value={form.periodicidad} onChange={handleChange} className={fSelectClass}>
+                <Selector name="periodicidad" value={form.periodicidad} onChange={handleChange} className={fSelectClass}>
                   <option value="mensual">Mensual</option>
                   <option value="anual">Anual</option>
                   <option value="unico">Único</option>
-                </select>
+                </Selector>
               </div>
             </div>
           </section>
@@ -372,7 +373,7 @@ function PlanDetailContent() {
                   <p className="text-xs text-slate-500">Plantilla operativa (genera tareas automáticamente)</p>
                   {form.plantilla_items.map((item, idx) => (
                     <div key={idx} className="flex flex-wrap items-center gap-2 p-3 bg-slate-50 rounded-lg">
-                      <select
+                      <Selector
                         value={item.tipo_contenido}
                         onChange={(e) => {
                           const items = [...form.plantilla_items];
@@ -384,8 +385,8 @@ function PlanDetailContent() {
                         {TIPOS_CONTENIDO.map((t) => (
                           <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                         ))}
-                      </select>
-                      <select
+                      </Selector>
+                      <Selector
                         value={item.periodicidad}
                         onChange={(e) => {
                           const items = [...form.plantilla_items];
@@ -401,7 +402,7 @@ function PlanDetailContent() {
                       >
                         <option value="semanal">Semanal</option>
                         <option value="mensual">Mensual</option>
-                      </select>
+                      </Selector>
                       {item.periodicidad === "mensual" ? (
                         <input
                           type="number"
@@ -442,7 +443,7 @@ function PlanDetailContent() {
                       {item.periodicidad === "mensual" && (
                         <>
                           <span className="text-xs text-slate-500">Semana:</span>
-                          <select
+                          <Selector
                             value={item.semana_del_mes ?? 1}
                             onChange={(e) => {
                               const items = [...form.plantilla_items];
@@ -454,7 +455,7 @@ function PlanDetailContent() {
                             {[1, 2, 3, 4].map((s) => (
                               <option key={s} value={s}>{s}ª del mes</option>
                             ))}
-                          </select>
+                          </Selector>
                         </>
                       )}
                       <button

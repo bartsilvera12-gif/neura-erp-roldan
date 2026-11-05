@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Cargar lo que contestó UN proveedor: un precio por artículo.
@@ -156,7 +157,7 @@ export default function CargarPreciosModal({
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedor</span>
-            <select
+            <Selector
               value={proveedorId} onChange={(e) => elegirProveedor(e.target.value)}
               className="w-64 rounded-lg border border-slate-200 px-3 py-2 text-sm"
             >
@@ -166,7 +167,7 @@ export default function CargarPreciosModal({
                   {p.nombre}{Object.keys(yaCargados[p.id] ?? {}).length > 0 ? " · ya cotizó" : ""}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Plazo (días)</span>

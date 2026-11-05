@@ -12,6 +12,7 @@ import {
 } from "@/lib/inventario/bajo-minimo";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
 import { ShoppingCart } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Reposición: qué está por debajo del mínimo, por rubro.
@@ -141,7 +142,7 @@ export default function BajoMinimoPage() {
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Rubro</span>
-          <select
+          <Selector
             value={rubro} onChange={(e) => setRubro(e.target.value)}
             className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
@@ -150,7 +151,7 @@ export default function BajoMinimoPage() {
               <option key={x.id} value={x.id}>{x.nombre}</option>
             ))}
             <option value="__sin__">(sin rubro)</option>
-          </select>
+          </Selector>
         </label>
 
         <label className="flex flex-col gap-1">

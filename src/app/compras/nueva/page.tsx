@@ -16,6 +16,7 @@ import type { MetodoValuacion, Producto } from "@/lib/inventario/types";
 import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib/formato/numero-factura";
 
 import { Check } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -777,7 +778,7 @@ export default function NuevaCompraPage() {
               </div>
               <div>
                 <label className={labelClass}>Método de pago <span className="text-gray-400 font-normal">(opcional)</span></label>
-                <select
+                <Selector
                   value={cab.metodo_pago}
                   onChange={(e) =>
                     setCab((p) => ({ ...p, metodo_pago: normalizarMedioCompra(e.target.value) ?? "" }))
@@ -788,7 +789,7 @@ export default function NuevaCompraPage() {
                   {MEDIOS_PAGO_COMPRA.map((m) => (
                     <option key={m.clave} value={m.clave}>{m.label}</option>
                   ))}
-                </select>
+                </Selector>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Cómo se hizo el pago. Solo el efectivo baja el efectivo esperado del arqueo.
                 </p>
@@ -865,7 +866,7 @@ export default function NuevaCompraPage() {
               )}
               <div>
                 <label className={labelClass}>Depósito destino</label>
-                <select
+                <Selector
                   value={cab.ubicacion_id}
                   onChange={(e) => setCab((p) => ({ ...p, ubicacion_id: e.target.value }))}
                   className={inputClass}
@@ -876,7 +877,7 @@ export default function NuevaCompraPage() {
                       {u.nombre}{u.codigo ? ` — ${u.codigo}` : ""}
                     </option>
                   ))}
-                </select>
+                </Selector>
                 <p className="mt-1 text-[11px] text-slate-500">
                   {ubicaciones.length === 0
                     ? "Cargá depósitos en Inventario → Ubicaciones."
@@ -1030,7 +1031,7 @@ export default function NuevaCompraPage() {
                       </div>
                       <div>
                         <label className={labelSmClass}>Unidad de medida</label>
-                        <select name="unidad_medida" value={formProducto.unidad_medida} onChange={handleProductoInputChange} className={inputSmClass}>
+                        <Selector name="unidad_medida" value={formProducto.unidad_medida} onChange={handleProductoInputChange} className={inputSmClass}>
                           <option value="UNIDAD">Unidad</option>
                           <option value="BOLSA">Bolsa</option>
                           <option value="KG">Kg</option>
@@ -1044,7 +1045,7 @@ export default function NuevaCompraPage() {
                           <option value="BOTELLA">Botella</option>
                           <option value="PORCION">Porción</option>
                           <option value="COMBO">Combo</option>
-                        </select>
+                        </Selector>
                       </div>
                       <div>
                         <label className={labelSmClass}>Stock mínimo</label>
@@ -1210,11 +1211,11 @@ export default function NuevaCompraPage() {
           {editando && (
             <div className="max-w-xs">
               <label className="block text-xs font-medium text-gray-500 mb-1">Estado</label>
-              <select value={estadoEdit} onChange={(e) => setEstadoEdit(e.target.value as "registrada" | "anulada")}
+              <Selector value={estadoEdit} onChange={(e) => setEstadoEdit(e.target.value as "registrada" | "anulada")}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
                 <option value="registrada">Activa</option>
                 <option value="anulada">Anulada</option>
-              </select>
+              </Selector>
             </div>
           )}
 

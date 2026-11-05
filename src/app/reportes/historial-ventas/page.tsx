@@ -5,6 +5,7 @@ import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import DetalleVentaModal, { type VentaDetalleLite } from "@/components/ventas/DetalleVentaModal";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Historial de ventas.
@@ -229,32 +230,32 @@ export default function HistorialVentasPage() {
           </label>
           <label className="text-xs font-semibold text-slate-500">
             Cliente
-            <select value={fCliente} onChange={(e) => setFCliente(e.target.value)} className={`mt-1 ${selectCls}`}>
+            <Selector value={fCliente} onChange={(e) => setFCliente(e.target.value)} className={`mt-1 ${selectCls}`}>
               <option value="">Todos</option>
               {clientes.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            </Selector>
           </label>
           <label className="text-xs font-semibold text-slate-500">
             Vendedor
-            <select value={fVendedor} onChange={(e) => setFVendedor(e.target.value)} className={`mt-1 ${selectCls}`}>
+            <Selector value={fVendedor} onChange={(e) => setFVendedor(e.target.value)} className={`mt-1 ${selectCls}`}>
               <option value="">Todos</option>
               {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
+            </Selector>
           </label>
           <label className="text-xs font-semibold text-slate-500">
             Medio de pago
-            <select value={fMedio} onChange={(e) => setFMedio(e.target.value)} className={`mt-1 ${selectCls}`}>
+            <Selector value={fMedio} onChange={(e) => setFMedio(e.target.value)} className={`mt-1 ${selectCls}`}>
               <option value="">Todos</option>
               {Object.entries(MEDIO).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
+            </Selector>
           </label>
           <label className="text-xs font-semibold text-slate-500">
             Estado
-            <select value={fEstado} onChange={(e) => setFEstado(e.target.value)} className={`mt-1 ${selectCls}`}>
+            <Selector value={fEstado} onChange={(e) => setFEstado(e.target.value)} className={`mt-1 ${selectCls}`}>
               <option value="">Todas</option>
               <option value="activas">Sin anular</option>
               <option value="anuladas">Solo anuladas</option>
-            </select>
+            </Selector>
           </label>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">

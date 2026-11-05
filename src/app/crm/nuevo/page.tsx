@@ -13,6 +13,7 @@ import type { EtapaCrm } from "@/lib/crm/etapas";
 import type { Plan } from "@/lib/planes/types";
 
 import { AlertTriangle } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ export default function NuevoProspectoPage() {
               </div>
               <div>
                 <label className={labelClass}>Etapa inicial</label>
-                <select
+                <Selector
                   name="etapa"
                   value={form.etapa}
                   onChange={handleChange}
@@ -305,7 +306,7 @@ export default function NuevoProspectoPage() {
                   {etapas.filter((e) => e.codigo !== "GANADO" && e.codigo !== "PERDIDO").map((e) => (
                     <option key={e.id} value={e.codigo}>{e.nombre}</option>
                   ))}
-                </select>
+                </Selector>
               </div>
             </div>
           </section>

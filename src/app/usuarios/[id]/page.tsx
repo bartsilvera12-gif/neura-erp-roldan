@@ -18,6 +18,7 @@ import {
 import type { AreaUsuario, TipoContrato } from "@/lib/usuarios/types";
 
 import { BarChart3, Briefcase, KeyRound, MessageSquare, Package, ShieldCheck, User } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 type ModuloOpt = { id: string; nombre: string; slug: string };
 
@@ -635,7 +636,7 @@ function UsuarioDetailContent() {
                   Configuración → Perfiles
                 </Link>.
               </p>
-              <select
+              <Selector
                 value={perfilId}
                 onChange={(e) => setPerfilId(e.target.value)}
                 disabled={!usuario.puede_editar_rol}
@@ -645,7 +646,7 @@ function UsuarioDetailContent() {
                 {(usuario.perfiles_empresa ?? []).map((p) => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
-              </select>
+              </Selector>
               <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
                 Sin perfil, el usuario mantiene exactamente las facultades que le daba su nivel
                 hasta hoy. El perfil no se suma al nivel: lo reemplaza.
@@ -836,7 +837,7 @@ function UsuarioDetailContent() {
                     {form.dashboard_view_ids.length > 1 ? (
                       <div className="mt-4 max-w-md">
                         <label className={usuarioFormLabel}>Vista por defecto</label>
-                        <select
+                        <Selector
                           value={
                             form.default_dashboard_view_id &&
                             form.dashboard_view_ids.includes(form.default_dashboard_view_id)
@@ -856,7 +857,7 @@ function UsuarioDetailContent() {
                                 {m.nombre}
                               </option>
                             ))}
-                        </select>
+                        </Selector>
                       </div>
                     ) : null}
                   </SectionCard>
@@ -888,7 +889,7 @@ function UsuarioDetailContent() {
                     {omniAgent ? (
                       <div className="mt-4 max-w-md">
                         <label className={usuarioFormLabel}>Horario de trabajo</label>
-                        <select
+                        <Selector
                           value={omniScheduleId}
                           onChange={(e) => setOmniScheduleId(e.target.value)}
                           className={`${usuarioFormInputGray} mt-1 w-full`}
@@ -902,7 +903,7 @@ function UsuarioDetailContent() {
                                 {String(s.time_end ?? "").slice(0, 5)})
                               </option>
                             ))}
-                        </select>
+                        </Selector>
                         {usuario.omnicanal.schedules.length === 0 ? (
                           <p className="mt-2 text-xs text-amber-700">
                             No hay plantillas de horario. Creá una en{" "}

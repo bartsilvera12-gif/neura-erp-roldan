@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Send, Truck, X } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, crearNR, type Deposito, type StockItem } from "@/lib/multideposito/client";
+import Selector from "@/components/ui/Selector";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
 function hoyISO() { return new Date().toISOString().slice(0, 10); }
@@ -143,21 +144,21 @@ export default function EmitirNRPage() {
         <h2 className="text-sm font-semibold text-slate-800">Datos generales</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Field label="Depósito Origen *">
-            <select value={origen} onChange={(e) => setOrigen(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={origen} onChange={(e) => setOrigen(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-            </select>
+            </Selector>
           </Field>
           <Field label="Depósito Destino *">
-            <select value={destino} onChange={(e) => setDestino(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={destino} onChange={(e) => setDestino(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-            </select>
+            </Selector>
           </Field>
           <Field label="Motivo">
-            <select value={motivo} onChange={(e) => setMotivo(e.target.value as typeof motivo)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={motivo} onChange={(e) => setMotivo(e.target.value as typeof motivo)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="traslado">Traslado</option>
               <option value="venta">Venta</option>
               <option value="devolucion">Devolución</option>
-            </select>
+            </Selector>
           </Field>
           <Field label="Emisor *">
             <input type="text" value={emisor} onChange={(e) => setEmisor(e.target.value)} placeholder="Ej: Marcial (Central)" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />

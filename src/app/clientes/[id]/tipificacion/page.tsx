@@ -9,6 +9,7 @@ import type { Cliente } from "@/lib/clientes/types";
 import type { Tipificacion, TipoGestion, ResultadoTipificacion } from "@/lib/gestion-clientes/types";
 
 import { AlertTriangle, Check, User } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -199,7 +200,7 @@ export default function TipificacionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Tipo de gestión <span className="text-red-500">*</span>
               </label>
-              <select
+              <Selector
                 name="tipo_gestion"
                 value={form.tipo_gestion}
                 onChange={handleChange}
@@ -208,7 +209,7 @@ export default function TipificacionPage() {
                 {TIPOS_GESTION.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
-              </select>
+              </Selector>
             </div>
 
             {/* Resultado */}
@@ -216,7 +217,7 @@ export default function TipificacionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Resultado <span className="text-red-500">*</span>
               </label>
-              <select
+              <Selector
                 name="resultado"
                 value={form.resultado}
                 onChange={handleChange}
@@ -225,7 +226,7 @@ export default function TipificacionPage() {
                 {RESULTADOS.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
-              </select>
+              </Selector>
             </div>
           </div>
 

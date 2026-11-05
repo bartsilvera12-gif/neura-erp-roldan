@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { getFacturacionEstado, asMetadataObject } from "@/lib/caja/facturacion";
 import { Check } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 import {
   ProyectoModuloSelector,
   type ProyectoModuloCatalogo as ModuloCatalogo,
@@ -443,7 +444,7 @@ export default function ProyectoDetalleInner({
               {enviandoCaja ? "Enviando…" : "Enviar a Caja"}
             </button>
           )}
-          <select
+          <Selector
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
             value={String(proyecto.estado_id ?? "")}
             onChange={(e) => void cambiarEstado(e.target.value)}
@@ -453,7 +454,7 @@ export default function ProyectoDetalleInner({
                 {e.nombre}
               </option>
             ))}
-          </select>
+          </Selector>
           {variant === "modal" ? (
             <button
               type="button"
@@ -687,7 +688,7 @@ export default function ProyectoDetalleInner({
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm">
                 <span className={labelCls}>Técnico responsable</span>
-                <select
+                <Selector
                   className={inputCls}
                   value={responsableTecnicoId}
                   onChange={(e) => setResponsableTecnicoId(e.target.value)}
@@ -698,7 +699,7 @@ export default function ProyectoDetalleInner({
                       {u.nombre || u.email || u.id.slice(0, 8)}
                     </option>
                   ))}
-                </select>
+                </Selector>
               </label>
               {esWeb ? (
                 <label className="block text-sm sm:col-span-2">
@@ -818,7 +819,7 @@ export default function ProyectoDetalleInner({
                 return (
                   <li key={tid} className="flex flex-wrap items-center gap-2 py-3 text-sm">
                     <span className="flex-1 font-medium text-slate-900">{String(t.titulo ?? "")}</span>
-                    <select
+                    <Selector
                       className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
                       value={estado}
                       onChange={(e) => void patchTarea(tid, { estado: e.target.value })}
@@ -827,7 +828,7 @@ export default function ProyectoDetalleInner({
                       <option value="en_proceso">en_proceso</option>
                       <option value="completada">completada</option>
                       <option value="bloqueada">bloqueada</option>
-                    </select>
+                    </Selector>
                   </li>
                 );
               })}

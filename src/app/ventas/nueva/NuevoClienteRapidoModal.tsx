@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { validarAltaCliente } from "@/lib/clientes/identificador";
 import { apiCreateCliente } from "@/lib/api/client";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
+import Selector from "@/components/ui/Selector";
 
 export interface NuevoClienteCreado {
   id: string;
@@ -303,14 +304,14 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
               )}
               <label className="block text-sm">
                 <span className="font-medium text-slate-800">Rubro</span>
-                <select
+                <Selector
                   value={rubroId} onChange={(e) => setRubroId(e.target.value)}
                   disabled={enviando}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
                 >
                   <option value="">— Sin rubro —</option>
                   {rubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                </select>
+                </Selector>
               </label>
             </div>
           </div>

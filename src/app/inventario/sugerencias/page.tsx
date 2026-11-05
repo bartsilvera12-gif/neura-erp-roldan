@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
 const num = (n: number, dec = 0) =>
@@ -302,7 +303,7 @@ export default function SugerenciasReposicionPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
-          <select
+          <Selector
             value={fRubro}
             onChange={(e) => setFRubro(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -310,11 +311,11 @@ export default function SugerenciasReposicionPage() {
             <option value="">Todos</option>
             {rubrosEnLista.map((r) => <option key={r} value={r}>{r}</option>)}
             <option value="__sin__">Sin rubro</option>
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Estado</span>
-          <select
+          <Selector
             value={fEstado}
             onChange={(e) => setFEstado(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -325,7 +326,7 @@ export default function SugerenciasReposicionPage() {
             <option value="bajo">Bajo</option>
             <option value="ok">OK</option>
             <option value="sin_consumo">Sin consumo</option>
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>

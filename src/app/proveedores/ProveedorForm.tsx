@@ -5,6 +5,7 @@ import type {
   EstadoProveedor,
   ProveedorCategoria,
 } from "@/lib/proveedores/types";
+import Selector from "@/components/ui/Selector";
 
 const inputClass =
   "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white text-sm";
@@ -144,7 +145,7 @@ export default function ProveedorForm({
         </div>
         <div>
           <label className={labelClass}>Estado</label>
-          <select
+          <Selector
             className={inputClass}
             value={values.estado}
             onChange={(e) => patch("estado", e.target.value as EstadoProveedor)}
@@ -152,11 +153,11 @@ export default function ProveedorForm({
           >
             <option value="activo">Activo</option>
             <option value="inactivo">Inactivo</option>
-          </select>
+          </Selector>
         </div>
         <div>
           <label className={labelClass}>Condición de pago habitual</label>
-          <select
+          <Selector
             className={inputClass}
             value={values.condicion_pago}
             onChange={(e) => patch("condicion_pago", e.target.value as ProveedorFormValues["condicion_pago"])}
@@ -166,7 +167,7 @@ export default function ProveedorForm({
             <option value="contado">Contado</option>
             <option value="credito">Crédito</option>
             <option value="mixto">Mixto</option>
-          </select>
+          </Selector>
         </div>
         <div>
           <label className={labelClass}>Plazo (días)</label>
@@ -189,7 +190,7 @@ export default function ProveedorForm({
         </div>
         <div>
           <label className={labelClass}>Moneda preferida</label>
-          <select
+          <Selector
             className={inputClass}
             value={values.moneda_preferida}
             onChange={(e) => patch("moneda_preferida", e.target.value as ProveedorFormValues["moneda_preferida"])}
@@ -198,7 +199,7 @@ export default function ProveedorForm({
             <option value="">—</option>
             <option value="GS">Guaraníes (GS)</option>
             <option value="USD">Dólares (USD)</option>
-          </select>
+          </Selector>
         </div>
         <div className="sm:col-span-2">
           <label className={labelClass}>Observaciones</label>

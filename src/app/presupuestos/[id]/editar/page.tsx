@@ -14,6 +14,7 @@ import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
+import Selector from "@/components/ui/Selector";
 
 type ProductoLite = {
   id: string;
@@ -598,9 +599,9 @@ export default function EditarPresupuestoPage() {
                         })()}
                       </td>
                       <td className="py-2 px-2">
-                        <select value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
+                        <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
                           {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
-                        </select>
+                        </Selector>
                       </td>
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-1">
@@ -675,7 +676,7 @@ export default function EditarPresupuestoPage() {
                 suya ("50% anticipo", "mitad y mitad"), así que el documento que
                 firma el cliente decía algo distinto cada vez. Son condiciones
                 comerciales: las define la casa, no quien atiende. */}
-            <select
+            <Selector
               value={esFormaPagoConocida(formaPago) || formaPago === "" ? formaPago : "__otra__"}
               onChange={(e) => setFormaPago(e.target.value === "__otra__" ? formaPago : e.target.value)}
               className={`${inputClass} bg-white`}
@@ -691,7 +692,7 @@ export default function EditarPresupuestoPage() {
               {formaPago !== "" && !esFormaPagoConocida(formaPago) && (
                 <option value="__otra__">{formaPago} (cargada a mano)</option>
               )}
-            </select>
+            </Selector>
             {formaPago.includes("{anticipo}") && (
               <p className="mt-1 text-[11px] leading-snug text-slate-500">
                 El porcentaje sale de Configuración → Presupuesto, así cambiarlo no obliga a

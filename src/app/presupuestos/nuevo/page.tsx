@@ -16,6 +16,7 @@ import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
+import Selector from "@/components/ui/Selector";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -536,7 +537,7 @@ export default function NuevoPresupuestoPage() {
           {isAdmin && vendedores.length > 0 && (
             <div className="min-w-[220px]">
               <label className={labelClass}>Presupuesto a nombre de</label>
-              <select
+              <Selector
                 value={vendedorId}
                 onChange={(e) => setVendedorId(e.target.value)}
                 className={`${inputClass} bg-white`}
@@ -545,7 +546,7 @@ export default function NuevoPresupuestoPage() {
                 {vendedores.map((v) => (
                   <option key={v.id} value={v.id}>{v.nombre}</option>
                 ))}
-              </select>
+              </Selector>
               <p className="mt-1 text-[11px] text-slate-500">
                 Para armarle el presupuesto a una vendedora y que le figure a ella.
               </p>
@@ -732,9 +733,9 @@ export default function NuevoPresupuestoPage() {
                         )}
                       </td>
                       <td className="py-2 px-2">
-                        <select value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
+                        <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
                           {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
-                        </select>
+                        </Selector>
                       </td>
                       <td className="py-2 px-2">
                         {/* Dos maneras de escribir lo mismo: el % y los
@@ -821,7 +822,7 @@ export default function NuevoPresupuestoPage() {
                 suya ("50% anticipo", "mitad y mitad"), así que el documento que
                 firma el cliente decía algo distinto cada vez. Son condiciones
                 comerciales: las define la casa, no quien atiende. */}
-            <select
+            <Selector
               value={esFormaPagoConocida(formaPago) || formaPago === "" ? formaPago : "__otra__"}
               onChange={(e) => setFormaPago(e.target.value === "__otra__" ? formaPago : e.target.value)}
               className={`${inputClass} bg-white`}
@@ -837,7 +838,7 @@ export default function NuevoPresupuestoPage() {
               {formaPago !== "" && !esFormaPagoConocida(formaPago) && (
                 <option value="__otra__">{formaPago} (cargada a mano)</option>
               )}
-            </select>
+            </Selector>
             {formaPago.includes("{anticipo}") && (
               <p className="mt-1 text-[11px] leading-snug text-slate-500">
                 El porcentaje sale de Configuración → Presupuesto, así cambiarlo no obliga a

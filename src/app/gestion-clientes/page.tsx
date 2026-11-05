@@ -20,6 +20,7 @@ import { getFacturas } from "@/lib/gestion-clientes/storage";
 import { estadoFacturaParaUi } from "@/lib/gestion-clientes/estado-factura-ui";
 import type { Cliente } from "@/lib/clientes/types";
 import type { EstadoFactura, Factura } from "@/lib/gestion-clientes/types";
+import Selector from "@/components/ui/Selector";
 
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
@@ -919,11 +920,11 @@ function GestionClientesPageInner() {
                     </label>
                     <div className="min-w-[10rem] flex-1">
                       <label className={fLabelClass}>Moneda</label>
-                      <select name="moneda" value={filters.moneda} onChange={handleChange} className={fInputClass}>
+                      <Selector name="moneda" value={filters.moneda} onChange={handleChange} className={fInputClass}>
                         <option value="">Todas</option>
                         <option value="GS">Guaraníes (GS)</option>
                         <option value="USD">Dólares (USD)</option>
-                      </select>
+                      </Selector>
                     </div>
                     <button
                       type="button"

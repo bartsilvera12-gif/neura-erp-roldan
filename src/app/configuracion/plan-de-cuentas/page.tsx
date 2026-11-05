@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { PlanCuentaFormModal } from "./PlanCuentaFormModal";
 import { PlanCuentasImportModal } from "./PlanCuentasImportModal";
 import type { PlanCuentaItem, PlanCuentasResponse, PlanCuentasSummary } from "./types";
+import Selector from "@/components/ui/Selector";
 
 type FiltroAsentable = "todos" | "asentable" | "agrupadora";
 type FiltroEstado = "todos" | "activas" | "inactivas";
@@ -257,42 +258,42 @@ export default function PlanDeCuentasPage() {
           className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
         />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <select value={fNivel} onChange={(e) => setFNivel(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+          <Selector value={fNivel} onChange={(e) => setFNivel(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <option value="">Nivel: todos</option>
             {nivelesDisponibles.map((n) => (
               <option key={n} value={n}>
                 Nivel {n}
               </option>
             ))}
-          </select>
-          <select value={fNaturaleza} onChange={(e) => setFNaturaleza(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+          </Selector>
+          <Selector value={fNaturaleza} onChange={(e) => setFNaturaleza(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <option value="">Naturaleza: todas</option>
             <option value="D">Deudora (D)</option>
             <option value="A">Acreedora (A)</option>
-          </select>
-          <select value={fAsentable} onChange={(e) => setFAsentable(e.target.value as FiltroAsentable)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+          </Selector>
+          <Selector value={fAsentable} onChange={(e) => setFAsentable(e.target.value as FiltroAsentable)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <option value="todos">Tipo: todas</option>
             <option value="asentable">Asentables</option>
             <option value="agrupadora">Agrupadoras</option>
-          </select>
-          <select value={fCentroCosto} onChange={(e) => setFCentroCosto(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+          </Selector>
+          <Selector value={fCentroCosto} onChange={(e) => setFCentroCosto(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <option value="">Centro costo: todos</option>
             <option value="si">Con centro de costo</option>
             <option value="no">Sin centro de costo</option>
-          </select>
-          <select value={fMoneda} onChange={(e) => setFMoneda(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+          </Selector>
+          <Selector value={fMoneda} onChange={(e) => setFMoneda(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <option value="">Moneda: todas</option>
             {monedasDisponibles.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
-          </select>
-          <select value={fEstado} onChange={(e) => setFEstado(e.target.value as FiltroEstado)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+          </Selector>
+          <Selector value={fEstado} onChange={(e) => setFEstado(e.target.value as FiltroEstado)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <option value="todos">Estado: todos</option>
             <option value="activas">Activas</option>
             <option value="inactivas">Inactivas</option>
-          </select>
+          </Selector>
         </div>
         {hayFiltro && (
           <p className="text-xs text-slate-500">

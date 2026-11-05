@@ -12,6 +12,7 @@ import {
   F_SELECT,
 } from "@/components/config/global-config-primitives";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type ProyectoTipoSla = "interno" | "cliente" | "pausado" | "final";
 
@@ -484,7 +485,7 @@ export default function ConfiguracionProyectosPage() {
                     </label>
                     <label>
                       <span className={F_LABEL}>Tipo SLA</span>
-                      <select
+                      <Selector
                         className={F_SELECT}
                         value={draft.tipo_sla}
                         disabled={!canEdit}
@@ -495,7 +496,7 @@ export default function ConfiguracionProyectosPage() {
                             {opt.label}
                           </option>
                         ))}
-                      </select>
+                      </Selector>
                     </label>
                     <label>
                       <span className={F_LABEL}>Horas objetivo SLA</span>
@@ -601,7 +602,7 @@ export default function ConfiguracionProyectosPage() {
               </label>
               <label>
                 <span className={F_LABEL}>Tipo SLA</span>
-                <select
+                <Selector
                   className={F_SELECT}
                   value={newColumn.tipo_sla}
                   onChange={(e) =>
@@ -613,7 +614,7 @@ export default function ConfiguracionProyectosPage() {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Selector>
               </label>
               <ToggleField
                 label="Estado visible en el tablero"

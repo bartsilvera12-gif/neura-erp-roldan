@@ -10,6 +10,7 @@ import type {
 } from "@/lib/flujo-caja/types";
 
 import { X } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Flujo de caja de proveedores.
@@ -296,13 +297,13 @@ export default function FlujoCajaPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes</span>
-          <select
+          <Selector
             value={mes}
             onChange={(e) => setMes(Number(e.target.value))}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Año</span>
@@ -433,14 +434,14 @@ export default function FlujoCajaPage() {
                                 onChange={(e) => setSaldos((prev) => prev.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))}
                                 className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-xs"
                               />
-                              <select
+                              <Selector
                                 value={s.moneda}
                                 onChange={(e) => setSaldos((prev) => prev.map((x, j) => j === i ? { ...x, moneda: e.target.value === "USD" ? "USD" : "PYG" } : x))}
                                 className="rounded border border-slate-200 px-1 py-1 text-xs"
                               >
                                 <option value="PYG">Gs.</option>
                                 <option value="USD">US$</option>
-                              </select>
+                              </Selector>
                               <input
                                 type="number" value={s.importe}
                                 onChange={(e) => setSaldos((prev) => prev.map((x, j) => j === i ? { ...x, importe: Number(e.target.value) || 0 } : x))}
@@ -1039,14 +1040,14 @@ function PanelCelda({
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-semibold uppercase opacity-70">Banco</span>
-                  <select
+                  <Selector
                     value={editando.bancoId}
                     onChange={(ev) => setEditando((p) => (p ? { ...p, bancoId: ev.target.value } : p))}
                     className="w-36 rounded border border-slate-200 bg-white px-2 py-1 text-xs"
                   >
                     <option value="">—</option>
                     {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                  </select>
+                  </Selector>
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-semibold uppercase opacity-70">Cobrable desde</span>
@@ -1109,13 +1110,13 @@ function PanelCelda({
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase text-slate-500">Banco</span>
-                <select
+                <Selector
                   value={bancoId} onChange={(ev) => setBancoId(ev.target.value)}
                   className="w-40 rounded border border-slate-200 px-2 py-1 text-xs"
                 >
                   <option value="">—</option>
                   {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                </select>
+                </Selector>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase text-slate-500">Cobrable desde</span>

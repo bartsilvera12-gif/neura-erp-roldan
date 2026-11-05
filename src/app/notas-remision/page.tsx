@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Truck, Plus, Inbox, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { fetchDepositos, fetchNRs, type Deposito, type NotaRemision, type NotaRemisionEstado } from "@/lib/multideposito/client";
+import Selector from "@/components/ui/Selector";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
 function fmtFecha(iso: string) {
@@ -83,26 +84,26 @@ export default function HistorialNRPage() {
         <div className="border-b border-slate-100 px-5 py-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Estado</label>
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               <option value="pendiente">Pendientes</option>
               <option value="aprobada">Aprobadas</option>
               <option value="rechazada">Rechazadas</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Origen</label>
-            <select value={filtroOrigen} onChange={(e) => setFiltroOrigen(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={filtroOrigen} onChange={(e) => setFiltroOrigen(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Destino</label>
-            <select value={filtroDestino} onChange={(e) => setFiltroDestino(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={filtroDestino} onChange={(e) => setFiltroDestino(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Buscar</label>

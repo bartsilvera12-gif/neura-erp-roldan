@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 /**
  * A qué cuenta del plan va cada clase de egreso de caja.
@@ -132,7 +133,7 @@ export default function CuentasEgresoPage() {
               <tr key={c.tipo_egreso} className={c.cuenta_id ? "" : "bg-amber-50/40"}>
                 <td className="px-4 py-2.5 font-medium text-slate-800">{c.label}</td>
                 <td className="px-4 py-2.5">
-                  <select
+                  <Selector
                     value={c.cuenta_id ?? ""}
                     disabled={!datos.puede_editar || guardando === c.tipo_egreso || datos.cuentas.length === 0}
                     onChange={(e) => void guardar(c.tipo_egreso, e.target.value)}
@@ -142,7 +143,7 @@ export default function CuentasEgresoPage() {
                     {datos.cuentas.map((cu) => (
                       <option key={cu.id} value={cu.id}>{etiqueta(cu)}</option>
                     ))}
-                  </select>
+                  </Selector>
                 </td>
               </tr>
             ))}

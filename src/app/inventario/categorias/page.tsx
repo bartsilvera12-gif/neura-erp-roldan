@@ -10,6 +10,7 @@ import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import Selector from "@/components/ui/Selector";
 
 interface Categoria {
   id: string;
@@ -515,7 +516,7 @@ export default function CategoriasProductosPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">Rubro padre (opcional)</label>
-            <select
+            <Selector
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
@@ -524,7 +525,7 @@ export default function CategoriasProductosPage() {
               {items.filter((i) => i.activo).map((i) => (
                 <option key={i.id} value={i.id}>{i.nombre}</option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div className="md:col-span-3">
             <button
@@ -560,7 +561,7 @@ export default function CategoriasProductosPage() {
                 className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
               />
             </div>
-            <select
+            <Selector
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value as "todos" | "activos" | "inactivos")}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
@@ -568,7 +569,7 @@ export default function CategoriasProductosPage() {
               <option value="todos">Todos los estados</option>
               <option value="activos">Solo activos</option>
               <option value="inactivos">Solo inactivos</option>
-            </select>
+            </Selector>
             {/* El tope del rubro es lo que Caja ofrece como descuento máximo
                 de la línea, así que conviene ver de un vistazo cuáles lo
                 tienen puesto. */}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 import {
   buildCampaignTemplatePreviewText,
   extractBodyPlaceholderKeysOrdered,
@@ -545,7 +546,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
                   <tr key={slot}>
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-slate-800">{`{{${slot}}}`}</td>
                     <td className="px-3 py-2">
-                      <select
+                      <Selector
                         className="w-full max-w-md rounded border border-slate-300 px-2 py-1.5 text-sm disabled:bg-slate-100"
                         disabled={!canImport || busy}
                         value={mapping[slot] ?? ""}
@@ -562,7 +563,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
                             {col}
                           </option>
                         ))}
-                      </select>
+                      </Selector>
                     </td>
                   </tr>
                 ))}
@@ -667,7 +668,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
                 </label>
                 <label className="mt-2 block text-xs text-slate-600">
                   Acción
-                  <select
+                  <Selector
                     className="mt-1 w-full rounded border border-slate-300 px-2 py-1 disabled:bg-slate-100"
                     disabled={lockButtonActionsSection}
                     value={row.action_type}
@@ -682,13 +683,13 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
                     <option value="none">Sin acción adicional</option>
                     <option value="start_flow">Iniciar flujo</option>
                     <option value="send_text">Enviar texto</option>
-                  </select>
+                  </Selector>
                 </label>
                 {row.action_type === "start_flow" ? (
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     <label className="block text-xs text-slate-600">
                       Flujo
-                      <select
+                      <Selector
                         className="mt-1 w-full rounded border border-slate-300 px-2 py-1 disabled:bg-slate-100"
                         disabled={lockButtonActionsSection}
                         value={row.flow_code}
@@ -709,11 +710,11 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
                             {f.label} ({f.flow_code})
                           </option>
                         ))}
-                      </select>
+                      </Selector>
                     </label>
                     <label className="block text-xs text-slate-600">
                       Nodo inicial (opcional)
-                      <select
+                      <Selector
                         className="mt-1 w-full rounded border border-slate-300 px-2 py-1 disabled:bg-slate-100"
                         disabled={lockButtonActionsSection}
                         value={row.start_node_code}
@@ -732,7 +733,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
                             {n.node_code}
                           </option>
                         ))}
-                      </select>
+                      </Selector>
                     </label>
                   </div>
                 ) : null}

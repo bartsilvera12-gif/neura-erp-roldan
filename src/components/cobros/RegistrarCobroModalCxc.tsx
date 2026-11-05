@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
+import Selector from "@/components/ui/Selector";
 
 /** Cuenta por cobrar mínima para registrar un pago. */
 export type CxcRef = {
@@ -166,19 +167,19 @@ export function RegistrarCobroModalCxc({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Método de pago</label>
-                <select value={metodo} onChange={(e) => setMetodo(e.target.value as (typeof METODOS)[number])} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
+                <Selector value={metodo} onChange={(e) => setMetodo(e.target.value as (typeof METODOS)[number])} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
                   {METODOS.map((m) => <option key={m} value={m}>{METODO_LABEL[m]}</option>)}
-                </select>
+                </Selector>
               </div>
               {pideBanco && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     {metodo === "tarjeta" ? "Procesadora / Banco" : "Entidad bancaria"} <span className="text-gray-400 font-normal">(opcional)</span>
                   </label>
-                  <select value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
+                  <Selector value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
                     <option value="">— Elegí —</option>
                     {entidadesFiltradas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-                  </select>
+                  </Selector>
                 </div>
               )}
               <div>

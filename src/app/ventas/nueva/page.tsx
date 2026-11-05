@@ -21,6 +21,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { productoMatchesQuery } from "@/lib/productos/token-search";
 import { formatFecha } from "@/lib/fecha/asuncion";
 import type { Producto, MetodoValuacion } from "@/lib/inventario/types";
+import Selector from "@/components/ui/Selector";
 
 /** Miniatura de producto con fallback a un placeholder si no hay imagen o falla. */
 /**
@@ -1705,7 +1706,7 @@ export default function NuevaVentaPage() {
             {depositos.length === 1 ? (
               <span className="text-sm font-bold text-slate-800">{depositos[0]!.nombre}</span>
             ) : (
-              <select
+              <Selector
                 value={depositoId}
                 onChange={(e) => setDepositoId(e.target.value)}
                 className={`rounded-md border px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4FAEB2]/30 ${
@@ -1718,7 +1719,7 @@ export default function NuevaVentaPage() {
                     {d.nombre}{d.codigo ? ` — ${d.codigo}` : ""}
                   </option>
                 ))}
-              </select>
+              </Selector>
             )}
           </div>
         )}
@@ -1733,7 +1734,7 @@ export default function NuevaVentaPage() {
             {cajasAbiertas.length === 1 ? (
               <span className="text-sm font-bold text-slate-800">Caja {cajasAbiertas[0].numero_caja}</span>
             ) : (
-              <select
+              <Selector
                 value={cajaActivaId}
                 onChange={(e) => setCajaActivaId(e.target.value)}
                 className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
@@ -1742,7 +1743,7 @@ export default function NuevaVentaPage() {
                 {cajasAbiertas.map((c) => (
                   <option key={c.id} value={c.id}>Caja {c.numero_caja}</option>
                 ))}
-              </select>
+              </Selector>
             )}
           </div>
         )}
@@ -3015,7 +3016,7 @@ function PagosMixtoEditor({
               que +resto y × queden alineados verticalmente entre lineas.
               Se apila con flex en pantallas chicas. */}
           <div className="hidden md:grid grid-cols-[10rem_11rem_1fr_1fr_1fr_auto_auto] items-center gap-2">
-            <select
+            <Selector
               value={p.metodo}
               onChange={(e) => update(i, { metodo: e.target.value as PagoMixtoLinea["metodo"] })}
               className="h-11 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
@@ -3023,7 +3024,7 @@ function PagosMixtoEditor({
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="tarjeta">Tarjeta/Débito</option>
-            </select>
+            </Selector>
             <input
               type="number"
               inputMode="numeric"
@@ -3033,7 +3034,7 @@ function PagosMixtoEditor({
               className="h-11 rounded-md border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
             />
             {needEntidad ? (
-              <select
+              <Selector
                 value={p.entidad_id}
                 onChange={(e) => update(i, { entidad_id: e.target.value })}
                 className="h-11 min-w-0 rounded-md border border-slate-200 bg-white px-2.5 text-sm"
@@ -3045,7 +3046,7 @@ function PagosMixtoEditor({
                     {e.nombre}
                   </option>
                 ))}
-              </select>
+              </Selector>
             ) : <div />}
             {needEntidad ? (
               <input
@@ -3087,7 +3088,7 @@ function PagosMixtoEditor({
           </div>
           {/* Mobile: apilado */}
           <div className="md:hidden flex flex-wrap items-center gap-2">
-            <select
+            <Selector
               value={p.metodo}
               onChange={(e) => update(i, { metodo: e.target.value as PagoMixtoLinea["metodo"] })}
               className="h-11 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
@@ -3095,7 +3096,7 @@ function PagosMixtoEditor({
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="tarjeta">Tarjeta/Débito</option>
-            </select>
+            </Selector>
             <input
               type="number"
               inputMode="numeric"
@@ -3119,12 +3120,12 @@ function PagosMixtoEditor({
             )}
             {needEntidad && (
               <div className="w-full grid grid-cols-1 gap-2">
-                <select value={p.entidad_id} onChange={(e) => update(i, { entidad_id: e.target.value })} className="h-10 rounded-md border border-slate-200 bg-white px-2.5 text-sm">
+                <Selector value={p.entidad_id} onChange={(e) => update(i, { entidad_id: e.target.value })} className="h-10 rounded-md border border-slate-200 bg-white px-2.5 text-sm">
                   <option value="">— Entidad —</option>
                   {entidades.map((e) => (
                     <option key={e.id} value={e.id}>{e.codigo ? `${e.codigo} · ` : ""}{e.nombre}</option>
                   ))}
-                </select>
+                </Selector>
                 <input type="text" value={p.referencia} onChange={(e) => update(i, { referencia: e.target.value })} placeholder="Comprobante / ref." className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
                 {p.metodo === "transferencia" && (
                   <input type="text" value={p.titular} onChange={(e) => update(i, { titular: e.target.value })} placeholder="Titular" className="h-10 rounded-md border border-slate-200 px-3 text-sm" />

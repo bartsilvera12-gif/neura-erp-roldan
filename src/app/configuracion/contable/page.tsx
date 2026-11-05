@@ -6,6 +6,7 @@ import { ConfigFormCard, ConfigSectionTitle, F_LABEL } from "@/components/config
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getCuentasContablesOpciones, type CuentaContableOpcion } from "@/lib/compras/storage";
 import CuentaCombobox from "@/components/contabilidad/CuentaCombobox";
+import Selector from "@/components/ui/Selector";
 
 interface Config {
   cuenta_iva_credito_5_id: string | null;
@@ -135,7 +136,7 @@ export default function ConfiguracionContablePage() {
         <p className="mb-3 text-xs text-slate-400">Un documento no puede contabilizarse en un período cerrado. Los períodos nuevos se crean abiertos automáticamente al contabilizar.</p>
         <div className="mb-4 flex flex-wrap items-end gap-2">
           <label className="text-xs font-semibold text-slate-500">Año<input type="number" value={nAnio} onChange={(e) => setNAnio(Number(e.target.value))} className="mt-1 w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm" /></label>
-          <label className="text-xs font-semibold text-slate-500">Mes<select value={nMes} onChange={(e) => setNMes(Number(e.target.value))} className="mt-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm">{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+          <label className="text-xs font-semibold text-slate-500">Mes<Selector value={nMes} onChange={(e) => setNMes(Number(e.target.value))} className="mt-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm">{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</Selector></label>
           <button onClick={() => togglePeriodo(nAnio, nMes, "cerrado")} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cerrar período</button>
           <button onClick={() => togglePeriodo(nAnio, nMes, "abierto")} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Abrir período</button>
         </div>

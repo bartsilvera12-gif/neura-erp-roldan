@@ -11,6 +11,7 @@ import {
 import type { Modulo } from "@/lib/empresas/actions";
 
 import { BarChart3, Building2, Package, User } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
@@ -176,7 +177,7 @@ export default function EmpresaForm() {
           </div>
           <div>
             <label className={fLabel}>Estado</label>
-            <select
+            <Selector
               name="estado"
               value={form.estado}
               onChange={handleChange}
@@ -184,7 +185,7 @@ export default function EmpresaForm() {
             >
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo</option>
-            </select>
+            </Selector>
           </div>
         </div>
       </section>

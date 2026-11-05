@@ -6,6 +6,7 @@ import MontoInput from "@/components/ui/MontoInput";
 import { getProductos } from "@/lib/inventario/storage";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { Producto, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
+import Selector from "@/components/ui/Selector";
 
 type UbicacionRow = { id: string; nombre: string; codigo: string | null; tipo: string };
 
@@ -343,7 +344,7 @@ export default function NuevoMovimientoPage() {
           {/* Depósito */}
           <div>
             <label className={labelClass}>Depósito <span className="text-red-500">*</span></label>
-            <select
+            <Selector
               name="ubicacion_id"
               value={form.ubicacion_id}
               onChange={handleChange}
@@ -356,7 +357,7 @@ export default function NuevoMovimientoPage() {
                   {u.nombre}{u.codigo ? ` — ${u.codigo}` : ""}
                 </option>
               ))}
-            </select>
+            </Selector>
             {ubicaciones.length === 0 && (
               <p className="mt-1 text-xs text-amber-700">
                 Todavía no cargaste depósitos. Creá uno en Inventario → Ubicaciones.
@@ -368,7 +369,7 @@ export default function NuevoMovimientoPage() {
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className={labelClass}>Tipo de movimiento</label>
-              <select
+              <Selector
                 name="tipo"
                 value={form.tipo}
                 onChange={handleTipoChange}
@@ -377,12 +378,12 @@ export default function NuevoMovimientoPage() {
                 <option value="ENTRADA">ENTRADA — aumenta stock</option>
                 <option value="SALIDA">SALIDA — disminuye stock</option>
                 <option value="AJUSTE">AJUSTE — corrección manual</option>
-              </select>
+              </Selector>
             </div>
 
             <div>
               <label className={labelClass}>Origen</label>
-              <select
+              <Selector
                 name="origen"
                 value={form.origen}
                 onChange={handleChange}
@@ -396,7 +397,7 @@ export default function NuevoMovimientoPage() {
                 <option value="compra">Compra</option>
                 <option value="venta">Venta</option>
                 <option value="ajuste_manual">Ajuste manual</option>
-              </select>
+              </Selector>
               {form.tipo === "AJUSTE" && (
                 <p className="mt-1 text-xs text-slate-500">
                   Fijo en “Ajuste manual”: es lo que lo hace aparecer en el historial de ajustes.

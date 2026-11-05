@@ -7,6 +7,7 @@ import AccionesTabla from "@/components/ui/AccionesTabla";
 import MontoInput from "@/components/ui/MontoInput";
 import AdjuntosEgreso, { type AdjuntoEgreso } from "@/components/caja/AdjuntosEgreso";
 import { TIPOS_EGRESO, etiquetaTipoEgreso, type TipoEgreso } from "@/lib/caja/tipos-egreso";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Ingresos y egresos.
@@ -238,28 +239,28 @@ export default function IngresosEgresosPage() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Tipo</span>
-          <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className={selectCls}>
+          <Selector value={fTipo} onChange={(e) => setFTipo(e.target.value)} className={selectCls}>
             <option value="">Todos</option>
             <option value="ingreso">Ingresos</option>
             <option value="egreso">Egresos</option>
             <option value="retiro">Retiros</option>
             <option value="ajuste">Ajustes</option>
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Origen</span>
-          <select value={fOrigen} onChange={(e) => setFOrigen(e.target.value)} className={selectCls}>
+          <Selector value={fOrigen} onChange={(e) => setFOrigen(e.target.value)} className={selectCls}>
             <option value="">Todos</option>
             <option value="caja">Movimientos de caja</option>
             <option value="gasto">Gastos con factura</option>
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Clase</span>
-          <select value={fClase} onChange={(e) => setFClase(e.target.value)} className={`min-w-[150px] ${selectCls}`}>
+          <Selector value={fClase} onChange={(e) => setFClase(e.target.value)} className={`min-w-[150px] ${selectCls}`}>
             <option value="">Todas</option>
             {clases.map((c) => <option key={c} value={c}>{etiquetaTipoEgreso(c) || c}</option>)}
-          </select>
+          </Selector>
         </label>
         <label className="flex min-w-[200px] flex-1 flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>
@@ -487,10 +488,10 @@ function MovimientoCajaModal({
           {tipo === "egreso" && (
             <label className="block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Clase de egreso</span>
-              <select value={tipoEgreso} onChange={(e) => setTipoEgreso(e.target.value as TipoEgreso)}
+              <Selector value={tipoEgreso} onChange={(e) => setTipoEgreso(e.target.value as TipoEgreso)}
                 className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#4FAEB2]">
                 {TIPOS_EGRESO.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              </Selector>
             </label>
           )}
 
@@ -515,13 +516,13 @@ function MovimientoCajaModal({
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Medio de pago</span>
-              <select value={medio} onChange={(e) => setMedio(e.target.value)}
+              <Selector value={medio} onChange={(e) => setMedio(e.target.value)}
                 className="w-full rounded-lg border-2 border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#4FAEB2]">
                 <option value="efectivo">Efectivo</option>
                 <option value="tarjeta">Tarjeta</option>
                 <option value="transferencia">Transferencia</option>
                 <option value="otro">Otro</option>
-              </select>
+              </Selector>
             </label>
           </div>
 

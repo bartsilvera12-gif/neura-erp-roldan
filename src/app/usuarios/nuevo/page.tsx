@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 import {
   emptyUsuarioForm,
   rolFromNivelForm,
@@ -160,7 +161,7 @@ export default function NuevoUsuarioPage() {
           <label htmlFor="sucursal_id" className="block text-sm font-medium text-gray-700 mb-1.5">
             Sucursal <span className="text-red-500">*</span>
           </label>
-          <select
+          <Selector
             id="sucursal_id"
             name="sucursal_id"
             value={sucursalId}
@@ -173,7 +174,7 @@ export default function NuevoUsuarioPage() {
                 {s.nombre}
               </option>
             ))}
-          </select>
+          </Selector>
           <p className="text-xs text-gray-500 mt-1.5">
             El usuario va a ver únicamente los datos de esta sucursal. No se puede cambiar desde el
             sistema una vez creado.

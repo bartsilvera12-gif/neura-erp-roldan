@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Punto de equilibrio: cuánto hay que vender para cubrir los gastos.
@@ -82,12 +83,12 @@ export default function PuntoEquilibrioPage() {
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes</span>
-          <select
+          <Selector
             value={mes} onChange={(e) => setMes(Number(e.target.value))}
             className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Año</span>

@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
+import Selector from "@/components/ui/Selector";
 
 export const dynamic = "force-dynamic";
 
@@ -124,13 +125,13 @@ export default function ControlHorarioPage() {
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
             <div className="md:col-span-2">
               <label className={lblCls}>Empleado</label>
-              <select className={inputCls} value={form.empleado_id} required
+              <Selector className={inputCls} value={form.empleado_id} required
                 onChange={(e) => setForm({ ...form, empleado_id: e.target.value })}>
                 <option value="">Seleccionar…</option>
                 {empleados.map((e) => (
                   <option key={e.id} value={e.id}>{e.nombre}{e.cargo ? ` — ${e.cargo}` : ""}</option>
                 ))}
-              </select>
+              </Selector>
             </div>
             <div>
               <label className={lblCls}>Fecha</label>

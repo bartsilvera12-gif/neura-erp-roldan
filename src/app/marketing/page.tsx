@@ -5,6 +5,7 @@ import { getMetricasCumplimiento, updateTaskStatus } from "@/lib/marketing/stora
 import type { MarketingOpsClienteResumen } from "@/lib/marketing/ops-queries";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { MarketingTask } from "@/lib/marketing/types";
+import Selector from "@/components/ui/Selector";
 import {
   AlertCircle,
   CalendarDays,
@@ -290,7 +291,7 @@ export default function MarketingOpsPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <Selector
             value={mes}
             onChange={(e) => setMes(e.target.value)}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white shadow-sm"
@@ -308,7 +309,7 @@ export default function MarketingOpsPage() {
                 </option>
               );
             })}
-          </select>
+          </Selector>
           <button
             type="button"
             onClick={() => void cargar()}

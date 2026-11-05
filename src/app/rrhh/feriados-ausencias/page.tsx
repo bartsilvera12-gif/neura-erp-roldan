@@ -10,6 +10,7 @@ import { Iniciales } from "@/components/rrhh/EmpleadoBadges";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { diasCorridos, feriadosFijosPy } from "@/lib/rrhh/vacaciones-py";
 import { CalendarDays, CalendarOff, ChevronLeft, ChevronRight, Flag, HeartPulse, Plus, Search, Trash2, UserX, X } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 export const dynamic = "force-dynamic";
 
@@ -274,10 +275,10 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="lg:col-span-2">
               <label className={lblCls}>Empleado</label>
-              <select className={inputCls} value={form.empleado_id} onChange={(e) => setForm({ ...form, empleado_id: e.target.value })} required>
+              <Selector className={inputCls} value={form.empleado_id} onChange={(e) => setForm({ ...form, empleado_id: e.target.value })} required>
                 <option value="">Seleccionar…</option>
                 {activos.map((e) => <option key={e.id} value={e.id}>{e.nombre}{e.cargo ? ` — ${e.cargo}` : ""}</option>)}
-              </select>
+              </Selector>
             </div>
             <div className="lg:col-span-2">
               <label className={lblCls}>Tipo</label>
@@ -330,15 +331,15 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar empleado u observación…" className={`${inputCls} pl-9`} />
         </div>
-        <select value={fEmpleado} onChange={(e) => setFEmpleado(e.target.value)} className={`${inputCls} w-auto`}>
+        <Selector value={fEmpleado} onChange={(e) => setFEmpleado(e.target.value)} className={`${inputCls} w-auto`}>
           <option value="">Todos los empleados</option>
           {empleados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-        </select>
-        <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className={`${inputCls} w-auto`}>
+        </Selector>
+        <Selector value={fTipo} onChange={(e) => setFTipo(e.target.value)} className={`${inputCls} w-auto`}>
           <option value="">Todos los tipos</option>
           {(Object.keys(TIPO) as TipoAusencia[]).filter((t) => TIPOS_CARGA.includes(t) || ausencias.some((a) => a.tipo === t))
             .map((t) => <option key={t} value={t}>{TIPO[t].label}</option>)}
-        </select>
+        </Selector>
         <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className={`${inputCls} w-auto`} title="Del mes" />
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
           {([["todas", "Todas"], ["actuales", "Hoy"], ["proximas", "Próximas"], ["pasadas", "Pasadas"]] as const).map(([v, l]) => (

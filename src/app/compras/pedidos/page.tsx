@@ -7,6 +7,7 @@ import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
 
 import { Pencil, Printer } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 type Item = { descripcion: string; cantidad: string; unidad: string; precio_unitario: string };
 type Orden = {
@@ -188,10 +189,10 @@ export default function OrdenesDeCompraPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
             <div className="md:col-span-2">
               <label className="text-xs text-slate-600">Proveedor</label>
-              <select value={form.proveedor_id} onChange={(e) => setForm({ ...form, proveedor_id: e.target.value })} className={inp}>
+              <Selector value={form.proveedor_id} onChange={(e) => setForm({ ...form, proveedor_id: e.target.value })} className={inp}>
                 <option value="">— Elegí un proveedor —</option>
                 {provs.map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.ruc ? ` · ${p.ruc}` : ""}</option>)}
-              </select>
+              </Selector>
               {!form.proveedor_id && (
                 <input value={form.proveedor_nombre} onChange={(e) => setForm({ ...form, proveedor_nombre: e.target.value })}
                   className={inp} placeholder="…o escribí el nombre del proveedor" />
@@ -203,10 +204,10 @@ export default function OrdenesDeCompraPage() {
             </div>
             <div>
               <label className="text-xs text-slate-600">Moneda</label>
-              <select value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value as "PYG" | "USD" })} className={inp}>
+              <Selector value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value as "PYG" | "USD" })} className={inp}>
                 <option value="PYG">Guaraníes</option>
                 <option value="USD">Dólares (USD)</option>
-              </select>
+              </Selector>
             </div>
           </div>
 
@@ -222,9 +223,9 @@ export default function OrdenesDeCompraPage() {
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-600">Unidad</label>
-              <select value={nl.unidad} onChange={(e) => setNl({ ...nl, unidad: e.target.value })} className={inp}>
+              <Selector value={nl.unidad} onChange={(e) => setNl({ ...nl, unidad: e.target.value })} className={inp}>
                 {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
+              </Selector>
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-600">Precio unit. (opc.)</label>

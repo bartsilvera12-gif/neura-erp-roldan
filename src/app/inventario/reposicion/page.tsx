@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ArrowLeftRight, Plus, X, Search, Clock, CheckCircle2, Truck, PackageCheck } from "lucide-react";
 import AccionesTabla from "@/components/ui/AccionesTabla";
+import Selector from "@/components/ui/Selector";
 
 // ── Tipos que devuelve la API ────────────────────────────────────────────────
 type Resumen = {
@@ -338,7 +339,7 @@ export default function ReposicionPage() {
               className="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
             />
           </div>
-          <select
+          <Selector
             value={fEstado}
             onChange={(e) => setFEstado(e.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
@@ -350,8 +351,8 @@ export default function ReposicionPage() {
             <option value="recibida">Recibida</option>
             <option value="rechazada">Rechazada</option>
             <option value="cancelada">Cancelada</option>
-          </select>
-          <select
+          </Selector>
+          <Selector
             value={fUsuario}
             onChange={(e) => setFUsuario(e.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
@@ -360,7 +361,7 @@ export default function ReposicionPage() {
             {usuariosEnLista.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
-          </select>
+          </Selector>
           <div className="flex items-center gap-2">
             <label className="whitespace-nowrap text-xs text-slate-400">Desde</label>
             <input type="date" value={fDesde} onChange={(e) => setFDesde(e.target.value)}
@@ -589,7 +590,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Sucursal de origen</label>
-          <select
+          <Selector
             value={origenId}
             onChange={(e) => setOrigenId(e.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
@@ -601,7 +602,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
                 {s.es_principal ? " (principal)" : ""}
               </option>
             ))}
-          </select>
+          </Selector>
         </div>
 
         <div>

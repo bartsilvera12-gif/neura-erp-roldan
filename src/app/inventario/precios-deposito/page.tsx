@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Precios por depósito.
@@ -164,7 +165,7 @@ export default function PreciosDepositoPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="text-xs font-semibold text-slate-500">
           Depósito
-          <select
+          <Selector
             value={depositoId}
             onChange={(e) => setDepositoId(e.target.value)}
             className="mt-1 block rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -173,7 +174,7 @@ export default function PreciosDepositoPage() {
             {depositos.map((d) => (
               <option key={d.id} value={d.id}>{d.nombre}{d.codigo ? ` — ${d.codigo}` : ""}</option>
             ))}
-          </select>
+          </Selector>
         </label>
         <label className="text-xs font-semibold text-slate-500">
           Buscar

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type Salario = {
   id: string;
@@ -118,11 +119,11 @@ export default function EmpleadoSalarios({ empleadoId }: { empleadoId: string })
           </div>
           <div>
             <label className="text-xs text-slate-600">Moneda</label>
-            <select value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}
+            <Selector value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}
               className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm">
               <option value="PYG">Guaraníes</option>
               <option value="USD">USD</option>
-            </select>
+            </Selector>
           </div>
           <div />
           <div>

@@ -6,6 +6,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import type { AmbienteSifen, EmpresaSifenConfigDTO } from "@/lib/sifen/types";
 
 import { CheckCircle2 } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput =
@@ -592,14 +593,14 @@ export default function FacturacionElectronicaSifenPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={fLabel}>Ambiente</label>
-              <select
+              <Selector
                 className={fSelect}
                 value={ambiente}
                 onChange={(e) => setAmbiente(e.target.value as AmbienteSifen)}
               >
                 <option value="test">Test</option>
                 <option value="produccion">Producción</option>
-              </select>
+              </Selector>
             </div>
             <div className="flex items-end pb-2">
               <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">

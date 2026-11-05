@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { F_INPUT, F_LABEL, F_SELECT } from "@/components/config/global-config-primitives";
 import type { CuentaFormDraft, PlanCuentaItem } from "./types";
+import Selector from "@/components/ui/Selector";
 
 const MONEDAS = ["Local", "DOLAR"];
 const TIPOS_CAMBIO = ["", "Comprador", "Vendedor"];
@@ -182,7 +183,7 @@ export function PlanCuentaFormModal({
 
           <div>
             <label className={F_LABEL}>Cuenta padre</label>
-            <select
+            <Selector
               className={F_SELECT}
               value={draft.cuenta_padre_id ?? ""}
               onChange={(e) => onSelectPadre(e.target.value)}
@@ -193,38 +194,38 @@ export function PlanCuentaFormModal({
                   {c.cuenta} · {c.denominacion} (nivel {c.nivel})
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={F_LABEL}>Naturaleza *</label>
-              <select
+              <Selector
                 className={F_SELECT}
                 value={draft.naturaleza}
                 onChange={(e) => setField("naturaleza", e.target.value as "D" | "A")}
               >
                 <option value="D">D — Deudora</option>
                 <option value="A">A — Acreedora</option>
-              </select>
+              </Selector>
             </div>
             <div>
               <label className={F_LABEL}>Moneda</label>
-              <select className={F_SELECT} value={draft.moneda} onChange={(e) => setField("moneda", e.target.value)}>
+              <Selector className={F_SELECT} value={draft.moneda} onChange={(e) => setField("moneda", e.target.value)}>
                 <option value="">(Ninguna)</option>
                 {MONEDAS.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
                 ))}
-              </select>
+              </Selector>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={F_LABEL}>Tipo de cambio</label>
-              <select
+              <Selector
                 className={F_SELECT}
                 value={draft.tipo_cambio}
                 onChange={(e) => setField("tipo_cambio", e.target.value)}
@@ -234,7 +235,7 @@ export function PlanCuentaFormModal({
                     {t === "" ? "(Ninguno)" : t}
                   </option>
                 ))}
-              </select>
+              </Selector>
             </div>
             <div>
               <label className={F_LABEL}>Cuenta SSET</label>

@@ -20,6 +20,7 @@ import type { Plan } from "@/lib/planes/types";
 import { FechaSelect } from "@/components/ui/FechaSelect";
 
 import { AlertTriangle, Check } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 export type ProspectoDetalleFormProps = {
   id: string;
@@ -631,7 +632,7 @@ export default function ProspectoDetalleForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className={LABEL_CLS}>Responsable</label>
-                <select
+                <Selector
                   name="responsable"
                   /* Este schema guarda el NOMBRE del responsable, no su id de usuario:
                      el select se resuelve contra la lista de usuarios por nombre. */
@@ -655,7 +656,7 @@ export default function ProspectoDetalleForm({
                       {(u.nombre ?? "").trim() || u.email}
                     </option>
                   ))}
-                </select>
+                </Selector>
                 <p className="mt-1 text-xs text-slate-500">Cambiar el responsable transfiere el lead a ese asesor.</p>
               </div>
               <div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { formatearNumeroFactura } from "@/lib/formato/numero-factura";
+import Selector from "@/components/ui/Selector";
 
 type Estado = "pendiente" | "pagada" | "anulada";
 
@@ -238,14 +239,14 @@ export default function NuevaCompraConsignacionPage() {
             </div>
             <div>
               <label className="text-xs text-slate-600">Tipo de pago</label>
-              <select value={header.tipo_pago} onChange={(e) => setHeader({ ...header, tipo_pago: e.target.value as "contado" | "credito" })} className={inp}>
+              <Selector value={header.tipo_pago} onChange={(e) => setHeader({ ...header, tipo_pago: e.target.value as "contado" | "credito" })} className={inp}>
                 <option value="contado">Contado</option>
                 <option value="credito">Crédito</option>
-              </select>
+              </Selector>
             </div>
             <div>
               <label className="text-xs text-slate-600">Moneda</label>
-              <select value={header.moneda} onChange={(e) => {
+              <Selector value={header.moneda} onChange={(e) => {
                 const m = e.target.value as Moneda;
                 setHeader({
                   ...header, moneda: m,
@@ -254,7 +255,7 @@ export default function NuevaCompraConsignacionPage() {
               }} className={inp}>
                 <option value="PYG">Guaraníes</option>
                 <option value="USD">Dólares (USD)</option>
-              </select>
+              </Selector>
             </div>
             {header.moneda === "USD" && (
               <div>
@@ -270,11 +271,11 @@ export default function NuevaCompraConsignacionPage() {
             {editando && (
               <div>
                 <label className="text-xs font-semibold text-teal-700">Estado</label>
-                <select value={header.estado} onChange={(e) => setHeader({ ...header, estado: e.target.value as Estado })} className={inp}>
+                <Selector value={header.estado} onChange={(e) => setHeader({ ...header, estado: e.target.value as Estado })} className={inp}>
                   <option value="pendiente">Pendiente</option>
                   <option value="pagada">Pagada</option>
                   <option value="anulada">Anulada</option>
-                </select>
+                </Selector>
               </div>
             )}
           </div>
@@ -294,9 +295,9 @@ export default function NuevaCompraConsignacionPage() {
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-600">Unidad</label>
-              <select value={nl.unidad_medida} onChange={(e) => setNl({ ...nl, unidad_medida: e.target.value })} className={inp}>
+              <Selector value={nl.unidad_medida} onChange={(e) => setNl({ ...nl, unidad_medida: e.target.value })} className={inp}>
                 {UNIDADES.map((u) => <option key={u.v} value={u.v}>{u.l}</option>)}
-              </select>
+              </Selector>
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-600">Precio unit.</label>
@@ -304,11 +305,11 @@ export default function NuevaCompraConsignacionPage() {
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-600">IVA</label>
-              <select value={nl.iva_tipo} onChange={(e) => setNl({ ...nl, iva_tipo: e.target.value as IvaTipo })} className={inp}>
+              <Selector value={nl.iva_tipo} onChange={(e) => setNl({ ...nl, iva_tipo: e.target.value as IvaTipo })} className={inp}>
                 <option value="exenta">Exenta</option>
                 <option value="5">5%</option>
                 <option value="10">10%</option>
-              </select>
+              </Selector>
             </div>
             <div className="md:col-span-1">
               <button type="button" onClick={agregarLinea} className="w-full px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium">+</button>

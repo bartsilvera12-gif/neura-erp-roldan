@@ -9,6 +9,7 @@ import type {
   PhysicalCouponPrintRow,
 } from "@/lib/sorteos/physical-coupons-print";
 import type { SorteoEntradaEstadoPago } from "@/lib/sorteos/types";
+import Selector from "@/components/ui/Selector";
 
 type PrintFormat = "thermal_58" | "thermal_80" | "a4" | "oficio";
 
@@ -496,7 +497,7 @@ export default function PhysicalCouponsPrintClient({
         <div className="no-print rounded-xl border border-slate-200 bg-white p-4 space-y-2">
           <label className="flex flex-col gap-1 text-sm text-slate-700">
             <span className="font-semibold text-slate-800">Formato de impresión</span>
-            <select
+            <Selector
               value={selectedPrintFormat}
               onChange={(e) => {
                 const v = e.target.value;
@@ -509,7 +510,7 @@ export default function PhysicalCouponsPrintClient({
                   {o.label}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <p className="text-xs text-slate-600">{activeFormatHelp}</p>
 
@@ -596,7 +597,7 @@ export default function PhysicalCouponsPrintClient({
             </label>
             <label className="flex flex-col gap-1 text-xs text-slate-600">
               Estado de pago
-              <select
+              <Selector
                 name="estado"
                 defaultValue={estado}
                 className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
@@ -606,7 +607,7 @@ export default function PhysicalCouponsPrintClient({
                     {o.label}
                   </option>
                 ))}
-              </select>
+              </Selector>
             </label>
             <label className="flex flex-col gap-1 text-xs text-slate-600">
               Desde

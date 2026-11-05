@@ -11,6 +11,7 @@ import {
   type FacturaClasificada, type FacturaProveedor, type ProveedorDeuda,
 } from "@/lib/pagos/deuda-proveedores";
 import { ChevronDown, ChevronRight, FileText, Printer, Search, Wallet } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Pagos a proveedores: a quién hay que pagarle y cuánto.
@@ -192,7 +193,7 @@ export default function PagosProveedoresPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Período</span>
-          <select
+          <Selector
             value={dias == null ? "todo" : String(dias)}
             onChange={(e) => setDias(e.target.value === "todo" ? null : Number(e.target.value))}
             className="w-52 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -200,7 +201,7 @@ export default function PagosProveedoresPage() {
             {VENTANAS.map((v) => (
               <option key={v.label} value={v.dias == null ? "todo" : String(v.dias)}>{v.label}</option>
             ))}
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedor</span>

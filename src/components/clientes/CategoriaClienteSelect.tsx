@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type Categoria = { id: string; nombre: string };
 
@@ -30,13 +31,13 @@ export default function CategoriaClienteSelect({
   }, []);
 
   return (
-    <select
+    <Selector
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
       className={className}
     >
       <option value="">— Sin rubro —</option>
       {items.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-    </select>
+    </Selector>
   );
 }

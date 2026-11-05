@@ -11,6 +11,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { getGastos } from "@/lib/gastos/actions";
 
 import { ClipboardList } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput =
@@ -207,7 +208,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
               </p>
             ) : (
               <>
-                <select
+                <Selector
                   name="cuenta_contable_id"
                   value={form.cuenta_contable_id ?? ""}
                   onChange={handleChange}
@@ -217,7 +218,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
                   {cuentas.map((c) => (
                     <option key={c.id} value={c.id}>{c.etiqueta}</option>
                   ))}
-                </select>
+                </Selector>
                 {sugerida && !form.cuenta_contable_id && (
                   <button
                     type="button"
@@ -291,7 +292,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
           </div>
           <div>
             <label className={fLabel}>Método de pago</label>
-            <select
+            <Selector
               name="metodo_pago"
               value={form.metodo_pago ?? ""}
               onChange={handleChange}
@@ -301,7 +302,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="tarjeta">Tarjeta</option>
-            </select>
+            </Selector>
           </div>
           {/* Desglose de IVA de la factura (montos con IVA INCLUIDO). Una misma
               factura puede tener partes con distinto IVA: cargás lo que corresponde
@@ -338,7 +339,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
           })()}
           <div>
             <label className={fLabel}>Tipo</label>
-            <select
+            <Selector
               name="tipo"
               value={form.tipo}
               onChange={handleChange}
@@ -346,7 +347,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
             >
               <option value="variable">Variable</option>
               <option value="fijo">Fijo</option>
-            </select>
+            </Selector>
           </div>
           <div className="flex items-center gap-2">
             <input

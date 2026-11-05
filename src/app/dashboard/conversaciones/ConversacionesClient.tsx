@@ -59,6 +59,7 @@ import { ImageLightbox } from "./_components/ImageLightbox";
 import { LiveElapsedLabel } from "./_components/LiveElapsedLabel";
 import { InboxReplyTurnBadges } from "./_components/InboxReplyTurnBadges";
 import { nombreParaMostrar, telefonoLegibleOVacio } from "@/lib/chat/wa-phone";
+import Selector from "@/components/ui/Selector";
 import {
   badgeEstadoClass,
   chatAvatarClass,
@@ -1560,7 +1561,7 @@ export function ConversacionesClient({
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Estado</label>
-                  <select
+                  <Selector
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                     value={finalizeStateId}
                     onChange={(e) => setFinalizeStateId(e.target.value)}
@@ -1570,7 +1571,7 @@ export function ConversacionesClient({
                         {s.label}
                       </option>
                     ))}
-                  </select>
+                  </Selector>
                 </div>
                 {(() => {
                   const st = finalizeOptions.states.find((s) => s.id === finalizeStateId);
@@ -1578,7 +1579,7 @@ export function ConversacionesClient({
                   return (
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Subestado</label>
-                      <select
+                      <Selector
                         className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                         value={finalizeSubstateId}
                         onChange={(e) => setFinalizeSubstateId(e.target.value)}
@@ -1589,7 +1590,7 @@ export function ConversacionesClient({
                             {sub.label}
                           </option>
                         ))}
-                      </select>
+                      </Selector>
                     </div>
                   );
                 })()}
@@ -1708,7 +1709,7 @@ export function ConversacionesClient({
                 <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                   Canal
                 </span>
-                <select
+                <Selector
                   value={newChatChannel}
                   onChange={(e) => setNewChatChannel(e.target.value)}
                   disabled={newChatBusy}
@@ -1720,7 +1721,7 @@ export function ConversacionesClient({
                       {formatChannelOptionLabel(c)}
                     </option>
                   ))}
-                </select>
+                </Selector>
               </label>
 
               <p className="text-[11px] text-slate-500 leading-snug">
@@ -1794,7 +1795,7 @@ export function ConversacionesClient({
                   Colas
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <select
+                  <Selector
                     disabled={opsBusy}
                     className="flex-1 min-w-[12rem] border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white"
                     value={transferQueueTarget}
@@ -1809,7 +1810,7 @@ export function ConversacionesClient({
                           {q.nombre}
                         </option>
                       ))}
-                  </select>
+                  </Selector>
                   <button
                     type="button"
                     disabled={opsBusy || !transferQueueTarget}
@@ -2109,7 +2110,7 @@ export function ConversacionesClient({
       {(mode === "historial" || vista === "inbox") ? (
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <label className="min-w-[11rem]">
-            <select
+            <Selector
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white text-slate-700 max-w-[min(22rem,90vw)] outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
               value={displayCanal}
               onChange={(e) => {
@@ -2125,10 +2126,10 @@ export function ConversacionesClient({
                   {formatChannelOptionLabel(c)}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <label className="min-w-[11rem]">
-            <select
+            <Selector
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
               value={displayCola}
               onChange={(e) => {
@@ -2146,10 +2147,10 @@ export function ConversacionesClient({
                     {q.nombre}
                   </option>
                 ))}
-            </select>
+            </Selector>
           </label>
           <label className="min-w-[11rem]">
-            <select
+            <Selector
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:ring-1 focus:ring-sky-400/40 focus:border-sky-300"
               value={displayAsignacion}
               onChange={(e) => {
@@ -2162,7 +2163,7 @@ export function ConversacionesClient({
               <option value="">Todas</option>
               {opInQueues ? <option value="mios">Asignadas a mí</option> : null}
               <option value="sin_asignar">Sin asignar</option>
-            </select>
+            </Selector>
           </label>
           {initialOmnicanalRole === "supervisor" ? (
             <p className="text-[11px] text-slate-500 max-w-[18rem] leading-snug pb-0.5">

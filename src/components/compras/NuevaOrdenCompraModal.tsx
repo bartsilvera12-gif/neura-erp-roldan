@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
 import { Plus, Trash2 } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Armar una orden de compra.
@@ -142,13 +143,13 @@ export default function NuevaOrdenCompraModal({
         <div className="mt-3 flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Moneda</span>
-            <select
+            <Selector
               value={moneda} onChange={(e) => setMoneda(e.target.value === "USD" ? "USD" : "PYG")}
               className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
             >
               <option value="PYG">Guaraníes</option>
               <option value="USD">Dólares</option>
-            </select>
+            </Selector>
           </label>
           <span className="ml-auto text-sm text-slate-500">
             Total: <strong className="tabular-nums text-slate-800">

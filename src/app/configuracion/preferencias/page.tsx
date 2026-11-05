@@ -13,6 +13,7 @@ import { GlobalConfigSubpageShell } from "@/components/config/GlobalConfigSubpag
 import { useGlobalConfigForm } from "@/lib/config/use-global-config-form";
 
 import { AlertTriangle } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 export default function ConfiguracionPreferenciasPage() {
   const { config, form, handleChange, handleGuardar, handleResetFormToDefaults, success, ready } =
@@ -47,21 +48,21 @@ export default function ConfiguracionPreferenciasPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={F_LABEL}>Moneda base del sistema</label>
-              <select name="moneda_base" value={form.moneda_base} onChange={handleChange} className={F_SELECT}>
+              <Selector name="moneda_base" value={form.moneda_base} onChange={handleChange} className={F_SELECT}>
                 <option value="GS">Guaraníes (GS)</option>
                 <option value="USD">Dólares (USD)</option>
                 <option value="BRL">Reales (BRL)</option>
                 <option value="ARS">Pesos argentinos (ARS)</option>
-              </select>
+              </Selector>
               <ConfigHelpText>Moneda utilizada por defecto en todos los módulos financieros.</ConfigHelpText>
             </div>
             <div>
               <label className={F_LABEL}>Formato de fecha</label>
-              <select name="formato_fecha" value={form.formato_fecha} onChange={handleChange} className={F_SELECT}>
+              <Selector name="formato_fecha" value={form.formato_fecha} onChange={handleChange} className={F_SELECT}>
                 <option value="DD/MM/YYYY">DD/MM/YYYY (ej: 09/03/2026)</option>
                 <option value="MM/DD/YYYY">MM/DD/YYYY (ej: 03/09/2026)</option>
                 <option value="YYYY-MM-DD">YYYY-MM-DD (ej: 2026-03-09)</option>
-              </select>
+              </Selector>
               <ConfigHelpText>Formato de presentación de fechas en toda la interfaz.</ConfigHelpText>
             </div>
           </div>
@@ -72,22 +73,22 @@ export default function ConfiguracionPreferenciasPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={F_LABEL}>Zona horaria</label>
-              <select name="timezone" value={form.timezone} onChange={handleChange} className={F_SELECT}>
+              <Selector name="timezone" value={form.timezone} onChange={handleChange} className={F_SELECT}>
                 <option value="America/Asuncion">América/Asunción (Paraguay, UTC-4)</option>
                 <option value="America/Sao_Paulo">América/São Paulo (Brasil, UTC-3)</option>
                 <option value="America/Buenos_Aires">América/Buenos Aires (Argentina, UTC-3)</option>
                 <option value="America/Lima">América/Lima (Perú, UTC-5)</option>
                 <option value="America/Bogota">América/Bogotá (Colombia, UTC-5)</option>
-              </select>
+              </Selector>
               <ConfigHelpText>Zona horaria usada para registrar fechas y horas en el sistema.</ConfigHelpText>
             </div>
             <div>
               <label className={F_LABEL}>Idioma por defecto</label>
-              <select name="idioma_default" value={form.idioma_default} onChange={handleChange} className={F_SELECT}>
+              <Selector name="idioma_default" value={form.idioma_default} onChange={handleChange} className={F_SELECT}>
                 <option value="es">Español</option>
                 <option value="en">English</option>
                 <option value="pt">Português</option>
-              </select>
+              </Selector>
               <ConfigHelpText>Idioma predeterminado para nuevos usuarios del sistema.</ConfigHelpText>
             </div>
           </div>

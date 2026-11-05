@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
 import CargarReciboChequeModal from "@/components/pagos/CargarReciboChequeModal";
+import Selector from "@/components/ui/Selector";
 import {
   Printer, FileCheck2, Banknote, ImagePlus, X, Eye, Search, ArrowUpDown,
   CheckCircle2, Info,
@@ -493,14 +494,14 @@ export default function OrdenPagoPage() {
                 />
               </div>
               <div className="flex items-center gap-1.5 text-sm">
-                <select
+                <Selector
                   value={campoFecha} onChange={(e) => setCampoFecha(e.target.value as "vencimiento" | "fecha")}
                   className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-600"
                   aria-label="Qué fecha filtrar"
                 >
                   <option value="vencimiento">Vencimiento</option>
                   <option value="fecha">Fecha factura</option>
-                </select>
+                </Selector>
                 <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} aria-label="Desde"
                   className="rounded-lg border border-slate-200 px-2 py-2 text-sm" />
                 <span className="text-slate-400">a</span>
@@ -644,13 +645,13 @@ export default function OrdenPagoPage() {
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Banco</span>
-                <select
+                <Selector
                   value={bancoId} onChange={(e) => setBancoId(e.target.value)}
                   className={`h-[38px] w-44 rounded-lg border border-slate-200 bg-white px-2.5 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20 ${bancoId ? "text-slate-800" : "text-slate-400"}`}
                 >
                   <option value="">{bancos.length ? "Elegí el banco…" : "No hay bancos cargados"}</option>
                   {bancos.map((b) => <option key={b.id} value={b.id} className="text-slate-800">{b.nombre}</option>)}
-                </select>
+                </Selector>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fecha de pago</span>

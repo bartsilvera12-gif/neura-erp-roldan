@@ -6,6 +6,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { getClientes } from "@/lib/clientes/storage";
 import { getUsuariosActivosEmpresa, type UsuarioEmpresa } from "@/lib/usuarios/empresa";
 import type { NotaCreditoGlobalListItemDTO } from "@/lib/nota-credito/types";
+import Selector from "@/components/ui/Selector";
 
 /** Número visible de la NC. La tabla `nota_credito` no persiste un correlativo
  *  tipo NC-XXXXXX (a diferencia de facturas/ventas); mostramos un derivado
@@ -183,44 +184,44 @@ export default function NotasCreditoListClient() {
           </div>
           <div>
             <label className={labelClass}>Cliente</label>
-            <select className={inputClass} value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
+            <Selector className={inputClass} value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
               <option value="">Todos</option>
               {clientes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nombre}
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className={labelClass}>Estado ERP</label>
-            <select className={inputClass} value={estadoErp} onChange={(e) => setEstadoErp(e.target.value)}>
+            <Selector className={inputClass} value={estadoErp} onChange={(e) => setEstadoErp(e.target.value)}>
               <option value="">Todos</option>
               {ERP_OPTS.map((e) => (
                 <option key={e} value={e}>
                   {e}
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className={labelClass}>Estado SIFEN</label>
-            <select className={inputClass} value={estadoSifen} onChange={(e) => setEstadoSifen(e.target.value)}>
+            <Selector className={inputClass} value={estadoSifen} onChange={(e) => setEstadoSifen(e.target.value)}>
               <option value="">Todos</option>
               {SIFEN_OPTS.map((e) => (
                 <option key={e} value={e}>
                   {e}
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className={labelClass}>Con error</label>
-            <select className={inputClass} value={conError} onChange={(e) => setConError(e.target.value)}>
+            <Selector className={inputClass} value={conError} onChange={(e) => setConError(e.target.value)}>
               <option value="">Indistinto</option>
               <option value="1">Con error</option>
               <option value="0">Sin error</option>
-            </select>
+            </Selector>
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>Número NC</label>
@@ -233,7 +234,7 @@ export default function NotasCreditoListClient() {
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>Usuario creador</label>
-            <select
+            <Selector
               className={inputClass}
               value={usuarioId}
               onChange={(e) => setUsuarioId(e.target.value)}
@@ -244,7 +245,7 @@ export default function NotasCreditoListClient() {
                   {u.nombre?.trim() || u.email || u.id.slice(0, 8)}
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>Factura (UUID)</label>

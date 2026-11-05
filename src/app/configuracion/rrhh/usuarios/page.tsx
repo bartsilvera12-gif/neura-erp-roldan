@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type Usuario = {
   id: string; nombre: string | null; email: string;
@@ -124,7 +125,7 @@ export default function RRHHUsuariosPage() {
                   <td className="px-4 py-3 text-slate-600">{u.email}</td>
                   <td className="px-4 py-3 text-slate-500">{u.rol ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <select
+                    <Selector
                       value={u.rol_rrhh ?? ""}
                       onChange={(e) => cambiarRol(u, e.target.value)}
                       disabled={saving === u.id}
@@ -133,7 +134,7 @@ export default function RRHHUsuariosPage() {
                       {ROLES.map((r) => (
                         <option key={r.value} value={r.value} title={r.hint}>{r.label}</option>
                       ))}
-                    </select>
+                    </Selector>
                   </td>
                   <td className="px-4 py-3">
                     <button

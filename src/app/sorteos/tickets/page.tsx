@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type TicketRow = {
   id: string;
@@ -135,7 +136,7 @@ export default function SorteosTicketsPage() {
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1">Estado</label>
-          <select
+          <Selector
             className="border rounded px-2 py-1 text-sm"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
@@ -145,7 +146,7 @@ export default function SorteosTicketsPage() {
             <option value="generated">generated</option>
             <option value="sent">sent</option>
             <option value="error">error</option>
-          </select>
+          </Selector>
         </div>
         <div className="flex-1 min-w-[160px]">
           <label className="block text-xs text-slate-500 mb-1">Buscar</label>

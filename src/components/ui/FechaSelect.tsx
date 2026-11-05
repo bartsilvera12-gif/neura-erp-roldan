@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Selector de fecha propio, reemplazo directo de `<input type="date">`.
@@ -304,7 +305,7 @@ export function FechaSelect({
               </button>
 
               {/* Mes y año como combos: es lo que convierte "370 clics" en dos. */}
-              <select
+              <Selector
                 aria-label="Mes"
                 value={ancla.getMonth()}
                 onChange={(e) => setAncla(new Date(ancla.getFullYear(), Number(e.target.value), 1))}
@@ -315,8 +316,8 @@ export function FechaSelect({
                     {m}
                   </option>
                 ))}
-              </select>
-              <select
+              </Selector>
+              <Selector
                 aria-label="Año"
                 value={ancla.getFullYear()}
                 onChange={(e) => setAncla(new Date(Number(e.target.value), ancla.getMonth(), 1))}
@@ -327,7 +328,7 @@ export function FechaSelect({
                     {a}
                   </option>
                 ))}
-              </select>
+              </Selector>
 
               <button
                 type="button"

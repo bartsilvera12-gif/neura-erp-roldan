@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Valoración de existencias a una fecha (punto 1.6).
@@ -145,13 +146,13 @@ export default function ValoracionPage() {
         </div>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
-          <select
+          <Selector
             value={rubro} onChange={(e) => setRubro(e.target.value)}
             className="min-w-[180px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="">Todos (general)</option>
             {rubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-          </select>
+          </Selector>
         </label>
         <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
           <input type="checkbox" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} />

@@ -6,6 +6,7 @@ import { BadgeCheck, Briefcase, Clock, HeartPulse, IdCard, Phone, StickyNote, Us
 import CiudadBarrio from "@/components/geo/CiudadBarrio";
 import { DIAS_SEMANA, HORARIO_SUGERIDO, horasSemanales, normalizarHorario, resumenHorario, type HorarioSemanal } from "@/lib/rrhh/horario";
 import type { UsuarioParaVincular } from "@/lib/rrhh/empleado-vinculo";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Formulario del empleado: el MISMO para el alta y para la ficha.
@@ -168,7 +169,7 @@ export default function EmpleadoForm({
             placeholder={esNuevo ? "Automático (siguiente número)" : "Ej: 0001"} disabled={falta73} />
           <div className="md:col-span-2">
             <label className={labelCls}>Usuario del sistema</label>
-            <select value={F("usuario_id")} onChange={(e) => setF("usuario_id", e.target.value)} disabled={falta73}
+            <Selector value={F("usuario_id")} onChange={(e) => setF("usuario_id", e.target.value)} disabled={falta73}
               className={inputCls}>
               <option value="">— No usa el sistema —</option>
               {usuarios.map((u) => (
@@ -176,7 +177,7 @@ export default function EmpleadoForm({
                   {(u.nombre || u.email) ?? u.id}{u.nombre && u.email ? ` · ${u.email}` : ""}{u.estado && u.estado !== "activo" ? ` (${u.estado})` : ""}
                 </option>
               ))}
-            </select>
+            </Selector>
             <p className="mt-1 text-[11px] text-slate-400">Un usuario corresponde a un solo empleado.</p>
           </div>
           <SelectField label="Estado" value={F("estado")} onChange={(v) => setF("estado", v)}
@@ -270,11 +271,11 @@ export default function EmpleadoForm({
           <div>
             <label className={labelCls}>{F("tipo_periodo") === "jornal" ? "Jornal diario" : "Salario mensual"}</label>
             <div className="mt-1 flex gap-2">
-              <select value={F("moneda")} onChange={(e) => setF("moneda", e.target.value)}
+              <Selector value={F("moneda")} onChange={(e) => setF("moneda", e.target.value)}
                 className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20">
                 <option value="PYG">Gs</option>
                 <option value="USD">USD</option>
-              </select>
+              </Selector>
               <input type="number" min="0" value={F("salario_base")} onChange={(e) => setF("salario_base", e.target.value)}
                 className={`${inputCls} mt-0 flex-1 tabular-nums`} />
             </div>
@@ -509,9 +510,9 @@ function SelectField({ label, value, onChange, options }: {
   return (
     <div>
       <label className={labelCls}>{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
+      <Selector value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
+      </Selector>
     </div>
   );
 }
@@ -555,11 +556,11 @@ function CatalogSelectField({ label, value, onChange, options, onCreate }: {
     <div>
       <label className={labelCls}>{label}</label>
       <div className="mt-1 flex gap-1.5">
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} mt-0 min-w-0 flex-1`}>
+        <Selector value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} mt-0 min-w-0 flex-1`}>
           <option value="">—</option>
           {showsCurrent && <option value={value}>{value}</option>}
           {options.map((o) => <option key={o.id} value={o.nombre}>{o.nombre}</option>)}
-        </select>
+        </Selector>
         <button type="button" onClick={() => setModalOpen(true)} title={`Crear ${label.toLowerCase()}`}
           className="whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-2 text-sm text-[#3F8E91] hover:bg-[#4FAEB2]/5">
           + Nuevo

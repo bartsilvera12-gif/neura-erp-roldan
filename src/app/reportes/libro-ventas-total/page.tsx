@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 interface Row {
   origen_tipo: "factura" | "ticket";
@@ -95,12 +96,12 @@ export default function LibroVentasTotalPage() {
         </div>
         <div>
           <label className="text-xs text-slate-600">Tipo</label>
-          <select value={origen} onChange={(e) => setOrigen(e.target.value as "" | "factura" | "ticket")}
+          <Selector value={origen} onChange={(e) => setOrigen(e.target.value as "" | "factura" | "ticket")}
             className="block mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
             <option value="">Todos</option>
             <option value="factura">Solo facturas</option>
             <option value="ticket">Solo tickets</option>
-          </select>
+          </Selector>
         </div>
         <button onClick={cargar}
           className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium">

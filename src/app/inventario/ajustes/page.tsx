@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Historial de ajustes de stock (punto 1.4).
@@ -205,7 +206,7 @@ export default function AjustesPage() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
-          <select
+          <Selector
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
             className="min-w-[160px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -214,7 +215,7 @@ export default function AjustesPage() {
             {rubros.map((r) => (
               <option key={r.id} value={r.id}>{r.nombre}</option>
             ))}
-          </select>
+          </Selector>
         </label>
         <form
           className="flex flex-1 flex-col gap-1"

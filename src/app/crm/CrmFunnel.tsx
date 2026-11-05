@@ -12,6 +12,7 @@ import ProspectoNuevoModal from "@/app/crm/components/ProspectoNuevoModal";
 import ProspectoDetalleModal from "@/app/crm/components/ProspectoDetalleModal";
 
 import { X } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -885,7 +886,7 @@ function ProspectoLista({
           </span>
           <label className="flex items-center gap-1.5">
             <span>Etapa:</span>
-            <select
+            <Selector
               value={filtroEtapa}
               onChange={(e) => setFiltroEtapa(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
@@ -897,12 +898,12 @@ function ProspectoLista({
                   {e.nombre}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
         </div>
         <label className="flex items-center gap-1.5">
           <span>Registros:</span>
-          <select
+          <Selector
             value={String(pageSize)}
             onChange={(e) =>
               setPageSize(e.target.value === "todos" ? "todos" : (Number(e.target.value) as ListPageSize))
@@ -914,7 +915,7 @@ function ProspectoLista({
             <option value="50">50</option>
             <option value="100">100</option>
             <option value="todos">Todos</option>
-          </select>
+          </Selector>
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-200 bg-white">

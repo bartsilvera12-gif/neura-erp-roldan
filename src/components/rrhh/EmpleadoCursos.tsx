@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type CursoCat = { id: string; nombre: string; tipo: string };
 type Curso = {
@@ -84,11 +85,11 @@ export default function EmpleadoCursos({ empleadoId }: { empleadoId: string }) {
         <form onSubmit={agregar} className="mb-4 p-3 border border-slate-200 rounded-md grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-slate-600">Del catálogo (opcional)</label>
-            <select value={form.curso_id} onChange={(e) => pickFromCatalog(e.target.value)}
+            <Selector value={form.curso_id} onChange={(e) => pickFromCatalog(e.target.value)}
               className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm">
               <option value="">— manual —</option>
               {catalogo.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="text-xs text-slate-600">Nombre *</label>
@@ -97,13 +98,13 @@ export default function EmpleadoCursos({ empleadoId }: { empleadoId: string }) {
           </div>
           <div>
             <label className="text-xs text-slate-600">Tipo</label>
-            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+            <Selector value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
               className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm">
               <option value="curso">Curso</option>
               <option value="certificado">Certificado</option>
               <option value="habilitacion">Habilitación</option>
               <option value="documento_legal">Documento legal</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="text-xs text-slate-600">Entidad emisora</label>

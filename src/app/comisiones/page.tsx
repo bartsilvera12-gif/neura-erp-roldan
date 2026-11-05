@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { tiposDisponibles } from "@/lib/comisiones/tipos-vendedor";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Vendedores y comisiones (módulo 4).
@@ -217,20 +218,20 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
         </Campo>
         <Campo label="Vendedor">
-          <select value={vendedor} onChange={(e) => setVendedor(e.target.value)}
+          <Selector value={vendedor} onChange={(e) => setVendedor(e.target.value)}
             className="min-w-[170px] rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="">Todos</option>
             {(cfg?.vendedores ?? []).map((u) => (
               <option key={u.id} value={u.id}>{u.nombre || u.email}</option>
             ))}
-          </select>
+          </Selector>
         </Campo>
         <Campo label="Rubro">
-          <select value={rubro} onChange={(e) => setRubro(e.target.value)}
+          <Selector value={rubro} onChange={(e) => setRubro(e.target.value)}
             className="min-w-[170px] rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="">Todos</option>
             {(cfg?.rubros ?? []).map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-          </select>
+          </Selector>
         </Campo>
         <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
           <input type="checkbox" checked={verDetalle} onChange={(e) => setVerDetalle(e.target.checked)} />
@@ -539,7 +540,7 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
                 <tr key={c.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-2.5 font-medium text-slate-800">{c.nombre}</td>
                   <td className="px-4 py-2.5">
-                    <select
+                    <Selector
                       value={c.vendedor_id ?? ""}
                       disabled={guardando === c.id}
                       onChange={(e) => guardar(c.id, { vendedor_id: e.target.value || null })}
@@ -549,7 +550,7 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
                       {(cfg?.vendedores ?? []).map((u) => (
                         <option key={u.id} value={u.id}>{u.nombre || u.email}</option>
                       ))}
-                    </select>
+                    </Selector>
                   </td>
                   <td className="px-4 py-2.5 text-slate-500">
                     {c.cartera_desde ? fechaCorta(c.cartera_desde) : "—"}
@@ -685,7 +686,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
             />
           </Campo>
           <Campo label="Calcular la comisión sobre">
-            <select
+            <Selector
               value={cfg.config.base_calculo}
               onChange={(e) => void enviar({
                 accion: "config", dias_cartera: cfg.config.dias_cartera, base_calculo: e.target.value,
@@ -696,7 +697,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
             >
               <option value="margen">La ganancia (recomendado)</option>
               <option value="facturacion">El importe vendido</option>
-            </select>
+            </Selector>
           </Campo>
           <p className="max-w-md pb-1 text-[11px] leading-snug text-slate-400">
             Sobre la ganancia, un descuento baja la comisión en la misma proporción en que baja la
@@ -872,7 +873,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
               <tr key={u.id}>
                 <td className="py-2 text-slate-800">{u.nombre || u.email}</td>
                 <td className="py-2 text-right">
-                  <select
+                  <Selector
                     value={u.tipo_vendedor_id ?? ""}
                     disabled={guardando}
                     onChange={(e) => void enviar({
@@ -882,7 +883,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
                   >
                     <option value="">— Sin tipo —</option>
                     {cfg.tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                  </select>
+                  </Selector>
                 </td>
                 <td className="py-2 text-right">
                   <PctEditable
@@ -1180,7 +1181,7 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
           <span className="text-[11px] font-semibold uppercase text-slate-500">
             Cargando los porcentajes de
           </span>
-          <select
+          <Selector
             value={tipoSel}
             onChange={(e) => setTipoSel(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium"
@@ -1189,7 +1190,7 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
             {cfg.tipos.map((t) => (
               <option key={t.id} value={t.id}>{t.nombre}</option>
             ))}
-          </select>
+          </Selector>
         </label>
         <p className="flex-1 text-[11px] leading-snug text-slate-500">
           {tipoSel === "" ? (

@@ -8,6 +8,7 @@ import { useModoPersistido } from "@/components/ui/ToggleNutricionConsig";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 import { ClipboardList } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 function formatGs(valor: number) {
   return `${valor.toLocaleString("es-PY")} ₲`;
@@ -221,7 +222,7 @@ export default function GastosPage() {
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
                 Tipo
               </label>
-              <select
+              <Selector
                 value={tipoFiltro}
                 onChange={(e) => setTipoFiltro(e.target.value as "" | "fijo" | "variable")}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white"
@@ -229,13 +230,13 @@ export default function GastosPage() {
                 <option value="">Todos</option>
                 <option value="variable">Variable</option>
                 <option value="fijo">Fijo</option>
-              </select>
+              </Selector>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
                 Método de pago
               </label>
-              <select
+              <Selector
                 value={metodoPagoFiltro}
                 onChange={(e) =>
                   setMetodoPagoFiltro(
@@ -249,7 +250,7 @@ export default function GastosPage() {
                 <option value="transferencia">Transferencia</option>
                 <option value="tarjeta">Tarjeta</option>
                 <option value="sin_especificar">Sin especificar</option>
-              </select>
+              </Selector>
             </div>
           </div>
           {hayFiltros && (

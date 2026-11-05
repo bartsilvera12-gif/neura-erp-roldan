@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type Lote = {
   id: string;
@@ -128,7 +129,7 @@ export default function ProductosAVencerPage() {
         </div>
         <div className="flex items-center gap-3">
           <label className="text-sm text-slate-600">Ventana:</label>
-          <select
+          <Selector
             value={dias}
             onChange={(e) => setDias(Number(e.target.value))}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-sky-400 outline-none"
@@ -138,7 +139,7 @@ export default function ProductosAVencerPage() {
                 {d} días
               </option>
             ))}
-          </select>
+          </Selector>
           <button
             type="button"
             onClick={exportarExcel}

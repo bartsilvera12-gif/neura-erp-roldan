@@ -11,6 +11,7 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
+import Selector from "@/components/ui/Selector";
 import {
   Search,
   ChevronLeft,
@@ -362,7 +363,7 @@ export default function InventarioPage() {
 
             {/* Selects agrupados, alineados a la derecha en desktop */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-center lg:gap-2">
-              <select
+              <Selector
                 value={categoriaId}
                 onChange={(e) => { setCategoriaId(e.target.value); setPage(1); }}
                 className="h-10 w-full rounded-lg border-2 border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 lg:w-[190px]"
@@ -373,9 +374,9 @@ export default function InventarioPage() {
                 {categorias.map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
-              </select>
+              </Selector>
 
-              <select
+              <Selector
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 className="col-span-2 h-10 w-full rounded-lg border-2 border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 sm:col-span-1 lg:w-[120px]"
@@ -384,7 +385,7 @@ export default function InventarioPage() {
                 {PAGE_SIZE_OPTIONS.map((n) => (
                   <option key={n} value={n}>{n} / pág</option>
                 ))}
-              </select>
+              </Selector>
             </div>
           </div>
 

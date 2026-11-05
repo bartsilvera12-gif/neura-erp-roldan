@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 type Especialidad = { id: string; nombre: string; activo: boolean };
 type Asignacion = {
@@ -78,19 +79,19 @@ export default function EmpleadoEspecialidades({ empleadoId }: { empleadoId: str
       <div className="flex gap-2 items-end mb-4">
         <div className="flex-1">
           <label className="text-xs text-slate-600">Especialidad</label>
-          <select value={addEsp} onChange={(e) => setAddEsp(e.target.value)}
+          <Selector value={addEsp} onChange={(e) => setAddEsp(e.target.value)}
             className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
             <option value="">— elegir —</option>
             {disponibles.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
+          </Selector>
         </div>
         <div>
           <label className="text-xs text-slate-600">Nivel</label>
-          <select value={addNivel} onChange={(e) => setAddNivel(e.target.value)}
+          <Selector value={addNivel} onChange={(e) => setAddNivel(e.target.value)}
             className="mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
             <option value="">—</option>
             {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          </Selector>
         </div>
         <button type="button" onClick={agregar} disabled={!addEsp}
           className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium disabled:opacity-50">

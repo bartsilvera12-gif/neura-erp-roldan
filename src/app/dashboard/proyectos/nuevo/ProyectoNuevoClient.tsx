@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ClienteSearchSelect } from "@/app/dashboard/proyectos/components/ClienteSearchSelect";
+import Selector from "@/components/ui/Selector";
 import {
   ProyectoModuloSelector,
   type ProyectoModuloCatalogo as ModuloCatalogo,
@@ -164,7 +165,7 @@ export default function ProyectoNuevoClient() {
           </label>
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Tipo</span>
-            <select
+            <Selector
               required
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               value={tipoId}
@@ -176,12 +177,12 @@ export default function ProyectoNuevoClient() {
                   {t.nombre}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <ClienteSearchSelect clientes={clientes} value={clienteId} onChange={setClienteId} />
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Estado inicial (opcional)</span>
-            <select
+            <Selector
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               value={estadoId}
               onChange={(e) => setEstadoId(e.target.value)}
@@ -192,11 +193,11 @@ export default function ProyectoNuevoClient() {
                   {s.nombre}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Prioridad</span>
-            <select
+            <Selector
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               value={prioridad}
               onChange={(e) => setPrioridad(e.target.value)}
@@ -205,11 +206,11 @@ export default function ProyectoNuevoClient() {
               <option value="normal">Media</option>
               <option value="alta">Alta</option>
               <option value="urgente">Urgente</option>
-            </select>
+            </Selector>
           </label>
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Resp. comercial</span>
-            <select
+            <Selector
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               value={rc}
               onChange={(e) => setRc(e.target.value)}
@@ -220,11 +221,11 @@ export default function ProyectoNuevoClient() {
                   {u.nombre ?? u.id.slice(0, 8)}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Resp. técnico</span>
-            <select
+            <Selector
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               value={rt}
               onChange={(e) => setRt(e.target.value)}
@@ -235,7 +236,7 @@ export default function ProyectoNuevoClient() {
                   {u.nombre ?? u.id.slice(0, 8)}
                 </option>
               ))}
-            </select>
+            </Selector>
           </label>
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Fecha ingreso</span>

@@ -6,6 +6,7 @@ import type {
   OnMissingBehavior,
 } from "@/lib/chat/comprobante-validation-types";
 import { defaultComprobanteValidationSettings } from "@/lib/chat/comprobante-validation-types";
+import Selector from "@/components/ui/Selector";
 
 const OCR_FIELD_LABELS: Record<OcrFieldKey, string> = {
   monto: "Monto",
@@ -22,7 +23,7 @@ function OnMissingSelect(props: {
   disabled?: boolean;
 }) {
   return (
-    <select
+    <Selector
       className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white"
       value={props.value}
       disabled={props.disabled}
@@ -31,7 +32,7 @@ function OnMissingSelect(props: {
       <option value="continuar">Permitir continuar</option>
       <option value="revision_manual">Revisión manual</option>
       <option value="bloquear">Bloquear (mensaje + botones)</option>
-    </select>
+    </Selector>
   );
 }
 

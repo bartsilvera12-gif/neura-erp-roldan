@@ -6,6 +6,7 @@ import { productoMatchesQuery } from "@/lib/productos/token-search";
 import type { Venta, TipoIvaVenta } from "@/lib/ventas/types";
 
 import { X } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Edición de una venta emitida (punto 2.2).
@@ -230,7 +231,7 @@ export default function EditarVentaModal({
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <select
+                        <Selector
                           value={l.tipo_iva}
                           onChange={(e) => cambiar(idx, { tipo_iva: e.target.value as TipoIvaVenta })}
                           className="w-full rounded border border-slate-200 px-1 py-1 text-sm"
@@ -238,7 +239,7 @@ export default function EditarVentaModal({
                           <option value="EXENTA">Exenta</option>
                           <option value="5%">5%</option>
                           <option value="10%">10%</option>
-                        </select>
+                        </Selector>
                       </td>
                       <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">
                         {gs(t.total)}
@@ -305,18 +306,18 @@ export default function EditarVentaModal({
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold uppercase text-slate-500">Tipo</span>
-              <select
+              <Selector
                 value={tipoVenta}
                 onChange={(e) => setTipoVenta(e.target.value as Venta["tipo_venta"])}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               >
                 <option value="CONTADO">Contado</option>
                 <option value="CREDITO">Crédito</option>
-              </select>
+              </Selector>
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold uppercase text-slate-500">Método de pago</span>
-              <select
+              <Selector
                 value={metodoPago}
                 onChange={(e) => setMetodoPago(e.target.value as typeof metodoPago)}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -325,7 +326,7 @@ export default function EditarVentaModal({
                 <option value="transferencia">Transferencia</option>
                 <option value="tarjeta">Tarjeta</option>
                 <option value="cheque">Cheque</option>
-              </select>
+              </Selector>
             </label>
             {tipoVenta === "CREDITO" && (
               <label className="flex flex-col gap-1">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Package, PackageOpen, X } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, type Deposito, type StockItem } from "@/lib/multideposito/client";
+import Selector from "@/components/ui/Selector";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
 
@@ -348,13 +349,13 @@ function ModalTransferencia({
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase text-slate-500">Hacia</label>
-            <select
+            <Selector
               value={destinoId}
               onChange={(e) => setDestinoId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             >
               {otros.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase text-slate-500">Cantidad</label>

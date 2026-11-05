@@ -65,6 +65,7 @@ interface Props {
 }
 
 import { TIPOS_EGRESO } from "@/lib/caja/tipos-egreso";
+import Selector from "@/components/ui/Selector";
 
 export default function CajaControlPanel({ onStateChange }: Props) {
   const [cajas, setCajas] = useState<CajaResumen[]>([]);
@@ -1128,7 +1129,7 @@ function ModalMovimiento({
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Tipo de egreso
             </label>
-            <select
+            <Selector
               value={tipoEgreso}
               onChange={(e) => setTipoEgreso(e.target.value)}
               className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#4FAEB2]"
@@ -1136,7 +1137,7 @@ function ModalMovimiento({
               {TIPOS_EGRESO.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
-            </select>
+            </Selector>
             {tipoEgreso === "otros" && (
               <p className="mt-1 text-[11px] text-amber-600">
                 Escribí el motivo en las notas de abajo: es obligatorio para &quot;Otros&quot;.
@@ -1219,7 +1220,7 @@ function ModalMovimiento({
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Medio de pago
             </label>
-            <select
+            <Selector
               value={medio}
               onChange={(e) => setMedio(e.target.value as MedioPagoCaja)}
               className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none bg-white"
@@ -1228,7 +1229,7 @@ function ModalMovimiento({
               <option value="tarjeta">Tarjeta</option>
               <option value="transferencia">Transferencia</option>
               <option value="otro">Otro</option>
-            </select>
+            </Selector>
           </div>
         </div>
 

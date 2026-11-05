@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { NotaCreditoListItemDTO, SifenPrevueloFacturaNcDTO } from "@/lib/nota-credito/types";
+import Selector from "@/components/ui/Selector";
 
 const MSG_BLOQUEO_TIMBRADO_ORIGEN =
   "No se puede generar la NC porque el timbrado de la factura origen es inválido o inconsistente.";
@@ -1181,7 +1182,7 @@ export function FacturaCorreccionFiscalNC({
                                   />
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-[10px] text-slate-400">IVA</span>
-                                    <select
+                                    <Selector
                                       value={l.tipo_iva}
                                       disabled={!l.checked}
                                       onChange={(e) =>
@@ -1194,7 +1195,7 @@ export function FacturaCorreccionFiscalNC({
                                       <option value="10%">10%</option>
                                       <option value="5%">5%</option>
                                       <option value="EXENTA">Exenta</option>
-                                    </select>
+                                    </Selector>
                                     <button
                                       type="button"
                                       onClick={() => quitarLineaManual(idx)}
@@ -1231,7 +1232,7 @@ export function FacturaCorreccionFiscalNC({
                                   />
                                 </span>
                               ) : (
-                                <select
+                                <Selector
                                   value={l.modo}
                                   disabled={!l.checked}
                                   onChange={(e) =>
@@ -1244,7 +1245,7 @@ export function FacturaCorreccionFiscalNC({
                                   <option value="unidades">Unidades</option>
                                   <option value="monto">Monto</option>
                                   <option value="porcentaje">Porcentaje</option>
-                                </select>
+                                </Selector>
                               )}
                             </td>
                             <td className="px-2 py-1 align-middle text-right">

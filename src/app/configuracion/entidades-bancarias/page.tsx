@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Check, Pencil, Trash2 } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 import {
   getEntidadesBancarias,
   createEntidadBancaria,
@@ -109,9 +110,9 @@ export default function EntidadesBancariasPage() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Tipo</label>
-          <select className={inputClass} value={tipo} onChange={(e) => setTipo(e.target.value as TipoEntidad)}>
+          <Selector className={inputClass} value={tipo} onChange={(e) => setTipo(e.target.value as TipoEntidad)}>
             {TIPOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          </Selector>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white hover:bg-[#0284C7]">
@@ -162,9 +163,9 @@ export default function EntidadesBancariasPage() {
                 </td>
                 <td className="py-3 pr-4 text-slate-600">
                   {editId === en.id ? (
-                    <select className={inputClass} value={eTipo} onChange={(e) => setETipo(e.target.value as TipoEntidad)}>
+                    <Selector className={inputClass} value={eTipo} onChange={(e) => setETipo(e.target.value as TipoEntidad)}>
                       {TIPOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
+                    </Selector>
                   ) : tipoLabel(en.tipo)}
                 </td>
                 <td className="py-3 pr-4">

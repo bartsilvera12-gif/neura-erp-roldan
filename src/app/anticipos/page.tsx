@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import AccionesTabla from "@/components/ui/AccionesTabla";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Anticipos de clientes (punto 5.6).
@@ -164,13 +165,13 @@ export default function AnticiposPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Estado</span>
-          <select value={estado} onChange={(e) => setEstado(e.target.value)}
+          <Selector value={estado} onChange={(e) => setEstado(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="activo">Activos</option>
             <option value="utilizado">Utilizados</option>
             <option value="anulado">Anulados</option>
             <option value="">Todos</option>
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
@@ -468,13 +469,13 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
             </label>
             <label className="block text-sm">
               <span className="font-medium text-slate-800">Medio</span>
-              <select value={medio} onChange={(e) => setMedio(e.target.value)}
+              <Selector value={medio} onChange={(e) => setMedio(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
                 <option value="efectivo">Efectivo</option>
                 <option value="transferencia">Transferencia</option>
                 <option value="tarjeta">Tarjeta</option>
                 <option value="cheque">Cheque</option>
-              </select>
+              </Selector>
             </label>
           </div>
 

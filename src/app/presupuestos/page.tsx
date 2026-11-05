@@ -7,6 +7,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 import AccionesTabla from "@/components/ui/AccionesTabla";
+import Selector from "@/components/ui/Selector";
 
 /** Estados que el usuario puede elegir manualmente desde el listado (nunca 'convertido'). */
 const ESTADOS_EDITABLES: EstadoPresupuesto[] = ["creado", "enviado", "aprobado", "rechazado"];
@@ -343,21 +344,21 @@ export default function PresupuestosPage() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Persona</span>
-          <select
+          <Selector
             value={fPersona}
             onChange={(e) => setFPersona(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
           >
             <option value="">Todas</option>
             {personas.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          </Selector>
         </label>
         {/* Del catálogo o escrito a mano. Después de guardar los dos se ven
             iguales —al que se escribe completo se le abre la ficha—, así que
             la respuesta sale de cómo entró, guardado al crear. */}
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Cliente</span>
-          <select
+          <Selector
             value={fCliente}
             onChange={(e) => setFCliente(e.target.value as "todos" | "sistema" | "a_mano")}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
@@ -365,7 +366,7 @@ export default function PresupuestosPage() {
             <option value="todos">Todos</option>
             <option value="sistema">Del sistema</option>
             <option value="a_mano">Escrito a mano</option>
-          </select>
+          </Selector>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Buscar</span>
@@ -486,7 +487,7 @@ export default function PresupuestosPage() {
                       ) : (
                         <div className="relative inline-flex h-8 w-36 items-center">
                           <span className={`pointer-events-none absolute left-3 h-2 w-2 rounded-full ${ESTADO_DOT[r.estado]}`} aria-hidden />
-                          <select
+                          <Selector
                             value={r.estado}
                             disabled={actualizando.has(r.id)}
                             onChange={(e) => cambiarEstado(r.id, r.estado, e.target.value as EstadoPresupuesto)}
@@ -496,7 +497,7 @@ export default function PresupuestosPage() {
                             {ESTADOS_EDITABLES.map((s) => (
                               <option key={s} value={s} className="bg-white text-slate-700">{ESTADO_LABEL[s]}</option>
                             ))}
-                          </select>
+                          </Selector>
                           {actualizando.has(r.id) ? (
                             <Loader2 className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 animate-spin text-current opacity-70" />
                           ) : (

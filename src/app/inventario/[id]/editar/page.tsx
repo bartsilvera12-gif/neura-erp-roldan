@@ -16,6 +16,7 @@ import PreciosCategoriaEditor from "@/components/inventario/PreciosCategoriaEdit
 import { useRequireAdmin } from "@/lib/auth/use-require-admin";
 
 import { AlertTriangle } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 // Opciones estándar de unidad de medida (UX simplificada gastro)
 const UNIDADES_OPCIONES = [
@@ -546,7 +547,7 @@ export default function EditarProductoPage() {
                 </button>
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <select
+                <Selector
                   onChange={handleSelectPatron}
                   defaultValue=""
                   className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-[#0EA5E9]"
@@ -555,13 +556,13 @@ export default function EditarProductoPage() {
                   {skuPatrones.map((p) => (
                     <option key={p.prefix} value={p.siguiente}>{p.prefix} → {p.siguiente}</option>
                   ))}
-                </select>
+                </Selector>
                 <span className="text-[11px] text-gray-400">Código interno editable. Podés ajustar el número final.</span>
               </div>
             </div>
             <div className={tipoGastro === "menu" ? "hidden" : ""}>
               <label className={labelClass}>Unidad de medida</label>
-              <select
+              <Selector
                 name="unidad_medida"
                 value={form.unidad_medida}
                 onChange={handleChange}
@@ -580,7 +581,7 @@ export default function EditarProductoPage() {
                     </option>
                   ));
                 })()}
-              </select>
+              </Selector>
             </div>
           </div>
 
@@ -880,7 +881,7 @@ export default function EditarProductoPage() {
                 </p>
                 <div className="sm:col-span-2">
                   <label className={labelClass}>IVA aplicado al vender</label>
-                  <select
+                  <Selector
                     value={form.tipo_iva}
                     onChange={(e) => setForm((prev) => ({ ...prev, tipo_iva: e.target.value as TipoIvaProducto }))}
                     className={inputClass}
@@ -888,7 +889,7 @@ export default function EditarProductoPage() {
                     <option value="10%">IVA 10%</option>
                     <option value="5%">IVA 5%</option>
                     <option value="EXENTA">Exenta</option>
-                  </select>
+                  </Selector>
                   <p className="mt-1.5 text-xs text-gray-400">
                     Se copia automáticamente a la línea de venta y a la factura. Cambiarlo acá afecta ventas futuras.
                   </p>
@@ -984,7 +985,7 @@ export default function EditarProductoPage() {
           {/* Método de valuación — oculto en instancia Neura ERP Roldán e Hijos (siempre CPP). */}
           <div className="hidden">
             <label className={labelClass}>Método de valuación</label>
-            <select
+            <Selector
               name="metodo_valuacion"
               value={form.metodo_valuacion}
               onChange={handleChange}
@@ -993,7 +994,7 @@ export default function EditarProductoPage() {
               <option value="CPP">CPP — Costo Promedio Ponderado</option>
               <option value="FIFO">FIFO — Primero en entrar, primero en salir</option>
               <option value="LIFO">LIFO — Último en entrar, primero en salir</option>
-            </select>
+            </Selector>
           </div>
 
           {/* Precios por rubro de cliente — panel autónomo, se guarda con su propio botón. */}

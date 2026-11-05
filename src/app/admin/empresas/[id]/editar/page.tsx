@@ -15,6 +15,7 @@ import {
 import type { Modulo, UsuarioEmpresa } from "@/lib/empresas/actions";
 
 import { BarChart3, Building2, Package, User } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput =
@@ -312,7 +313,7 @@ export default function EditarEmpresaPage() {
             </div>
             <div>
               <label className={fLabel}>Estado</label>
-              <select
+              <Selector
                 name="estado"
                 value={form.estado}
                 onChange={handleChange}
@@ -320,7 +321,7 @@ export default function EditarEmpresaPage() {
               >
                 <option value="activo">Activo</option>
                 <option value="inactivo">Inactivo</option>
-              </select>
+              </Selector>
             </div>
           </div>
         </section>
@@ -364,7 +365,7 @@ export default function EditarEmpresaPage() {
               </div>
               <div>
                 <label className={fLabel}>Estado</label>
-                <select
+                <Selector
                   value={adminForm.estado}
                   onChange={(e) =>
                     setAdminForm((p) => ({ ...p, estado: e.target.value as "activo" | "inactivo" }))
@@ -373,7 +374,7 @@ export default function EditarEmpresaPage() {
                 >
                   <option value="activo">Activo</option>
                   <option value="inactivo">Inactivo</option>
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className={fLabel}>Módulos visibles para este usuario</label>

@@ -11,6 +11,7 @@ import { unidadesCompatibles, familiaUnidad } from "@/lib/unidades/convert";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { useRolErp } from "@/lib/auth/use-rol-erp";
 import { puedeEditarRecetas } from "@/lib/roles/erp-role-access";
+import Selector from "@/components/ui/Selector";
 
 /** Reserva monocliente: receta pertenece al producto; nombre interno oculto (autogenera). */
 const RECETA_SIMPLE = NEURA_CLIENT_SCHEMA === "roldanerp";
@@ -554,7 +555,7 @@ export default function EditarRecetaPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Unidad de rendimiento</label>
-            <select
+            <Selector
               value={receta.rendimiento_unidad ?? ""}
               onChange={(e) => setReceta({ ...receta, rendimiento_unidad: e.target.value })}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
@@ -564,7 +565,7 @@ export default function EditarRecetaPage() {
               {receta.rendimiento_unidad && !UNIDADES_RENDIMIENTO.includes(receta.rendimiento_unidad) && (
                 <option value={receta.rendimiento_unidad}>{formatUnidad(receta.rendimiento_unidad)}</option>
               )}
-            </select>
+            </Selector>
             <p className="mt-1 text-[11px] text-gray-400">paquetes, unidades, frascos…</p>
           </div>
           <div className="flex items-end pb-6">
@@ -778,7 +779,7 @@ export default function EditarRecetaPage() {
               </div>
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">Unidad de consumo</label>
-                <select
+                <Selector
                   value={newUnidad}
                   onChange={(e) => setNewUnidad(e.target.value)}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
@@ -786,7 +787,7 @@ export default function EditarRecetaPage() {
                   <option value="">— Elegí —</option>
                   {UNIDADES_INSUMO.map((u) => <option key={u} value={u}>{formatUnidad(u)}</option>)}
                   {newUnidad && !UNIDADES_INSUMO.includes(newUnidad) && <option value={newUnidad}>{formatUnidad(newUnidad)}</option>}
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">Merma %</label>

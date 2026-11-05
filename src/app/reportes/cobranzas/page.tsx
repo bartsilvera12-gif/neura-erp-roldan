@@ -6,6 +6,7 @@ import StatCard from "@/components/ui/StatCard";
 import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Informe de cobranzas (punto 10.2).
@@ -169,22 +170,22 @@ export default function CobranzasReportePage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Medio de pago</label>
-            <select value={metodo} onChange={(e) => setMetodo(e.target.value)} className={`${inputCls} w-full`}>
+            <Selector value={metodo} onChange={(e) => setMetodo(e.target.value)} className={`${inputCls} w-full`}>
               <option value="">Todos</option>
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="cheque">Cheque</option>
               <option value="otro">Otro</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Estado</label>
-            <select value={estado} onChange={(e) => setEstado(e.target.value)} className={`${inputCls} w-full`}>
+            <Selector value={estado} onChange={(e) => setEstado(e.target.value)} className={`${inputCls} w-full`}>
               <option value="activos">Solo vigentes</option>
               <option value="anulados">Solo anulados</option>
               <option value="todos">Todos</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Buscar</label>

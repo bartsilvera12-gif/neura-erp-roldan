@@ -5,6 +5,7 @@ import Link from "next/link";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import { getMovimientos } from "@/lib/inventario/storage";
 import type { MovimientoInventario, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
+import Selector from "@/components/ui/Selector";
 
 const tipoBadge: Record<TipoMovimiento, string> = {
   ENTRADA: "bg-green-100 text-green-700",
@@ -187,7 +188,7 @@ export default function MovimientosPage() {
             onChange={(e) => setBusqueda(e.target.value)}
             className={`${inputFilterClass} min-w-56`}
           />
-          <select
+          <Selector
             value={filtroUsuario}
             onChange={(e) => setFiltroUsuario(e.target.value)}
             className={inputFilterClass}
@@ -196,8 +197,8 @@ export default function MovimientosPage() {
             {usuariosEnLista.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
-          </select>
-          <select
+          </Selector>
+          <Selector
             value={filtroOrigen}
             onChange={(e) => setFiltroOrigen(e.target.value as OrigenMovimiento | "")}
             className={inputFilterClass}
@@ -210,7 +211,7 @@ export default function MovimientosPage() {
             {(Object.keys(origenLabel) as OrigenMovimiento[]).map((o) => (
               <option key={o} value={o}>{origenLabel[o]}</option>
             ))}
-          </select>
+          </Selector>
 
           {/* Separador visual entre grupos */}
           <div className="w-full flex flex-wrap items-center gap-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { mesesRecientesAsuncion } from "@/lib/fechas/asuncion-bounds";
+import Selector from "@/components/ui/Selector";
 
 const MESES_ES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -31,7 +32,7 @@ export default function MesSelector({
   return (
     <div className="flex items-center gap-2">
       <label className="text-xs text-slate-400 whitespace-nowrap">Mes</label>
-      <select
+      <Selector
         value={mes}
         onChange={(e) => onChange(e.target.value)}
         className="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-[#0EA5E9]"
@@ -39,7 +40,7 @@ export default function MesSelector({
         {opciones.map((m) => (
           <option key={m} value={m}>{etiqueta(m)}</option>
         ))}
-      </select>
+      </Selector>
     </div>
   );
 }

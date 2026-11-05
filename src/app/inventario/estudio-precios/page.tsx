@@ -7,6 +7,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { colorMargen, pct } from "@/lib/precios/margen";
 import AccionesTabla from "@/components/ui/AccionesTabla";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Estudio de precios (punto 10.5).
@@ -317,11 +318,11 @@ export default function EstudioPreciosPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Rubro</label>
-            <select value={rubro} onChange={(e) => setRubro(e.target.value)} className={`${inputCls} w-full`}>
+            <Selector value={rubro} onChange={(e) => setRubro(e.target.value)} className={`${inputCls} w-full`}>
               <option value="">Todos</option>
               {rubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               <option value="__sin__">Sin rubro</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Buscar</label>
@@ -330,12 +331,12 @@ export default function EstudioPreciosPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Mostrar</label>
-            <select value={solo} onChange={(e) => setSolo(e.target.value)} className={`${inputCls} w-full`}>
+            <Selector value={solo} onChange={(e) => setSolo(e.target.value)} className={`${inputCls} w-full`}>
               <option value="">Todos</option>
               <option value="bajo_costo">Se venden bajo el costo</option>
               <option value="sin_costo">Sin costo cargado</option>
               <option value="sin_precio">Sin precio</option>
-            </select>
+            </Selector>
           </div>
         </div>
       </div>
@@ -355,11 +356,11 @@ export default function EstudioPreciosPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Cómo</label>
-              <select value={modo} onChange={(e) => setModo(e.target.value as typeof modo)} className={`${inputCls} w-full`}>
+              <Selector value={modo} onChange={(e) => setModo(e.target.value as typeof modo)} className={`${inputCls} w-full`}>
                 <option value="remarcacion">Remarcación sobre el costo</option>
                 <option value="margen">Margen objetivo</option>
                 <option value="ajuste">Ajustar el precio actual</option>
-              </select>
+              </Selector>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">{etiquetaValor}</label>
@@ -368,12 +369,12 @@ export default function EstudioPreciosPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Redondear a</label>
-              <select value={redondeo} onChange={(e) => setRedondeo(e.target.value)} className={`${inputCls} w-full`}>
+              <Selector value={redondeo} onChange={(e) => setRedondeo(e.target.value)} className={`${inputCls} w-full`}>
                 <option value="0">Sin redondear</option>
                 <option value="100">100 Gs.</option>
                 <option value="500">500 Gs.</option>
                 <option value="1000">1.000 Gs.</option>
-              </select>
+              </Selector>
             </div>
             <div className="flex items-end gap-2">
               <button type="button" onClick={() => pedir(false)} disabled={trabajando}

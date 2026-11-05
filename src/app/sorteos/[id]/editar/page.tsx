@@ -7,6 +7,7 @@ import { getSorteoById, updateSorteo } from "@/lib/sorteos/actions";
 import type { SorteoCouponNumberMode, SorteoEstado, SorteoTicketDeliveryMode } from "@/lib/sorteos/types";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { normalizeTicketImageConfig } from "@/lib/sorteos/sorteo-ticket-types";
+import Selector from "@/components/ui/Selector";
 
 const SORTEO_TICKET_ASSETS_BUCKET = "sorteo-ticket-assets";
 const MAX_ASSET_BYTES = 4 * 1024 * 1024;
@@ -584,7 +585,7 @@ export default function EditarSorteoPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
-              <select
+              <Selector
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 value={estado}
                 onChange={(e) => setEstado(e.target.value as SorteoEstado)}
@@ -593,7 +594,7 @@ export default function EditarSorteoPage() {
                 <option value="pausado">pausado</option>
                 <option value="cerrado">cerrado</option>
                 <option value="finalizado">finalizado</option>
-              </select>
+              </Selector>
             </div>
           </div>
           <div>
@@ -643,14 +644,14 @@ export default function EditarSorteoPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Modo de generación</label>
-                <select
+                <Selector
                   className="w-full max-w-xs border border-slate-200 rounded-lg px-3 py-2 text-sm"
                   value={couponMode}
                   onChange={(e) => setCouponMode(e.target.value as SorteoCouponNumberMode)}
                 >
                   <option value="correlative">Correlativo</option>
                   <option value="random">Aleatorio</option>
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -691,7 +692,7 @@ export default function EditarSorteoPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Modo de respuesta</label>
-            <select
+            <Selector
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
               value={ticketDeliveryMode}
               onChange={(e) => setTicketDeliveryMode(e.target.value as SorteoTicketDeliveryMode)}
@@ -699,7 +700,7 @@ export default function EditarSorteoPage() {
               <option value="text_only">Solo texto</option>
               <option value="text_and_image">Texto + imagen del comprobante</option>
               <option value="image_only">Solo imagen del comprobante</option>
-            </select>
+            </Selector>
           </div>
 
           <div className="rounded-xl border-2 border-violet-400/80 bg-white p-5 space-y-4">

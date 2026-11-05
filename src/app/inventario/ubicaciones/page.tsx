@@ -6,6 +6,7 @@ import ExportExcelButton from "@/components/ui/ExportExcelButton";
 import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import Selector from "@/components/ui/Selector";
 
 interface Ubicacion {
   id: string;
@@ -199,17 +200,17 @@ export default function UbicacionesPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">Tipo</label>
-            <select
+            <Selector
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
             >
               {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            </Selector>
           </div>
           <div className="md:col-span-2">
             <label className="block text-xs text-gray-600 mb-1">Sucursal <span className="text-red-500">*</span></label>
-            <select
+            <Selector
               value={sucursalId}
               onChange={(e) => setSucursalId(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
@@ -219,11 +220,11 @@ export default function UbicacionesPage() {
               {sucursales.map((s) => (
                 <option key={s.id} value={s.id}>{s.nombre}</option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div className="md:col-span-2">
             <label className="block text-xs text-gray-600 mb-1">Ubicación padre (opcional)</label>
-            <select
+            <Selector
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
@@ -232,7 +233,7 @@ export default function UbicacionesPage() {
               {items.filter((i) => i.activo).map((i) => (
                 <option key={i.id} value={i.id}>{i.nombre} ({i.tipo})</option>
               ))}
-            </select>
+            </Selector>
           </div>
           <div className="md:col-span-4">
             <button

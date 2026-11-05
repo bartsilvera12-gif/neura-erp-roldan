@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw, Loader2, Users, History } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { periodoPy, rangoDePeriodo } from "@/lib/clientes/categoria-automatica";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Historial de categorías de cliente.
@@ -190,11 +191,11 @@ export default function CategoriasClientePage() {
           <span className="text-[11px] font-semibold uppercase text-slate-500">
             {sinCompras ? "Categoría actual" : "Quedó en"}
           </span>
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)}
+          <Selector value={categoria} onChange={(e) => setCategoria(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
             <option value="">Todas</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
+          </Selector>
         </label>
 
         {/* El botón que pidió el pedido: los que no compraron en esas fechas. */}

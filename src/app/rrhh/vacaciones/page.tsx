@@ -9,6 +9,7 @@ import { Iniciales } from "@/components/rrhh/EmpleadoBadges";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 import { AlertTriangle, CalendarClock, CalendarDays, Clock, FileSignature, Palmtree, Scale, Search } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 export const dynamic = "force-dynamic";
 
@@ -282,20 +283,20 @@ function VacacionesInner() {
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className={lblCls}>Empleado</label>
-                <select className={inputCls} value={form.empleado_id} required
+                <Selector className={inputCls} value={form.empleado_id} required
                   onChange={(e) => setForm({ ...form, empleado_id: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {empleados.map((e) => (
                     <option key={e.id} value={e.id}>{e.nombre}{e.cargo ? ` — ${e.cargo}` : ""}</option>
                   ))}
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className={lblCls}>Tipo</label>
-                <select className={inputCls} value={form.tipo_ausencia}
+                <Selector className={inputCls} value={form.tipo_ausencia}
                   onChange={(e) => setForm({ ...form, tipo_ausencia: e.target.value as Tipo })}>
                   {(Object.keys(TIPO_LABEL) as Tipo[]).map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className={lblCls}>Desde</label>
@@ -314,11 +315,11 @@ function VacacionesInner() {
               </div>
               <div>
                 <label className={lblCls}>Quién lo decidió</label>
-                <select className={inputCls} value={form.origen}
+                <Selector className={inputCls} value={form.origen}
                   onChange={(e) => setForm({ ...form, origen: e.target.value as "empleado" | "empresa" })}>
                   <option value="empleado">Lo pidió el empleado</option>
                   <option value="empresa">Lo fijó la empresa</option>
-                </select>
+                </Selector>
               </div>
             </div>
 

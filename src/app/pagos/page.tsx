@@ -8,6 +8,7 @@ import { Banknote, Check, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import { RegistrarCobroModalCxc } from "@/components/cobros/RegistrarCobroModalCxc";
+import Selector from "@/components/ui/Selector";
 import {
   ToggleNutricionConsig,
   useModoPersistido,
@@ -212,11 +213,11 @@ export default function PagosPage() {
           </div>
           <div>
             <label className="block text-[11px] font-medium text-slate-500 mb-1">Situación</label>
-            <select value={situacion} onChange={(e) => setSituacion(e.target.value as Situacion)} className={inputClass}>
+            <Selector value={situacion} onChange={(e) => setSituacion(e.target.value as Situacion)} className={inputClass}>
               <option value="todas">Todas</option>
               <option value="vencidas">Vencidas</option>
               <option value="al_dia">Al día</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className="block text-[11px] font-medium text-slate-500 mb-1">Buscar</label>

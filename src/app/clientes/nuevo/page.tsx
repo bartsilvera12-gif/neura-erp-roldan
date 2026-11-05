@@ -33,6 +33,7 @@ import type { Plan } from "@/lib/planes/types";
 import { NEURA_CLIENT_SCHEMA } from "@/lib/supabase/schema";
 
 import { AlertTriangle, Link2 } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /** Instancia monocliente Darocha: formulario de clientes simplificado (sin campos SaaS/Neura). */
 const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
@@ -604,7 +605,7 @@ function NuevoClienteForm() {
 
             <div>
               <label className={labelClass}>Nivel de precio</label>
-              <select
+              <Selector
                 name="nivel_precio"
                 value={form.nivel_precio}
                 onChange={(e) =>
@@ -618,7 +619,7 @@ function NuevoClienteForm() {
                 <option value="minorista">Minorista</option>
                 <option value="mayorista">Mayorista</option>
                 <option value="distribuidor">Distribuidor</option>
-              </select>
+              </Selector>
               <p className="mt-1.5 text-xs text-gray-400">
                 Fallback si no hay rubro configurable con precio para este producto.
               </p>
@@ -646,7 +647,7 @@ function NuevoClienteForm() {
             {!SIMPLE_CLIENTE && (
             <div>
               <label className={labelClass}>Tipo de servicio</label>
-              <select
+              <Selector
                 name="tipo_servicio_cliente"
                 value={form.tipo_servicio_cliente}
                 onChange={(e) => setForm((prev) => ({ ...prev, tipo_servicio_cliente: e.target.value }))}
@@ -658,7 +659,7 @@ function NuevoClienteForm() {
                     {f.nombre}
                   </option>
                 ))}
-              </select>
+              </Selector>
             </div>
             )}
 
@@ -991,7 +992,7 @@ function NuevoClienteForm() {
               {puedeCredito && (
               <div>
                 <label className={labelClass}>Condición de pago</label>
-                <select
+                <Selector
                   name="condicion_pago"
                   value={form.condicion_pago}
                   onChange={handleChange}
@@ -1004,12 +1005,12 @@ function NuevoClienteForm() {
                   <option value="60 DÍAS">60 días</option>
                   <option value="90 DÍAS">90 días</option>
                   {!SIMPLE_CLIENTE && <option value="MENSUAL">Mensual</option>}
-                </select>
+                </Selector>
               </div>
               )}
               <div>
                 <label className={labelClass}>Moneda preferida</label>
-                <select
+                <Selector
                   name="moneda_preferida"
                   value={form.moneda_preferida}
                   onChange={(e) => setForm((prev) => ({ ...prev, moneda_preferida: e.target.value as "GS" | "USD" }))}
@@ -1017,11 +1018,11 @@ function NuevoClienteForm() {
                 >
                   <option value="GS">Guaraníes (GS)</option>
                   <option value="USD">Dólares (USD)</option>
-                </select>
+                </Selector>
               </div>
               <div>
                 <label className={labelClass}>Método de pago favorito <span className="text-slate-400 font-normal">(opcional)</span></label>
-                <select
+                <Selector
                   value={form.metodo_pago_preferido}
                   onChange={(e) => setForm((prev) => ({ ...prev, metodo_pago_preferido: e.target.value as typeof prev.metodo_pago_preferido }))}
                   className={inputClass}
@@ -1031,13 +1032,13 @@ function NuevoClienteForm() {
                   <option value="transferencia">Transferencia</option>
                   <option value="tarjeta">Tarjeta / Débito</option>
                   <option value="cheque">Cheque</option>
-                </select>
+                </Selector>
                 <p className="mt-1 text-xs text-slate-500">Se preselecciona automáticamente al hacer una venta a este cliente.</p>
               </div>
               {!SIMPLE_CLIENTE && (
               <div>
                 <label className={labelClass}>Vendedor responsable (usuario ERP)</label>
-                <select
+                <Selector
                   name="vendedor_usuario_id"
                   value={form.vendedor_usuario_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, vendedor_usuario_id: e.target.value }))}
@@ -1049,7 +1050,7 @@ function NuevoClienteForm() {
                       {(u.nombre ?? "").trim() || u.email}
                     </option>
                   ))}
-                </select>
+                </Selector>
                 {usuariosEmpresaError ? (
                   <p className="mt-1 text-xs text-red-600">{usuariosEmpresaError}</p>
                 ) : usuariosEmpresa.length === 0 ? (
@@ -1076,7 +1077,7 @@ function NuevoClienteForm() {
               {!SIMPLE_CLIENTE && (
               <div>
                 <label className={labelClass}>Origen del cliente</label>
-                <select
+                <Selector
                   name="origen"
                   value={form.origen}
                   onChange={(e) => setForm((prev) => ({ ...prev, origen: e.target.value as OrigenCliente }))}
@@ -1086,12 +1087,12 @@ function NuevoClienteForm() {
                   <option value="MANUAL">Manual</option>
                   <option value="CRM">CRM</option>
                   <option value="VENTA">Venta</option>
-                </select>
+                </Selector>
               </div>
               )}
               <div>
                 <label className={labelClass}>Estado inicial</label>
-                <select
+                <Selector
                   name="estado"
                   value={form.estado}
                   onChange={(e) => setForm((prev) => ({ ...prev, estado: e.target.value as "activo" | "inactivo" }))}
@@ -1099,7 +1100,7 @@ function NuevoClienteForm() {
                 >
                   <option value="activo">Activo</option>
                   <option value="inactivo">Inactivo</option>
-                </select>
+                </Selector>
               </div>
             </div>
 
@@ -1108,7 +1109,7 @@ function NuevoClienteForm() {
               <SectionTitle>Plan</SectionTitle>
               <div>
                 <label className={labelClass}>Plan</label>
-                <select
+                <Selector
                   value={formSusc.plan_id}
                   onChange={(e) => {
                     const p = planes.find((x) => x.id === e.target.value);
@@ -1126,7 +1127,7 @@ function NuevoClienteForm() {
                       {p.nombre} — {p.moneda} {p.precio.toLocaleString("es-PY")}
                     </option>
                   ))}
-                </select>
+                </Selector>
               </div>
             </div>
             )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import MontoInput, { parseMontoInput } from "@/components/ui/MontoInput";
 import { apiCreatePago } from "@/lib/api/client";
 import { hoyYmdLocal } from "@/lib/fechas/calendario";
+import Selector from "@/components/ui/Selector";
 
 const inputClass =
   "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
@@ -134,7 +135,7 @@ export function RegistrarPagoModal({
             <label className={labelClass} htmlFor="reg-pago-metodo">
               Método de pago
             </label>
-            <select
+            <Selector
               id="reg-pago-metodo"
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value as MetodoPago)}
@@ -145,7 +146,7 @@ export function RegistrarPagoModal({
               <option value="cheque">Cheque</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="otro">Otro</option>
-            </select>
+            </Selector>
           </div>
           <div>
             <label className={labelClass} htmlFor="reg-pago-ref">

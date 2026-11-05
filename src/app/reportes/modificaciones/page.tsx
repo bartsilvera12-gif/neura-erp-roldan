@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { formatFechaHora } from "@/lib/fecha/asuncion";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Lo que tocó el administrador.
@@ -110,12 +111,12 @@ export default function ModificacionesPage() {
         </label>
         <label className="text-xs font-semibold text-slate-500">
           Módulo
-          <select value={entidad} onChange={(e) => setEntidad(e.target.value)}
+          <Selector value={entidad} onChange={(e) => setEntidad(e.target.value)}
                   className="mt-1 block rounded-lg border border-slate-200 px-3 py-2 text-sm">
             {ENTIDADES.map((e) => (
               <option key={e || "todos"} value={e}>{e === "" ? "Todos" : e}</option>
             ))}
-          </select>
+          </Selector>
         </label>
       </div>
 

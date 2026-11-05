@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getPlanes, toggleEstadoPlan } from "@/lib/planes/storage";
 import type { Plan } from "@/lib/planes/types";
+import Selector from "@/components/ui/Selector";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ export default function PlanesPage() {
           />
         </div>
 
-        <select
+        <Selector
           value={filtroEst}
           onChange={(e) => setFiltroEst(e.target.value as typeof filtroEst)}
           className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white"
@@ -130,9 +131,9 @@ export default function PlanesPage() {
           <option value="">Todos los estados</option>
           <option value="activo">Activo</option>
           <option value="inactivo">Inactivo</option>
-        </select>
+        </Selector>
 
-        <select
+        <Selector
           value={filtroPer}
           onChange={(e) => setFiltroPer(e.target.value as typeof filtroPer)}
           className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white"
@@ -141,7 +142,7 @@ export default function PlanesPage() {
           <option value="mensual">Mensual</option>
           <option value="anual">Anual</option>
           <option value="unico">Único</option>
-        </select>
+        </Selector>
 
         {(busqueda || filtroEst || filtroPer) && (
           <button

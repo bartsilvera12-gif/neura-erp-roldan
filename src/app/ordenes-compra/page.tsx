@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
 import EnviarOrdenModal from "@/components/compras/EnviarOrdenModal";
 import { Printer, Plus, Check, X, Mail } from "lucide-react";
+import Selector from "@/components/ui/Selector";
 
 /**
  * Órdenes de compra: el PEDIDO que se le manda al proveedor.
@@ -150,7 +151,7 @@ export default function OrdenesCompraPage() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</span>
-          <select
+          <Selector
             value={estado} onChange={(e) => setEstado(e.target.value)}
             className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
@@ -158,7 +159,7 @@ export default function OrdenesCompraPage() {
             <option value="pendiente">Pendientes</option>
             <option value="recibida">Recibidas</option>
             <option value="anulada">Anuladas</option>
-          </select>
+          </Selector>
         </label>
 
         {totalPendiente > 0 && (
