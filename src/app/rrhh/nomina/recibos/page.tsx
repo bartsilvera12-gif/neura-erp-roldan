@@ -139,11 +139,11 @@ export default function RecibosPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="RRHH · Nómina"
-        title="Recibos de salario"
+        eyebrow="RRHH"
+        title="Salarios"
         description="Generá los recibos del mes con un clic: salario e IPS ya calculados. Solo agregás lo que cambie."
-        backHref="/rrhh/nomina"
-        backLabel="Nómina"
+        backHref="/rrhh/empleados"
+        backLabel="RRHH"
         actions={
           <div className="flex items-center gap-2">
             <div className="flex items-center rounded-lg border border-slate-200 bg-white">

@@ -155,7 +155,7 @@ export default function ReciboPage() {
   return (
     <div className="space-y-6">
       <Link href="/rrhh/nomina/recibos" className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-[#3F8E91]">
-        <span aria-hidden>←</span> Recibos de {nombreMes(cab.periodo_desde)}
+        <span aria-hidden>←</span> Salarios de {nombreMes(cab.periodo_desde)}
       </Link>
 
       <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
