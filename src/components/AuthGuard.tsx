@@ -17,6 +17,16 @@ import {
 import { slugsEfectivosPorRol } from "@/lib/roles/erp-role-access";
 
 const PUBLIC_ROUTES = ["/login"];
+/**
+ * El kiosco de fichaje (/fichar/<token>) es público: el empleado marca con el
+ * token del puesto, sin iniciar sesión, y /api/public/fichar/[token] valida ese
+ * token antes de escribir nada. src/app/fichar/layout.tsx decía que esto ya
+ * estaba, pero solo se exceptuaba "/login" y el kiosco mandaba al login.
+ *
+ * Con la barra final a propósito: "/fichar" solo (que entrega el token) sigue
+ * pidiendo sesión.
+ */
+const PUBLIC_PREFIXES = ["/fichar/"];
 
 type ModuleAccess = {
   superAdmin: boolean;
@@ -46,7 +56,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
   const { sidebarReady } = useBoot();
 
   const isPublic = useMemo(
-    () => !!(pathname && PUBLIC_ROUTES.includes(pathname)),
+    () => !!(pathname && (PUBLIC_ROUTES.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)))),
     [pathname]
   );
 

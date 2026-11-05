@@ -6,10 +6,12 @@ import Header from "./layout/Header";
 import MobileBottomNav from "./layout/MobileBottomNav";
 
 const STANDALONE_ROUTES = ["/login"];
+/** El kiosco de fichaje (/fichar/<token>) va a pantalla completa, sin menú. */
+const STANDALONE_PREFIXES = ["/fichar/"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isStandalone = pathname && STANDALONE_ROUTES.includes(pathname);
+  const isStandalone = pathname && (STANDALONE_ROUTES.includes(pathname) || STANDALONE_PREFIXES.some((p) => pathname.startsWith(p)));
 
   if (isStandalone) {
     return <>{children}</>;
