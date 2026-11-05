@@ -3,12 +3,11 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { leerPermisosDeUsuario, puede } from "@/lib/rrhh/permisos";
+import { entradaPrincipal, normalizarHorario } from "@/lib/rrhh/horario";
 import {
-  AVISO_FALTA_73,
-  faltaScript73,
   normalizarLegajo,
   siguienteLegajo,
-  sinColumnas73,
+  escribirEmpleado,
   usuariosDeLaEmpresa,
   validarLegajoYUsuario,
 } from "@/lib/rrhh/empleado-vinculo";
@@ -43,10 +42,12 @@ export async function GET(request: NextRequest) {
     });
     // Si la primera fila no trae la columna, el script 73 no corrió todavía.
     const falta73 = (data ?? []).length > 0 && !("legajo" in ((data ?? [])[0] as object));
+    const falta74 = (data ?? []).length > 0 && !("horario_semanal" in ((data ?? [])[0] as object));
 
     return NextResponse.json(successResponse({
       empleados,
       usuarios: puede(perms, "empleados.editar") ? usuarios : [],
+      falta_script_74: falta74,
       ...(falta73 ? { aviso: "Falta correr 73_legajo_y_usuario_del_empleado.sql: todavía no se pueden cargar legajos ni usuarios." } : {}),
     }));
   } catch (err) {
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
     const invalido = await validarLegajoYUsuario(ctx.supabase, ctx.auth.empresa_id, { legajo, usuario_id: usuarioId });
     if (invalido) return NextResponse.json(errorResponse(invalido), { status: 409 });
 
+    const horario = normalizarHorario(body.horario_semanal);
+
     const insert = {
       empresa_id: ctx.auth.empresa_id,
       nombre,
@@ -106,8 +109,10 @@ export async function POST(request: NextRequest) {
       estado,
       tipo_contrato: str("tipo_contrato"),
       jornada_laboral: str("jornada_laboral"),
-      // Referencia para medir tardanzas en el control horario.
-      hora_entrada_prevista: str("hora_entrada_prevista"),
+      // Horario por día (script 74). La columna vieja queda con la primera
+      // entrada de la semana, para lo que todavía la lee.
+      horario_semanal: horario,
+      hora_entrada_prevista: entradaPrincipal(horario) ?? str("hora_entrada_prevista"),
       tolerancia_minutos: Math.max(0, numv("tolerancia_minutos")),
       contacto_emergencia_nombre: str("contacto_emergencia_nombre"),
       contacto_emergencia_telefono: str("contacto_emergencia_telefono"),
@@ -120,6 +125,8 @@ export async function POST(request: NextRequest) {
       estado_civil: str("estado_civil"),
       grupo_sanguineo: str("grupo_sanguineo"),
       direccion: str("direccion"),
+      ciudad: str("ciudad"),
+      barrio: str("barrio"),
       // Un correo en mayúsculas sigue siendo el mismo correo, pero se ve mal
       // y no coincide al buscarlo: se guarda siempre en minúsculas.
       email: str("email")?.toLowerCase() ?? null,
@@ -152,12 +159,11 @@ export async function POST(request: NextRequest) {
       activo: body.activo === undefined ? true : Boolean(body.activo),
     };
 
-    let { data, error } = await ctx.supabase.from("empleados").insert([insert]).select().single();
-    let aviso: string | undefined;
-    if (error && faltaScript73(error.message)) {
-      ({ data, error } = await ctx.supabase.from("empleados").insert([sinColumnas73(insert)]).select().single());
-      aviso = AVISO_FALTA_73;
-    }
+    const { data, error, avisos } = await escribirEmpleado(
+      (payload) => ctx.supabase.from("empleados").insert([payload]).select().single(),
+      insert
+    );
+    const aviso = avisos.length ? avisos.join(" ") : undefined;
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
     return NextResponse.json(successResponse({ empleado: data, ...(aviso ? { aviso } : {}) }), { status: 201 });
   } catch (err) {

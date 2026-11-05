@@ -3,11 +3,10 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { leerPermisosDeUsuario, puede } from "@/lib/rrhh/permisos";
+import { entradaPrincipal, normalizarHorario } from "@/lib/rrhh/horario";
 import {
-  AVISO_FALTA_73,
-  faltaScript73,
   normalizarLegajo,
-  sinColumnas73,
+  escribirEmpleado,
   usuariosDeLaEmpresa,
   validarLegajoYUsuario,
 } from "@/lib/rrhh/empleado-vinculo";
@@ -36,6 +35,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       empleado: data,
       usuarios,
       falta_script_73: !("legajo" in (data as object)),
+      falta_script_74: !("horario_semanal" in (data as object)),
     }));
   } catch (err) {
     console.error("[/api/rrhh/empleados/:id GET]", err instanceof Error ? err.message : err);
@@ -76,7 +76,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       "nombre","tipo_documento","documento","tipo_contrato","jornada_laboral","hora_entrada_prevista",
       "contacto_emergencia_nombre","contacto_emergencia_telefono","contacto_emergencia_parentesco",
       "observaciones","lugar_nacimiento","nacionalidad","estado_civil","grupo_sanguineo",
-      "direccion","email","telefono","cargo","tipo_empleado","tipo_periodo","sucursal_id",
+      "direccion","ciudad","barrio","email","telefono","cargo","tipo_empleado","tipo_periodo","sucursal_id",
       "chofer_habilitacion","chofer_observacion","comision_politica_id","comision_observacion",
       "departamento","seccion","supervisor","banco","numero_cuenta",
     ].forEach(setStr);
@@ -108,6 +108,15 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     );
     if (invalido) return NextResponse.json(errorResponse(invalido), { status: 409 });
 
+    // Horario por día (script 74); la columna vieja sigue la primera entrada.
+    if (body.horario_semanal !== undefined) {
+      const h = normalizarHorario(body.horario_semanal);
+      update.horario_semanal = h;
+      // Sin horario no se toca la entrada vieja: si el script 74 no corrió,
+      // es lo único que mide las tardanzas.
+      if (h) update.hora_entrada_prevista = entradaPrincipal(h);
+    }
+
     if (Array.isArray(body.tipos_empleado)) {
       update.tipos_empleado = Array.from(new Set(
         (body.tipos_empleado as unknown[]).map((v) => String(v ?? "").trim().toLowerCase()).filter((s) => s.length > 0)
@@ -122,12 +131,8 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         .eq("id", id)
         .select()
         .single();
-    let { data, error } = await escribir(update);
-    let aviso: string | undefined;
-    if (error && faltaScript73(error.message)) {
-      ({ data, error } = await escribir(sinColumnas73(update)));
-      aviso = AVISO_FALTA_73;
-    }
+    const { data, error, avisos } = await escribirEmpleado(escribir, update);
+    const aviso = avisos.length ? avisos.join(" ") : undefined;
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
     return NextResponse.json(successResponse({ empleado: data, ...(aviso ? { aviso } : {}) }));
   } catch (err) {

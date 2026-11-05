@@ -7,11 +7,15 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
  * es a lo sumo UN empleado; un empleado puede no tener usuario.
  */
 
-/** Columnas que agrega el script 73. Mientras no corra, se guarda sin ellas. */
-export const COLUMNAS_SCRIPT_73 = ["legajo", "usuario_id"] as const;
-
-export const AVISO_FALTA_73 =
-  "Se guardó, pero sin legajo ni usuario: falta correr 73_legajo_y_usuario_del_empleado.sql en la base.";
+/**
+ * Columnas de `empleados` que agregan scripts que corre el cliente. Mientras
+ * un script no corrió, PostgREST rechaza el insert/update entero si las nombra
+ * (42703): se reintenta sin ellas y se avisa cuál falta.
+ */
+const COLUMNAS_POR_SCRIPT: Array<{ script: string; columnas: string[]; que: string }> = [
+  { script: "73_legajo_y_usuario_del_empleado.sql", columnas: ["legajo", "usuario_id"], que: "legajo ni usuario" },
+  { script: "74_horario_y_domicilio_del_empleado.sql", columnas: ["horario_semanal", "ciudad", "barrio"], que: "horario ni ciudad y barrio" },
+];
 
 /** El error de PostgREST/Postgres cuando falta una columna del script 73. */
 export function faltaScript73(msg: string | null | undefined): boolean {
@@ -19,11 +23,30 @@ export function faltaScript73(msg: string | null | undefined): boolean {
   return /42703|PGRST204|does not exist|schema cache/i.test(m) && /legajo|usuario_id/.test(m);
 }
 
-/** Saca del payload las columnas del script 73 (para reintentar sin ellas). */
-export function sinColumnas73<T extends Record<string, unknown>>(o: T): T {
-  const c = { ...o };
-  for (const k of COLUMNAS_SCRIPT_73) delete c[k];
-  return c;
+type Resultado = { data: unknown; error: { message: string } | null };
+
+/**
+ * Escribe y, si la base todavía no tiene alguna columna nueva, reintenta sin
+ * las de ese script. Devuelve también los avisos para la pantalla.
+ */
+export async function escribirEmpleado(
+  escribir: (payload: Record<string, unknown>) => PromiseLike<Resultado>,
+  payload: Record<string, unknown>
+): Promise<Resultado & { avisos: string[] }> {
+  let actual = { ...payload };
+  const avisos: string[] = [];
+  for (let intento = 0; intento <= COLUMNAS_POR_SCRIPT.length; intento++) {
+    const r = await escribir(actual);
+    const msg = r.error?.message ?? "";
+    const falta = r.error && /42703|PGRST204|does not exist|schema cache/i.test(msg)
+      ? COLUMNAS_POR_SCRIPT.find((g) => g.columnas.some((c) => msg.includes(c)) && g.columnas.some((c) => c in actual))
+      : undefined;
+    if (!falta) return { ...r, avisos };
+    for (const c of falta.columnas) delete actual[c];
+    avisos.push(`Se guardó sin ${falta.que}: falta correr ${falta.script} en la base.`);
+    actual = { ...actual };
+  }
+  return { data: null, error: { message: "No se pudo guardar el empleado." }, avisos };
 }
 
 export function normalizarLegajo(v: unknown): string | null {

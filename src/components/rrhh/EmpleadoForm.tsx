@@ -2,7 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import { BadgeCheck, Briefcase, HeartPulse, IdCard, Phone, StickyNote, UserRound, Wallet } from "lucide-react";
+import { BadgeCheck, Briefcase, Clock, HeartPulse, IdCard, Phone, StickyNote, UserRound, Wallet } from "lucide-react";
+import CiudadBarrio from "@/components/geo/CiudadBarrio";
+import { DIAS_SEMANA, HORARIO_SUGERIDO, horasSemanales, normalizarHorario, resumenHorario, type HorarioSemanal } from "@/lib/rrhh/horario";
 import type { UsuarioParaVincular } from "@/lib/rrhh/empleado-vinculo";
 
 /**
@@ -32,6 +34,8 @@ export const FORM_EMPLEADO_VACIO: Record<string, string> = {
   tipo_contrato: "",
   jornada_laboral: "",
   hora_entrada_prevista: "",
+  /** JSON del horario por día (script 74); vacío = sin horario. */
+  horario_semanal: "",
   tolerancia_minutos: "0",
   contacto_emergencia_nombre: "",
   contacto_emergencia_telefono: "",
@@ -47,6 +51,8 @@ export const FORM_EMPLEADO_VACIO: Record<string, string> = {
   telefono: "",
   email: "",
   direccion: "",
+  ciudad: "",
+  barrio: "",
   cargo: "",
   departamento: "",
   seccion: "",
@@ -71,6 +77,9 @@ export function formDesdeEmpleado(e: Record<string, unknown>): Record<string, st
   }
   // La hora viene como "08:00:00": el input type=time quiere "08:00".
   if (out.hora_entrada_prevista) out.hora_entrada_prevista = out.hora_entrada_prevista.slice(0, 5);
+  // El horario es jsonb: String() lo dejaría en "[object Object]".
+  const h = normalizarHorario(e.horario_semanal);
+  out.horario_semanal = h ? JSON.stringify(h) : "";
   return out;
 }
 
@@ -81,6 +90,7 @@ export function cuerpoDesdeForm(form: Record<string, string>): Record<string, un
     salario_base: Number(form.salario_base) || 0,
     tolerancia_minutos: Number(form.tolerancia_minutos) || 0,
     usuario_id: form.usuario_id || null,
+    horario_semanal: normalizarHorario(form.horario_semanal),
   };
 }
 
@@ -197,7 +207,9 @@ export default function EmpleadoForm({
           <TextField label="Teléfono" placeholder="0981 000 000" value={F("telefono")} onChange={(v) => setF("telefono", v)} />
           {/* Minúsculas desde el campo: así se ve cómo queda guardado. */}
           <TextField label="E-mail" type="email" value={F("email")} onChange={(v) => setF("email", v.toLowerCase())} />
-          <TextField label="Dirección" value={F("direccion")} onChange={(v) => setF("direccion", v)} />
+          <TextField label="Dirección" placeholder="Calle y número" value={F("direccion")} onChange={(v) => setF("direccion", v)} />
+          <CiudadBarrio ciudad={F("ciudad")} barrio={F("barrio")} onCiudad={(v) => setF("ciudad", v)} onBarrio={(v) => setF("barrio", v)}
+            inputCls={inputCls} labelCls={labelCls} />
         </Grid>
       </Section>
 
@@ -215,15 +227,19 @@ export default function EmpleadoForm({
             options={opcionesConActual(F("tipo_contrato"), [["", "—"], ["indefinido", "Indefinido"], ["temporal", "Temporal"], ["prueba", "Prueba"], ["obra", "Obra"]])} />
           <SelectField label="Jornada laboral" value={F("jornada_laboral")} onChange={(v) => setF("jornada_laboral", v)}
             options={opcionesConActual(F("jornada_laboral"), [["", "—"], ["completa", "Completa"], ["parcial", "Parcial"], ["turnos", "Turnos"]])} />
-          {/* Sin hora de entrada el control horario no mide tardanzas. */}
-          <TextField label="Hora de entrada" type="time" value={F("hora_entrada_prevista")} onChange={(v) => setF("hora_entrada_prevista", v)} />
-          <TextField label="Tolerancia (minutos)" type="number" value={F("tolerancia_minutos")} onChange={(v) => setF("tolerancia_minutos", v)} />
           <TextField label="Fecha de ingreso" type="date" value={F("fecha_ingreso")} onChange={(v) => setF("fecha_ingreso", v)} />
           {!esNuevo && (
             <TextField label="Fecha de baja" type="date" value={F("fecha_baja")} onChange={(v) => setF("fecha_baja", v)} />
           )}
         </Grid>
       </Section>
+
+      <EditorHorario
+        valor={F("horario_semanal")}
+        onChange={(v) => setF("horario_semanal", v)}
+        tolerancia={F("tolerancia_minutos")}
+        onTolerancia={(v) => setF("tolerancia_minutos", v)}
+      />
 
       <Section icon={<Wallet className="h-4 w-4" />} title="Sueldo y cobro">
         <Grid>
@@ -259,6 +275,83 @@ export default function EmpleadoForm({
           className={inputCls} />
       </Section>
     </form>
+  );
+}
+
+/**
+ * Horario por día. Antes era una sola "hora de entrada" para toda la semana:
+ * el sábado corto no se podía cargar y la tardanza del sábado se medía mal.
+ */
+function EditorHorario({ valor, onChange, tolerancia, onTolerancia }: {
+  valor: string;
+  onChange: (v: string) => void;
+  tolerancia: string;
+  onTolerancia: (v: string) => void;
+}) {
+  const horario: HorarioSemanal = normalizarHorario(valor) ?? {};
+  const guardar = (h: HorarioSemanal) => onChange(Object.keys(h).length ? JSON.stringify(h) : "");
+  const cambiar = (clave: keyof HorarioSemanal, campo: "entrada" | "salida", v: string) =>
+    guardar({ ...horario, [clave]: { entrada: horario[clave]?.entrada ?? null, salida: horario[clave]?.salida ?? null, [campo]: v || null } });
+  const alternar = (clave: keyof HorarioSemanal) => {
+    const h = { ...horario };
+    if (h[clave]) delete h[clave];
+    else {
+      // Al prender un día, copia el horario del último día cargado.
+      const base = DIAS_SEMANA.map((d) => horario[d.clave]).find(Boolean) ?? { entrada: "07:00", salida: "17:00" };
+      h[clave] = { ...base };
+    }
+    guardar(h);
+  };
+  const lunes = horario["1"];
+  const vacio = Object.keys(horario).length === 0;
+
+  return (
+    <Section icon={<Clock className="h-4 w-4" />} title="Horario"
+      hint={vacio ? "Los días que trabaja y a qué hora entra y sale. Sin horario, el control horario no mide tardanzas." : `${resumenHorario(horario)} · ${horasSemanales(horario)} h por semana`}>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <button type="button" onClick={() => guardar(HORARIO_SUGERIDO)}
+          className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+          Lunes a viernes 07:00–17:00 y sábado 07:00–11:00
+        </button>
+        {lunes && (
+          <button type="button"
+            onClick={() => guardar(Object.fromEntries(DIAS_SEMANA.filter((d) => horario[d.clave]).map((d) => [d.clave, { ...lunes }])) as HorarioSemanal)}
+            className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+            Mismo horario del lunes a todos los días
+          </button>
+        )}
+        {!vacio && (
+          <button type="button" onClick={() => guardar({})} className="px-2 py-1 text-xs text-slate-400 hover:text-rose-600">Borrar horario</button>
+        )}
+      </div>
+      <div className="overflow-hidden rounded-lg border border-slate-200">
+        {DIAS_SEMANA.map(({ clave, largo }) => {
+          const t = horario[clave];
+          return (
+            <div key={clave} className={`flex flex-wrap items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0 ${t ? "" : "bg-slate-50/60"}`}>
+              <label className="flex w-32 cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" checked={!!t} onChange={() => alternar(clave)} className="h-4 w-4 rounded border-slate-300 accent-[#4FAEB2]" />
+                <span className={t ? "font-medium text-slate-800" : "text-slate-400"}>{largo}</span>
+              </label>
+              {t ? (
+                <>
+                  <input type="time" value={t.entrada ?? ""} onChange={(e) => cambiar(clave, "entrada", e.target.value)} aria-label={`Entrada ${largo}`}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none" />
+                  <span className="text-xs text-slate-400">a</span>
+                  <input type="time" value={t.salida ?? ""} onChange={(e) => cambiar(clave, "salida", e.target.value)} aria-label={`Salida ${largo}`}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none" />
+                </>
+              ) : (
+                <span className="text-xs text-slate-400">No trabaja</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 max-w-[220px]">
+        <TextField label="Tolerancia para la entrada (minutos)" type="number" value={tolerancia} onChange={onTolerancia} />
+      </div>
+    </Section>
   );
 }
 

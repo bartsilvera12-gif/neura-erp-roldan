@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { entradaDelDia, normalizarHorario } from "@/lib/rrhh/horario";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -134,21 +135,24 @@ export async function POST(request: NextRequest) {
     let minutosTarde: number | null = null;
     let soportaTardanza = true;
     {
-      const empQ = await ctx.supabase
+      const leer = (cols: string) => ctx.supabase
         .from("empleados")
-        .select("hora_entrada_prevista, tolerancia_minutos")
+        .select(cols)
         .eq("empresa_id", ctx.auth.empresa_id).eq("id", empleadoId)
         .maybeSingle();
+      // Con el horario por día (script 74) se compara contra la entrada de ESE
+      // día: el sábado entra a otra hora, o no trabaja. Sin el script, contra
+      // la entrada única de antes.
+      let empQ = await leer("hora_entrada_prevista, tolerancia_minutos, horario_semanal");
+      if (empQ.error && /horario_semanal/.test(empQ.error.message)) empQ = await leer("hora_entrada_prevista, tolerancia_minutos");
       if (empQ.error && /hora_entrada_prevista|tolerancia_minutos/.test(empQ.error.message)) {
         // Falta 11_llegadas_tarde.sql: se ficha igual, sin medir tardanza.
         soportaTardanza = false;
       } else {
-        const emp = empQ.data as { hora_entrada_prevista?: string | null; tolerancia_minutos?: number } | null;
-        minutosTarde = calcMinutosTarde(
-          horaEntrada,
-          emp?.hora_entrada_prevista ?? null,
-          Number(emp?.tolerancia_minutos) || 0
-        );
+        const emp = empQ.data as { hora_entrada_prevista?: string | null; tolerancia_minutos?: number; horario_semanal?: unknown } | null;
+        const horario = normalizarHorario(emp?.horario_semanal);
+        const prevista = horario ? entradaDelDia(horario, String(fecha)) : (emp?.hora_entrada_prevista ?? null);
+        minutosTarde = calcMinutosTarde(horaEntrada, prevista, Number(emp?.tolerancia_minutos) || 0);
       }
     }
     /** Campos de tardanza, vacíos si el schema todavía no los tiene. */
