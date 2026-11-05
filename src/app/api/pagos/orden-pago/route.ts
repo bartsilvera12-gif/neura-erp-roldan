@@ -163,6 +163,13 @@ async function detalleDelPago(ctx: Ctx, chequeId: string) {
   }
   if (!cheque) throw new Error("Cheque no encontrado.");
 
+  // La foto del cheque (script 75). Aparte, para que sin el script no se
+  // caiga el resto del detalle.
+  const img = await ctx.supabase
+    .from("cheques").select("imagen_storage_path, imagen_nombre")
+    .eq("empresa_id", empresaId).eq("id", chequeId).maybeSingle();
+  if (!img.error && img.data) Object.assign(cheque, img.data);
+
   const ccQ = await ctx.supabase
     .from("cheque_compras")
     .select("compra_numero_control, importe_imputado")
