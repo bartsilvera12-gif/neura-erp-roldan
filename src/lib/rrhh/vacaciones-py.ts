@@ -119,6 +119,22 @@ export function diasHabilesPy(desde: string, hasta: string, feriadosCargados: It
   return n;
 }
 
+/**
+ * El día que vuelve a trabajar: el primer día hábil después de `hasta`
+ * (salteando domingos y feriados). Va en la comunicación de vacaciones.
+ */
+export function diaDeReintegroPy(hasta: string, feriadosCargados: Iterable<string> = []): string {
+  if (!RE.test(hasta)) return hasta;
+  const feriados = new Set<string>(feriadosCargados);
+  const cur = aDate(hasta);
+  for (let i = 0; i < 30; i++) {
+    cur.setUTCDate(cur.getUTCDate() + 1);
+    const iso = aIso(cur);
+    if (!feriados.has(iso) && !feriadosFijosPy(cur.getUTCFullYear()).includes(iso) && cur.getUTCDay() !== 0) return iso;
+  }
+  return aIso(cur);
+}
+
 /** Días corridos (calendario) entre dos fechas, inclusive. */
 export function diasCorridos(desde: string, hasta: string): number {
   if (!RE.test(desde) || !RE.test(hasta) || hasta < desde) return 0;

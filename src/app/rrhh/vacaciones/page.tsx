@@ -8,7 +8,7 @@ import StatCard from "@/components/ui/StatCard";
 import { Iniciales } from "@/components/rrhh/EmpleadoBadges";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
-import { AlertTriangle, CalendarClock, CalendarDays, Clock, Palmtree, Scale, Search } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarDays, Clock, FileSignature, Palmtree, Scale, Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +94,7 @@ function VacacionesInner() {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const [ok, setOk] = useState<{ texto: string; constancia?: string } | null>(null);
   const [tab, setTab] = useState<"saldos" | "lista">("saldos");
   const [preview, setPreview] = useState<{ dias: number; computo: string; corridos: number } | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -172,11 +172,15 @@ function VacacionesInner() {
           modo: "admin",
         }),
       });
-      const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string; data?: { dias_calculados?: number } };
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string; data?: { dias_calculados?: number; solicitud?: { id?: string } } };
       if (r.ok && j.success) {
         setForm({ ...form, observacion: "" });
-        setOk(`Registrado: ${j.data?.dias_calculados ?? ""} días.`);
-        setTimeout(() => setOk(null), 3000);
+        // Vacaciones: se ofrece la hoja para que firme, que es lo que sigue.
+        const idNuevo = j.data?.solicitud?.id;
+        setOk({
+          texto: `Registrado: ${j.data?.dias_calculados ?? ""} días.`,
+          constancia: form.tipo_ausencia === "vacaciones" && idNuevo ? `/api/rrhh/vacaciones/${idNuevo}/constancia` : undefined,
+        });
         await load();
       } else {
         setErr(j.error ?? "No se pudo guardar");
@@ -235,7 +239,18 @@ function VacacionesInner() {
       />
 
       {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
-      {ok && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{ok}</div>}
+      {ok && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <span>{ok.texto}</span>
+          {ok.constancia && (
+            <a href={ok.constancia} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100">
+              <FileSignature className="h-3.5 w-3.5" /> Imprimir la comunicación para firmar
+            </a>
+          )}
+          <button type="button" onClick={() => setOk(null)} className="ml-auto text-xs text-emerald-700/70 hover:text-emerald-800">Cerrar</button>
+        </div>
+      )}
 
       {nombreFiltrado && (
         <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#E5F4F4] px-3 py-2 text-xs">
@@ -521,6 +536,13 @@ function VacacionesInner() {
                     <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-800">{s.dias}</td>
                     <td className="px-4 py-2.5"><EstadoBadge estado={s.estado} /></td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-right">
+                      {t === "vacaciones" && (s.estado === "aprobada" || s.estado === "pendiente") && (
+                        <a href={`/api/rrhh/vacaciones/${s.id}/constancia`} target="_blank" rel="noreferrer"
+                          title="Hoja de comunicación de vacaciones para que firme el trabajador"
+                          className="mr-3 inline-flex items-center gap-1 text-xs font-medium text-[#3F8E91] hover:underline">
+                          <FileSignature className="h-3.5 w-3.5" /> comunicación
+                        </a>
+                      )}
                       <button onClick={() => void editarSolicitud(s)} className="text-xs text-sky-700 hover:underline">editar</button>
                       {s.estado === "aprobada" && (
                         <button onClick={() => void cambiarEstado(s.id, "cancelada")} className="ml-3 text-xs text-red-700 hover:underline">cancelar</button>
