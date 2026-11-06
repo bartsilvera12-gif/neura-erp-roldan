@@ -17,6 +17,7 @@ import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib
 
 import { Check } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import { aGuaranies } from "@/lib/moneda";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -319,7 +320,15 @@ export default function NuevaCompraPage() {
   const tipoCambioNum = cab.moneda === "USD" ? parseFloat(cab.tipo_cambio) || 0 : 1;
   const nlCant = parseFloat(nl.cantidad) || 0;
   const nlCostoInput = parseFloat(nl.costo_unitario_input) || 0;
-  const nlCostoPYG = nlCostoInput * tipoCambioNum;
+  /**
+   * El costo en guaraníes, redondeado HACIA ARRIBA.
+   *
+   * El guaraní no tiene decimales, así que al convertir hay que decidir qué
+   * se hace con ellos. Hacia arriba, y no al más cercano: redondeando para
+   * abajo siempre falta un guaraní, y el que lo pone es la casa, que es quien
+   * puede. En guaraníes no se toca: no hay nada que convertir.
+   */
+  const nlCostoPYG = cab.moneda === "USD" ? aGuaranies(nlCostoInput, tipoCambioNum) : nlCostoInput;
   const nlPrecio = parseFloat(nl.precio_venta) || 0;
   // IVA incluido: el costo unitario cargado ya contiene el IVA.
   // Total línea = precio × cantidad; IVA se desglosa desde adentro; subtotal = base imponible.
@@ -329,7 +338,7 @@ export default function NuevaCompraPage() {
   // El precio de venta está en la moneda de la compra, así que se lo pasa a
   // guaraníes antes de compararlo con el costo. Medir un precio en dólares
   // contra un costo en guaraníes es lo que daba márgenes de -266.566%.
-  const nlPrecioPYG = nlPrecio * tipoCambioNum;
+  const nlPrecioPYG = cab.moneda === "USD" ? aGuaranies(nlPrecio, tipoCambioNum) : nlPrecio;
   const nlMargen = nlPrecioPYG > 0 && nlCostoPYG > 0 ? ((nlPrecioPYG - nlCostoPYG) / nlPrecioPYG) * 100 : null;
   const productoSel = productos.find((p) => p.id === nl.producto_id);
   // ¿El producto seleccionado controla lote? Lo tomamos del objeto Producto

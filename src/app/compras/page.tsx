@@ -17,6 +17,7 @@ import type { Compra, TipoPago, Moneda } from "@/lib/compras/types";
 import NotaCreditoCompraModal from "@/components/compras/NotaCreditoCompraModal";
 
 import { FileText, Paperclip } from "lucide-react";
+import { formatearMoneda } from "@/lib/moneda";
 
 /** Igual que LIMITE_COMPRAS_LISTADO en compras-pg.ts: llegar a ese número no es "el total". */
 const LIMITE_LISTADO = 300;
@@ -785,8 +786,12 @@ function VistaConsignataria() {
                     g.lineas.length === 1
                       ? (g.lineas[0].concepto ?? "—")
                       : `${g.lineas[0].concepto ?? "—"} + ${g.lineas.length - 1} más`;
-                  const fmtMonto = (n: number) =>
-                    g.moneda === "USD" ? `USD ${Number(n).toLocaleString("es-PY")}` : formatGs(Number(n));
+                  /* Los importes de una compra se guardan en guaraníes aunque
+                     se haya pactado en dólares: comprobado sobre 500 líneas
+                     marcadas USD, en las 500 el total es el precio en
+                     guaraníes por la cantidad. Ponerle "USD" adelante mostraba
+                     el número 7.000 veces más grande de lo que es. */
+                  const fmtMonto = (n: number) => formatearMoneda(n, "PYG");
                   return (
                     <FragmentRow key={g.numero_control}>
                       <tr

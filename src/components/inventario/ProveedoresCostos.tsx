@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Paperclip } from "lucide-react";
+import { formatearMoneda } from "@/lib/moneda";
 
 type HistorialItem = {
   compra_id: string;
@@ -230,7 +231,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                   {/* Métricas */}
                   <div className="grid grid-cols-2 gap-px bg-slate-100 sm:grid-cols-4">
                     <Metric label="Último costo" value={gs(p.ultimo_costo)} accent
-                      sub={p.moneda_ultimo_costo === "USD" ? `USD ${p.costo_unitario_original_ultimo.toLocaleString("es-PY")}` : undefined} />
+                      sub={p.moneda_ultimo_costo === "USD" ? formatearMoneda(p.costo_unitario_original_ultimo, "USD") : undefined} />
                     <Metric label="Costo mínimo" value={gs(p.costo_minimo)} />
                     <Metric label="Costo promedio" value={gs(p.costo_promedio)} />
                     <Metric label="Compras" value={String(p.cantidad_compras)} />
@@ -260,7 +261,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                               <td className="py-2 px-4 text-right tabular-nums text-gray-700">
                                 {gs(h.costo_unitario)}
                                 {h.moneda === "USD" && (
-                                  <span className="block text-[11px] text-gray-400">USD {h.costo_unitario_original.toLocaleString("es-PY")}</span>
+                                  <span className="block text-[11px] text-gray-400">{formatearMoneda(h.costo_unitario_original, "USD")}</span>
                                 )}
                               </td>
                               <td className="py-2 px-4 text-right tabular-nums font-medium text-gray-800">{gs(h.total)}</td>

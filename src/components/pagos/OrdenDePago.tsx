@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
+import { formatearMoneda } from "@/lib/moneda";
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
 import CargarReciboChequeModal from "@/components/pagos/CargarReciboChequeModal";
@@ -88,8 +89,16 @@ const PALABRAS: Record<string, string> = {
 };
 const enPalabras = (v: string) => PALABRAS[v] ?? v;
 
-const gs = (v: number, m?: string) =>
-  `${m === "USD" ? "US$ " : "Gs. "}${Math.round(v).toLocaleString("es-PY")}`;
+/**
+ * Los importes de una compra están SIEMPRE en guaraníes.
+ *
+ * Esto decía `US$` cuando la compra se había pactado en dólares, pero el
+ * número que le pasaba era el total en guaraníes: una factura de
+ * Gs. 28.371.693 se leía "US$ 28.371.693", siete mil veces más plata. Lo que
+ * está en dólares es el precio unitario pactado (`costo_unitario_original`),
+ * no el total.
+ */
+const gs = (v: number) => formatearMoneda(v, "PYG");
 const fmt = (iso: string | null) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
@@ -273,16 +282,13 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
 
   // ── Resumen del proveedor (sin filtros) ───────────────────────────────
   const resumen = useMemo(() => {
-    const porMoneda = new Map<string, { total: number; vencido: number }>();
-    let vencidas = 0, semana = 0;
+    let total = 0, vencido = 0, vencidas = 0, semana = 0;
     for (const f of facturas) {
-      const m = porMoneda.get(f.moneda) ?? { total: 0, vencido: 0 };
-      m.total += f.total;
-      if (f.vencida) { m.vencido += f.total; vencidas++; }
+      total += f.total;
+      if (f.vencida) { vencido += f.total; vencidas++; }
       else if (f.vencimiento && f.vencimiento <= enUnaSemana) semana++;
-      porMoneda.set(f.moneda, m);
     }
-    return { porMoneda: [...porMoneda.entries()], vencidas, semana };
+    return { total, vencido, vencidas, semana };
   }, [facturas, enUnaSemana]);
 
   // ── Lo que se ve con los filtros ──────────────────────────────────────
@@ -318,10 +324,19 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
     [facturas, elegidas]
   );
   const total = seleccionadas.reduce((s, f) => s + f.total, 0);
-  // Un cheque tiene UNA moneda: mezclarlas daría un importe sin sentido.
-  const monedas = new Set(seleccionadas.map((f) => f.moneda));
-  const mezcladas = monedas.size > 1;
-  const moneda = monedas.size === 1 ? [...monedas][0] : "PYG";
+  /**
+   * El cheque va en guaraníes, siempre.
+   *
+   * Antes tomaba la moneda de las facturas elegidas, y eso estaba mal: el
+   * importe que suma es `compras.total`, que está guardado en guaraníes
+   * aunque la compra se haya pactado en dólares. Lo comprobé sobre 500
+   * líneas marcadas USD: en las 500 el total coincide con el precio en
+   * guaraníes por la cantidad, en ninguna con el precio en dólares.
+   *
+   * Dejarlo como estaba emitía un cheque en dólares por el número en
+   * guaraníes: Gs. 28.371.693 se convertían en US$ 28.371.693.
+   */
+  const moneda = "PYG";
   const ocultasElegidas = seleccionadas.length - visibles.filter((f) => elegidas.has(f.numero_control)).length;
 
   const todasVisiblesElegidas = visibles.length > 0 && visibles.every((f) => elegidas.has(f.numero_control));
@@ -350,7 +365,6 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
 
   async function emitir() {
     if (!proveedor || seleccionadas.length === 0) return;
-    if (mezcladas) { setError("Las facturas elegidas están en monedas distintas: hacé un pago para cada moneda."); return; }
     setEmitiendo(true);
     setError(null);
     try {
@@ -384,7 +398,7 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
       const dj = await det.json();
       setChequeCreado((dj?.data?.cheque ?? null) as Cheque | null);
       setAviso(
-        `Pago armado por ${gs(total, moneda)} sobre ${seleccionadas.length} ` +
+        `Pago armado por ${gs(total)} sobre ${seleccionadas.length} ` +
         `${seleccionadas.length === 1 ? "factura" : "facturas"}.`
       );
       if (errImg) setError(`El pago quedó armado, pero la foto del cheque no se subió: ${errImg}`);
@@ -454,7 +468,7 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
             <div>
               <p className="text-[11px] font-medium text-slate-500">Pendiente sin cheque</p>
               <p className="text-sm font-semibold tabular-nums text-slate-900">
-                {resumen.porMoneda.map(([m, v]) => gs(v.total, m)).join(" · ")}
+                {gs(resumen.total)}
               </p>
               <p className="text-xs text-slate-500">{facturas.length} facturas</p>
             </div>
@@ -462,7 +476,7 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
               <div>
                 <p className="text-[11px] font-medium text-rose-500">Vencido</p>
                 <p className="text-sm font-semibold tabular-nums text-rose-600">
-                  {resumen.porMoneda.filter(([, v]) => v.vencido > 0).map(([m, v]) => gs(v.vencido, m)).join(" · ")}
+                  {gs(resumen.vencido)}
                 </p>
                 <p className="text-xs text-rose-500">{resumen.vencidas} facturas</p>
               </div>
@@ -673,7 +687,7 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-800">
-                          {gs(f.total, f.moneda)}
+                          {gs(f.total)}
                         </td>
                         {/* El clic en la fila sigue eligiendo la factura, que
                             es para lo que está la pantalla. Lo que abre el
@@ -732,10 +746,10 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
                                           {it.cantidad.toLocaleString("es-PY")}
                                         </td>
                                         <td className="px-2 py-1 text-right tabular-nums text-slate-600">
-                                          {gs(it.costo_unitario, f.moneda)}
+                                          {gs(it.costo_unitario)}
                                         </td>
                                         <td className="px-2 py-1 text-right font-medium tabular-nums text-slate-800">
-                                          {gs(it.total, f.moneda)}
+                                          {gs(it.total)}
                                         </td>
                                       </tr>
                                     ))}
@@ -776,7 +790,7 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
                   {ocultasElegidas > 0 && <span className="text-slate-400"> ({ocultasElegidas} fuera del filtro)</span>}
                 </p>
                 <p className="text-xl font-semibold tabular-nums text-slate-900">
-                  {mezcladas ? "Monedas mezcladas" : gs(total, moneda)}
+                  {gs(total)}
                 </p>
                 <button type="button" onClick={() => setElegidas(new Set())} className="text-xs font-medium text-slate-400 hover:text-rose-600">
                   Quitar selección
@@ -846,17 +860,12 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
 
               <button
                 type="button" onClick={() => void emitir()}
-                disabled={emitiendo || mezcladas}
+                disabled={emitiendo}
                 className="ml-auto h-[38px] rounded-lg bg-[#4FAEB2] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50"
               >
                 {emitiendo ? "Armando…" : "Armar el pago"}
               </button>
             </div>
-            {mezcladas && (
-              <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                Elegiste facturas en guaraníes y en dólares. Un cheque tiene una sola moneda: hacé un pago para cada una.
-              </p>
-            )}
           </div>
         </div>
       )}

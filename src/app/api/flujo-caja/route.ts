@@ -6,6 +6,7 @@ import { mensajeErrorFlujo } from "@/lib/flujo-caja/errores";
 import { traerTodas } from "@/lib/supabase/traer-todo";
 import { desdeIndice, fondosConArrastre, indiceMes } from "@/lib/flujo-caja/arrastre";
 import type { EntradaArrastre } from "@/lib/flujo-caja/arrastre";
+import { aGuaranies } from "@/lib/moneda";
 import type {
   CobranzaProyectada, DiagnosticoFlujo, EntradaFlujo, EstadoCheque, FilaFlujo, FlujoCajaMes,
   MonedaFlujo, TipoSaldo, TotalesDia,
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
       let liquidez = 0, mercaderia = 0;
       for (const s of filas) {
         const enGs = String(s.moneda ?? "PYG").toUpperCase() === "USD"
-          ? num(s.importe) * tipoCambio
+          ? aGuaranies(s.importe, tipoCambio)
           : num(s.importe);
         if (String(s.tipo) === "mercaderia") mercaderia += enGs;
         else liquidez += enGs;
@@ -346,7 +347,7 @@ export async function GET(request: NextRequest) {
         estado: String(c.estado ?? "pendiente_emision") as EstadoCheque,
         moneda,
         importe,
-        importe_gs: moneda === "USD" ? importe * tipoCambio : importe,
+        importe_gs: moneda === "USD" ? aGuaranies(importe, tipoCambio) : importe,
         numero_factura: cubre.length === 1
           ? facturas.get(cubre[0].numero_control)?.numero_factura ?? null
           : null,
@@ -376,7 +377,7 @@ export async function GET(request: NextRequest) {
       const fila = filaDe(f.proveedor_id, f.proveedor_nombre, f.moneda);
       const moneda = fila.es_varios ? "PYG" : f.moneda;
       // En la fila VARIOS todo se expresa en guaraníes.
-      const importe = fila.es_varios && f.moneda === "USD" ? f.importe * tipoCambio : f.importe;
+      const importe = fila.es_varios && f.moneda === "USD" ? aGuaranies(f.importe, tipoCambio) : f.importe;
 
       push(fila, dia, {
         tipo: "factura",
@@ -384,7 +385,7 @@ export async function GET(request: NextRequest) {
         estado: "pendiente_emision",
         moneda,
         importe,
-        importe_gs: moneda === "USD" ? importe * tipoCambio : importe,
+        importe_gs: moneda === "USD" ? aGuaranies(importe, tipoCambio) : importe,
         numero_factura: f.numero_factura,
         numero_control: f.numero_control,
         facturas: [{ numero_control: f.numero_control, numero_factura: f.numero_factura, importe_imputado: f.importe }],
@@ -417,7 +418,7 @@ export async function GET(request: NextRequest) {
     );
 
     const enGuaranies = (importe: number, moneda: unknown): number =>
-      String(moneda ?? "PYG").toUpperCase() === "USD" ? importe * tipoCambio : importe;
+      String(moneda ?? "PYG").toUpperCase() === "USD" ? aGuaranies(importe, tipoCambio) : importe;
 
     /** Lo que vence en el mes y todavía no está cobrado, día por día. */
     const cobranzasPorDia: Record<number, CobranzaProyectada[]> = {};
