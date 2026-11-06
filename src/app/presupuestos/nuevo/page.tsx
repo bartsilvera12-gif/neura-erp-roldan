@@ -258,28 +258,57 @@ export default function NuevoPresupuestoPage() {
     clienteNombre.trim().length > 0 || items.length > 0 ||
     plazoEntrega.trim().length > 0 || observaciones.trim().length > 0 || notaInterna.trim().length > 0;
 
-  useEffect(() => {
-    if (!borradorListo || !claveBorrador.current) return;
+  /**
+   * Lo último que hay en pantalla, listo para escribir. Se guarda en cada
+   * cambio (sin demora) y otra vez al salir —otro menú, cerrar o recargar—
+   * por si el navegador cortó algo a mitad de camino.
+   */
+  const ultimo = useRef<string | null>(null);
+  const [guardadoA, setGuardadoA] = useState<string | null>(null);
+  const yaGuardado = useRef(false);
+
+  const escribirBorrador = () => {
     const clave = claveBorrador.current;
-    const t = window.setTimeout(() => {
-      try {
-        if (!hayAlgoCargado) { localStorage.removeItem(clave); return; }
-        localStorage.setItem(clave, JSON.stringify({
+    if (!clave || yaGuardado.current) return;
+    try {
+      if (ultimo.current == null) localStorage.removeItem(clave);
+      else localStorage.setItem(clave, ultimo.current);
+    } catch { /* lleno o bloqueado: no se guarda, nada más */ }
+  };
+
+  useEffect(() => {
+    if (!borradorListo) return;
+    ultimo.current = hayAlgoCargado
+      ? JSON.stringify({
           v: 1, at: Date.now(),
           clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad, clienteProfesion,
           items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
           vendedorId, condiciones,
-        }));
-      } catch { /* lleno o bloqueado: no se guarda, nada más */ }
-    }, 400);
-    return () => window.clearTimeout(t);
+        })
+      : null;
+    escribirBorrador();
+    if (hayAlgoCargado) {
+      setGuardadoA(new Date().toLocaleTimeString("es-PY", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    }
   }, [borradorListo, hayAlgoCargado, clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad,
       clienteProfesion, items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
       vendedorId, condiciones]);
 
+  useEffect(() => {
+    const alSalir = () => escribirBorrador();
+    window.addEventListener("pagehide", alSalir);
+    window.addEventListener("beforeunload", alSalir);
+    return () => {
+      window.removeEventListener("pagehide", alSalir);
+      window.removeEventListener("beforeunload", alSalir);
+      alSalir(); // salir a otro menú desmonta la página
+    };
+  }, []);
+
   /** Tirar lo recuperado y arrancar en blanco. */
   function empezarDeCero() {
     if (!window.confirm("¿Descartar el presupuesto que estabas armando?")) return;
+    yaGuardado.current = true;
     try { if (claveBorrador.current) localStorage.removeItem(claveBorrador.current); } catch { /* nada */ }
     window.location.reload();
   }
@@ -573,6 +602,8 @@ export default function NuevoPresupuestoPage() {
         setError(body?.error ?? "No se pudo guardar el presupuesto.");
         return;
       }
+      // Ya está en la base: que el guardado al salir no lo vuelva a escribir.
+      yaGuardado.current = true;
       try { if (claveBorrador.current) localStorage.removeItem(claveBorrador.current); } catch { /* nada */ }
       router.push(`/presupuestos/${body.data.id}`);
     } catch {
@@ -608,7 +639,8 @@ export default function NuevoPresupuestoPage() {
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#4FAEB2]/40 bg-[#4FAEB2]/5 px-4 py-3 text-sm text-slate-700">
           <History className="h-4 w-4 shrink-0 text-[#3F8E91]" />
           <span className="flex-1">
-            Seguís con el presupuesto que estabas armando <span className="text-slate-500">(guardado {recuperado})</span>.
+            Seguís con el presupuesto que estabas armando <span className="text-slate-500">(del {recuperado})</span>.
+            {guardadoA && <span className="ml-2 text-xs text-emerald-600">guardado {guardadoA}</span>}
           </span>
           <button type="button" onClick={empezarDeCero}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
@@ -620,7 +652,9 @@ export default function NuevoPresupuestoPage() {
         </div>
       )}
       {!recuperado && borradorListo && hayAlgoCargado && (
-        <p className="-mt-3 text-xs text-slate-400">Se va guardando solo mientras lo armás: si salís, al volver lo encontrás como lo dejaste.</p>
+        <p className="-mt-3 text-xs text-slate-400">
+          Se guarda solo mientras lo armás{guardadoA ? <> · <span className="text-emerald-600">guardado {guardadoA}</span></> : null}. Si salís, al volver lo encontrás como lo dejaste.
+        </p>
       )}
 
       {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
