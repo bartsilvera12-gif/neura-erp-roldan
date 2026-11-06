@@ -209,12 +209,18 @@ export default function NuevoPresupuestoPage() {
    * todo lo cargado. Ahora cada cambio se guarda (localStorage, por usuario,
    * para que en una PC compartida uno no vea el de otro) y al volver se
    * recupera tal cual. Se borra al guardar el presupuesto o con "Empezar de
-   * cero". No crea nada en la base: el borrador del servidor sigue siendo el
-   * que se guarda con el botón.
+   * cero".
+   *
+   * Además, apenas tiene cliente y un producto, se guarda en el SISTEMA como
+   * borrador (pestaña Borradores) y se sigue actualizando ese mismo. Ver
+   * `guardarEnSistema` más abajo.
    */
   const claveBorrador = useRef<string | null>(null);
   const [borradorListo, setBorradorListo] = useState(false);
   const [recuperado, setRecuperado] = useState<string | null>(null);
+  /** El borrador en el sistema que se va actualizando (null = todavía no hay). */
+  const [borradorId, setBorradorId] = useState<string | null>(null);
+  const [borradorNumero, setBorradorNumero] = useState<string | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -243,6 +249,8 @@ export default function NuevoPresupuestoPage() {
           setFaltaMaterial(b.faltaMaterial === true);
           setVendedorId(txt("vendedorId"));
           if (txt("condiciones")) setCondiciones(txt("condiciones"));
+          if (txt("borradorId")) setBorradorId(txt("borradorId"));
+          if (txt("borradorNumero")) setBorradorNumero(txt("borradorNumero"));
           const cuando = typeof b.at === "number" ? new Date(b.at) : null;
           setRecuperado(cuando
             ? cuando.toLocaleString("es-PY", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -264,7 +272,6 @@ export default function NuevoPresupuestoPage() {
    * por si el navegador cortó algo a mitad de camino.
    */
   const ultimo = useRef<string | null>(null);
-  const [guardadoA, setGuardadoA] = useState<string | null>(null);
   const yaGuardado = useRef(false);
 
   const escribirBorrador = () => {
@@ -283,16 +290,13 @@ export default function NuevoPresupuestoPage() {
           v: 1, at: Date.now(),
           clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad, clienteProfesion,
           items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
-          vendedorId, condiciones,
+          vendedorId, condiciones, borradorId, borradorNumero,
         })
       : null;
     escribirBorrador();
-    if (hayAlgoCargado) {
-      setGuardadoA(new Date().toLocaleTimeString("es-PY", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-    }
   }, [borradorListo, hayAlgoCargado, clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad,
       clienteProfesion, items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
-      vendedorId, condiciones]);
+      vendedorId, condiciones, borradorId, borradorNumero]);
 
   useEffect(() => {
     const alSalir = () => escribirBorrador();
@@ -307,7 +311,10 @@ export default function NuevoPresupuestoPage() {
 
   /** Tirar lo recuperado y arrancar en blanco. */
   function empezarDeCero() {
-    if (!window.confirm("¿Descartar el presupuesto que estabas armando?")) return;
+    const aviso = borradorNumero
+      ? `¿Empezar uno nuevo? El ${borradorNumero} queda en Borradores (lo podés borrar desde ahí).`
+      : "¿Descartar el presupuesto que estabas armando?";
+    if (!window.confirm(aviso)) return;
     yaGuardado.current = true;
     try { if (claveBorrador.current) localStorage.removeItem(claveBorrador.current); } catch { /* nada */ }
     window.location.reload();
@@ -558,15 +565,8 @@ export default function NuevoPresupuestoPage() {
     sinStock.length === 0 &&
     items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
 
-  async function guardar() {
-    if (guardando || !valido) return;
-    setGuardando(true);
-    setError(null);
-    try {
-      const res = await fetchWithSupabaseSession("/api/presupuestos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+  /** Lo que se manda al servidor, igual para el autoguardado y para Guardar. */
+  const cuerpo = () => ({
           cliente_id: clienteId || null,
           cliente_nombre: clienteNombre.trim(),
           cliente_ruc: clienteRuc.trim() || null,
@@ -595,19 +595,129 @@ export default function NuevoPresupuestoPage() {
             descuento: Number(it.descuento) || 0,
             tipo_precio: it.tipo_precio,
           })),
-        }),
+  });
+
+  /**
+   * GUARDADO EN EL SISTEMA, COMO BORRADOR
+   *
+   * Lo que importa es que quede en la pestaña Borradores, no solo en esta
+   * computadora. Apenas hay cliente y un producto, se crea el borrador
+   * (POST con `autoguardado`) y desde ahí se actualiza ese mismo (PATCH),
+   * dos segundos después del último cambio y otra vez al salir.
+   *
+   * `autoguardado` le dice al servidor que es lo que se está escribiendo:
+   * sigue siendo borrador, no da de alta al cliente y no frena por stock.
+   * Todo eso pasa al apretar Guardar, que actualiza este mismo borrador.
+   */
+  const listoParaSistema =
+    clienteNombre.trim().length > 0 && items.length > 0 &&
+    items.every((it) => it.producto_nombre.trim() && it.cantidad > 0 && it.precio_unitario >= 0);
+  const [estadoSistema, setEstadoSistema] = useState<
+    { tipo: "ok"; hora: string } | { tipo: "guardando" } | { tipo: "error"; texto: string } | null
+  >(null);
+  const enCurso = useRef<Promise<void> | null>(null);
+  const idRef = useRef<string | null>(null);
+  const sucio = useRef(false);
+  const detenido = useRef(false);
+  useEffect(() => { idRef.current = borradorId; }, [borradorId]);
+
+  const cuerpoRef = useRef(cuerpo);
+  cuerpoRef.current = cuerpo;
+
+  async function guardarEnSistema(alSalir = false): Promise<void> {
+    if (detenido.current || yaGuardado.current) return;
+    if (enCurso.current) { await enCurso.current; if (!sucio.current) return; }
+    sucio.current = false;
+    const tarea = (async () => {
+      if (!alSalir) setEstadoSistema({ tipo: "guardando" });
+      const id = idRef.current;
+      try {
+        const res = await fetchWithSupabaseSession(id ? `/api/presupuestos/${id}` : "/api/presupuestos", {
+          method: id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...cuerpoRef.current(), autoguardado: true }),
+          keepalive: alSalir,
+        });
+        const j = await res.json().catch(() => ({}));
+        if (res.status === 404 && id) {
+          // Lo borraron desde la lista: el próximo cambio crea otro.
+          idRef.current = null; setBorradorId(null); setBorradorNumero(null);
+          sucio.current = true;
+          return;
+        }
+        if (res.status === 409 && id) {
+          // Ya no es borrador (lo completaron desde Editar): no se pisa.
+          detenido.current = true;
+          if (!alSalir) setEstadoSistema({ tipo: "error", texto: "Ese borrador ya se completó desde otra pantalla; esto no lo modifica más." });
+          return;
+        }
+        if (!res.ok || j?.success === false) {
+          if (!alSalir) setEstadoSistema({ tipo: "error", texto: j?.error ?? `Error ${res.status}` });
+          return;
+        }
+        if (!id) {
+          const nuevoId = String(j?.data?.id ?? "");
+          if (nuevoId) {
+            idRef.current = nuevoId;
+            setBorradorId(nuevoId);
+            setBorradorNumero(j?.data?.numero_control ? String(j.data.numero_control) : null);
+          }
+        }
+        if (!alSalir) {
+          setEstadoSistema({ tipo: "ok", hora: new Date().toLocaleTimeString("es-PY", { hour: "2-digit", minute: "2-digit" }) });
+        }
+      } catch {
+        if (!alSalir) setEstadoSistema({ tipo: "error", texto: "Sin conexión" });
+        sucio.current = true;
+      }
+    })();
+    enCurso.current = tarea;
+    await tarea;
+    if (enCurso.current === tarea) enCurso.current = null;
+  }
+  const guardarEnSistemaRef = useRef(guardarEnSistema);
+  guardarEnSistemaRef.current = guardarEnSistema;
+
+  useEffect(() => {
+    if (!borradorListo || !listoParaSistema) return;
+    sucio.current = true;
+    const t = window.setTimeout(() => { void guardarEnSistemaRef.current(); }, 2000);
+    return () => window.clearTimeout(t);
+  }, [borradorListo, listoParaSistema, clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad,
+      clienteProfesion, items, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial, vendedorId, condiciones]);
+
+  // Al salir a otro menú, lo que quedó sin mandar se manda igual.
+  useEffect(() => () => {
+    if (sucio.current) void guardarEnSistemaRef.current(true);
+  }, []);
+
+  async function guardar() {
+    if (guardando || !valido) return;
+    setGuardando(true);
+    setError(null);
+    // Que ningún autoguardado corra en paralelo y cree un duplicado.
+    detenido.current = true;
+    if (enCurso.current) await enCurso.current;
+    try {
+      const id = idRef.current;
+      const res = await fetchWithSupabaseSession(id ? `/api/presupuestos/${id}` : "/api/presupuestos", {
+        method: id ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpo()),
       });
       const body = await res.json();
       if (!res.ok || body?.success === false) {
         setError(body?.error ?? "No se pudo guardar el presupuesto.");
+        detenido.current = false;
         return;
       }
       // Ya está en la base: que el guardado al salir no lo vuelva a escribir.
       yaGuardado.current = true;
       try { if (claveBorrador.current) localStorage.removeItem(claveBorrador.current); } catch { /* nada */ }
-      router.push(`/presupuestos/${body.data.id}`);
+      router.push(`/presupuestos/${id ?? body.data.id}`);
     } catch {
       setError("Error de red al guardar el presupuesto.");
+      detenido.current = false;
     } finally {
       setGuardando(false);
     }
@@ -640,7 +750,7 @@ export default function NuevoPresupuestoPage() {
           <History className="h-4 w-4 shrink-0 text-[#3F8E91]" />
           <span className="flex-1">
             Seguís con el presupuesto que estabas armando <span className="text-slate-500">(del {recuperado})</span>.
-            {guardadoA && <span className="ml-2 text-xs text-emerald-600">guardado {guardadoA}</span>}
+
           </span>
           <button type="button" onClick={empezarDeCero}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
@@ -653,7 +763,26 @@ export default function NuevoPresupuestoPage() {
       )}
       {!recuperado && borradorListo && hayAlgoCargado && (
         <p className="-mt-3 text-xs text-slate-400">
-          Se guarda solo mientras lo armás{guardadoA ? <> · <span className="text-emerald-600">guardado {guardadoA}</span></> : null}. Si salís, al volver lo encontrás como lo dejaste.
+          Se guarda solo mientras lo armás. Si salís, al volver lo encontrás como lo dejaste.
+        </p>
+      )}
+
+      {borradorListo && hayAlgoCargado && (
+        <p className="-mt-3 text-xs">
+          {!listoParaSistema ? (
+            <span className="text-slate-400">Cuando tenga cliente y al menos un producto, se guarda en <strong className="font-medium">Borradores</strong>.</span>
+          ) : estadoSistema?.tipo === "guardando" ? (
+            <span className="text-slate-500">Guardando en Borradores…</span>
+          ) : estadoSistema?.tipo === "error" ? (
+            <span className="text-amber-700">No se pudo guardar en el sistema ({estadoSistema.texto}). Queda guardado en esta computadora.</span>
+          ) : borradorNumero ? (
+            <span className="text-emerald-700">
+              Guardado en Borradores como <strong className="font-mono">{borradorNumero}</strong>
+              {estadoSistema?.tipo === "ok" ? ` · ${estadoSistema.hora}` : ""}
+            </span>
+          ) : (
+            <span className="text-slate-500">Se va a guardar en Borradores en unos segundos…</span>
+          )}
         </p>
       )}
 

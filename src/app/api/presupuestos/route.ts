@@ -148,7 +148,15 @@ export async function POST(request: NextRequest) {
      * Va antes de crear nada: una cotización rechazada no tiene que dejar
      * media ficha de cliente dada de alta.
      */
-    if (!(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
+    /**
+     * Guardado automático mientras se arma (`autoguardado: true`): queda
+     * SIEMPRE como borrador, no da de alta al cliente y no frena por stock.
+     * Es lo que se estaba escribiendo, no un presupuesto firme; el control de
+     * stock y el alta del cliente se hacen cuando se aprieta Guardar.
+     */
+    const autoguardado = body.autoguardado === true;
+
+    if (!autoguardado && !(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
       const faltantes = await faltantesDeStock(
         ctx.supabase,
         ctx.auth.empresa_id,
@@ -172,7 +180,7 @@ export async function POST(request: NextRequest) {
       profesion: body.cliente_profesion as string | null | undefined,
       ciudad: body.cliente_ciudad as string | null | undefined,
     });
-    const esBorrador = faltan.length > 0;
+    const esBorrador = autoguardado || faltan.length > 0;
     const validezRaw = body.validez_dias;
     const validez =
       validezRaw === null || validezRaw === undefined || String(validezRaw).trim() === ""
@@ -298,7 +306,7 @@ export async function POST(request: NextRequest) {
       numero_control,
       estado: esBorrador ? "borrador" : "creado",
       falta: faltan,
-      aviso: esBorrador
+      aviso: esBorrador && !autoguardado
         ? `Quedó guardado como BORRADOR porque falta${faltan.length === 1 ? "" : "n"} ` +
           `${textoFaltantes(faltan)}. Se puede imprimir, pero no se puede mandar, aprobar ` +
           "ni cobrar hasta completarlo."

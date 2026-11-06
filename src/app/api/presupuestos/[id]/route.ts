@@ -168,6 +168,15 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     }
 
     const eraBorrador = (cur.data as { estado: string }).estado === "borrador";
+    /**
+     * Guardado automático de un borrador que se está armando: se guarda tal
+     * cual y sigue siendo borrador (no pasa a firme ni le abre la ficha al
+     * cliente aunque ya tenga todo). Eso lo hace el botón Guardar.
+     */
+    const autoguardado = body.autoguardado === true;
+    if (autoguardado && !eraBorrador) {
+      return NextResponse.json(errorResponse("Ya no es un borrador."), { status: 409 });
+    }
 
     /**
      * En un BORRADOR el RUC puede estar vacío o mal: es justamente lo que le
@@ -244,8 +253,9 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
 
       // Mismo criterio que al crear: cotizar más de lo que hay lo hace un
       // administrador. Sin esto, se guarda un presupuesto con stock y después
-      // se le suben las cantidades desde la edición.
-      if (!(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
+      // se le suben las cantidades desde la edición. El autoguardado no
+      // frena: es lo que se está escribiendo; el control va al apretar Guardar.
+      if (!autoguardado && !(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
         const faltantes = await faltantesDeStock(
           ctx.supabase,
           ctx.auth.empresa_id,
@@ -287,7 +297,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
        */
       let clienteIdFinal = body.cliente_id ? String(body.cliente_id) : null;
       let estadoNuevo: string | null = null;
-      if (eraBorrador) {
+      if (eraBorrador && !autoguardado) {
         const faltan = faltantesDelPresupuesto({
           cliente_id: clienteIdFinal,
           nombre: clienteNombre,
@@ -322,6 +332,18 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
 
       const parcheCabecera: Record<string, unknown> = {
         cliente_id: clienteIdFinal,
+        // Un borrador puede haber nacido con el cliente escrito y después
+        // elegirse del catálogo: cómo entró se decide con lo último.
+        ...(eraBorrador ? { cliente_a_mano: !body.cliente_id } : {}),
+        // A nombre de quién va: lo decide el administrador, igual que al crear.
+        // Hace falta acá porque el presupuesto nuevo se guarda primero como
+        // borrador y después se completa sobre ese mismo.
+        ...(isAdmin(ctx.auth) && typeof body.vendedor_usuario_id === "string" && body.vendedor_usuario_id.trim()
+          ? {
+              vendedor_usuario_id: body.vendedor_usuario_id.trim(),
+              vendedor_nombre: typeof body.vendedor_nombre === "string" ? body.vendedor_nombre.trim() || null : null,
+            }
+          : {}),
         ...(estadoNuevo ? { estado: estadoNuevo } : {}),
         cliente_nombre: clienteNombre,
         cliente_ruc: body.cliente_ruc ? String(body.cliente_ruc) : null,
@@ -391,6 +413,10 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       }
       // Y para el 46: sin esas columnas no hay dónde guardar ciudad y
       // profesión, pero el resto de la edición no tiene por qué caerse.
+      if (updHead.error && /cliente_a_mano/.test(updHead.error.message ?? "")) {
+        const { cliente_a_mano: _am, ...sinAMano } = parcheCabecera;
+        updHead = await guardarCabecera(sinAMano);
+      }
       if (updHead.error && faltaScript46(updHead.error.message)) {
         const { cliente_ciudad: _c, cliente_profesion: _p, ...sin46 } = parcheCabecera;
         updHead = await guardarCabecera(sin46);
