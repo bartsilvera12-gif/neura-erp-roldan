@@ -320,6 +320,7 @@ const MENU_STRUCTURE: MenuItem[] = [
       { label: "Config · Especialidades", href: "/configuracion/rrhh/especialidades" },
       { label: "Config · Usuarios y roles", href: "/configuracion/rrhh/usuarios" },
       { label: "Config · Política de vacaciones", href: "/configuracion/rrhh/vacaciones" },
+      { label: "Config · Salario mínimo", href: "/configuracion/rrhh/parametros" },
     ],
   },
   {
@@ -335,6 +336,7 @@ const MENU_STRUCTURE: MenuItem[] = [
       { label: "RRHH · Especialidades", href: "/configuracion/rrhh/especialidades" },
       { label: "RRHH · Usuarios y roles", href: "/configuracion/rrhh/usuarios" },
       { label: "RRHH · Política vacaciones", href: "/configuracion/rrhh/vacaciones" },
+      { label: "RRHH · Salario mínimo", href: "/configuracion/rrhh/parametros" },
       { label: "Contabilidad · Plan de cuentas", href: "/configuracion/plan-de-cuentas" },
       { label: "Contabilidad · Config. contable", href: "/configuracion/contable" },
       { label: "Equipos y supervisión", href: "/configuracion/omnicanal-equipos" },

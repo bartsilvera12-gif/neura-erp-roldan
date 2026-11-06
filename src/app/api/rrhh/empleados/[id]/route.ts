@@ -82,11 +82,15 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     ].forEach(setStr);
     // Mismo criterio que en el alta: el correo siempre en minúsculas.
     if (typeof update.email === "string") update.email = update.email.toLowerCase();
-    ["fecha_nacimiento","fecha_ingreso","fecha_baja","chofer_fecha_venc"].forEach(setDate);
+    // `fecha_ingreso_ips` es el alta en el IPS, que puede ser posterior a la
+    // de ingreso a la empresa: para la antigüedad jubilatoria vale ésta.
+    ["fecha_nacimiento","fecha_ingreso","fecha_baja","chofer_fecha_venc","fecha_ingreso_ips"].forEach(setDate);
     ["salario_base","salario_complementario","costo_hora"].forEach(setNum);
-    ["chofer_km"].forEach(setNumNull);
+    // `salario_ips` admite null: null es "se le declara el salario real",
+    // que no es lo mismo que declarar cero.
+    ["chofer_km","salario_ips"].forEach(setNumNull);
     ["tolerancia_minutos"].forEach(setNum);
-    ["participa_comisiones","cobrar_con_cheque","excluir_liquidaciones","activo"].forEach(setBool);
+    ["participa_comisiones","cobrar_con_cheque","excluir_liquidaciones","activo","ips_sobre_minimo"].forEach(setBool);
 
     if (body.estado !== undefined) {
       const e = String(body.estado);

@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { DIAS_MES, rangoMes, reciboInicial } from "@/lib/rrhh/nomina-py";
 import { diasAusenciaEnMes, diasPagablesMes, type AusenciaSimple } from "@/lib/rrhh/aguinaldo-py";
+import { baseIps, baseDelPeriodo } from "@/lib/rrhh/ips";
 
 /**
  * Recibos de salario — Paraguay (IPS 9% trabajador / 16,5% patronal).
@@ -66,6 +67,37 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Los empleados del recibo.
+ *
+ * Las columnas del IPS las agrega el script 77. Mientras no se haya corrido,
+ * PostgREST rechaza la consulta ENTERA con 42703 —no devuelve la fila sin la
+ * columna— y no se generaría ningún recibo. Por eso se reintenta sin ellas: es
+ * preferible un recibo que aporta sobre el salario real, que es como venía
+ * funcionando, a que la liquidación del mes no salga.
+ *
+ * El `select` de supabase-js se tipa desde el LITERAL, así que no puede salir
+ * de una variable: van las dos consultas escritas enteras.
+ */
+type Supa = Awaited<ReturnType<typeof getTenantSupabaseFromAuth>> extends infer C
+  ? C extends { supabase: infer S } ? S : never
+  : never;
+
+async function traerEmpleados(supabase: Supa, empresaId: string, ids: string[]) {
+  const con = await supabase
+    .from("empleados")
+    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_ingreso_ips, salario_base, salario_ips, ips_sobre_minimo, tipo_periodo")
+    .eq("empresa_id", empresaId)
+    .in("id", ids);
+  if (!con.error || !/ips|42703|does not exist/i.test(con.error.message ?? "")) return con;
+
+  return supabase
+    .from("empleados")
+    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, salario_base, tipo_periodo")
+    .eq("empresa_id", empresaId)
+    .in("id", ids);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -82,13 +114,9 @@ export async function POST(request: NextRequest) {
     const diasTrabajados = Math.max(0, Math.min(DIAS_MES, Math.trunc(Number(body.dias_trabajados ?? DIAS_MES)) || DIAS_MES));
     const { desde, hasta } = rangoMes(mes);
 
-    const [empresaQ, empleadosQ, existentesQ, ausQ] = await Promise.all([
+    const [empresaQ, empleadosQ, existentesQ, ausQ, parametrosQ] = await Promise.all([
       ctx.supabase.from("empresas").select("nombre_empresa, ruc, ips_patronal").eq("id", empresaId).maybeSingle(),
-      ctx.supabase
-        .from("empleados")
-        .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_baja, salario_base, tipo_periodo")
-        .eq("empresa_id", empresaId)
-        .in("id", ids),
+      traerEmpleados(ctx.supabase, empresaId, ids),
       ctx.supabase
         .from("nomina_recibos")
         .select("empleado_id")
@@ -103,7 +131,15 @@ export async function POST(request: NextRequest) {
         .in("empleado_id", ids)
         .lte("fecha_desde", hasta)
         .gte("fecha_hasta", desde),
+      // El salario mínimo sale de un solo lugar: así, cuando sube por decreto,
+      // se cambia una vez y todos los declarados sobre el mínimo quedan al día.
+      ctx.supabase
+        .from("rrhh_parametros")
+        .select("salario_minimo")
+        .eq("empresa_id", empresaId)
+        .maybeSingle(),
     ]);
+
     const ausencias = new Map<string, AusenciaSimple[]>();
     for (const a of (ausQ.error ? [] : (ausQ.data ?? [])) as Array<AusenciaSimple & { empleado_id: string }>) {
       const l = ausencias.get(a.empleado_id) ?? [];
@@ -113,6 +149,11 @@ export async function POST(request: NextRequest) {
     if (empleadosQ.error) return NextResponse.json(errorResponse(empleadosQ.error.message), { status: 400 });
     if (existentesQ.error) return NextResponse.json(errorResponse(existentesQ.error.message), { status: 400 });
     const empresa = (empresaQ.data ?? {}) as Record<string, unknown>;
+    // Si falta la tabla (script 77 sin correr) se sigue sin mínimo: el aporte
+    // cae sobre el salario real, que es como funcionaba antes.
+    const salarioMinimo = parametrosQ.error
+      ? null
+      : (parametrosQ.data as { salario_minimo?: number | null } | null)?.salario_minimo ?? null;
     const yaTienen = new Set(((existentesQ.data ?? []) as Array<{ empleado_id: string }>).map((r) => r.empleado_id));
 
     const creados: Array<{ id: string; empleado_id: string }> = [];
@@ -139,10 +180,27 @@ export async function POST(request: NextRequest) {
           diasAus
         )
       );
+
+      // De qué salario sale el 9%: el real, el declarado a mano, o el mínimo.
+      const ips = baseIps(
+        {
+          salario_base: Number(e.salario_base) || 0,
+          salario_ips: e.salario_ips == null ? null : Number(e.salario_ips),
+          ips_sobre_minimo: e.ips_sobre_minimo === true,
+        },
+        salarioMinimo
+      );
+      // Se prorratea por los días que SE PAGAN, no por los 30 del mes: si no
+      // se trabajó el mes entero, al IPS tampoco se le declara entero.
+      const baseDeclarada = ips.origen === "real" || ips.origen === "sin_minimo_cargado"
+        ? null
+        : baseDelPeriodo(ips.base, diasPago, DIAS_MES);
+
       const { ingresos, descuentos, totales } = reciboInicial(
         Number(e.salario_base) || 0,
         diasPago,
-        (e.tipo_periodo as string | null) ?? null
+        (e.tipo_periodo as string | null) ?? null,
+        baseDeclarada
       );
 
       const cabecera = {

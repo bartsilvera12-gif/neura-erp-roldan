@@ -15,6 +15,7 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
 const COLUMNAS_POR_SCRIPT: Array<{ script: string; columnas: string[]; que: string }> = [
   { script: "73_legajo_y_usuario_del_empleado.sql", columnas: ["legajo", "usuario_id"], que: "código de empleado ni usuario" },
   { script: "74_horario_y_domicilio_del_empleado.sql", columnas: ["horario_semanal", "ciudad", "barrio"], que: "horario ni ciudad y barrio" },
+  { script: "77_ips_del_empleado.sql", columnas: ["fecha_ingreso_ips", "salario_ips", "ips_sobre_minimo"], que: "los datos del IPS" },
 ];
 
 /** El error de PostgREST/Postgres cuando falta una columna del script 73. */

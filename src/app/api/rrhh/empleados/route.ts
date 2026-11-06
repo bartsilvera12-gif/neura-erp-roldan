@@ -149,6 +149,11 @@ export async function POST(request: NextRequest) {
       seccion: str("seccion"),
       supervisor: str("supervisor"),
       salario_base: numv("salario_base"),
+      // El IPS (script 77): la fecha de alta, lo que se le declara y si
+      // se le declara el mínimo. Van juntos porque se leen juntos.
+      fecha_ingreso_ips: date("fecha_ingreso_ips"),
+      salario_ips: numn("salario_ips"),
+      ips_sobre_minimo: bool("ips_sobre_minimo"),
       salario_complementario: numv("salario_complementario"),
       costo_hora: numv("costo_hora"),
       moneda,

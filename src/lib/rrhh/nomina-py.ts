@@ -7,9 +7,11 @@
  *
  *   · Salario: el mes se liquida sobre 30 días. Con menos días trabajados se
  *     paga la proporción (salario / 30 × días). Al jornalero, jornal × días.
- *   · IPS: 9% a cargo del trabajador y 16,5% a cargo del empleador, sobre lo
- *     imponible (salario, horas extra, comisiones). Lo no imponible
- *     —bonificación familiar, viáticos— no aporta.
+ *   · IPS: 9% a cargo del trabajador y 16,5% a cargo del empleador. Salen de
+ *     lo imponible (salario, horas extra, comisiones); lo no imponible
+ *     —bonificación familiar, viáticos— no aporta. Si al empleado se le
+ *     declara otro salario —el mínimo, o un monto propio—, los aportes salen
+ *     de ESE número: ver `src/lib/rrhh/ips.ts`.
  *   · Todo en guaraníes enteros: el guaraní no tiene decimales.
  *
  * Módulo puro: se usa igual en el servidor (al generar el recibo) y en la
@@ -58,9 +60,18 @@ export function imponibleIps(ingresos: Ingreso[]): number {
   return ingresos.filter((i) => i.es_salarial).reduce((s, i) => s + gs(i.importe_total), 0);
 }
 
-/** Las dos líneas de IPS, calculadas sobre lo imponible. */
-export function lineasIps(ingresos: Ingreso[]): Descuento[] {
-  const base = imponibleIps(ingresos);
+/**
+ * Las dos líneas de IPS.
+ *
+ * Por defecto salen de lo imponible del recibo. Pero si al empleado se le
+ * declara otro salario —el mínimo, o un monto propio—, el aporte sale de ESE
+ * número y no de lo que cobra: es lo que se presenta en la planilla del IPS.
+ * `baseDeclarada` es ese monto, ya prorrateado por los días del período.
+ */
+export function lineasIps(ingresos: Ingreso[], baseDeclarada?: number | null): Descuento[] {
+  const base = baseDeclarada != null && baseDeclarada > 0
+    ? Math.round(baseDeclarada)
+    : imponibleIps(ingresos);
   return [
     { tipo: "ips_trabajador", concepto: "IPS (aporte del trabajador)", base, tipo_pct: IPS_TRABAJADOR_PCT, importe: gs((base * IPS_TRABAJADOR_PCT) / 100) },
     { tipo: "ips_patronal", concepto: "IPS (aporte patronal)", base, tipo_pct: IPS_PATRONAL_PCT, importe: gs((base * IPS_PATRONAL_PCT) / 100) },
@@ -71,9 +82,13 @@ export function lineasIps(ingresos: Ingreso[]): Descuento[] {
  * Reemplaza las líneas de IPS por las recalculadas y deja el resto de los
  * descuentos como están. Así el IPS siempre acompaña a lo que se cobra.
  */
-export function conIpsRecalculado(ingresos: Ingreso[], descuentos: Descuento[]): Descuento[] {
+export function conIpsRecalculado(
+  ingresos: Ingreso[],
+  descuentos: Descuento[],
+  baseDeclarada?: number | null
+): Descuento[] {
   const otros = descuentos.filter((d) => d.tipo !== "ips_trabajador" && d.tipo !== "ips_patronal");
-  return [...lineasIps(ingresos), ...otros];
+  return [...lineasIps(ingresos, baseDeclarada), ...otros];
 }
 
 export type Totales = {
@@ -98,9 +113,15 @@ export function totalesRecibo(ingresos: Ingreso[], descuentos: Descuento[]): Tot
 }
 
 /** Recibo listo para revisar: salario del período e IPS. */
-export function reciboInicial(salarioBase: number, diasTrabajados: number, tipoPeriodo: string | null | undefined) {
+export function reciboInicial(
+  salarioBase: number,
+  diasTrabajados: number,
+  tipoPeriodo: string | null | undefined,
+  /** Lo que se le declara al IPS en el período, si no es lo que cobra. */
+  baseDeclarada?: number | null
+) {
   const ingresos = salarioBase > 0 ? [lineaSalario(salarioBase, diasTrabajados, tipoPeriodo)] : [];
-  const descuentos = lineasIps(ingresos);
+  const descuentos = lineasIps(ingresos, baseDeclarada);
   return { ingresos, descuentos, totales: totalesRecibo(ingresos, descuentos) };
 }
 

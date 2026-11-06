@@ -63,6 +63,10 @@ export const FORM_EMPLEADO_VACIO: Record<string, string> = {
   fecha_baja: "",
   supervisor: "",
   salario_base: "0",
+  // El IPS: el alta, lo que se le declara y si se le declara el mínimo.
+  fecha_ingreso_ips: "",
+  salario_ips: "",
+  ips_sobre_minimo: "",
   moneda: "PYG",
   banco: "",
   numero_cuenta: "",
@@ -89,6 +93,10 @@ export function cuerpoDesdeForm(form: Record<string, string>): Record<string, un
   return {
     ...form,
     salario_base: Number(form.salario_base) || 0,
+    // Vacío es "se le declara el salario real", que no es declarar cero.
+    salario_ips: form.salario_ips.trim() === "" ? null : Number(form.salario_ips) || null,
+    ips_sobre_minimo: form.ips_sobre_minimo === "true",
+    fecha_ingreso_ips: form.fecha_ingreso_ips || null,
     tolerancia_minutos: Number(form.tolerancia_minutos) || 0,
     usuario_id: form.usuario_id || null,
     horario_semanal: normalizarHorario(form.horario_semanal),
@@ -291,6 +299,73 @@ export default function EmpleadoForm({
             onCreate={(n) => crear(CATALOGS.bancos, n, setBancos, "banco")} />
           <TextField label="Número de cuenta" value={F("numero_cuenta")} onChange={(v) => setF("numero_cuenta", v)} />
         </Grid>
+
+        {/* ── El IPS ─────────────────────────────────────────────────────
+            Va acá, pegado al salario, porque la pregunta que contesta es
+            "de qué número sale el 9%" y esa comparación solo se puede
+            hacer con los dos a la vista. */}
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-800">IPS</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+            Al empleado se le paga el salario de arriba. Al IPS se le declara lo de acá, que puede
+            ser otro número, y de ese sale el 9% que se le descuenta en el recibo.
+          </p>
+
+          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className={labelCls}>Fecha de ingreso al IPS</label>
+              <input type="date" value={F("fecha_ingreso_ips")}
+                onChange={(e) => setF("fecha_ingreso_ips", e.target.value)} className={inputCls} />
+              <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                Puede ser posterior a la de ingreso a la empresa. Es la que cuenta para la jubilación.
+              </p>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Sobre qué salario aporta</label>
+              <label className="mt-1 flex cursor-pointer select-none items-start gap-2 rounded-lg border border-slate-200 bg-white p-3">
+                <input
+                  type="checkbox"
+                  checked={F("ips_sobre_minimo") === "true"}
+                  onChange={(e) => setF("ips_sobre_minimo", e.target.checked ? "true" : "")}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#4FAEB2]"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-slate-800">Se le declara el salario mínimo</span>
+                  <span className="block text-[11px] leading-snug text-slate-500">
+                    El monto sale de Configuración → RRHH, así cuando sube por decreto se cambia una
+                    vez y todos quedan al día. Destildalo para declarar otro monto.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {F("ips_sobre_minimo") !== "true" && (
+              <div>
+                <label className={labelCls}>Salario declarado al IPS</label>
+                <input type="number" min="0" value={F("salario_ips")}
+                  onChange={(e) => setF("salario_ips", e.target.value)}
+                  placeholder="Vacío = el salario real"
+                  className={`${inputCls} tabular-nums`} />
+                {(() => {
+                  const real = Number(F("salario_base")) || 0;
+                  const dec = F("salario_ips").trim() === "" ? real : Number(F("salario_ips")) || 0;
+                  if (dec <= 0) return null;
+                  const nueve = Math.round(dec * 0.09);
+                  return (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                      Se le va a descontar <strong className="text-slate-700">Gs. {nueve.toLocaleString("es-PY")}</strong>,
+                      que es el 9% de Gs. {dec.toLocaleString("es-PY")}
+                      {dec !== real && real > 0
+                        ? ` (se le paga Gs. ${real.toLocaleString("es-PY")})`
+                        : ""}.
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
       </Section>
 
       <Section icon={<HeartPulse className="h-4 w-4" />} title="Contacto de emergencia">
