@@ -357,15 +357,15 @@ export default function PresupuestosPage() {
             iguales —al que se escribe completo se le abre la ficha—, así que
             la respuesta sale de cómo entró, guardado al crear. */}
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-slate-500">Cliente</span>
+          <span className="text-[11px] font-medium text-slate-500">Tipo de cliente</span>
           <Selector
             value={fCliente}
             onChange={(e) => setFCliente(e.target.value as "todos" | "sistema" | "a_mano")}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
           >
-            <option value="todos">Todos</option>
-            <option value="sistema">Del sistema</option>
-            <option value="a_mano">Escrito a mano</option>
+            <option value="todos">Todos los clientes</option>
+            <option value="sistema">Elegidos del sistema ({rows.filter((r) => r.cliente_a_mano !== true).length})</option>
+            <option value="a_mano">Escritos a mano ({rows.filter((r) => r.cliente_a_mano === true).length})</option>
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
