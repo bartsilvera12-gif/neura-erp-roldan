@@ -314,6 +314,7 @@ const MENU_STRUCTURE: MenuItem[] = [
       { label: "Vacaciones", href: "/rrhh/vacaciones" },
       { label: "Feriados y ausencias", href: "/rrhh/feriados-ausencias" },
       { label: "Salarios", href: "/rrhh/nomina/recibos" },
+      { label: "Aguinaldo", href: "/rrhh/nomina/aguinaldo" },
       { label: "Config · Departamentos", href: "/configuracion/rrhh/departamentos" },
       { label: "Config · Tipos de empleado", href: "/configuracion/rrhh/tipos-empleado" },
       { label: "Config · Especialidades", href: "/configuracion/rrhh/especialidades" },

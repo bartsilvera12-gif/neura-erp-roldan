@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { DIAS_MES, rangoMes, reciboInicial } from "@/lib/rrhh/nomina-py";
+import { diasAusenciaEnMes, diasPagablesMes, type AusenciaSimple } from "@/lib/rrhh/aguinaldo-py";
 
 /**
  * Recibos de salario — Paraguay (IPS 9% trabajador / 16,5% patronal).
@@ -81,11 +82,11 @@ export async function POST(request: NextRequest) {
     const diasTrabajados = Math.max(0, Math.min(DIAS_MES, Math.trunc(Number(body.dias_trabajados ?? DIAS_MES)) || DIAS_MES));
     const { desde, hasta } = rangoMes(mes);
 
-    const [empresaQ, empleadosQ, existentesQ] = await Promise.all([
+    const [empresaQ, empleadosQ, existentesQ, ausQ] = await Promise.all([
       ctx.supabase.from("empresas").select("nombre_empresa, ruc, ips_patronal").eq("id", empresaId).maybeSingle(),
       ctx.supabase
         .from("empleados")
-        .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, salario_base, tipo_periodo")
+        .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_baja, salario_base, tipo_periodo")
         .eq("empresa_id", empresaId)
         .in("id", ids),
       ctx.supabase
@@ -94,7 +95,21 @@ export async function POST(request: NextRequest) {
         .eq("empresa_id", empresaId)
         .gte("periodo_desde", desde)
         .lte("periodo_desde", hasta),
+      // Reposos, permisos y demás del mes: esos días no se pagan.
+      ctx.supabase
+        .from("empleado_ausencias")
+        .select("empleado_id, fecha_desde, fecha_hasta, tipo")
+        .eq("empresa_id", empresaId)
+        .in("empleado_id", ids)
+        .lte("fecha_desde", hasta)
+        .gte("fecha_hasta", desde),
     ]);
+    const ausencias = new Map<string, AusenciaSimple[]>();
+    for (const a of (ausQ.error ? [] : (ausQ.data ?? [])) as Array<AusenciaSimple & { empleado_id: string }>) {
+      const l = ausencias.get(a.empleado_id) ?? [];
+      l.push(a);
+      ausencias.set(a.empleado_id, l);
+    }
     if (empleadosQ.error) return NextResponse.json(errorResponse(empleadosQ.error.message), { status: 400 });
     if (existentesQ.error) return NextResponse.json(errorResponse(existentesQ.error.message), { status: 400 });
     const empresa = (empresaQ.data ?? {}) as Record<string, unknown>;
@@ -108,9 +123,25 @@ export async function POST(request: NextRequest) {
       const empleadoId = String(e.id);
       if (yaTienen.has(empleadoId)) { salteados.push(String(e.nombre ?? "")); continue; }
 
+      /**
+       * Los días que se pagan: los del mes, menos reposos, permisos y demás
+       * ausencias cargadas, y menos los días antes del ingreso o después de
+       * la baja. Así el recibo es el salario REAL, que es lo que después
+       * suma para el aguinaldo. Las vacaciones no restan: son pagas.
+       */
+      const diasAus = diasAusenciaEnMes(ausencias.get(empleadoId) ?? [], mes);
+      const diasPago = Math.min(
+        diasTrabajados,
+        diasPagablesMes(
+          mes,
+          e.fecha_ingreso ? String(e.fecha_ingreso).slice(0, 10) : null,
+          e.fecha_baja ? String(e.fecha_baja).slice(0, 10) : null,
+          diasAus
+        )
+      );
       const { ingresos, descuentos, totales } = reciboInicial(
         Number(e.salario_base) || 0,
-        diasTrabajados,
+        diasPago,
         (e.tipo_periodo as string | null) ?? null
       );
 
@@ -120,7 +151,7 @@ export async function POST(request: NextRequest) {
         periodo_desde: desde,
         periodo_hasta: hasta,
         total_dias: DIAS_MES,
-        dias_trabajados: diasTrabajados,
+        dias_trabajados: diasPago,
         empresa_nombre_snapshot: (empresa.nombre_empresa as string) ?? null,
         empresa_ruc_snapshot: (empresa.ruc as string) ?? null,
         empresa_ips_patronal_snapshot: (empresa.ips_patronal as string) ?? null,

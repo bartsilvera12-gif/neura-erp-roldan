@@ -146,6 +146,10 @@ export default function RecibosPage() {
         backLabel="RRHH"
         actions={
           <div className="flex items-center gap-2">
+            <Link href="/rrhh/nomina/aguinaldo"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+              Aguinaldo
+            </Link>
             <div className="flex items-center rounded-lg border border-slate-200 bg-white">
               <button type="button" onClick={() => setMes(moverMes(mes, -1))} className="px-2 py-2 text-slate-500 hover:text-slate-800" aria-label="Mes anterior">
                 <ChevronLeft className="h-4 w-4" />
