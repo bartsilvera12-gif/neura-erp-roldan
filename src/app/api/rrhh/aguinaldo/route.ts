@@ -79,6 +79,9 @@ export async function GET(request: NextRequest) {
 
     const recibosPorEmpleado = new Map<string, Map<string, number>>();
     for (const r of vigentes) {
+      // Un recibo en cero es uno que se creó vacío y nunca se completó (antes
+      // se generaban así): no dice cuánto cobró. Ese mes se estima.
+      if (!((imponible.get(String(r.id)) ?? 0) > 0)) continue;
       const emp = String(r.empleado_id);
       const mes = String(r.periodo_desde).slice(0, 7);
       const m = recibosPorEmpleado.get(emp) ?? new Map<string, number>();
