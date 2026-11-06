@@ -190,7 +190,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const ins = await ctx.supabase
+    /**
+     * Con qué se pagó (script 78).
+     *
+     * La tabla se llama `cheques` pero guarda EL PAGO: el cheque era el único
+     * medio que la pantalla sabía armar. El flujo de caja lee esta tabla, así
+     * que una transferencia que no se escriba acá no existe para la planilla.
+     */
+    const MEDIOS = ["cheque", "transferencia", "efectivo", "deposito"] as const;
+    const medioPedido = String(o.medio ?? "cheque").toLowerCase();
+    const medio = (MEDIOS as readonly string[]).includes(medioPedido) ? medioPedido : "cheque";
+
+    /**
+     * El estado, que es lo que decide si suma al flujo de caja.
+     *
+     *   verde (emitido)  = comprometido y todavía no salió del banco. Suma.
+     *   violeta          = cheque sin número: todavía no se escribió.
+     *
+     * Una transferencia o un pago en efectivo nacen comprometidos —se hacen y
+     * listo—, así que entran en verde el día que se hacen. Un cheque recién
+     * se compromete cuando tiene número.
+     */
+    const esCheque = medio === "cheque";
+    const tieneNumero = !!str(o.numero, 64);
+    const estado = !esCheque || tieneNumero ? "emitido" : "pendiente_emision";
+    // La fecha en que se hizo. Para el cheque es cuando se lo escribió; para
+    // una transferencia, el día que se mandó.
+    const fechaRealizacion = esFecha(o.fecha_emision) ?? fechaPago;
+
+    const insertar = (conMedio: boolean) => ctx.supabase
       .from("cheques")
       .insert({
         empresa_id: empresaId,
@@ -201,15 +229,30 @@ export async function POST(request: NextRequest) {
         banco_nombre: str(o.banco_nombre),
         moneda,
         importe,
-        estado: str(o.numero, 64) ? "emitido" : "pendiente_emision",
+        estado,
         fecha_pago_prevista: fechaPago,
-        fecha_emision: str(o.numero, 64) ? (esFecha(o.fecha_emision) ?? fechaPago) : null,
-        fecha_cobro_prevista: esFecha(o.fecha_cobro_prevista),
+        fecha_emision: estado === "emitido" ? fechaRealizacion : null,
+        // Cuándo se puede cobrar: en un cheque diferido no es el día que se
+        // escribió. Si no se dice, es el mismo día.
+        fecha_cobro_prevista: esFecha(o.fecha_cobro_prevista) ?? fechaPago,
         observacion: str(o.observacion, 1000),
         created_by: ctx.auth.usuarioCatalogId ?? null,
+        ...(conMedio ? { medio } : {}),
       })
       .select("id")
       .single();
+
+    // Sin el script 78 la columna `medio` no existe: se guarda sin ella antes
+    // que perder el pago. Con medio distinto de cheque se avisa, porque el
+    // pago va a figurar como cheque hasta que se corra el script.
+    let ins = await insertar(true);
+    let avisoMedio: string | null = null;
+    if (ins.error && /medio|42703|PGRST204|schema cache/i.test(ins.error.message ?? "")) {
+      ins = await insertar(false);
+      if (medio !== "cheque") {
+        avisoMedio = "El pago se guardó, pero va a figurar como cheque: falta correr 78_medio_del_pago_al_proveedor.sql en la base.";
+      }
+    }
     if (ins.error) throw new Error(ins.error.message);
     const chequeId = String((ins.data as { id: string }).id);
 
@@ -229,7 +272,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(successResponse({ cheque_id: chequeId }), { status: 201 });
+    return NextResponse.json(
+      successResponse({ cheque_id: chequeId, medio, ...(avisoMedio ? { aviso: avisoMedio } : {}) }),
+      { status: 201 }
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo crear el cheque.";
     console.error("[/api/cheques POST]", msg);

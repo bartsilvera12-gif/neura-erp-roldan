@@ -26,6 +26,16 @@ const MESES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+/**
+ * Con qué se pagó.
+ *
+ * La planilla llamaba "cheque" a todo porque era lo único que se podía armar.
+ * Ahora un pago puede ser una transferencia, y decirle cheque a una
+ * transferencia confunde a quien después busca el comprobante.
+ */
+const nombreMedio = (m: string | null | undefined) =>
+  m === "transferencia" ? "Transferencia" : m === "efectivo" ? "Efectivo" : m === "deposito" ? "Depósito" : "Cheque";
+
 /** Los tres colores de la planilla, más el gris de lo ya cobrado. */
 const TONO: Record<string, string> = {
   pendiente_emision: "bg-violet-100 text-violet-900 ring-violet-300",
@@ -81,7 +91,7 @@ function tooltipDe(e: EntradaFlujo): string {
     const f = e.facturas[0];
     if (f) l.push(`Factura ${f.numero_factura ?? "s/nº"}   ·   Carga ${f.numero_control}`);
   }
-  if (e.numero_cheque) l.push(`Cheque Nº ${e.numero_cheque}${e.banco_nombre ? ` — ${e.banco_nombre}` : ""}`);
+  if (e.numero_cheque) l.push(`${nombreMedio(e.medio)} Nº ${e.numero_cheque}${e.banco_nombre ? ` — ${e.banco_nombre}` : ""}`);
   else l.push("Sin cheque emitido");
   if (e.fecha_emision) l.push(`Emitido: ${e.fecha_emision}`);
   if (e.fecha_cobro) l.push(`Cobro: ${e.fecha_cobro}`);
@@ -976,7 +986,7 @@ function PanelCelda({
           <div key={e.cheque_id} className={`mb-2 rounded-lg px-3 py-2 ring-1 ${TONO[e.estado] ?? ""}`}>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold">
-                {e.numero_cheque ? `Cheque Nº ${e.numero_cheque}` : "Cheque sin número"}
+                {e.numero_cheque ? `${nombreMedio(e.medio)} Nº ${e.numero_cheque}` : `${nombreMedio(e.medio)} sin número`}
                 {e.banco_nombre ? ` — ${e.banco_nombre}` : ""}
               </span>
               <span className="text-sm font-bold tabular-nums">{importeDe(e)}</span>

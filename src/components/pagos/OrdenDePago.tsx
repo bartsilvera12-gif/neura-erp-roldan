@@ -167,6 +167,17 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
   const [orden, setOrden] = useState<Orden>({ col: "vencimiento", asc: true });
 
   // El cheque
+  /**
+   * Con qué se paga.
+   *
+   * La pantalla solo sabía armar cheques, y una transferencia no se podía
+   * registrar en ningún lado. Como el flujo de caja se arma leyendo los pagos,
+   * una transferencia que no se escribe acá no existe para la planilla: la
+   * plata sale del banco y el flujo no se entera.
+   */
+  const [medio, setMedio] = useState<"cheque" | "transferencia" | "efectivo">("cheque");
+  /** El día en que se cobra. En un cheque diferido no es el día que se firmó. */
+  const [fechaCobro, setFechaCobro] = useState("");
   const [numeroCheque, setNumeroCheque] = useState("");
   const [bancoId, setBancoId] = useState("");
   const [bancos, setBancos] = useState<{ id: string; nombre: string }[]>([]);
@@ -376,10 +387,16 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
           proveedor_nombre: proveedor.nombre,
           moneda,
           importe: total,
+          medio,
           numero: numeroCheque.trim() || null,
           entidad_bancaria_id: bancoId || null,
           banco_nombre: bancos.find((b) => b.id === bancoId)?.nombre ?? null,
-          fecha_pago_prevista: fechaPago,
+          // La fecha en que se hace el pago, y la fecha en que se cobra. En un
+          // cheque diferido no son la misma, y de la segunda depende en qué
+          // semana del flujo de caja cae la salida.
+          fecha_emision: fechaPago,
+          fecha_pago_prevista: fechaCobro || fechaPago,
+          fecha_cobro_prevista: fechaCobro || fechaPago,
           facturas: seleccionadas.map((f) => ({
             numero_control: f.numero_control,
             importe_imputado: f.total,
@@ -798,33 +815,75 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
               </div>
 
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-slate-500">
-                  N° de cheque <span className="font-normal normal-case text-slate-400">(opcional)</span>
-                </span>
-                <input
-                  value={numeroCheque} onChange={(e) => setNumeroCheque(e.target.value)}
-                  placeholder="0001234"
-                  className="h-[38px] w-32 rounded-lg border border-slate-200 px-3 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-slate-500">Banco</span>
+                <span className="text-[11px] font-medium text-slate-500">Con qué se paga</span>
                 <Selector
-                  value={bancoId} onChange={(e) => setBancoId(e.target.value)}
-                  className={`h-[38px] w-44 rounded-lg border border-slate-200 bg-white px-2.5 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20 ${bancoId ? "text-slate-800" : "text-slate-400"}`}
+                  value={medio}
+                  onChange={(e) => setMedio(e.target.value as typeof medio)}
+                  className="h-[38px] w-40 rounded-lg border border-slate-200 bg-white px-2.5 text-sm"
                 >
-                  <option value="">{bancos.length ? "Elegí el banco…" : "No hay bancos cargados"}</option>
-                  {bancos.map((b) => <option key={b.id} value={b.id} className="text-slate-800">{b.nombre}</option>)}
+                  <option value="cheque">Cheque</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="efectivo">Efectivo</option>
                 </Selector>
               </label>
+
+              {medio !== "efectivo" && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium text-slate-500">
+                    {medio === "cheque" ? "N° de cheque" : "N° de comprobante"}{" "}
+                    <span className="font-normal normal-case text-slate-400">(opcional)</span>
+                  </span>
+                  <input
+                    value={numeroCheque} onChange={(e) => setNumeroCheque(e.target.value)}
+                    placeholder={medio === "cheque" ? "0001234" : "N° de la transferencia"}
+                    className="h-[38px] w-36 rounded-lg border border-slate-200 px-3 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
+                  />
+                </label>
+              )}
+
+              {/* El banco también para la transferencia: es de dónde sale la
+                  plata, y sin eso el pago no se puede conciliar después. */}
+              {medio !== "efectivo" && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium text-slate-500">
+                    {medio === "cheque" ? "Banco" : "Banco de donde sale"}
+                  </span>
+                  <Selector
+                    value={bancoId} onChange={(e) => setBancoId(e.target.value)}
+                    className={`h-[38px] w-44 rounded-lg border border-slate-200 bg-white px-2.5 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20 ${bancoId ? "text-slate-800" : "text-slate-400"}`}
+                  >
+                    <option value="">{bancos.length ? "Elegí el banco…" : "No hay bancos cargados"}</option>
+                    {bancos.map((b) => <option key={b.id} value={b.id} className="text-slate-800">{b.nombre}</option>)}
+                  </Selector>
+                </label>
+              )}
+
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-slate-500">Fecha de pago</span>
+                <span className="text-[11px] font-medium text-slate-500">
+                  {medio === "cheque" ? "Fecha del cheque" : "Fecha del pago"}
+                </span>
                 <input
                   type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)}
                   className="h-[38px] rounded-lg border border-slate-200 px-3 text-sm"
                 />
               </label>
-              <div className="flex flex-col gap-1">
+
+              {/* La fecha de cobro, que es la que manda en el flujo de caja: un
+                  cheque diferido se firma hoy y sale del banco en otra semana. */}
+              {medio === "cheque" && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Fecha de cobro{" "}
+                    <span className="font-normal normal-case text-slate-400">(si es diferido)</span>
+                  </span>
+                  <input
+                    type="date" value={fechaCobro} min={fechaPago}
+                    onChange={(e) => setFechaCobro(e.target.value)}
+                    className="h-[38px] rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </label>
+              )}
+              <div className={`flex flex-col gap-1 ${medio === "cheque" ? "" : "hidden"}`}>
                 <span className="text-[11px] font-medium text-slate-500">
                   Foto del cheque <span className="font-normal normal-case text-slate-400">(opcional)</span>
                 </span>

@@ -27,7 +27,12 @@ type Pago = {
   referencia: string | null;
   total: number;
   facturas: Factura[];
-  cheque: { id: string; numero: string | null; banco: string | null; numero_recibo: string | null; fecha_recibo: string | null; imagen_path: string | null } | null;
+  cheque: {
+    id: string; numero: string | null; banco: string | null;
+    numero_recibo: string | null; fecha_recibo: string | null; imagen_path: string | null;
+    medio: string | null; importe: number | null; estado: string | null;
+    fecha_emision: string | null; fecha_cobro_prevista: string | null; fecha_cobro_real: string | null;
+  } | null;
   recibo_path: string | null;
 };
 
@@ -45,7 +50,26 @@ const masDias = (iso: string, n: number) => {
 const MEDIOS: Record<string, string> = {
   cheque: "Cheque", transferencia: "Transferencia", efectivo: "Efectivo", tarjeta: "Tarjeta", deposito: "Depósito",
 };
-const medioTexto = (m: string | null) => (m ? MEDIOS[m] ?? m.charAt(0).toUpperCase() + m.slice(1) : "—");
+const medioTexto = (m: string | null | undefined) =>
+  m ? MEDIOS[m] ?? m.charAt(0).toUpperCase() + m.slice(1) : "—";
+
+/** El estado del pago, en palabras. Verde = comprometido y sin salir todavía. */
+const ESTADO_PAGO: Record<string, string> = {
+  pendiente_emision: "Pendiente de emisión",
+  emitido: "Emitido, sin cobrar",
+  cobrado: "Cobrado",
+  anulado: "Anulado",
+};
+
+/** Un dato suelto del pago, con su rótulo. */
+function Dato({ t, v }: { t: string; v: string }) {
+  return (
+    <span className="min-w-0">
+      <span className="block text-[11px] font-medium text-slate-500">{t}</span>
+      <span className="block text-sm text-slate-800">{v}</span>
+    </span>
+  );
+}
 
 const PERIODOS = [
   { v: "30", t: "Últimos 30 días" },
@@ -237,13 +261,12 @@ export default function PagosRealizados() {
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((p) => {
-                  const abierto = abiertos.has(p.clave);
-                  const varias = p.facturas.length > 1;
-                  return (
-                    <FilaPago key={p.clave} p={p} abierto={abierto} varias={varias} onToggle={() => alternar(p.clave)} />
-                  );
-                })}
+                {visibles.map((p) => (
+                  /* Antes solo se abría si el pago tenía VARIAS facturas: con
+                     una sola no había forma de ver el cheque, que es
+                     justamente lo que se busca cuando un proveedor reclama. */
+                  <FilaPago key={p.clave} p={p} abierto={abiertos.has(p.clave)} onToggle={() => alternar(p.clave)} />
+                ))}
               </tbody>
             </table>
           </div>
@@ -253,14 +276,14 @@ export default function PagosRealizados() {
   );
 }
 
-function FilaPago({ p, abierto, varias, onToggle }: { p: Pago; abierto: boolean; varias: boolean; onToggle: () => void }) {
+function FilaPago({ p, abierto, onToggle }: { p: Pago; abierto: boolean; onToggle: () => void }) {
   const primera = p.facturas[0];
+  const varias = p.facturas.length > 1;
   return (
     <>
-      <tr onClick={varias ? onToggle : undefined}
-        className={`border-b border-slate-100 align-top ${varias ? "cursor-pointer hover:bg-slate-50" : ""}`}>
+      <tr onClick={onToggle} className="cursor-pointer border-b border-slate-100 align-top hover:bg-slate-50">
         <td className="px-3 py-3 text-slate-400">
-          {varias ? (abierto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : null}
+          {abierto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </td>
         <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{fmt(p.fecha)}</td>
         <td className="px-3 py-3 font-medium text-slate-900">{p.proveedor_nombre}</td>
@@ -307,10 +330,27 @@ function FilaPago({ p, abierto, varias, onToggle }: { p: Pago; abierto: boolean;
           </span>
         </td>
       </tr>
-      {varias && abierto && (
+      {abierto && (
         <tr className="border-b border-slate-100 bg-slate-50/60">
           <td />
-          <td colSpan={7} className="px-3 py-2">
+          <td colSpan={7} className="px-3 py-3">
+            {/* El pago en sí: con qué se pagó, de qué banco, cuándo se hizo y
+                cuándo se cobra. Es lo que no se podía ver. */}
+            <div className="mb-3 flex flex-wrap gap-x-8 gap-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <Dato t="Medio" v={medioTexto(p.cheque?.medio ?? p.medio)} />
+              {p.cheque?.numero && <Dato t={p.cheque.medio === "transferencia" ? "N° de comprobante" : "N° de cheque"} v={p.cheque.numero} />}
+              {p.cheque?.banco && <Dato t="Banco" v={p.cheque.banco} />}
+              {p.cheque?.importe != null && <Dato t="Importe del pago" v={gs(p.cheque.importe)} />}
+              {p.cheque?.fecha_emision && <Dato t="Hecho el" v={fmt(p.cheque.fecha_emision)} />}
+              {p.cheque?.fecha_cobro_prevista && <Dato t="Se cobra el" v={fmt(p.cheque.fecha_cobro_prevista)} />}
+              {p.cheque?.fecha_cobro_real && <Dato t="Cobrado el" v={fmt(p.cheque.fecha_cobro_real)} />}
+              {p.cheque?.estado && <Dato t="Estado" v={ESTADO_PAGO[p.cheque.estado] ?? p.cheque.estado} />}
+              {p.cheque?.numero_recibo && <Dato t="Recibo del proveedor" v={`N° ${p.cheque.numero_recibo}`} />}
+              {p.cheque?.fecha_recibo && <Dato t="Fecha del recibo" v={fmt(p.cheque.fecha_recibo)} />}
+            </div>
+            <p className="mb-1 text-[11px] font-medium text-slate-500">
+              {varias ? `Las ${p.facturas.length} facturas que cubre` : "La factura que cubre"}
+            </p>
             <ul className="divide-y divide-slate-100">
               {p.facturas.map((f) => (
                 <li key={f.numero_control} className="flex items-center gap-4 py-1.5 text-xs">

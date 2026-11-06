@@ -50,6 +50,8 @@ export interface EntradaFlujo {
   /** Varias facturas si el cheque cubre más de una. */
   facturas: { numero_control: string; numero_factura: string | null; importe_imputado: number }[];
   numero_cheque: string | null;
+  /** Con qué se paga: cheque, transferencia, efectivo. Null si todavía no hay pago. */
+  medio?: string | null;
   banco_nombre: string | null;
   fecha_emision: string | null;
   /** La fecha de cobro puede diferir de la de pago: por eso va aparte. */

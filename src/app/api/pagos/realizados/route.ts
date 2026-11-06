@@ -43,6 +43,13 @@ type Pago = {
     numero_recibo: string | null;
     fecha_recibo: string | null;
     imagen_path: string | null;
+    /* Lo que hacía falta para poder abrir un pago y VER el cheque. */
+    medio: string | null;
+    importe: number | null;
+    estado: string | null;
+    fecha_emision: string | null;
+    fecha_cobro_prevista: string | null;
+    fecha_cobro_real: string | null;
   } | null;
   recibo_path: string | null;
 };
@@ -135,7 +142,7 @@ export async function GET(request: NextRequest) {
       const ids = chequeIds.slice(i, i + 200);
       let q = await ctx.supabase
         .from("cheques")
-        .select("id, numero, banco_nombre, estado, numero_recibo, fecha_recibo, recibo_storage_path, imagen_storage_path")
+        .select("id, numero, banco_nombre, estado, medio, importe, fecha_emision, fecha_cobro_prevista, fecha_cobro_real, numero_recibo, fecha_recibo, recibo_storage_path, imagen_storage_path")
         .eq("empresa_id", empresaId).in("id", ids);
       if (q.error) {
         // Sin el script 75 (foto) o el 70 (recibo): lo que haya.
@@ -172,6 +179,12 @@ export async function GET(request: NextRequest) {
             numero_recibo: ch.numero_recibo ? String(ch.numero_recibo) : null,
             fecha_recibo: ch.fecha_recibo ? String(ch.fecha_recibo).slice(0, 10) : null,
             imagen_path: ch.imagen_storage_path ? String(ch.imagen_storage_path) : null,
+            medio: ch.medio ? String(ch.medio) : null,
+            importe: ch.importe == null ? null : Number(ch.importe),
+            estado: ch.estado ? String(ch.estado) : null,
+            fecha_emision: ch.fecha_emision ? String(ch.fecha_emision).slice(0, 10) : null,
+            fecha_cobro_prevista: ch.fecha_cobro_prevista ? String(ch.fecha_cobro_prevista).slice(0, 10) : null,
+            fecha_cobro_real: ch.fecha_cobro_real ? String(ch.fecha_cobro_real).slice(0, 10) : null,
           } : null,
           recibo_path: ch?.recibo_storage_path ? String(ch.recibo_storage_path) : f.recibo_path,
         };

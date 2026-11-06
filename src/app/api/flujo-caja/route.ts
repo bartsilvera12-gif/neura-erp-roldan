@@ -259,16 +259,41 @@ export async function GET(request: NextRequest) {
     //    cubierta por un cheque de OTRO mes no se tiene que volver a proyectar
     //    acá (antes sí pasaba: se la contaba dos veces).
     const inicioVentanaIso = `${inicioVentana.anio}-${String(inicioVentana.mes).padStart(2, "0")}-01`;
-    const chequesTodos = await traerTodas<Record<string, unknown>>((d, h) =>
-      ctx.supabase
-        .from("cheques")
-        .select("id, proveedor_id, proveedor_nombre, numero, banco_nombre, moneda, importe, estado, fecha_pago_prevista, fecha_emision, fecha_cobro_real, fecha_cobro_prevista, observacion")
-        .eq("empresa_id", empresaId)
-        .gte("fecha_pago_prevista", inicioVentanaIso)
-        .lte("fecha_pago_prevista", hasta)
-        .order("id", { ascending: true })
-        .range(d, h)
-    );
+    /**
+     * Los pagos a proveedores del período.
+     *
+     * `medio` lo agrega el script 78: mientras no esté, PostgREST rechazaría
+     * la consulta entera y el flujo quedaría sin ningún pago. Se reintenta sin
+     * esa columna y todo se trata como cheque, que es como venía.
+     */
+    let sinMedio = false;
+    let chequesTodos: Record<string, unknown>[];
+    try {
+      chequesTodos = await traerTodas<Record<string, unknown>>((d, h) =>
+        ctx.supabase
+          .from("cheques")
+          .select("id, proveedor_id, proveedor_nombre, numero, banco_nombre, medio, moneda, importe, estado, fecha_pago_prevista, fecha_emision, fecha_cobro_real, fecha_cobro_prevista, observacion")
+          .eq("empresa_id", empresaId)
+          .gte("fecha_pago_prevista", inicioVentanaIso)
+          .lte("fecha_pago_prevista", hasta)
+          .order("id", { ascending: true })
+          .range(d, h)
+      );
+    } catch (e) {
+      if (!/medio|42703|does not exist/i.test(e instanceof Error ? e.message : "")) throw e;
+      sinMedio = true;
+      chequesTodos = await traerTodas<Record<string, unknown>>((d, h) =>
+        ctx.supabase
+          .from("cheques")
+          .select("id, proveedor_id, proveedor_nombre, numero, banco_nombre, moneda, importe, estado, fecha_pago_prevista, fecha_emision, fecha_cobro_real, fecha_cobro_prevista, observacion")
+          .eq("empresa_id", empresaId)
+          .gte("fecha_pago_prevista", inicioVentanaIso)
+          .lte("fecha_pago_prevista", hasta)
+          .order("id", { ascending: true })
+          .range(d, h)
+      );
+    }
+    void sinMedio;
     /** Los del mes que se está mirando: son los que van a la grilla. */
     const cheques = chequesTodos.filter((c) => {
       const fp = String(c.fecha_pago_prevista ?? "").slice(0, 10);
@@ -358,6 +383,9 @@ export async function GET(request: NextRequest) {
           importe_imputado: x.importe_imputado,
         })),
         numero_cheque: c.numero == null ? null : String(c.numero),
+        // Con qué se paga: un pago por transferencia no es un cheque, y la
+        // planilla no tiene por qué llamarlo así.
+        medio: c.medio == null ? "cheque" : String(c.medio),
         banco_nombre: c.banco_nombre == null ? null : String(c.banco_nombre),
         fecha_emision: c.fecha_emision == null ? null : String(c.fecha_emision).slice(0, 10),
         fecha_cobro: (c.fecha_cobro_real ?? c.fecha_cobro_prevista) == null
@@ -390,6 +418,7 @@ export async function GET(request: NextRequest) {
         numero_control: f.numero_control,
         facturas: [{ numero_control: f.numero_control, numero_factura: f.numero_factura, importe_imputado: f.importe }],
         numero_cheque: null,
+        medio: null,
         banco_nombre: null,
         fecha_emision: null,
         fecha_cobro: null,
