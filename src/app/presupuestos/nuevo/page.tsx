@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { FileText, ArrowLeft, Plus, Trash2, Loader2, History } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
@@ -17,6 +17,7 @@ import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
 import Selector from "@/components/ui/Selector";
+import { getSession } from "@/lib/auth";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -200,6 +201,88 @@ export default function NuevoPresupuestoPage() {
 
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * El presupuesto a medio armar se guarda solo en este navegador.
+   *
+   * Antes, salir de la pantalla —otro menú, un F5, cerrar la pestaña— tiraba
+   * todo lo cargado. Ahora cada cambio se guarda (localStorage, por usuario,
+   * para que en una PC compartida uno no vea el de otro) y al volver se
+   * recupera tal cual. Se borra al guardar el presupuesto o con "Empezar de
+   * cero". No crea nada en la base: el borrador del servidor sigue siendo el
+   * que se guarda con el botón.
+   */
+  const claveBorrador = useRef<string | null>(null);
+  const [borradorListo, setBorradorListo] = useState(false);
+  const [recuperado, setRecuperado] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancel = false;
+    void getSession().then((ses) => {
+      if (cancel) return;
+      const clave = `neura:presupuesto-en-curso:${ses?.user?.id ?? "anon"}`;
+      claveBorrador.current = clave;
+      try {
+        const crudo = localStorage.getItem(clave);
+        const b = crudo ? (JSON.parse(crudo) as Record<string, unknown>) : null;
+        if (b && b.v === 1) {
+          const txt = (k: string) => (typeof b[k] === "string" ? (b[k] as string) : "");
+          setClienteId(txt("clienteId"));
+          setClienteNombre(txt("clienteNombre"));
+          setClienteRuc(txt("clienteRuc"));
+          setClienteTel(txt("clienteTel"));
+          setClienteDir(txt("clienteDir"));
+          setClienteCiudad(txt("clienteCiudad"));
+          setClienteProfesion(txt("clienteProfesion"));
+          if (Array.isArray(b.items)) setItems(b.items as Item[]);
+          setUsarMayorista(b.usarMayorista === true);
+          if (txt("formaPago")) setFormaPago(txt("formaPago"));
+          setPlazoEntrega(txt("plazoEntrega"));
+          setObservaciones(txt("observaciones"));
+          setNotaInterna(txt("notaInterna"));
+          setFaltaMaterial(b.faltaMaterial === true);
+          setVendedorId(txt("vendedorId"));
+          if (txt("condiciones")) setCondiciones(txt("condiciones"));
+          const cuando = typeof b.at === "number" ? new Date(b.at) : null;
+          setRecuperado(cuando
+            ? cuando.toLocaleString("es-PY", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+            : "antes");
+        }
+      } catch { /* sin localStorage (modo privado): se trabaja igual, sin autoguardado */ }
+      setBorradorListo(true);
+    });
+    return () => { cancel = true; };
+  }, []);
+
+  const hayAlgoCargado =
+    clienteNombre.trim().length > 0 || items.length > 0 ||
+    plazoEntrega.trim().length > 0 || observaciones.trim().length > 0 || notaInterna.trim().length > 0;
+
+  useEffect(() => {
+    if (!borradorListo || !claveBorrador.current) return;
+    const clave = claveBorrador.current;
+    const t = window.setTimeout(() => {
+      try {
+        if (!hayAlgoCargado) { localStorage.removeItem(clave); return; }
+        localStorage.setItem(clave, JSON.stringify({
+          v: 1, at: Date.now(),
+          clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad, clienteProfesion,
+          items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
+          vendedorId, condiciones,
+        }));
+      } catch { /* lleno o bloqueado: no se guarda, nada más */ }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [borradorListo, hayAlgoCargado, clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad,
+      clienteProfesion, items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
+      vendedorId, condiciones]);
+
+  /** Tirar lo recuperado y arrancar en blanco. */
+  function empezarDeCero() {
+    if (!window.confirm("¿Descartar el presupuesto que estabas armando?")) return;
+    try { if (claveBorrador.current) localStorage.removeItem(claveBorrador.current); } catch { /* nada */ }
+    window.location.reload();
+  }
 
   useEffect(() => {
     fetchWithSupabaseSession("/api/productos", { cache: "no-store" })
@@ -490,6 +573,7 @@ export default function NuevoPresupuestoPage() {
         setError(body?.error ?? "No se pudo guardar el presupuesto.");
         return;
       }
+      try { if (claveBorrador.current) localStorage.removeItem(claveBorrador.current); } catch { /* nada */ }
       router.push(`/presupuestos/${body.data.id}`);
     } catch {
       setError("Error de red al guardar el presupuesto.");
@@ -519,6 +603,25 @@ export default function NuevoPresupuestoPage() {
           <span>Usar precios mayoristas por defecto</span>
         </label>
       </div>
+
+      {recuperado && hayAlgoCargado && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#4FAEB2]/40 bg-[#4FAEB2]/5 px-4 py-3 text-sm text-slate-700">
+          <History className="h-4 w-4 shrink-0 text-[#3F8E91]" />
+          <span className="flex-1">
+            Seguís con el presupuesto que estabas armando <span className="text-slate-500">(guardado {recuperado})</span>.
+          </span>
+          <button type="button" onClick={empezarDeCero}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            Empezar de cero
+          </button>
+          <button type="button" onClick={() => setRecuperado(null)} className="text-xs text-slate-400 hover:text-slate-600">
+            Ocultar
+          </button>
+        </div>
+      )}
+      {!recuperado && borradorListo && hayAlgoCargado && (
+        <p className="-mt-3 text-xs text-slate-400">Se va guardando solo mientras lo armás: si salís, al volver lo encontrás como lo dejaste.</p>
+      )}
 
       {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
