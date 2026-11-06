@@ -6,6 +6,9 @@ import AccionesTabla from "@/components/ui/AccionesTabla";
 import { getMovimientos } from "@/lib/inventario/storage";
 import type { MovimientoInventario, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
 import Selector from "@/components/ui/Selector";
+import PageHeader from "@/components/ui/PageHeader";
+import BarraFiltros, { CampoFiltro, campoClase } from "@/components/ui/BarraFiltros";
+import { Plus, Undo2 } from "lucide-react";
 
 const tipoBadge: Record<TipoMovimiento, string> = {
   ENTRADA: "bg-green-100 text-green-700",
@@ -30,22 +33,15 @@ const origenLabel: Record<OrigenMovimiento, string> = {
   edicion_venta_reversa: "Edición de venta (reversa)",
 };
 
-const origenBadge: Record<OrigenMovimiento, string> = {
-  compra: "bg-blue-50 text-blue-600",
-  venta: "bg-purple-50 text-purple-600",
-  ajuste_manual: "bg-gray-100 text-gray-600",
-  inventario_inicial: "bg-orange-50 text-orange-600",
-  anulacion_venta: "bg-pink-50 text-pink-600",
-  anulacion_compra: "bg-rose-50 text-rose-700",
-  produccion: "bg-emerald-50 text-emerald-700",
-  devolucion_venta: "bg-amber-50 text-amber-700",
-  devolucion_proveedor: "bg-teal-50 text-teal-700",
-  transferencia: "bg-indigo-50 text-indigo-700",
-  transferencia_salida: "bg-indigo-50 text-indigo-700",
-  transferencia_entrada: "bg-indigo-50 text-indigo-700",
-  edicion_venta: "bg-violet-50 text-violet-700",
-  edicion_venta_reversa: "bg-violet-50 text-violet-700",
-};
+/**
+ * Los tres tipos, en tono suave.
+ *
+ * El ORIGEN, en cambio, ya no lleva color: eran catorce —azul, violeta,
+ * naranja, rosa, índigo…— uno por cada clase, y con 479 filas la pantalla
+ * quedaba un arcoíris en el que ningún color significaba nada. Catorce
+ * colores no se distinguen ni se recuerdan: el origen ahora es texto, que se
+ * lee, y el color queda para el tipo, que son tres.
+ */
 
 function formatGs(valor: number) {
   // El guaraní no tiene decimales: el costo promedio sí los arrastra
@@ -61,14 +57,13 @@ function formatFecha(iso: string) {
     const yyyy = d.getFullYear();
     const hh = String(d.getHours()).padStart(2, "0");
     const min = String(d.getMinutes()).padStart(2, "0");
-    return `${dd}/${mm}/${yyyy}, ${hh}:${min}`;
+    // Año de dos dígitos y sin coma: con el formato largo la celda se
+    // partía en dos renglones y cada fila crecía por una fecha.
+    return `${dd}/${mm}/${String(yyyy).slice(2)} ${hh}:${min}`;
   } catch {
     return iso;
   }
 }
-
-const inputFilterClass =
-  "border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 transition-colors bg-white";
 
 export default function MovimientosPage() {
   const [todos, setTodos] = useState<MovimientoInventario[]>([]);
@@ -123,24 +118,16 @@ export default function MovimientosPage() {
   ).sort((a, b) => a.localeCompare(b, "es"));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
 
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Movimientos de inventario</h1>
-        <p className="text-gray-600">Registro de entradas, salidas y ajustes de stock</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-
-        {/* Header */}
-        <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-xl font-semibold">Historial</h2>
-            <span className="text-sm text-gray-400">
-              {filtrados.length} de {todos.length} registros
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+      {/* Había dos títulos, uno adentro del otro: "Movimientos de inventario"
+          afuera y "Historial" adentro de la tarjeta, diciendo lo mismo. */}
+      <PageHeader
+        eyebrow="Inventario"
+        title="Movimientos de inventario"
+        description="Las entradas, las salidas y los ajustes de stock, con quién los hizo y de dónde salieron."
+        actions={
+          <>
             {/* Requisito 11.1: la planilla es exactamente lo que se ve, con
                 los filtros aplicados. */}
             <AccionesTabla
@@ -162,111 +149,105 @@ export default function MovimientosPage() {
             />
             <Link
               href="/inventario/devoluciones-proveedor"
-              className="text-xs font-medium text-[#3F8E91] hover:text-white hover:bg-[#3F8E91] border border-[#3F8E91]/40 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
-              ↩ Devolución a proveedor
+              <Undo2 className="h-4 w-4" /> Devolución a proveedor
             </Link>
+            {/* Era un botón con degradé, anillo y un salto al apretarlo: el
+                único así en toda la aplicación. */}
             <Link
               href="/inventario/movimientos/nuevo"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#4FAEB2] to-[#3F8E91] text-white px-4 py-2 text-sm font-semibold shadow-sm shadow-[#4FAEB2]/25 ring-1 ring-[#4FAEB2]/30 hover:shadow-md hover:from-[#3F8E91] hover:to-[#2F6F72] active:scale-95 transition-all"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden>
-                <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-              </svg>
-              Nuevo movimiento
+              <Plus className="h-4 w-4" /> Nuevo movimiento
             </Link>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Filtros */}
-        <div className="flex flex-wrap gap-3 mb-5 pb-5 border-b border-gray-100">
-          {/* Fila 1: búsqueda + tipo + origen */}
+      <BarraFiltros
+        hayFiltro={!!(busqueda || filtroUsuario || filtroOrigen || fechaDesde || fechaHasta)}
+        onLimpiar={() => {
+          setBusqueda("");
+          setFiltroUsuario("");
+          setFiltroOrigen("");
+          setFechaDesde("");
+          setFechaHasta("");
+        }}
+      >
+        <CampoFiltro etiqueta="Buscar">
           <input
             type="text"
-            placeholder="Buscar por producto, SKU o comprobante…"
+            placeholder="Producto, SKU o comprobante"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className={`${inputFilterClass} min-w-56`}
+            className={`${campoClase} w-64`}
           />
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Usuario">
           <Selector
             value={filtroUsuario}
             onChange={(e) => setFiltroUsuario(e.target.value)}
-            className={inputFilterClass}
+            className={`${campoClase} w-48`}
           >
-            <option value="">Todos los usuarios</option>
+            <option value="">Todos</option>
             {usuariosEnLista.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
           </Selector>
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Origen">
+          {/* El desplegable se arma de origenLabel para que no vuelva a quedar
+              corto: las transferencias y las ediciones de venta ya escribían
+              movimientos y no estaban en esta lista, así que no había forma de
+              filtrarlas. */}
           <Selector
             value={filtroOrigen}
             onChange={(e) => setFiltroOrigen(e.target.value as OrigenMovimiento | "")}
-            className={inputFilterClass}
+            className={`${campoClase} w-56`}
           >
-            {/* El desplegable se arma de origenLabel para que no vuelva a
-                quedar corto: las transferencias y las ediciones de venta ya
-                escribían movimientos y no estaban en esta lista, así que no
-                había forma de filtrarlas. */}
-            <option value="">Todos los orígenes</option>
+            <option value="">Todos</option>
             {(Object.keys(origenLabel) as OrigenMovimiento[]).map((o) => (
               <option key={o} value={o}>{origenLabel[o]}</option>
             ))}
           </Selector>
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Desde">
+          <input
+            type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)}
+            max={fechaHasta || undefined} className={campoClase}
+          />
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Hasta">
+          <input
+            type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)}
+            min={fechaDesde || undefined} className={campoClase}
+          />
+        </CampoFiltro>
+      </BarraFiltros>
 
-          {/* Separador visual entre grupos */}
-          <div className="w-full flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 whitespace-nowrap">Desde</label>
-              <input
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-                max={fechaHasta || undefined}
-                className={inputFilterClass}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 whitespace-nowrap">Hasta</label>
-              <input
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-                min={fechaDesde || undefined}
-                className={inputFilterClass}
-              />
-            </div>
-            {(busqueda || filtroUsuario || filtroOrigen || fechaDesde || fechaHasta) && (
-              <button
-                onClick={() => {
-                  setBusqueda("");
-                  setFiltroUsuario("");
-                  setFiltroOrigen("");
-                  setFechaDesde("");
-                  setFechaHasta("");
-                }}
-                className="text-sm text-gray-400 hover:text-gray-600 transition-colors px-2"
-              >
-                Limpiar filtros
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <p className="border-b border-slate-100 px-4 py-2 text-xs text-slate-500">
+          {filtrados.length === todos.length
+            ? `${todos.length} movimientos`
+            : `${filtrados.length} de ${todos.length} movimientos`}
+        </p>
 
         {/* Tabla — min-w activa el scroll horizontal en mobile;
             SKU, Origen, Usuario se ocultan en pantallas chicas. */}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] sm:min-w-0 text-left text-sm">
-            <thead>
-              <tr className="border-b text-gray-500">
-                <th className="py-3 pr-4 font-medium">Producto</th>
-                <th className="py-3 pr-4 font-medium hidden md:table-cell">SKU</th>
-                <th className="py-3 pr-4 font-medium">Tipo</th>
-                <th className="py-3 pr-4 font-medium text-right">Cantidad</th>
-                <th className="py-3 pr-4 font-medium text-right hidden lg:table-cell">Costo unit.</th>
-                <th className="py-3 pr-4 font-medium hidden md:table-cell">Origen</th>
-                <th className="py-3 pr-4 font-medium hidden lg:table-cell">Referencia</th>
-                <th className="py-3 pr-4 font-medium hidden lg:table-cell">Usuario</th>
-                <th className="py-3 font-medium">Fecha</th>
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr className="border-b border-slate-200">
+                <th className="py-2 pl-4 pr-4 font-medium">Producto</th>
+                <th className="py-2 pr-4 font-medium hidden md:table-cell">SKU</th>
+                <th className="py-2 pr-4 font-medium">Tipo</th>
+                <th className="py-2 pr-4 font-medium text-right">Cantidad</th>
+                <th className="py-2 pr-4 font-medium text-right hidden lg:table-cell">Costo unit.</th>
+                <th className="py-2 pr-4 font-medium hidden md:table-cell">Origen</th>
+                <th className="py-2 pr-4 font-medium hidden lg:table-cell">Referencia</th>
+                <th className="py-2 pr-4 font-medium hidden lg:table-cell">Usuario</th>
+                <th className="py-2 pr-4 font-medium">Fecha</th>
               </tr>
             </thead>
             <tbody>
@@ -290,36 +271,44 @@ export default function MovimientosPage() {
                       : "text-yellow-600";
 
                   return (
-                    <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="py-4 pr-4 font-medium text-gray-800">{m.producto_nombre}</td>
-                      <td className="py-4 pr-4 text-gray-500 font-mono hidden md:table-cell">{m.producto_sku}</td>
-                      <td className="py-4 pr-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${tipoBadge[m.tipo]}`}>
+                    /* Las filas eran de py-4: con 479 movimientos, entraban
+                       siete en la pantalla y para leer el historial había que
+                       scrollear a lo largo de tres pantallas por cada diez. */
+                    <tr key={m.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                      <td className="py-2 pl-4 pr-4 font-medium text-slate-800">{m.producto_nombre}</td>
+                      <td className="hidden py-2 pr-4 font-mono text-xs text-slate-400 md:table-cell">{m.producto_sku}</td>
+                      <td className="py-2 pr-4">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${tipoBadge[m.tipo]}`}>
                           {m.tipo}
                         </span>
                       </td>
-                      <td className={`py-4 pr-4 text-right font-semibold tabular-nums ${cantidadColor}`}>
+                      <td className={`py-2 pr-4 text-right font-semibold tabular-nums ${cantidadColor}`}>
                         {signo}{Math.abs(m.cantidad)}
                       </td>
-                      <td className="py-4 pr-4 text-right text-gray-700 tabular-nums hidden lg:table-cell">
+                      <td className="hidden py-2 pr-4 text-right tabular-nums text-slate-600 lg:table-cell">
                         {formatGs(m.costo_unitario)}
                       </td>
-                      <td className="py-4 pr-4 hidden md:table-cell">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${origenBadge[m.origen]}`}>
-                          {origenLabel[m.origen]}
-                        </span>
+                      {/* El origen va en texto: con catorce colores distintos,
+                          repetidos en cada fila, la columna pesaba más que el
+                          dato. */}
+                      <td className="hidden py-2 pr-4 text-xs text-slate-500 md:table-cell">
+                        {origenLabel[m.origen]}
                       </td>
                       {/* El número del comprobante que originó el movimiento:
                           COMP-… para compras, TRF-… para transferencias. Sin
                           esta columna, una transferencia aparecía en la lista
-                          sin forma de saber cuál era. */}
-                      <td className="py-4 pr-4 font-mono text-xs text-gray-500 hidden lg:table-cell">
-                        {m.referencia || <span className="text-gray-300">—</span>}
+                          sin forma de saber cuál era. Se recorta porque hay
+                          referencias largas que empujaban la tabla entera. */}
+                      <td
+                        className="hidden max-w-[180px] truncate py-2 pr-4 font-mono text-[11px] text-slate-400 lg:table-cell"
+                        title={m.referencia ?? undefined}
+                      >
+                        {m.referencia || <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="py-4 pr-4 text-gray-600 text-xs hidden lg:table-cell">
-                        {m.usuario_nombre ?? <span className="text-gray-300">—</span>}
+                      <td className="hidden py-2 pr-4 text-xs text-slate-500 lg:table-cell">
+                        {m.usuario_nombre ?? <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="py-4 text-gray-500 text-xs tabular-nums">
+                      <td className="whitespace-nowrap py-2 pr-4 text-xs tabular-nums text-slate-500">
                         {formatFecha(m.fecha)}
                       </td>
                     </tr>
