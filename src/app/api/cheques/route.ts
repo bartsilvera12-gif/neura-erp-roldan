@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { revisarCheque } from "@/lib/flujo-caja/coherencia-cheque";
+import { monedaDelTotalDeCompra } from "@/lib/compras/moneda-del-total";
 import type { MonedaFlujo } from "@/lib/flujo-caja/types";
 
 /** El cliente que devuelve `getTenantSupabaseFromAuth`. */
@@ -111,23 +112,33 @@ export async function POST(request: NextRequest) {
       .map((f) => ({ numero_control: str(f.numero_control, 64), importe: num(f.importe_imputado) }))
       .filter((f): f is { numero_control: string; importe: number } => !!f.numero_control);
 
-    /** Moneda de cada factura, por número de control. La llena el bloque de abajo. */
-    const monedasFactura = new Map<string, "PYG" | "USD">();
+    /**
+     * Lo que dice la factura, en guaraníes, por número de control.
+     *
+     * Es el ancla contra la que se revisa el cheque, y por eso sale de
+     * `compras.total` y no de lo que mandó la pantalla: si los dos lados de la
+     * comparación los pone el que está emitiendo, la revisión no revisa nada.
+     *
+     * `compras` tiene una fila por LÍNEA de la factura: hay que sumarlas.
+     */
+    const totalGsFactura = new Map<string, number>();
 
     if (facturas.length > 0) {
       const { data: comprasData, error: comprasErr } = await ctx.supabase
         .from("compras")
-        .select("numero_control, proveedor_id, moneda")
+        .select("numero_control, proveedor_id, moneda, total")
         .eq("empresa_id", empresaId)
         .in("numero_control", facturas.map((f) => f.numero_control));
       if (comprasErr) throw new Error(comprasErr.message);
       const rows = (comprasData ?? []) as Array<Record<string, unknown>>;
       const encontradas = new Set(rows.map((r) => String(r.numero_control)));
       for (const r of rows) {
-        monedasFactura.set(
-          String(r.numero_control),
-          String(r.moneda ?? "PYG").toUpperCase() === "USD" ? "USD" : "PYG"
-        );
+        const nc = String(r.numero_control);
+        // `compras.total` está SIEMPRE en guaraníes, diga lo que diga
+        // `compras.moneda` (ver moneda-del-total.ts). La función está para que
+        // esto se lea y se cambie en un solo lugar.
+        const enGs = monedaDelTotalDeCompra(r.moneda as string | null) === "PYG" ? num(r.total) : 0;
+        totalGsFactura.set(nc, (totalGsFactura.get(nc) ?? 0) + enGs);
       }
       const ajenas = rows.filter((r) => String(r.proveedor_id ?? "") !== proveedorId);
 
@@ -173,7 +184,23 @@ export async function POST(request: NextRequest) {
     // por una factura de 128.000 Gs. —la pantalla mandaba la moneda del
     // PROVEEDOR en vez de la de las facturas— y el flujo lo proyectaba como
     // 819 millones de egreso.
-    if (monedasFactura.size > 0) {
+    //
+    // ── CONTRA QUÉ SE COMPARA ──────────────────────────────────────────────
+    //   Contra el total en guaraníes que tiene la factura en la base, no
+    //   contra el importe imputado que mandó la pantalla. Dos motivos:
+    //
+    //     · Ese importe viene en la moneda del cheque. Si el cheque está mal
+    //       etiquetado, los dos lados se multiplican igual y la revisión da
+    //       1 a 1: deja pasar justo lo que vino a frenar.
+    //     · `compras.moneda` tampoco sirve para saber la moneda de la
+    //       factura: dice USD en 684 de cada 1.000 filas y el total está en
+    //       guaraníes igual. Leerlo frenaba pagos correctos —un cheque de
+    //       13.566.350 Gs. contra una factura leída como "US$ 13.566.350"
+    //       daba 6.400 veces de diferencia—.
+    //
+    //   Un pago parcial no se frena: una diferencia razonable es un aviso, y
+    //   solo lo desproporcionado (50 veces o más) devuelve error.
+    if (totalGsFactura.size > 0) {
       const tipoCambio = await tipoCambioVigente(ctx.supabase, empresaId);
       const revision = revisarCheque({
         moneda,
@@ -181,8 +208,8 @@ export async function POST(request: NextRequest) {
         tipoCambio,
         facturas: facturas.map((f) => ({
           numero_control: f.numero_control,
-          moneda: (monedasFactura.get(f.numero_control) ?? "PYG") as MonedaFlujo,
-          importe_imputado: f.importe,
+          moneda: "PYG" as MonedaFlujo,
+          importe_imputado: totalGsFactura.get(f.numero_control) ?? 0,
         })),
       });
       if (revision.nivel === "error") {
