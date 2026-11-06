@@ -64,9 +64,25 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       condiciones = v == null ? null : String(v);
     }
 
+    // Lo que se le cambió en la caja, si se le cambió algo. Va en su propia
+    // consulta y sin romper nada: en una base sin el script 79 la tabla no
+    // existe todavía, y el presupuesto tiene que abrirse igual.
+    let cambiosAlCobrar: Record<string, unknown>[] = [];
+    const ccq = await ctx.supabase
+      .from("presupuesto_cambios")
+      .select(
+        "id, venta_id, venta_numero, cobrado_por_nombre, cambios, total_presupuesto, total_cobrado, created_at, visto_at"
+      )
+      .eq("empresa_id", ctx.auth.empresa_id)
+      .eq("presupuesto_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (!ccq.error) cambiosAlCobrar = (ccq.data ?? []) as Record<string, unknown>[];
+
     return NextResponse.json(successResponse({
       presupuesto: { ...cabecera, condiciones_comerciales: condiciones },
       items: itq.data ?? [],
+      cambios_al_cobrar: cambiosAlCobrar,
     }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error";

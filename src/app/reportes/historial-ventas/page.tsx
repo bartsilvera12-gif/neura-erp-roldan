@@ -89,6 +89,13 @@ export default function HistorialVentasPage() {
   // volver a consultar por cada tilde. El rango sí va al servidor, que es el
   // que decide qué ventas llegan.
   const [fTexto, setFTexto] = useState("");
+  // `?q=` viene del aviso de un presupuesto que se cobró distinto: ahí se
+  // muestra el número de la venta y desde acá se la busca. Si la venta es de
+  // un mes anterior, el rango de arriba sigue siendo del que manda.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setFTexto(q);
+  }, []);
   const [fCliente, setFCliente] = useState("");
   const [fVendedor, setFVendedor] = useState("");
   const [abierta, setAbierta] = useState<Row | null>(null);

@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, Check, Download, FileCheck2, FileText, Loader
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
+import { CambiosAlCobrar, type AvisoCambios } from "@/components/presupuestos/CambiosAlCobrar";
 
 type Presu = {
   id: string;
@@ -84,6 +85,7 @@ export default function PresupuestoDetallePage() {
 
   const [presu, setPresu] = useState<Presu | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
+  const [avisos, setAvisos] = useState<AvisoCambios[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -100,6 +102,7 @@ export default function PresupuestoDetallePage() {
       }
       setPresu(body.data.presupuesto as Presu);
       setItems((body.data.items ?? []) as ItemRow[]);
+      setAvisos((body.data.cambios_al_cobrar ?? []) as AvisoCambios[]);
     } catch {
       setError("Error de red.");
     } finally {
@@ -110,6 +113,21 @@ export default function PresupuestoDetallePage() {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  // Abrir el presupuesto cuenta como ver el aviso: para eso se abre. El
+  // servidor solo lo marca si el que mira es la vendedora del presupuesto, así
+  // que al admin o al que cobró no les desaparece el aviso de ella.
+  useEffect(() => {
+    const sinVer = avisos.filter((a) => a.visto_at == null).map((a) => a.id);
+    if (sinVer.length === 0) return;
+    for (const avisoId of sinVer) {
+      void fetchWithSupabaseSession("/api/presupuestos/cambios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: avisoId }),
+      }).catch(() => {});
+    }
+  }, [avisos]);
 
   async function cambiarEstado(nuevo: EstadoPresupuesto) {
     if (busy) return;
@@ -340,6 +358,14 @@ export default function PresupuestoDetallePage() {
           </Link>
         </div>
       )}
+
+      {/* Lo que se le cambió en la caja. Va arriba, antes de los ítems: los
+          ítems de abajo son lo que se presupuestó, no lo que se cobró, y sin
+          este aviso la vendedora los lee como si fueran lo que el cliente se
+          llevó. */}
+      {avisos.map((a) => (
+        <CambiosAlCobrar key={a.id} aviso={a} />
+      ))}
 
       {/* Estados */}
       {SIGUIENTES[presu.estado].length > 0 && (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { avisarCambiosAlCobrar } from "@/lib/presupuestos/server/aviso-cambios";
 
 /**
  * POST /api/presupuestos/[id]/marcar-convertido
@@ -45,7 +46,18 @@ export async function POST(
       .neq("estado", "borrador");
     if (error) throw new Error(error.message);
 
-    return NextResponse.json(successResponse({ ok: true }));
+    // Si en la caja se le cambió algo al presupuesto, le queda el aviso a la
+    // vendedora que lo armó. La comparación se hace acá, leyendo las dos
+    // puntas de la base: si la mandara la pantalla de caja, quien cobra
+    // estaría contando lo que él mismo cambió.
+    const cambios = await avisarCambiosAlCobrar(
+      ctx.supabase,
+      ctx.auth.empresa_id,
+      id,
+      ventaId
+    );
+
+    return NextResponse.json(successResponse({ ok: true, cambios }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo marcar convertido.";
     console.error("[/api/presupuestos/[id]/marcar-convertido]", msg);

@@ -8,6 +8,7 @@ import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import Selector from "@/components/ui/Selector";
+import { CambiosAlCobrar, type AvisoCambios } from "@/components/presupuestos/CambiosAlCobrar";
 
 /** Estados que el usuario puede elegir manualmente desde el listado (nunca 'convertido'). */
 const ESTADOS_EDITABLES: EstadoPresupuesto[] = ["creado", "enviado", "aprobado", "rechazado"];
@@ -133,6 +134,9 @@ export default function PresupuestosPage() {
   const [fPersona, setFPersona] = useState("");
   const [toast, setToast] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null);
   const [actualizando, setActualizando] = useState<Set<string>>(new Set());
+  // Los presupuestos que se cobraron distinto y todavía no se vieron.
+  const [avisos, setAvisos] = useState<AvisoCambios[]>([]);
+  const [verAvisos, setVerAvisos] = useState(false);
 
   const mostrarToast = useCallback((tipo: "ok" | "error", msg: string) => {
     setToast({ tipo, msg });
@@ -224,6 +228,24 @@ export default function PresupuestosPage() {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  // Los avisos van en su propia consulta: si fallara —falta el script 79— el
+  // listado de presupuestos tiene que salir igual.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetchWithSupabaseSession("/api/presupuestos/cambios?sin_ver=1", {
+          cache: "no-store",
+        });
+        const body = await res.json();
+        if (res.ok && body?.success !== false) {
+          setAvisos((body.data?.cambios ?? []) as AvisoCambios[]);
+        }
+      } catch {
+        /* sin avisos: la pantalla sigue siendo el listado de presupuestos */
+      }
+    })();
+  }, []);
 
   const filtradas = useMemo(() => {
     const texto = buscar.trim().toLowerCase();
@@ -330,6 +352,49 @@ export default function PresupuestosPage() {
           </Link>
         </div>
       </div>
+
+      {/* El aviso de lo que se cambió en la caja. Va arriba de los filtros:
+          es lo único de esta pantalla que la vendedora todavía no sabe. Los
+          suyos sin ver primero; el admin los ve todos porque es el que atiende
+          el reclamo cuando llama el cliente. */}
+      {avisos.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-2.5">
+            <p className="text-sm text-amber-900">
+              <strong>
+                {avisos.length === 1
+                  ? "Un presupuesto se cobró distinto"
+                  : `${avisos.length} presupuestos se cobraron distinto`}
+              </strong>{" "}
+              a lo que decía. Abajo está qué se le cambió en la caja.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const abrir = !verAvisos;
+                setVerAvisos(abrir);
+                // Abrirlos es leerlos: acá abajo está todo lo que dice el
+                // aviso, así que no tiene sentido que siga contando como sin
+                // ver. El servidor solo marca los de quien está mirando.
+                if (abrir) {
+                  void fetchWithSupabaseSession("/api/presupuestos/cambios", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ todos: true }),
+                  }).catch(() => {});
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+            >
+              {verAvisos ? "Ocultar" : "Ver qué cambió"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${verAvisos ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+          {verAvisos && avisos.map((a) => (
+            <CambiosAlCobrar key={a.id} aviso={a} conPresupuesto />
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3">
         <label className="flex flex-col gap-1">
