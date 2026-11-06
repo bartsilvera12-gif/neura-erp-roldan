@@ -7,11 +7,12 @@ import { Metrica, FilaDeMetricas } from "@/components/ui/Metrica";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import ReciboProveedor from "@/components/pagos/ReciboProveedor";
 import MarcarFacturaPagadaModal from "@/components/pagos/MarcarFacturaPagadaModal";
+import PagosRealizados from "@/components/pagos/PagosRealizados";
 import {
   agruparDeuda, textoVencimiento,
   type FacturaClasificada, type FacturaProveedor, type ProveedorDeuda,
 } from "@/lib/pagos/deuda-proveedores";
-import { ChevronDown, ChevronRight, FileText, Printer, Search, Wallet } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, Printer, Search, Wallet } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 
 /**
@@ -89,6 +90,20 @@ export default function PagosProveedoresPage() {
   // recibo. Se dice, en vez de mostrar un botón que va a fallar.
   const [recibosDisponibles, setRecibosDisponibles] = useState(true);
 
+  /**
+   * Dos pestañas: lo que hay que pagar y lo que ya se pagó. Se lee de
+   * ?tab=realizados para poder entrar directo (window.location y no
+   * useSearchParams, para no tener que envolver la página en Suspense).
+   */
+  const [pestana, setPestana] = useState<"por_pagar" | "realizados">("por_pagar");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "realizados") setPestana("realizados");
+  }, []);
+  const irA = (t: "por_pagar" | "realizados") => {
+    setPestana(t);
+    window.history.replaceState(null, "", t === "realizados" ? "?tab=realizados" : window.location.pathname);
+  };
+
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
@@ -141,7 +156,7 @@ export default function PagosProveedoresPage() {
       <PageHeader
         eyebrow="Pagos"
         title="Pagos a proveedores"
-        description="A quién hay que pagarle, cuánto y desde cuándo"
+        description="A quién hay que pagarle, y lo que ya se pagó"
         actions={
           <Link
             href="/pagos/orden-pago"
@@ -152,6 +167,21 @@ export default function PagosProveedoresPage() {
         }
       />
 
+      <div className="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_#e2e8f0]">
+        {([
+          ["por_pagar", "Por pagar", <Clock key="p" className="h-4 w-4" />],
+          ["realizados", "Pagos realizados", <CheckCircle2 key="r" className="h-4 w-4" />],
+        ] as const).map(([t, label, icon]) => (
+          <button key={t} type="button" onClick={() => irA(t)}
+            className={`inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              pestana === t ? "border-[#4FAEB2] text-[#3F8E91]" : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}>
+            {icon} {label}
+          </button>
+        ))}
+      </div>
+
+      {pestana === "realizados" ? <PagosRealizados /> : (<>
       {/* ── Los tres números de la ventana ────────────────────────────── */}
       <FilaDeMetricas>
         <Metrica
@@ -265,6 +295,7 @@ export default function PagosProveedoresPage() {
           onExito={async () => { setPagando(null); await cargar(); }}
         />
       )}
+      </>)}
     </div>
   );
 }
