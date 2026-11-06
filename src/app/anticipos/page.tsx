@@ -5,6 +5,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import Selector from "@/components/ui/Selector";
+import { Metrica } from "@/components/ui/Metrica";
 
 /**
  * Anticipos de clientes (punto 5.6).
@@ -164,7 +165,7 @@ export default function AnticiposPage() {
       {/* Filtros */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Estado</span>
+          <span className="text-[11px] font-medium text-slate-500">Estado</span>
           <Selector value={estado} onChange={(e) => setEstado(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="activo">Activos</option>
@@ -174,20 +175,20 @@ export default function AnticiposPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
+          <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input type="date" value={desde} max={hasta || undefined}
             onChange={(e) => setDesde(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Hasta</span>
+          <span className="text-[11px] font-medium text-slate-500">Hasta</span>
           <input type="date" value={hasta} min={desde || undefined}
             onChange={(e) => setHasta(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
         </label>
         <form className="flex flex-1 flex-col gap-1"
           onSubmit={(e) => { e.preventDefault(); setQ(qDraft.trim()); }}>
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <div className="flex gap-2">
             <input type="text" value={qDraft} onChange={(e) => setQDraft(e.target.value)}
               placeholder="Número, cliente o nota…"
@@ -203,7 +204,7 @@ export default function AnticiposPage() {
       {/* Acumulado por cliente */}
       {data && data.por_cliente.length > 0 && estado === "activo" && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-medium text-slate-500">
             Acumulado por cliente
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -504,14 +505,9 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
   );
 }
 
+/** La tarjeta común, con el nombre que ya usaba esta pantalla. */
 function Tarjeta({ label, valor, sub, destacado = false }: {
   label: string; valor: string; sub?: string; destacado?: boolean;
 }) {
-  return (
-    <div className={`rounded-xl border bg-white p-4 shadow-sm ${destacado ? "border-[#4FAEB2]/40" : "border-slate-200"}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold tabular-nums ${destacado ? "text-[#3F8E91]" : "text-slate-900"}`}>{valor}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
-    </div>
-  );
+  return <Metrica etiqueta={label} valor={valor} detalle={sub} tono={destacado ? "acento" : "neutro"} />;
 }

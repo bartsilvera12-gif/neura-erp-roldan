@@ -134,7 +134,7 @@ export default function ConfiguracionContablePage() {
       <ConfigFormCard>
         <ConfigSectionTitle>Períodos contables</ConfigSectionTitle>
         <p className="mb-3 text-xs text-slate-400">Un documento no puede contabilizarse en un período cerrado. Los períodos nuevos se crean abiertos automáticamente al contabilizar.</p>
-        <div className="mb-4 flex flex-wrap items-end gap-2">
+        <div className="mb-4 flex flex-wrap items-end gap-3">
           <label className="text-xs font-semibold text-slate-500">Año<input type="number" value={nAnio} onChange={(e) => setNAnio(Number(e.target.value))} className="mt-1 w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm" /></label>
           <label className="text-xs font-semibold text-slate-500">Mes<Selector value={nMes} onChange={(e) => setNMes(Number(e.target.value))} className="mt-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm">{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</Selector></label>
           <button onClick={() => togglePeriodo(nAnio, nMes, "cerrado")} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cerrar período</button>

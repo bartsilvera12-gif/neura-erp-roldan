@@ -114,7 +114,7 @@ export default function NuevaOrdenCompraModal({
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="sm:col-span-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedor</span>
+            <span className="text-[11px] font-medium text-slate-500">Proveedor</span>
             <SearchableSelect
               value={proveedorId}
               onChange={(v) => { setProveedorId(v); setError(null); }}
@@ -132,7 +132,7 @@ export default function NuevaOrdenCompraModal({
           </label>
 
           <label>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fecha</span>
+            <span className="text-[11px] font-medium text-slate-500">Fecha</span>
             <input
               type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -142,7 +142,7 @@ export default function NuevaOrdenCompraModal({
 
         <div className="mt-3 flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-slate-700">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Moneda</span>
+            <span className="text-[11px] font-medium text-slate-500">Moneda</span>
             <Selector
               value={moneda} onChange={(e) => setMoneda(e.target.value === "USD" ? "USD" : "PYG")}
               className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
@@ -221,7 +221,7 @@ export default function NuevaOrdenCompraModal({
         </button>
 
         <label className="mt-3 block">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             Observaciones <span className="font-normal normal-case text-slate-400">(salen en la hoja)</span>
           </span>
           <textarea

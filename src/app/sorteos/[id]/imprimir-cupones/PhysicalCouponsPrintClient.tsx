@@ -276,7 +276,7 @@ function CouponCard({ row }: { row: PhysicalCouponPrintRow }) {
   return (
     <article className="flex flex-col justify-between rounded-lg border border-dashed border-slate-400 bg-slate-50/80 p-3 text-center shadow-sm print:bg-white print:shadow-none break-inside-avoid page-break-inside-avoid">
       <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        <p className="text-[10px] font-medium text-slate-500">
           {row.sorteo_nombre}
         </p>
         <p className="text-2xl font-bold tabular-nums text-slate-900">{row.numero_cupon}</p>

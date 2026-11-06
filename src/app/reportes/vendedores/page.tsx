@@ -302,12 +302,12 @@ function TarjetaVendedor({
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Facturó</p>
+          <p className="text-[10px] font-medium text-slate-400">Facturó</p>
           <p className="font-bold text-[#3F8E91]">{formatGs(v.facturacion)}</p>
           <p className="text-[11px] text-slate-400">{formatPct(v.participacion)} del total</p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Utilidad</p>
+          <p className="text-[10px] font-medium text-slate-400">Utilidad</p>
           <p className={`font-bold ${v.utilidad < 0 ? "text-red-600" : "text-slate-900"}`}>
             {formatGs(v.utilidad)}
           </p>
@@ -316,7 +316,7 @@ function TarjetaVendedor({
       </div>
 
       <div className="space-y-1.5 border-t border-slate-100 pt-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <p className="text-[10px] font-medium text-slate-400">
           Lo que más vende
         </p>
         {v.top.length === 0 ? (

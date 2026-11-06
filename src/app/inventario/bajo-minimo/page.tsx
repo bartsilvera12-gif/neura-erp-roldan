@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
+import { Metrica } from "@/components/ui/Metrica";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -139,9 +140,9 @@ export default function BajoMinimoPage() {
       />
 
       {/* ── Filtros ───────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Rubro</span>
+          <span className="text-[11px] font-medium text-slate-500">Rubro</span>
           <Selector
             value={rubro} onChange={(e) => setRubro(e.target.value)}
             className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -155,7 +156,7 @@ export default function BajoMinimoPage() {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Buscar</span>
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <input
             value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre o código"
             className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -405,14 +406,9 @@ export default function BajoMinimoPage() {
   );
 }
 
+/** La tarjeta común, con el nombre que ya usaba esta pantalla. */
 function Tarjeta({
   titulo, valor, pie, acento,
 }: { titulo: string; valor: string; pie: string; acento?: boolean }) {
-  return (
-    <div className={`rounded-xl border px-4 py-3 ${acento ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
-      <p className={`mt-0.5 text-xl font-bold tabular-nums ${acento ? "text-rose-700" : "text-slate-900"}`}>{valor}</p>
-      <p className="text-[11px] text-slate-400">{pie}</p>
-    </div>
-  );
+  return <Metrica etiqueta={titulo} valor={valor} detalle={pie} tono={acento ? "alerta" : "neutro"} />;
 }

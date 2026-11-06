@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AccionesTabla from "@/components/ui/AccionesTabla";
+import PageHeader from "@/components/ui/PageHeader";
+import BarraFiltros, { CampoFiltro, campoClase } from "@/components/ui/BarraFiltros";
+import { Metrica, FilaDeMetricas } from "@/components/ui/Metrica";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import { Banknote, Check, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import { RegistrarCobroModalCxc } from "@/components/cobros/RegistrarCobroModalCxc";
@@ -73,7 +76,6 @@ function fmtFecha(iso: string | null) {
   return d && m && y ? `${d}/${m}/${y}` : s;
 }
 
-const inputClass = "rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#4FAEB2]/40";
 
 export default function PagosPage() {
   const [modo, setModo] = useModoPersistido("pagos.modo");
@@ -177,123 +179,120 @@ export default function PagosPage() {
 
   const hayFiltro = !!desde || !!hasta || !!buscar.trim() || situacion !== "todas";
 
+  /* Punto 11.1: la lista de lo que se debe y la de lo que se cobró, con los
+     filtros puestos, en Excel. Es la que se imprime para salir a cobrar. Van
+     del lado derecho de la barra: son lo que se hace CON el resultado. */
+  const ACCIONES = (
+    <>
+      <AccionesTabla
+        titulo="Cuentas por cobrar"
+        archivo={`cuentas-por-cobrar-${desde || "inicio"}_${hasta || "hoy"}`}
+        subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+        columnas={["Código", "Cliente", "Factura", "Emisión", "Vencimiento", "Total", "Cobrado", "Saldo", "Vencida"]}
+        filas={pendientes.map((c) => [
+          c.cliente_codigo ?? "",
+          c.cliente_nombre,
+          c.numero_venta ?? "",
+          ymd(c.fecha_emision) ?? "",
+          ymd(c.fecha_vencimiento) ?? "",
+          c.total,
+          c.total - c.saldo,
+          c.saldo,
+          c.vencida,
+        ])}
+      />
+      <AccionesTabla
+        labelExcel="Excel cobros"
+        labelImprimir="Imprimir cobros"
+        titulo="Cobros registrados"
+        archivo={`cobros-${desde || "inicio"}_${hasta || "hoy"}`}
+        subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
+        columnas={["Fecha", "Cliente", "Factura", "Medio", "Comprobante", "Monto", "Cobró", "Anulado", "Motivo"]}
+        filas={cobradosVista.map((c) => [
+          ymd(c.fecha_pago) ?? "",
+          c.cliente_nombre,
+          c.numero_venta ?? "",
+          c.metodo_pago,
+          c.referencia ?? "",
+          c.monto,
+          c.usuario_nombre ?? "",
+          c.anulado ? "SÍ" : "",
+          c.anulado_motivo ?? "",
+        ])}
+      />
+    </>
+  );
+
   return (
     <div className="w-full min-w-0 max-w-full space-y-6">
       {toast && (
         <div className="inline-flex items-center gap-1.5 fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg"><Check className="h-4 w-4" /> {toast}</div>
       )}
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Banknote className="h-7 w-7 text-[#4FAEB2]" />
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#4FAEB2]">Cobranzas</p>
-            {/* Se llamaba "Pagos" y mostraba cuentas por COBRAR. El nombre de la
-                pantalla tiene que decir de qué lado está la plata. */}
-            <h1 className="text-2xl font-bold text-gray-800">Cobros a clientes</h1>
-            <p className="text-sm text-gray-500">Lo que los clientes deben de las ventas a crédito, y los cobros que se les registró.</p>
-            <p className="mt-1 text-xs text-slate-500">
-              ¿Buscabas lo que le debemos a un proveedor? Está en{" "}
-              <Link href="/pagos/proveedores" className="font-medium text-[#4FAEB2] hover:underline">
-                Pagos a proveedores
-              </Link>
-              .
-            </p>
-          </div>
-        </div>
-        {/* filtro de fechas */}
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Desde</label>
-            <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Hasta</label>
-            <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Situación</label>
-            <Selector value={situacion} onChange={(e) => setSituacion(e.target.value as Situacion)} className={inputClass}>
-              <option value="todas">Todas</option>
-              <option value="vencidas">Vencidas</option>
-              <option value="al_dia">Al día</option>
-            </Selector>
-          </div>
-          <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Buscar</label>
-            <input
-              type="text"
-              value={buscar}
-              onChange={(e) => setBuscar(e.target.value)}
-              placeholder="Cliente, código o factura"
-              className={`${inputClass} w-56`}
-            />
-          </div>
-          {/* Requisito 11.1: la lista de lo que se debe y lo que se cobró,
-              con los filtros puestos, en Excel. Es la que se imprime para
-              salir a cobrar. */}
-          <AccionesTabla
-            titulo="Cuentas por cobrar"
-            archivo={`cuentas-por-cobrar-${desde || "inicio"}_${hasta || "hoy"}`}
-            subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
-            columnas={["Código", "Cliente", "Factura", "Emisión", "Vencimiento", "Total", "Cobrado", "Saldo", "Vencida"]}
-            filas={pendientes.map((c) => [
-              c.cliente_codigo ?? "",
-              c.cliente_nombre,
-              c.numero_venta ?? "",
-              ymd(c.fecha_emision) ?? "",
-              ymd(c.fecha_vencimiento) ?? "",
-              c.total,
-              c.total - c.saldo,
-              c.saldo,
-              c.vencida,
-            ])}
-          />
-          <AccionesTabla
-            labelExcel="Excel cobros"
-            labelImprimir="Imprimir cobros"
-            titulo="Cobros registrados"
-            archivo={`cobros-${desde || "inicio"}_${hasta || "hoy"}`}
-            subtitulo={hayFiltro ? `Filtrado · del ${desde || "inicio"} al ${hasta || "hoy"}` : undefined}
-            columnas={["Fecha", "Cliente", "Factura", "Medio", "Comprobante", "Monto", "Cobró", "Anulado", "Motivo"]}
-            filas={cobradosVista.map((c) => [
-              ymd(c.fecha_pago) ?? "",
-              c.cliente_nombre,
-              c.numero_venta ?? "",
-              c.metodo_pago,
-              c.referencia ?? "",
-              c.monto,
-              c.usuario_nombre ?? "",
-              c.anulado ? "SÍ" : "",
-              c.anulado_motivo ?? "",
-            ])}
-          />
-          {hayFiltro && (
-            <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); setSituacion("todas"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-              Limpiar
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Cobranzas"
+        title="Cobros a clientes"
+        description="Lo que los clientes deben de las ventas a crédito, y los cobros que se les registró."
+      />
+      <p className="-mt-3 text-xs text-slate-500">
+        ¿Buscabas lo que le debemos a un proveedor? Está en{" "}
+        <Link href="/pagos/proveedores" className="font-medium text-[#3F8E91] hover:underline">
+          Pagos a proveedores
+        </Link>
+        .
+      </p>
 
-      {/* Resumen */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-xs uppercase tracking-wide text-gray-400">Cuentas con saldo</div>
-          <div className="mt-1 text-2xl font-bold text-slate-800">{pendientes.length}</div>
-          <div className="text-[11px] text-slate-400">de {cuentas.length} en total</div>
-        </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-          <div className="text-xs uppercase tracking-wide text-amber-600">Saldo pendiente</div>
-          <div className="mt-1 text-2xl font-bold text-amber-700">{fmtGs(sumPend.saldo)}</div>
-          <div className="text-[11px] text-amber-500">Total: {fmtGs(sumPend.total)}</div>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-          <div className="text-xs uppercase tracking-wide text-emerald-600">Cobrado (filtros)</div>
-          <div className="mt-1 text-2xl font-bold text-emerald-700">{fmtGs(sumCob)}</div>
-          <div className="text-[11px] text-emerald-500">{cobradosVista.length} pagos</div>
-        </div>
-      </div>
+      <BarraFiltros
+        hayFiltro={hayFiltro}
+        onLimpiar={() => { setDesde(""); setHasta(""); setBuscar(""); setSituacion("todas"); }}
+        acciones={ACCIONES}
+      >
+        <CampoFiltro etiqueta="Desde">
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={campoClase} />
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Hasta">
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={campoClase} />
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Situación">
+          <Selector
+            value={situacion} onChange={(e) => setSituacion(e.target.value as Situacion)}
+            className={`${campoClase} w-36`}
+          >
+            <option value="todas">Todas</option>
+            <option value="vencidas">Vencidas</option>
+            <option value="al_dia">Al día</option>
+          </Selector>
+        </CampoFiltro>
+        <CampoFiltro etiqueta="Buscar">
+          <input
+            type="text" value={buscar} onChange={(e) => setBuscar(e.target.value)}
+            placeholder="Cliente, código o factura" className={`${campoClase} w-56`}
+          />
+        </CampoFiltro>
+      </BarraFiltros>
+
+      <FilaDeMetricas>
+        <Metrica
+          etiqueta="Cuentas con saldo"
+          valor={pendientes.length}
+          detalle={`de ${cuentas.length} cuentas en total`}
+          cargando={loading}
+        />
+        <Metrica
+          etiqueta="Saldo pendiente"
+          tono="pendiente"
+          valor={fmtGs(sumPend.saldo)}
+          detalle={`sobre ${fmtGs(sumPend.total)} facturados`}
+          cargando={loading}
+        />
+        <Metrica
+          etiqueta="Cobrado en lo que se está viendo"
+          tono="bien"
+          valor={fmtGs(sumCob)}
+          detalle={`${cobradosVista.length} ${cobradosVista.length === 1 ? "cobro" : "cobros"}`}
+          cargando={loading}
+        />
+      </FilaDeMetricas>
 
       {/* Pestañas: solo 2 */}
       <div className="flex gap-2">
@@ -362,12 +361,12 @@ export default function PagosPage() {
                       <p className="text-[11px] text-slate-500">{pendientes.length} registro{pendientes.length === 1 ? "" : "s"} · recalcula al cambiar fechas o pestaña</p>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</span>
+                      <span className="text-[10px] font-medium text-slate-500">Total</span>
                       <p className="text-sm font-bold tabular-nums text-slate-800">{fmtGs(sumPend.total)}</p>
                     </td>
                     <td className="px-4 py-3" />
                     <td className="px-4 py-3 text-right">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Saldo</span>
+                      <span className="text-[10px] font-medium text-slate-500">Saldo</span>
                       <p className="text-sm font-bold tabular-nums text-amber-600">{fmtGs(sumPend.saldo)}</p>
                     </td>
                     <td colSpan={2} className="px-4 py-3" />
@@ -496,7 +495,7 @@ export default function PagosPage() {
                       <p className="text-xs font-semibold text-slate-700">Total cobrado en la vista</p>
                       <p className="text-[11px] text-slate-500">{cobradosVista.length} registro{cobradosVista.length === 1 ? "" : "s"} · recalcula al cambiar fechas</p>
                     </td>
-                    <td className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cobrado</td>
+                    <td className="px-4 py-3 text-right text-[10px] font-medium text-slate-500">Cobrado</td>
                     <td className="px-4 py-3 text-right"><p className="text-sm font-bold tabular-nums text-emerald-700">{fmtGs(sumCob)}</p></td>
                     <td className="px-4 py-3" />
                   </tr>

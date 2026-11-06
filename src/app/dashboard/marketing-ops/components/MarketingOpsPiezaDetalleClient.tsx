@@ -218,7 +218,7 @@ function Badge({ className, children }: { className: string; children: React.Rea
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
     </div>
   );

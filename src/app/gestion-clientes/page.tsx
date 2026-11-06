@@ -232,7 +232,7 @@ function BotonOperativo({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{children}</p>
+    <p className="text-[11px] font-mediumr text-slate-500">{children}</p>
   );
 }
 
@@ -500,7 +500,7 @@ function ClienteBusquedaGlobal({
         >
           <IconoLupa className="h-3.5 w-3.5 shrink-0 text-slate-400" />
           <span className="min-w-0 truncate">{clienteNombre(selected)}</span>
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Cambiar</span>
+          <span className="shrink-0 text-[10px] font-medium text-slate-400">Cambiar</span>
         </button>
         <button
           type="button"
@@ -1019,7 +1019,7 @@ function GestionClientesPageInner() {
                     <span className="inline-flex shrink-0 text-slate-500" aria-hidden>
                       {facturasDetalleAbierto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </span>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">Facturas</span>
+                    <span className="text-[11px] font-mediumr text-slate-600">Facturas</span>
                     <span className="hidden text-[10px] font-normal text-slate-400 sm:inline">del cliente</span>
                     {facturasFiltradas.length !== facturas.length ? (
                       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200/80">
@@ -1114,7 +1114,7 @@ function GestionClientesPageInner() {
                               ].map((h) => (
                                 <th
                                   key={h}
-                                  className="whitespace-nowrap px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:px-3 sm:text-xs"
+                                  className="whitespace-nowrap px-2 py-2 text-left text-[10px] font-medium text-slate-600 sm:px-3 sm:text-xs"
                                 >
                                   {h}
                                 </th>

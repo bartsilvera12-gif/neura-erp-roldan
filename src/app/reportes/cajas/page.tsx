@@ -9,6 +9,7 @@ import { isErpRolSupervisor } from "@/lib/usuarios/erp-rol-normalize";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { muestraBotonReabrir } from "@/lib/caja/permiso-reabrir";
 import type { CajasReporte } from "@/lib/caja/types";
+import { Metrica } from "@/components/ui/Metrica";
 
 const gs = (n: number) => `Gs. ${Math.round(Number(n) || 0).toLocaleString("es-PY")}`;
 
@@ -112,7 +113,7 @@ export default function ReporteCajasPage() {
           </p>
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Mes</span>
+          <span className="text-[11px] font-medium text-slate-500">Mes</span>
           <input
             type="month" value={mes} onChange={(e) => setMes(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -258,13 +259,10 @@ function Tarjeta({
 }: {
   label: string; valor: string; sub?: string; tono?: "neutro" | "ok" | "alerta";
 }) {
-  const color =
-    tono === "alerta" ? "text-red-600" : tono === "ok" ? "text-emerald-700" : "text-slate-900";
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
-    </div>
+    <Metrica
+      etiqueta={label} valor={valor} detalle={sub}
+      tono={tono === "alerta" ? "alerta" : tono === "ok" ? "bien" : "neutro"}
+    />
   );
 }

@@ -342,13 +342,13 @@ function ModalTransferencia({
 
         <div className="space-y-3">
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">Desde</label>
+            <label className="text-[11px] font-medium text-slate-500">Desde</label>
             <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
               {nombreOrigen} <span className="text-slate-400">· {fmt(item.stock)} disponibles</span>
             </p>
           </div>
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">Hacia</label>
+            <label className="text-[11px] font-medium text-slate-500">Hacia</label>
             <Selector
               value={destinoId}
               onChange={(e) => setDestinoId(e.target.value)}
@@ -358,7 +358,7 @@ function ModalTransferencia({
             </Selector>
           </div>
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">Cantidad</label>
+            <label className="text-[11px] font-medium text-slate-500">Cantidad</label>
             <input
               type="number" min={1} max={item.stock} value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
@@ -366,7 +366,7 @@ function ModalTransferencia({
             />
           </div>
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">Motivo (opcional)</label>
+            <label className="text-[11px] font-medium text-slate-500">Motivo (opcional)</label>
             <input
               value={motivo} onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ej: reposición de mostrador"

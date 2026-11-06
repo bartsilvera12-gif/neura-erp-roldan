@@ -95,7 +95,7 @@ export default function MarcarFacturaPagadaModal({
 
         <div className="mt-4 space-y-3">
           <label className="block">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cómo se pagó</span>
+            <span className="text-[11px] font-medium text-slate-500">Cómo se pagó</span>
             <Selector
               value={metodo}
               onChange={(e) => { setMetodo(e.target.value as typeof metodo); setReferencia(""); }}
@@ -110,7 +110,7 @@ export default function MarcarFacturaPagadaModal({
 
           {requiereRef && (
             <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-medium text-slate-500">
                 {LABEL_REF[metodo]}
               </span>
               <input
@@ -121,7 +121,7 @@ export default function MarcarFacturaPagadaModal({
           )}
 
           <label className="block">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fecha del pago</span>
+            <span className="text-[11px] font-medium text-slate-500">Fecha del pago</span>
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={fld} />
           </label>
         </div>

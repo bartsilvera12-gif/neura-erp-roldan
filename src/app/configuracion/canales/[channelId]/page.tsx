@@ -137,7 +137,7 @@ export default function EditarCanalPage() {
           <h1 className="text-2xl font-bold text-slate-900">{row.nombre ?? channelTypeLabel(row.type)}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <ChannelBadge type={row.type} nombre={null} />
-            <span className="text-[11px] font-semibold uppercase text-slate-400">
+            <span className="text-[11px] font-medium text-slate-400">
               {String(row.provider ?? "meta")}
               {row.connection_mode ? ` · ${row.connection_mode}` : ""}
             </span>

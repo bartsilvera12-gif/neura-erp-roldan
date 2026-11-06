@@ -350,7 +350,7 @@ function KioscoLinkCard() {
           ) : (
             <div className="mt-3 space-y-3">
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Link para compartir</label>
+                <label className="text-[11px] font-medium text-slate-500">Link para compartir</label>
                 <div className="mt-1 flex items-center gap-2">
                   <input
                     readOnly

@@ -183,7 +183,7 @@ export default function SugerenciasReposicionPage() {
       {/* Los dos parámetros que cambian todo el cálculo, a la vista y editables. */}
       <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Analizar los últimos</span>
+          <span className="text-[11px] font-medium text-slate-500">Analizar los últimos</span>
           <div className="flex items-center gap-2">
             <input
               type="number" min={7} max={365} value={dias}
@@ -194,7 +194,7 @@ export default function SugerenciasReposicionPage() {
           </div>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Quiero stock para</span>
+          <span className="text-[11px] font-medium text-slate-500">Quiero stock para</span>
           <div className="flex items-center gap-2">
             <input
               type="number" min={1} max={365} value={cobertura}
@@ -302,7 +302,7 @@ export default function SugerenciasReposicionPage() {
           lo que se mira. Mezclados, nadie sabría cuál de los dos hace qué. */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
+          <span className="text-[11px] font-medium text-slate-500">Rubro</span>
           <Selector
             value={fRubro}
             onChange={(e) => setFRubro(e.target.value)}
@@ -314,7 +314,7 @@ export default function SugerenciasReposicionPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Estado</span>
+          <span className="text-[11px] font-medium text-slate-500">Estado</span>
           <Selector
             value={fEstado}
             onChange={(e) => setFEstado(e.target.value)}
@@ -329,7 +329,7 @@ export default function SugerenciasReposicionPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <input
             type="text"
             value={fBuscar}
@@ -518,7 +518,7 @@ function Tarjeta({
     : "text-slate-900";
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
     </div>

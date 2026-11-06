@@ -168,7 +168,7 @@ export default function QueAbastece({ proveedorId }: { proveedorId: string }) {
 
       {/* ── Artículos sueltos ────────────────────────────────────────── */}
       <div className="mt-4 border-t border-slate-100 pt-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <p className="text-[11px] font-medium text-slate-500">
           Artículos puntuales <span className="font-normal normal-case text-slate-400">(opcional)</span>
         </p>
         <p className="mt-0.5 text-[11px] text-slate-400">

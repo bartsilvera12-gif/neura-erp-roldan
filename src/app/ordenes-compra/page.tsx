@@ -141,16 +141,16 @@ export default function OrdenesCompraPage() {
         }
       />
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Buscar</span>
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <input
             value={q} onChange={(e) => setQ(e.target.value)} placeholder="Proveedor, N° o artículo"
             className="w-64 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</span>
+          <span className="text-[11px] font-medium text-slate-500">Estado</span>
           <Selector
             value={estado} onChange={(e) => setEstado(e.target.value)}
             className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -164,7 +164,7 @@ export default function OrdenesCompraPage() {
 
         {totalPendiente > 0 && (
           <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">Pedido pendiente</p>
+            <p className="text-[10px] font-medium text-violet-600">Pedido pendiente</p>
             <p className="text-sm font-bold tabular-nums text-violet-900">Gs. {gs(totalPendiente)}</p>
           </div>
         )}

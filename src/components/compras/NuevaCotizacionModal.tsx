@@ -128,7 +128,7 @@ export default function NuevaCotizacionModal({
 
         <div className="mt-4 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Rubro</span>
+            <span className="text-[11px] font-medium text-slate-500">Rubro</span>
             <Selector
               value={rubro} onChange={(e) => setRubro(e.target.value)}
               className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -205,7 +205,7 @@ export default function NuevaCotizacionModal({
         </button>
 
         <label className="mt-3 block">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Observaciones</span>
+          <span className="text-[11px] font-medium text-slate-500">Observaciones</span>
           <textarea
             value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2}
             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"

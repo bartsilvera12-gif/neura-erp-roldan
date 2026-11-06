@@ -126,7 +126,7 @@ export default function ModalCampo({
         </div>
 
         <div className="px-5 py-4">
-          <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <label className="block text-[11px] font-medium text-slate-500">
             {etiqueta}
           </label>
           <div className="relative mt-1.5">

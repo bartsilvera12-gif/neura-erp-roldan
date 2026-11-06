@@ -82,7 +82,7 @@ export default function CargarReciboChequeModal({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="text-[11px] font-medium text-slate-500">
               N° de recibo
             </span>
             <input
@@ -94,7 +94,7 @@ export default function CargarReciboChequeModal({
             />
           </label>
           <label>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="text-[11px] font-medium text-slate-500">
               N° de cheque
             </span>
             <input
@@ -107,7 +107,7 @@ export default function CargarReciboChequeModal({
         </div>
 
         <label className="mt-3 block">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             Fecha del recibo
           </span>
           <input
@@ -120,7 +120,7 @@ export default function CargarReciboChequeModal({
         </label>
 
         <label className="mt-3 block">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             El papel <span className="font-normal normal-case text-slate-400">(opcional)</span>
           </span>
           <input

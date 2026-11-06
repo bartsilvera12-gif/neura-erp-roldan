@@ -156,7 +156,7 @@ export default function CargarPreciosModal({
 
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedor</span>
+            <span className="text-[11px] font-medium text-slate-500">Proveedor</span>
             <Selector
               value={proveedorId} onChange={(e) => elegirProveedor(e.target.value)}
               className="w-64 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -170,7 +170,7 @@ export default function CargarPreciosModal({
             </Selector>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Plazo (días)</span>
+            <span className="text-[11px] font-medium text-slate-500">Plazo (días)</span>
             <input
               value={plazo} onChange={(e) => setPlazo(e.target.value.replace(/\D/g, ""))}
               placeholder="Ej: 15"
@@ -237,7 +237,7 @@ export default function CargarPreciosModal({
         </div>
 
         <label className="mt-3 block">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Observación</span>
+          <span className="text-[11px] font-medium text-slate-500">Observación</span>
           <input
             value={observacion} onChange={(e) => setObservacion(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"

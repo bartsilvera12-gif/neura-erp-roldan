@@ -270,7 +270,7 @@ function EstadoBadge({ estado }: { estado: NotaRemision["estado"] }) {
     aprobada:  "bg-emerald-50 border-emerald-200 text-emerald-800",
     rechazada: "bg-rose-50 border-rose-200 text-rose-800",
   } as const;
-  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${map[estado]}`}>{estado}</span>;
+  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[estado]}`}>{estado}</span>;
 }
 
 function Info({ label, value }: { label: string; value?: string }) {

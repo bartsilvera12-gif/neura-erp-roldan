@@ -232,7 +232,7 @@ export default function DevolucionesProveedorPage() {
       {/* Productos */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Productos a devolver</h2>
-        <div className="flex flex-wrap items-end gap-2 mb-4">
+        <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
             <label className={labelClass}>Agregar producto</label>
             <SearchableSelect

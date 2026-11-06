@@ -907,7 +907,7 @@ function ModalPlanilla({
           {/* Rubros a contar */}
           <div>
             <div className="flex items-baseline justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-medium text-slate-500">
                 Rubros a contar
               </p>
               {!todos && (

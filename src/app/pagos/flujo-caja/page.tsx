@@ -296,7 +296,7 @@ export default function FlujoCajaPage() {
       {/* Período y parámetros del mes */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes</span>
+          <span className="text-[11px] font-medium text-slate-500">Mes</span>
           <Selector
             value={mes}
             onChange={(e) => setMes(Number(e.target.value))}
@@ -306,14 +306,14 @@ export default function FlujoCajaPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Año</span>
+          <span className="text-[11px] font-medium text-slate-500">Año</span>
           <input
             type="number" value={anio} onChange={(e) => setAnio(Number(e.target.value))}
             className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             Tipo de cambio
           </span>
           <input
@@ -322,7 +322,7 @@ export default function FlujoCajaPage() {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             Fondos disponibles (Gs.)
           </span>
           <input
@@ -1099,7 +1099,7 @@ function PanelCelda({
                 </li>
               ))}
             </ul>
-            <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase text-slate-500">Nº de cheque</span>
                 <input

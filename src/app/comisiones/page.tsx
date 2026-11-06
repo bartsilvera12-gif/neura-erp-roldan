@@ -668,7 +668,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
     <div className="space-y-6">
       {/* General */}
       <Caja titulo="General">
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
           <Campo label="Días de cartera">
             <input
               type="number" min={1} max={365} defaultValue={cfg.config.dias_cartera}
@@ -1178,7 +1178,7 @@ function ReglasPorRubro({ cfg, disabled, onGuardar, onBorrar }: {
       {/* Para qué tipo de vendedor se cargan estos porcentajes. */}
       <div className="mb-3 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             Cargando los porcentajes de
           </span>
           <Selector
@@ -1444,7 +1444,7 @@ function GsEditable({ valor, disabled, etiquetaVacio, onGuardar }: {
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase text-slate-500">{label}</span>
+      <span className="text-[11px] font-medium text-slate-500">{label}</span>
       {children}
     </label>
   );
@@ -1466,7 +1466,7 @@ function Tarjeta({ label, valor, sub, tono, destacado = false }: {
   const color = destacado ? "text-[#3F8E91]" : tono === "ambar" ? "text-amber-600" : "text-slate-900";
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm ${destacado ? "border-[#4FAEB2]/40" : "border-slate-200"}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
     </div>

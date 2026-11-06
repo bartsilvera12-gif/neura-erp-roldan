@@ -172,10 +172,10 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="border-y-2 border-slate-800 text-slate-800">
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">Código</th>
-                  <th className="px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wider">Cantidad</th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">Detalle de mercadería</th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">Lote</th>
+                  <th className="px-2 py-2 text-left text-[10px] font-mediumr">Código</th>
+                  <th className="px-2 py-2 text-right text-[10px] font-mediumr">Cantidad</th>
+                  <th className="px-2 py-2 text-left text-[10px] font-mediumr">Detalle de mercadería</th>
+                  <th className="px-2 py-2 text-left text-[10px] font-mediumr">Lote</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,7 +190,7 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-800">
-                  <td className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                  <td className="px-2 py-2 text-[10px] font-mediumr text-slate-700">
                     Total
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums text-[13px] font-bold text-slate-900">{fmt(total)}</td>

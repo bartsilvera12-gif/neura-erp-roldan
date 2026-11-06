@@ -154,7 +154,7 @@ export default function CotizacionesPage() {
               </p>
             ) : v?.mejor_completo ? (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <p className="text-[11px] font-medium text-slate-500">
                   Comprándole todo a uno, el más barato es
                 </p>
                 <p className="mt-1 flex items-center gap-2 text-2xl font-bold text-slate-900">

@@ -750,7 +750,7 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-[10px] font-mediumr text-slate-400">{label}</p>
       <p className="mt-0.5 text-sm font-medium text-slate-800">{value}</p>
     </div>
   );
@@ -828,7 +828,7 @@ function ModalMedioCobro({
 
         <div className="space-y-3">
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">Cobrado realmente por</label>
+            <label className="text-[11px] font-medium text-slate-500">Cobrado realmente por</label>
             <div className="mt-1 grid grid-cols-2 gap-2">
               {OPCIONES.filter((m) => m !== actual).map((m) => (
                 <button
@@ -845,7 +845,7 @@ function ModalMedioCobro({
             </div>
           </div>
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">
+            <label className="text-[11px] font-medium text-slate-500">
               Motivo <span className="text-red-500">*</span>
             </label>
             <input
@@ -856,7 +856,7 @@ function ModalMedioCobro({
             />
           </div>
           <div>
-            <label className="text-[11px] font-semibold uppercase text-slate-500">
+            <label className="text-[11px] font-medium text-slate-500">
               Comprobante <span className="font-normal normal-case text-slate-400">(opcional)</span>
             </label>
             <input

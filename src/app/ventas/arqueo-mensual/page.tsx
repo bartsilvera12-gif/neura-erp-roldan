@@ -104,7 +104,7 @@ export default function ArqueoMensualPage() {
           </p>
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Mes</span>
+          <span className="text-[11px] font-medium text-slate-500">Mes</span>
           <input
             type="month" value={mes} onChange={(e) => setMes(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -224,7 +224,7 @@ function Caja({
   const color = tono === "rojo" ? "text-red-600" : tono === "ambar" ? "text-amber-600" : "text-emerald-700";
   return (
     <div className={`rounded-xl border bg-white p-5 shadow-sm ${destacado ? "border-slate-300 ring-1 ring-slate-200" : "border-slate-200"}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-2xl font-bold tabular-nums ${color}`}>{valor}</p>
       {sub && <p className="mt-1 text-[11px] leading-snug text-slate-400">{sub}</p>}
     </div>

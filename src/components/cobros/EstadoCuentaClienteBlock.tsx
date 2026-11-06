@@ -119,7 +119,7 @@ export function EstadoCuentaClienteBlock({
           <span className="inline-flex shrink-0 text-slate-500" aria-hidden>
             {abierto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">Estado de cuenta</span>
+          <span className="text-[11px] font-mediumr text-slate-600">Estado de cuenta</span>
           <span className="hidden text-[10px] font-normal text-slate-400 sm:inline">del cliente</span>
           <span className="hidden h-3 w-px bg-slate-200 sm:inline" />
           <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">{m.cuentas} cuenta{m.cuentas === 1 ? "" : "s"}</span>
@@ -216,12 +216,12 @@ export function EstadoCuentaClienteBlock({
                       <span className="font-semibold text-slate-700">{m.cuentas}</span> cuenta{m.cuentas === 1 ? "" : "s"}
                     </td>
                     <td className="px-3 py-2.5 text-right">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</span>
+                      <span className="text-[10px] font-medium text-slate-500">Total</span>
                       <p className="text-sm font-bold tabular-nums text-slate-800">{fmtGs(m.montoTotal)}</p>
                     </td>
                     <td className="px-3 py-2.5" />
                     <td className="px-3 py-2.5 text-right">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Saldo</span>
+                      <span className="text-[10px] font-medium text-slate-500">Saldo</span>
                       <p className={`text-sm font-bold tabular-nums ${m.saldoPend > 0 ? "text-amber-600" : "text-emerald-700"}`}>{fmtGs(m.saldoPend)}</p>
                     </td>
                     <td colSpan={3} className="px-3 py-2.5" />

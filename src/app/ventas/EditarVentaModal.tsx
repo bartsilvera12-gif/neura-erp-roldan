@@ -186,7 +186,7 @@ export default function EditarVentaModal({
           <div className="overflow-hidden rounded-lg border border-slate-200">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <tr className="bg-slate-50 text-left text-[11px] font-medium text-slate-500">
                   <th className="px-3 py-2">Producto</th>
                   <th className="px-3 py-2 w-20 text-right">Cant.</th>
                   <th className="px-3 py-2 w-28 text-right">Precio</th>
@@ -305,7 +305,7 @@ export default function EditarVentaModal({
           {/* Condiciones */}
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase text-slate-500">Tipo</span>
+              <span className="text-[11px] font-medium text-slate-500">Tipo</span>
               <Selector
                 value={tipoVenta}
                 onChange={(e) => setTipoVenta(e.target.value as Venta["tipo_venta"])}
@@ -316,7 +316,7 @@ export default function EditarVentaModal({
               </Selector>
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase text-slate-500">Método de pago</span>
+              <span className="text-[11px] font-medium text-slate-500">Método de pago</span>
               <Selector
                 value={metodoPago}
                 onChange={(e) => setMetodoPago(e.target.value as typeof metodoPago)}
@@ -330,7 +330,7 @@ export default function EditarVentaModal({
             </label>
             {tipoVenta === "CREDITO" && (
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase text-slate-500">Plazo (días)</span>
+                <span className="text-[11px] font-medium text-slate-500">Plazo (días)</span>
                 <input
                   type="number" min={1} value={plazoDias}
                   onChange={(e) => setPlazoDias(e.target.value)}
@@ -360,7 +360,7 @@ export default function EditarVentaModal({
 
           {/* Motivo */}
           <label className="block">
-            <span className="text-[11px] font-semibold uppercase text-slate-500">
+            <span className="text-[11px] font-medium text-slate-500">
               Motivo del cambio <span className="text-rose-500">*</span>
             </span>
             <textarea

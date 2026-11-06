@@ -2451,7 +2451,7 @@ export default function NuevaVentaPage() {
                     {tipoVenta === "CONTADO" && anticipoSaldo > 0 && (
                       <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
+                          <p className="text-[11px] font-medium text-emerald-800">
                             Anticipo a favor
                           </p>
                           <span className="text-[11px] font-bold tabular-nums text-emerald-800">

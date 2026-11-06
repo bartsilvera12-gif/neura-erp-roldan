@@ -181,7 +181,7 @@ export default function PerfilesPage() {
                   <div className="space-y-4 border-t border-slate-100 px-5 py-4">
                     {grupos.map((g) => (
                       <div key={g}>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{g}</p>
+                        <p className="text-[11px] font-medium text-slate-400">{g}</p>
                         <div className="mt-1.5 space-y-2">
                           {catalogo.filter((f) => f.grupo === g).map((f) => (
                             <label key={f.clave} className="flex cursor-pointer items-start gap-2.5">

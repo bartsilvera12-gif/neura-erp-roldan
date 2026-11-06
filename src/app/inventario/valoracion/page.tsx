@@ -127,7 +127,7 @@ export default function ValoracionPage() {
       {/* Filtros */}
       <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Al cierre del día</span>
+          <span className="text-[11px] font-medium text-slate-500">Al cierre del día</span>
           <input
             type="date" value={fecha} max={hoyPy()}
             onChange={(e) => setFecha(e.target.value)}
@@ -145,7 +145,7 @@ export default function ValoracionPage() {
           </button>
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
+          <span className="text-[11px] font-medium text-slate-500">Rubro</span>
           <Selector
             value={rubro} onChange={(e) => setRubro(e.target.value)}
             className="min-w-[180px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -320,7 +320,7 @@ function Tarjeta({
 }: { label: string; valor: string; sub?: string; destacado?: boolean }) {
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm ${destacado ? "border-[#4FAEB2]/40" : "border-slate-200"}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 font-bold tabular-nums ${destacado ? "text-xl text-[#3F8E91]" : "text-xl text-slate-900"}`}>
         {valor}
       </p>

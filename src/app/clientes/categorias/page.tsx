@@ -169,7 +169,7 @@ export default function CategoriasClientePage() {
             ni guiones: en la base conviven 1234567-8, 1.234.567-8 y 1234567, y
             escribirlo de una forma no encontraba al que quedó de otra. */}
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Cliente</span>
+          <span className="text-[11px] font-medium text-slate-500">Cliente</span>
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
@@ -178,17 +178,17 @@ export default function CategoriasClientePage() {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
+          <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
             className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Hasta</span>
+          <span className="text-[11px] font-medium text-slate-500">Hasta</span>
           <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
             className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             {sinCompras ? "Categoría actual" : "Quedó en"}
           </span>
           <Selector value={categoria} onChange={(e) => setCategoria(e.target.value)}

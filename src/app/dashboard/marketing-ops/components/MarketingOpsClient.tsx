@@ -231,7 +231,7 @@ export default function MarketingOpsClient() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {kpis.map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="text-[11px] font-medium text-slate-500">{label}</p>
             <p className="mt-2 text-2xl font-semibold text-slate-950 tabular-nums">{value}</p>
           </div>
         ))}

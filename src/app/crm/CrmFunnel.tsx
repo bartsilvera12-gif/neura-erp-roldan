@@ -921,7 +921,7 @@ function ProspectoLista({
       <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
-            <tr className="text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <tr className="text-left text-[10px] font-medium text-slate-500">
               <th className="px-4 py-3 font-semibold">Contacto</th>
               <th className="px-4 py-3 font-semibold">Teléfono</th>
               <th className="px-4 py-3 font-semibold">Servicio</th>

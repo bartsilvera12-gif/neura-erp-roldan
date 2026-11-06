@@ -53,7 +53,7 @@ interface Respuesta {
 function Tarjeta({ titulo, valor, pie, color }: { titulo: string; valor: string; pie?: string; color?: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
+      <p className="text-[11px] font-medium text-slate-500">{titulo}</p>
       <p className={`text-xl font-bold ${color ?? "text-slate-900"}`}>{valor}</p>
       {pie && <p className="text-xs text-slate-500">{pie}</p>}
     </div>

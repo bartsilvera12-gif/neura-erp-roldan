@@ -113,7 +113,7 @@ export default function EnviarOrdenModal({
             </p>
 
             <label className="mt-4 block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-medium text-slate-500">
                 Correo del vendedor
               </span>
               <input

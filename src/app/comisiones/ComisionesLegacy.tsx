@@ -260,7 +260,7 @@ function SellerMovimientosList({ row }: { row: VendedorRow }) {
               </p>
             </div>
             <div className="text-left sm:text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Comisión estimada</p>
+              <p className="text-[11px] font-medium text-slate-400">Comisión estimada</p>
               <p className="text-sm font-bold tabular-nums text-emerald-800">₲ {fmtMoney(ln.comision_estimada_linea)}</p>
             </div>
           </div>

@@ -189,7 +189,7 @@ export default function AjustesPage() {
       {/* Filtros */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
+          <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input
             type="date" value={desde} max={hasta || undefined}
             onChange={(e) => setDesde(e.target.value)}
@@ -197,7 +197,7 @@ export default function AjustesPage() {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Hasta</span>
+          <span className="text-[11px] font-medium text-slate-500">Hasta</span>
           <input
             type="date" value={hasta} min={desde || undefined}
             onChange={(e) => setHasta(e.target.value)}
@@ -205,7 +205,7 @@ export default function AjustesPage() {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Rubro</span>
+          <span className="text-[11px] font-medium text-slate-500">Rubro</span>
           <Selector
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
@@ -221,7 +221,7 @@ export default function AjustesPage() {
           className="flex flex-1 flex-col gap-1"
           onSubmit={(e) => { e.preventDefault(); setQ(qDraft.trim()); }}
         >
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <div className="flex gap-2">
             <input
               type="text" value={qDraft}
@@ -358,7 +358,7 @@ function Tarjeta({
     tono === "verde" ? "text-emerald-600" : tono === "rojo" ? "text-red-600" : "text-slate-900";
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
     </div>

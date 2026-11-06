@@ -545,7 +545,7 @@ export default function MarketingOpsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="hidden md:grid grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.7fr_0.7fr_1fr_auto] gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 px-4 py-2 border-b border-slate-200">
+            <div className="hidden md:grid grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.7fr_0.7fr_1fr_auto] gap-2 text-[11px] font-medium text-slate-500 px-4 py-2 border-b border-slate-200">
               <span>Cliente</span>
               <span>Plan</span>
               <span className="text-center">Cupo mes</span>

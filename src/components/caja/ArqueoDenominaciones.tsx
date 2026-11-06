@@ -88,7 +88,7 @@ function PanelDenom({
     <div className="rounded-xl border-2 border-slate-200 overflow-hidden">
       <div className="flex items-center justify-between bg-slate-100/80 px-3 py-2">
         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{titulo}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Cant. · Valor</span>
+        <span className="text-[10px] font-medium text-slate-400">Cant. · Valor</span>
       </div>
       <div className="divide-y divide-slate-100">
         {filas.map((d) => {

@@ -102,7 +102,7 @@ export default function SucursalSwitcher() {
 
       {abierto && puedeElegir && (
         <div className="absolute right-0 top-full z-50 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-          <div className="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          <div className="border-b border-slate-100 px-3 py-2 text-[10px] font-mediumr text-slate-500">
             Cambiar sucursal
           </div>
           <ul className="py-1">

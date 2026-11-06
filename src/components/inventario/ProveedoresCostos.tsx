@@ -166,7 +166,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                       {p.proveedor_id && (
                         editando === p.proveedor_id ? (
                           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Marca</span>
+                            <span className="text-[10px] font-mediumr text-slate-400">Marca</span>
                             <input
                               type="text"
                               value={marcaInput}
@@ -201,7 +201,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                           </div>
                         ) : (
                           <div className="mt-1.5 flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Marca</span>
+                            <span className="text-[10px] font-mediumr text-slate-400">Marca</span>
                             {p.marca ? (
                               <span className="rounded-full bg-[#4FAEB2]/10 px-2 py-0.5 text-xs font-medium text-[#3F8E91]">{p.marca}</span>
                             ) : (
@@ -300,7 +300,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
 function Metric({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
     <div className="bg-white px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-[10px] font-mediumr text-slate-400">{label}</p>
       <p className={`mt-0.5 text-sm font-bold tabular-nums ${accent ? "text-[#3F8E91]" : "text-slate-700"}`}>{value}</p>
       {sub && <p className="text-[11px] text-slate-400">{sub}</p>}
     </div>

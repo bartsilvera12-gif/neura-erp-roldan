@@ -917,7 +917,7 @@ const DashComercial = memo(function DashComercial({
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-200 px-5 py-4" style={{ backgroundColor: Z.card }}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: Z.muted }}>
+            <p className="text-[11px] font-medium" style={{ color: Z.muted }}>
               Clientes nuevos
             </p>
             <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: Z.text }}>
@@ -925,7 +925,7 @@ const DashComercial = memo(function DashComercial({
             </p>
           </div>
           <div className="rounded-xl border border-slate-200 px-5 py-4" style={{ backgroundColor: Z.card }}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: Z.muted }}>
+            <p className="text-[11px] font-medium" style={{ color: Z.muted }}>
               Valor asociado (Gs.)
             </p>
             <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: Z.accent }}>
@@ -933,7 +933,7 @@ const DashComercial = memo(function DashComercial({
             </p>
           </div>
           <div className="rounded-xl border border-slate-200 px-5 py-4" style={{ backgroundColor: Z.card }}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: Z.muted }}>
+            <p className="text-[11px] font-medium" style={{ color: Z.muted }}>
               Ticket promedio
             </p>
             <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: Z.text }}>
@@ -957,7 +957,7 @@ const DashComercial = memo(function DashComercial({
                   {["Cliente", "Alta", "Plan / servicio", "Monto (Gs.)", "Origen valor", "Vendedor"].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wide"
+                      className="px-4 py-3 text-left text-[10px] font-medium"
                       style={{ color: Z.muted }}
                     >
                       {h}
@@ -1334,19 +1334,19 @@ const DashFinanciero = memo(function DashFinanciero({
     <div className="space-y-6 rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50 to-white p-4 sm:space-y-8 sm:p-6 md:p-8">
       <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
         <motion.div whileHover={{ y: -2 }} className={finKpiCard}>
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Facturado del período</p>
+          <p className="shrink-0 text-[11px] font-medium text-slate-500">Facturado del período</p>
           <div className={finKpiValueWrap}>
             <FinMontoGs kpi monto={facturadoCohortPeriodo} />
           </div>
         </motion.div>
         <motion.div whileHover={{ y: -2 }} className={finKpiCard}>
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cobrado del período</p>
+          <p className="shrink-0 text-[11px] font-medium text-slate-500">Cobrado del período</p>
           <div className={finKpiValueWrap}>
             <FinMontoGs kpi monto={recaudadoCohortPeriodo} className="text-[#2563EB]" />
           </div>
         </motion.div>
         <motion.div whileHover={{ y: -2 }} className={finKpiCard}>
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pendiente del período</p>
+          <p className="shrink-0 text-[11px] font-medium text-slate-500">Pendiente del período</p>
           <div className={finKpiValueWrap}>
             <FinMontoGs
               kpi
@@ -1363,7 +1363,7 @@ const DashFinanciero = memo(function DashFinanciero({
           </div>
         </motion.div>
         <motion.div whileHover={{ y: -2 }} className={finKpiCard}>
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">% de cobranza</p>
+          <p className="shrink-0 text-[11px] font-medium text-slate-500">% de cobranza</p>
           <div className={finKpiValueWrap}>
             <p
               className="min-w-0 w-full text-left font-bold tabular-nums leading-none text-slate-900 whitespace-nowrap [font-size:clamp(0.7rem,5.5cqi+0.15rem,1.5rem)]"
@@ -1382,7 +1382,7 @@ const DashFinanciero = memo(function DashFinanciero({
             <p className="mt-1 text-[11px] text-slate-400">Pagos registrados por fecha de pago</p>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5 sm:items-end sm:text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Total cobrado</p>
+            <p className="text-[10px] font-medium text-slate-400">Total cobrado</p>
             <FinMontoGs monto={cobradoRegistradoPeriodo} dense className="text-[#2563EB]" />
           </div>
         </div>
@@ -1422,14 +1422,14 @@ const DashFinanciero = memo(function DashFinanciero({
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-slate-100 bg-slate-50/90 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Contado</p>
+            <p className="text-[10px] font-medium text-slate-500">Contado</p>
             <FinMontoGs monto={composicionModalidad.contado} dense className="text-slate-900" />
             <p className="mt-1 text-sm font-semibold tabular-nums text-slate-500">
               {composicionModalidad.total > 0 ? `${composicionModalidad.pctContado.toFixed(1)}%` : "—"}
             </p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50/90 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Mensual / suscripción</p>
+            <p className="text-[10px] font-medium text-slate-500">Mensual / suscripción</p>
             <FinMontoGs monto={composicionModalidad.mensual} dense className="text-slate-900" />
             <p className="mt-1 text-sm font-semibold tabular-nums text-slate-500">
               {composicionModalidad.total > 0 ? `${composicionModalidad.pctMensual.toFixed(1)}%` : "—"}
@@ -1734,7 +1734,7 @@ const DashInventario = memo(function DashInventario({
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     {["Producto", "Stock actual", "Stock mín.", "Estado", "Proveedor"].map(h => (
-                      <th key={h} className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                      <th key={h} className="px-3 py-3 text-left text-[11px] font-mediumr text-slate-500">{h}</th>
                     ))}
                   </tr>
                 </thead>

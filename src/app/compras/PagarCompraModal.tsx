@@ -118,7 +118,7 @@ export default function PagarCompraModal({
           {total.toLocaleString("es-PY")}
         </p>
 
-        <label className="mt-4 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <label className="mt-4 block text-[11px] font-medium text-slate-500">
           Método de pago
         </label>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
@@ -150,7 +150,7 @@ export default function PagarCompraModal({
 
         {pideReferencia && (
           <label className="mt-3 block">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="text-[11px] font-medium text-slate-500">
               {medio === "cheque" ? "Número de cheque" : "Número de transferencia"}
             </span>
             <input
@@ -163,7 +163,7 @@ export default function PagarCompraModal({
         )}
 
         <label className="mt-3 block">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium text-slate-500">
             Recibo del pago <span className="font-normal normal-case text-slate-400">(opcional)</span>
           </span>
           <input

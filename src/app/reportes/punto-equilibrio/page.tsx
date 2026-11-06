@@ -80,9 +80,9 @@ export default function PuntoEquilibrioPage() {
         description="Cuánto hay que vender este mes para cubrir los gastos. De ahí en adelante, se gana"
       />
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes</span>
+          <span className="text-[11px] font-medium text-slate-500">Mes</span>
           <Selector
             value={mes} onChange={(e) => setMes(Number(e.target.value))}
             className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -91,7 +91,7 @@ export default function PuntoEquilibrioPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Año</span>
+          <span className="text-[11px] font-medium text-slate-500">Año</span>
           <input
             type="number" value={anio} onChange={(e) => setAnio(Number(e.target.value) || anio)}
             className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums"
@@ -113,7 +113,7 @@ export default function PuntoEquilibrioPage() {
               <SinResultado motivo={d.resultado.motivo} margen={d.resultado.margen_pct} />
             ) : (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <p className="text-[11px] font-medium text-slate-500">
                   Hay que vender en {MESES[d.periodo.mes - 1]}
                 </p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">Gs. {gs(objetivo)}</p>
@@ -178,7 +178,7 @@ export default function PuntoEquilibrioPage() {
                 atípica— cambiá el supuesto y el objetivo se recalcula.
               </p>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-medium text-slate-500">
                   Margen a usar (%)
                 </span>
                 <input
@@ -188,7 +188,7 @@ export default function PuntoEquilibrioPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-medium text-slate-500">
                   Gastos a cubrir
                 </span>
                 <input
@@ -249,7 +249,7 @@ export default function PuntoEquilibrioPage() {
 function Dato({ t, v, s }: { t: string; v: string; s: string }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t}</p>
+      <p className="text-[11px] font-medium text-slate-500">{t}</p>
       <p className="font-bold tabular-nums text-slate-900">{v}</p>
       <p className="text-[11px] text-slate-400">{s}</p>
     </div>

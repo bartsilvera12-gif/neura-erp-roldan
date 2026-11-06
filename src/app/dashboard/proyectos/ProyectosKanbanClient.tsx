@@ -749,7 +749,7 @@ function ProjectCardView({
       {!dragOverlay ? (
         <>
           <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Mover a</label>
+            <label className="block text-[10px] font-medium text-slate-500">Mover a</label>
             <Selector
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               value={p.estado_id}

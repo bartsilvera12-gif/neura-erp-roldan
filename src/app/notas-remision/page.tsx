@@ -83,7 +83,7 @@ export default function HistorialNRPage() {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-5 py-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Estado</label>
+            <label className="text-[10px] font-mediumr text-slate-500">Estado</label>
             <Selector value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               <option value="pendiente">Pendientes</option>
@@ -92,21 +92,21 @@ export default function HistorialNRPage() {
             </Selector>
           </div>
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Origen</label>
+            <label className="text-[10px] font-mediumr text-slate-500">Origen</label>
             <Selector value={filtroOrigen} onChange={(e) => setFiltroOrigen(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </Selector>
           </div>
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Destino</label>
+            <label className="text-[10px] font-mediumr text-slate-500">Destino</label>
             <Selector value={filtroDestino} onChange={(e) => setFiltroDestino(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </Selector>
           </div>
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Buscar</label>
+            <label className="text-[10px] font-mediumr text-slate-500">Buscar</label>
             <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Nro o emisor…" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
           </div>
         </div>
@@ -176,7 +176,7 @@ function EstadoBadge({ estado }: { estado: NotaRemisionEstado }) {
     aprobada:  "bg-emerald-50 border-emerald-200 text-emerald-800",
     rechazada: "bg-rose-50 border-rose-200 text-rose-800",
   } as const;
-  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${map[estado]}`}>{estado}</span>;
+  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[estado]}`}>{estado}</span>;
 }
 
 function Kpi({ label, value, icon, tone }: { label: string; value: string; icon: React.ReactNode; tone: "amber" | "emerald" | "rose" }) {

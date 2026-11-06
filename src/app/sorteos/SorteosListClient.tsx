@@ -44,7 +44,7 @@ function KpiCard({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm min-w-[140px] flex-1">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className="text-xl font-bold tabular-nums text-slate-900 mt-1">{value}</p>
       {sub ? <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p> : null}
     </div>

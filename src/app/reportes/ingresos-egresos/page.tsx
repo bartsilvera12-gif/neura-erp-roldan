@@ -8,6 +8,7 @@ import MontoInput from "@/components/ui/MontoInput";
 import AdjuntosEgreso, { type AdjuntoEgreso } from "@/components/caja/AdjuntosEgreso";
 import { TIPOS_EGRESO, etiquetaTipoEgreso, type TipoEgreso } from "@/lib/caja/tipos-egreso";
 import Selector from "@/components/ui/Selector";
+import { Metrica, type TonoMetrica } from "@/components/ui/Metrica";
 
 /**
  * Ingresos y egresos.
@@ -78,14 +79,19 @@ const MEDIO: Record<string, string> = {
 
 const selectCls = "rounded-lg border border-slate-200 px-3 py-2 text-sm";
 
+/**
+ * La tarjeta común, con el nombre que ya usaba esta pantalla.
+ *
+ * `color` llegaba como una clase de Tailwind suelta; se traduce al tono, que
+ * es lo que entiende la tarjeta compartida.
+ */
 function Tarjeta({ titulo, valor, pie, color }: { titulo: string; valor: string; pie?: string; color?: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
-      <p className={`text-xl font-bold tabular-nums ${color ?? "text-slate-900"}`}>{valor}</p>
-      {pie && <p className="text-xs text-slate-500">{pie}</p>}
-    </div>
-  );
+  const tono: TonoMetrica =
+    color?.includes("emerald") ? "bien"
+    : color?.includes("rose") || color?.includes("red") ? "alerta"
+    : color?.includes("amber") ? "pendiente"
+    : "neutro";
+  return <Metrica etiqueta={titulo} valor={valor} detalle={pie} tono={tono} />;
 }
 
 export default function IngresosEgresosPage() {
@@ -230,15 +236,15 @@ export default function IngresosEgresosPage() {
       {/* ── Filtros ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
+          <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input type="date" value={desde} max={hasta} onChange={(e) => setDesde(e.target.value)} className={selectCls} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Hasta</span>
+          <span className="text-[11px] font-medium text-slate-500">Hasta</span>
           <input type="date" value={hasta} min={desde} onChange={(e) => setHasta(e.target.value)} className={selectCls} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Tipo</span>
+          <span className="text-[11px] font-medium text-slate-500">Tipo</span>
           <Selector value={fTipo} onChange={(e) => setFTipo(e.target.value)} className={selectCls}>
             <option value="">Todos</option>
             <option value="ingreso">Ingresos</option>
@@ -248,7 +254,7 @@ export default function IngresosEgresosPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Origen</span>
+          <span className="text-[11px] font-medium text-slate-500">Origen</span>
           <Selector value={fOrigen} onChange={(e) => setFOrigen(e.target.value)} className={selectCls}>
             <option value="">Todos</option>
             <option value="caja">Movimientos de caja</option>
@@ -256,14 +262,14 @@ export default function IngresosEgresosPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Clase</span>
+          <span className="text-[11px] font-medium text-slate-500">Clase</span>
           <Selector value={fClase} onChange={(e) => setFClase(e.target.value)} className={`min-w-[150px] ${selectCls}`}>
             <option value="">Todas</option>
             {clases.map((c) => <option key={c} value={c}>{etiquetaTipoEgreso(c) || c}</option>)}
           </Selector>
         </label>
         <label className="flex min-w-[200px] flex-1 flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase text-slate-500">Buscar</span>
+          <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <input
             type="search" value={fTexto} onChange={(e) => setFTexto(e.target.value)}
             placeholder="Concepto, beneficiario, factura, usuario…"

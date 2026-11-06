@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
+import { Metrica, FilaDeMetricas, type TonoMetrica } from "@/components/ui/Metrica";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { AlertTriangle, FileWarning, Printer } from "lucide-react";
 
@@ -51,6 +52,13 @@ const ETIQUETA: Record<Clase, string> = {
   sin_factura: "Sin factura",
   factura_incompleta: "Factura incompleta",
   deducible: "Con factura completa",
+};
+
+/** El tono de cada clase en las tarjetas de arriba. */
+const TONO: Record<Clase, TonoMetrica> = {
+  sin_factura: "alerta",
+  factura_incompleta: "pendiente",
+  deducible: "bien",
 };
 
 const COLOR: Record<Clase, string> = {
@@ -113,14 +121,14 @@ export default function GastosNoDeduciblesPage() {
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 print:hidden">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Desde</span>
+          <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input
             type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Hasta</span>
+          <span className="text-[11px] font-medium text-slate-500">Hasta</span>
           <input
             type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -146,31 +154,29 @@ export default function GastosNoDeduciblesPage() {
       ) : !r ? null : (
         <>
           {/* ── Los números de arriba ──────────────────────────────────── */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <FilaDeMetricas>
             {(["sin_factura", "factura_incompleta", "deducible"] as const).map((c) => {
               const x = r.por_clase.find((k) => k.clase === c)!;
               return (
-                <div key={c} className={`rounded-xl p-4 ring-1 ${COLOR[c]}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{ETIQUETA[c]}</p>
-                  <p className="mt-1 text-xl font-bold tabular-nums">{gs(x.monto)}</p>
-                  <p className="text-[11px] opacity-80">
-                    {x.cantidad} {x.cantidad === 1 ? "gasto" : "gastos"}
-                  </p>
-                </div>
+                <Metrica
+                  key={c}
+                  etiqueta={ETIQUETA[c]}
+                  tono={TONO[c]}
+                  valor={gs(x.monto)}
+                  detalle={`${x.cantidad} ${x.cantidad === 1 ? "gasto" : "gastos"}`}
+                />
               );
             })}
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                IVA que no se puede acreditar
-              </p>
-              <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{gs(r.iva_no_acreditable)}</p>
-              <p className="text-[11px] text-slate-500">
-                {r.porcentaje_no_deducible == null
-                  ? "Sin gastos en el período"
-                  : `${r.porcentaje_no_deducible.toFixed(1)}% del gasto del período no sirve`}
-              </p>
-            </div>
-          </div>
+            <Metrica
+              etiqueta="IVA que no se puede acreditar"
+              valor={gs(r.iva_no_acreditable)}
+              detalle={
+                r.porcentaje_no_deducible == null
+                  ? "sin gastos en el período"
+                  : `${r.porcentaje_no_deducible.toFixed(1)}% del gasto del período no sirve`
+              }
+            />
+          </FilaDeMetricas>
 
           {/* ── Lo reclamable, que es la parte accionable ──────────────── */}
           {r.por_clase.find((k) => k.clase === "factura_incompleta")!.cantidad > 0 && (

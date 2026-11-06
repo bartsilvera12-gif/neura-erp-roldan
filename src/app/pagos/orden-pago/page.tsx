@@ -364,7 +364,7 @@ export default function OrdenPagoPage() {
       {/* ── Proveedor y resumen ───────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedor</span>
+          <span className="text-[11px] font-medium text-slate-500">Proveedor</span>
           <SearchableSelect
             value={proveedorId}
             onChange={(v) => { setProveedorId(v); setChequeCreado(null); setAviso(null); limpiarFiltros(); }}
@@ -376,7 +376,7 @@ export default function OrdenPagoPage() {
         {proveedorId && !cargando && facturas.length > 0 && (
           <div className="ml-auto flex flex-wrap gap-6">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pendiente sin cheque</p>
+              <p className="text-[11px] font-medium text-slate-500">Pendiente sin cheque</p>
               <p className="text-sm font-semibold tabular-nums text-slate-900">
                 {resumen.porMoneda.map(([m, v]) => gs(v.total, m)).join(" · ")}
               </p>
@@ -384,7 +384,7 @@ export default function OrdenPagoPage() {
             </div>
             {resumen.vencidas > 0 && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-500">Vencido</p>
+                <p className="text-[11px] font-medium text-rose-500">Vencido</p>
                 <p className="text-sm font-semibold tabular-nums text-rose-600">
                   {resumen.porMoneda.filter(([, v]) => v.vencido > 0).map(([m, v]) => gs(v.vencido, m)).join(" · ")}
                 </p>
@@ -634,7 +634,7 @@ export default function OrdenPagoPage() {
               </div>
 
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-medium text-slate-500">
                   N° de cheque <span className="font-normal normal-case text-slate-400">(opcional)</span>
                 </span>
                 <input
@@ -644,7 +644,7 @@ export default function OrdenPagoPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Banco</span>
+                <span className="text-[11px] font-medium text-slate-500">Banco</span>
                 <Selector
                   value={bancoId} onChange={(e) => setBancoId(e.target.value)}
                   className={`h-[38px] w-44 rounded-lg border border-slate-200 bg-white px-2.5 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20 ${bancoId ? "text-slate-800" : "text-slate-400"}`}
@@ -654,14 +654,14 @@ export default function OrdenPagoPage() {
                 </Selector>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fecha de pago</span>
+                <span className="text-[11px] font-medium text-slate-500">Fecha de pago</span>
                 <input
                   type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)}
                   className="h-[38px] rounded-lg border border-slate-200 px-3 text-sm"
                 />
               </label>
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-medium text-slate-500">
                   Foto del cheque <span className="font-normal normal-case text-slate-400">(opcional)</span>
                 </span>
                 {imagenCheque ? (

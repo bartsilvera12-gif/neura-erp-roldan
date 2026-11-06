@@ -126,13 +126,13 @@ export default function HistorialClienteModal({
 
         <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 px-5 py-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500">Desde</span>
+            <span className="text-[11px] font-medium text-slate-500">Desde</span>
             <input type="date" value={desde} max={hasta || undefined}
               onChange={(e) => setDesde(e.target.value)}
               className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500">Hasta</span>
+            <span className="text-[11px] font-medium text-slate-500">Hasta</span>
             <input type="date" value={hasta} min={desde || undefined}
               onChange={(e) => setHasta(e.target.value)}
               className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" />
@@ -163,7 +163,7 @@ export default function HistorialClienteModal({
 
           {r && r.mas_llevados.length > 0 && (
             <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-medium text-slate-500">
                 Lo que más lleva
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -251,7 +251,7 @@ function Tarjeta({ label, valor, sub, destacado = false }: {
 }) {
   return (
     <div className={`rounded-lg border bg-white p-2.5 ${destacado ? "border-[#4FAEB2]/40" : "border-slate-200"}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[10px] font-medium text-slate-500">{label}</p>
       <p className={`mt-0.5 text-sm font-bold tabular-nums ${destacado ? "text-[#3F8E91]" : "text-slate-900"}`}>{valor}</p>
       {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
     </div>

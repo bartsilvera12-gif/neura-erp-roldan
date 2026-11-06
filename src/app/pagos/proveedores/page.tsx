@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
+import { Metrica, FilaDeMetricas } from "@/components/ui/Metrica";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import ReciboProveedor from "@/components/pagos/ReciboProveedor";
 import MarcarFacturaPagadaModal from "@/components/pagos/MarcarFacturaPagadaModal";
@@ -152,25 +153,24 @@ export default function PagosProveedoresPage() {
       />
 
       {/* ── Los tres números de la ventana ────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Vencido</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-rose-800">{gs(resumen.vencido)}</p>
-          <p className="text-[11px] text-rose-600">Es lo que se paga primero</p>
-        </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Total a pagar</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-800">{gs(resumen.pendiente)}</p>
-          <p className="text-[11px] text-amber-600">{resumen.cantidad} facturas sin pagar</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedores</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{visibles.length}</p>
-          <p className="text-[11px] text-slate-500">
-            {resumen.corte ? `Con vencimiento desde el ${fmt(resumen.corte)}` : "Todo el histórico"}
-          </p>
-        </div>
-      </div>
+      <FilaDeMetricas>
+        <Metrica
+          etiqueta="Vencido" tono="alerta"
+          valor={gs(resumen.vencido)} detalle="Es lo que se paga primero"
+          cargando={cargando}
+        />
+        <Metrica
+          etiqueta="Total a pagar" tono="pendiente"
+          valor={gs(resumen.pendiente)} detalle={`${resumen.cantidad} facturas sin pagar`}
+          cargando={cargando}
+        />
+        <Metrica
+          etiqueta="Proveedores"
+          valor={visibles.length}
+          detalle={resumen.corte ? `con vencimiento desde el ${fmt(resumen.corte)}` : "todo el histórico"}
+          cargando={cargando}
+        />
+      </FilaDeMetricas>
 
       {/* ── El aviso que explica el número de 42 mil millones ─────────── */}
       {resumen.historico_cantidad > 0 && (
@@ -192,7 +192,7 @@ export default function PagosProveedoresPage() {
       {/* ── Filtros ──────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Período</span>
+          <span className="text-[11px] font-medium text-slate-500">Período</span>
           <Selector
             value={dias == null ? "todo" : String(dias)}
             onChange={(e) => setDias(e.target.value === "todo" ? null : Number(e.target.value))}
@@ -204,7 +204,7 @@ export default function PagosProveedoresPage() {
           </Selector>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proveedor</span>
+          <span className="text-[11px] font-medium text-slate-500">Proveedor</span>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
             <input
