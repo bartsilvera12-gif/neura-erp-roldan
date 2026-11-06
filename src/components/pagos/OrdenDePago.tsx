@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
@@ -10,7 +10,7 @@ import CargarReciboChequeModal from "@/components/pagos/CargarReciboChequeModal"
 import Selector from "@/components/ui/Selector";
 import {
   Printer, FileCheck2, Banknote, ImagePlus, X, Eye, Search, ArrowUpDown,
-  CheckCircle2, Info,
+  CheckCircle2, Info, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 /**
@@ -43,6 +43,22 @@ type Factura = {
   vencida: boolean;
 };
 
+/** Lo que tiene adentro una factura: la compra y sus productos. */
+type ItemCompra = {
+  producto_nombre: string;
+  cantidad: number;
+  costo_unitario: number;
+  total: number;
+};
+type DetalleFactura = {
+  cargando: boolean;
+  error: string | null;
+  items: ItemCompra[];
+  fecha_factura: string | null;
+  tipo_pago: string | null;
+  estado: string | null;
+};
+
 type Cheque = {
   id: string; numero: string | null; numero_recibo?: string | null;
   fecha_recibo?: string | null; recibo_storage_path?: string | null;
@@ -56,6 +72,21 @@ type Orden = { col: "vencimiento" | "fecha" | "total" | "numero_factura"; asc: b
 
 const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
 const MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Los valores de la base, en castellano.
+ *
+ * En las columnas se guardan sin tilde y en minúscula ("credito",
+ * "registrada"): mostrarlos crudos deja la pantalla hablando como la base.
+ */
+const PALABRAS: Record<string, string> = {
+  credito: "a crédito",
+  contado: "al contado",
+  registrada: "registrada",
+  pagada: "pagada",
+  anulada: "anulada",
+};
+const enPalabras = (v: string) => PALABRAS[v] ?? v;
 
 const gs = (v: number, m?: string) =>
   `${m === "USD" ? "US$ " : "Gs. "}${Math.round(v).toLocaleString("es-PY")}`;
@@ -136,6 +167,56 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
   const inputImagen = useRef<HTMLInputElement>(null);
 
   // El pago recién armado
+  /**
+   * El detalle abierto de cada factura.
+   *
+   * Se pide una sola vez y queda guardado: abrir y cerrar la misma fila no
+   * vuelve a consultar, y con 417 facturas eso importa.
+   */
+  const [detalles, setDetalles] = useState<Record<string, DetalleFactura>>({});
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+
+  const verDetalle = useCallback(async (numeroControl: string) => {
+    setAbiertas((prev) => {
+      const n = new Set(prev);
+      if (n.has(numeroControl)) n.delete(numeroControl);
+      else n.add(numeroControl);
+      return n;
+    });
+    if (detalles[numeroControl]) return;   // ya se pidió
+
+    setDetalles((d) => ({ ...d, [numeroControl]: { cargando: true, error: null, items: [], fecha_factura: null, tipo_pago: null, estado: null } }));
+    try {
+      const r = await apiFetch(`/api/compras?numero_control=${encodeURIComponent(numeroControl)}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo traer la compra.");
+      const c = (j.data?.compra ?? {}) as Record<string, unknown>;
+      const items = ((j.data?.items ?? []) as Array<Record<string, unknown>>).map((i) => ({
+        producto_nombre: String(i.producto_nombre ?? "—"),
+        cantidad: Number(i.cantidad ?? 0),
+        costo_unitario: Number(i.costo_unitario ?? 0),
+        total: Number(i.total ?? 0),
+      }));
+      setDetalles((d) => ({
+        ...d,
+        [numeroControl]: {
+          cargando: false, error: null, items,
+          fecha_factura: (c.fecha_factura as string) ?? null,
+          tipo_pago: (c.tipo_pago as string) ?? null,
+          estado: (c.estado as string) ?? null,
+        },
+      }));
+    } catch (e) {
+      setDetalles((d) => ({
+        ...d,
+        [numeroControl]: {
+          cargando: false, items: [], fecha_factura: null, tipo_pago: null, estado: null,
+          error: e instanceof Error ? e.message : "No se pudo traer la compra.",
+        },
+      }));
+    }
+  }, [detalles]);
+
   const [chequeCreado, setChequeCreado] = useState<Cheque | null>(null);
   const [cargandoRecibo, setCargandoRecibo] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
@@ -549,15 +630,18 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
                     {cabecera("fecha", "Fecha")}
                     {cabecera("vencimiento", "Vencimiento")}
                     {cabecera("total", "Importe", true)}
+                    <th className="w-10 px-3 py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
                   {visibles.map((f) => {
                     const on = elegidas.has(f.numero_control);
                     const dias = f.vencimiento ? diasEntre(hoy, f.vencimiento) : null;
+                    const abierta = abiertas.has(f.numero_control);
+                    const det = detalles[f.numero_control];
                     return (
+                      <Fragment key={f.numero_control}>
                       <tr
-                        key={f.numero_control}
                         onClick={() => alternar(f.numero_control)}
                         className={`cursor-pointer border-b border-slate-100 transition-colors ${
                           on ? "bg-[#4FAEB2]/10 hover:bg-[#4FAEB2]/15" : "hover:bg-slate-50"
@@ -591,7 +675,78 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
                         <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-800">
                           {gs(f.total, f.moneda)}
                         </td>
+                        {/* El clic en la fila sigue eligiendo la factura, que
+                            es para lo que está la pantalla. Lo que abre el
+                            detalle es este botón, con su propio clic. */}
+                        <td className="px-3 py-2.5 text-center">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); void verDetalle(f.numero_control); }}
+                            aria-expanded={abiertas.has(f.numero_control)}
+                            title="Ver de qué es esta factura"
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                          >
+                            {abiertas.has(f.numero_control)
+                              ? <ChevronDown className="h-4 w-4" />
+                              : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                        </td>
                       </tr>
+
+                      {/* De qué es esta factura: la compra y lo que entró. */}
+                      {abierta && (
+                        <tr className="border-b border-slate-100 bg-slate-50/60">
+                          <td />
+                          <td colSpan={6} className="px-3 py-3">
+                            {det?.cargando ? (
+                              <p className="text-xs text-slate-500">Buscando la compra…</p>
+                            ) : det?.error ? (
+                              <p className="text-xs text-rose-700">{det.error}</p>
+                            ) : !det || det.items.length === 0 ? (
+                              <p className="text-xs text-slate-500">
+                                Esta factura no tiene productos cargados. Puede ser una compra
+                                vieja que entró en la migración sin el detalle.
+                              </p>
+                            ) : (
+                              <>
+                                <p className="mb-2 text-[11px] text-slate-500">
+                                  Compra <span className="font-mono text-slate-700">{f.numero_control}</span>
+                                  {det.fecha_factura ? ` · factura del ${fmt(det.fecha_factura)}` : ""}
+                                  {det.tipo_pago ? ` · ${enPalabras(det.tipo_pago)}` : ""}
+                                  {det.estado ? ` · ${enPalabras(det.estado)}` : ""}
+                                </p>
+                                <table className="w-full text-xs">
+                                  <thead className="bg-slate-50 text-xs text-slate-500">
+                                    <tr>
+                                      <th className="px-2 py-1 text-left font-medium">Producto</th>
+                                      <th className="w-24 px-2 py-1 text-right font-medium">Cantidad</th>
+                                      <th className="w-32 px-2 py-1 text-right font-medium">Costo unit.</th>
+                                      <th className="w-32 px-2 py-1 text-right font-medium">Total</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {det.items.map((it, k) => (
+                                      <tr key={k} className="border-t border-slate-100">
+                                        <td className="px-2 py-1 text-slate-800">{it.producto_nombre}</td>
+                                        <td className="px-2 py-1 text-right tabular-nums text-slate-600">
+                                          {it.cantidad.toLocaleString("es-PY")}
+                                        </td>
+                                        <td className="px-2 py-1 text-right tabular-nums text-slate-600">
+                                          {gs(it.costo_unitario, f.moneda)}
+                                        </td>
+                                        <td className="px-2 py-1 text-right font-medium tabular-nums text-slate-800">
+                                          {gs(it.total, f.moneda)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
