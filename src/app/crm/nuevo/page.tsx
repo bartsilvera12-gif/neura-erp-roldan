@@ -18,7 +18,7 @@ import Selector from "@/components/ui/Selector";
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -158,11 +158,11 @@ export default function NuevoProspectoPage() {
     <div className="space-y-8">
 
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Nuevo prospecto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo prospecto</h1>
         <p className="text-gray-600 text-sm mt-1">Registrá una nueva oportunidad en el funnel comercial</p>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-5xl">
+      <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-5xl">
         <form className="space-y-8" onSubmit={handleSubmit}>
 
           {/* ── Empresa y contacto ───────────────────────────────────────── */}
@@ -264,7 +264,7 @@ export default function NuevoProspectoPage() {
                   </p>
                   <Link
                     href="/planes/nuevo"
-                    className="mt-3 inline-flex items-center gap-1.5 text-[#0EA5E9] hover:text-[#0284C7] font-medium"
+                    className="mt-3 inline-flex items-center gap-1.5 text-[#4FAEB2] hover:text-[#3F8E91] font-medium"
                   >
                     Ir a crear plan →
                   </Link>
@@ -378,7 +378,7 @@ export default function NuevoProspectoPage() {
           <div className="flex gap-4 pt-2">
             <button
               type="submit"
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm active:scale-95"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               Guardar prospecto
             </button>

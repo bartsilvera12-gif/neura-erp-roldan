@@ -109,7 +109,7 @@ export default function PagarCompraModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-base font-semibold text-slate-900">Pagar {numero}</h2>
@@ -170,7 +170,7 @@ export default function PagarCompraModal({
             type="file"
             accept="application/pdf,image/jpeg,image/png,image/webp"
             onChange={(e) => setRecibo(e.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border file:border-slate-200 file:bg-white file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-slate-600"
+            className="mt-1 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border file:border-slate-200 file:bg-white file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-slate-600"
           />
           <span className="mt-1 block text-[10px] leading-snug text-slate-400">
             El papel que firma el proveedor al cobrar. Si no lo tenés ahora, se carga después desde

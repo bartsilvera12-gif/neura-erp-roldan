@@ -74,7 +74,7 @@ export function NuevoCanalInner() {
       </nav>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Conectar {def.label}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Conectar {def.label}</h1>
         <p className="text-sm text-slate-500 mt-1 max-w-2xl">
           {tipo === "whatsapp"
             ? "Definí primero el tipo de conexión. El flujo Meta oficial conserva el comportamiento actual del webhook."
@@ -82,7 +82,7 @@ export function NuevoCanalInner() {
         </p>
       </div>
 
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
+      <section className="w-full rounded-xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8">
         {tipo === "whatsapp" ? (
           <WhatsAppConnectWizard
             cancelHref="/configuracion/canales"

@@ -100,13 +100,13 @@ export default function NuevaOrdenVentaPage() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <Link href="/ordenes-venta" className="text-sm text-sky-600 hover:underline">← Órdenes de venta</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Nueva orden de venta</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Nueva orden de venta</h1>
         <p className="text-slate-600">Cargá una OC que recibiste de un cliente (Biggie, Casa Rica, etc.). Quedará en estado <b>pendiente</b>.</p>
       </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
-      <form onSubmit={guardar} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+      <form onSubmit={guardar} className="rounded-xl border border-slate-200 bg-white p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Cliente</label>
@@ -156,7 +156,7 @@ export default function NuevaOrdenVentaPage() {
           </div>
           {items.length > 0 && (
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="text-left px-3 py-2">Producto</th>
                   <th className="text-right px-3 py-2 w-24">Cantidad</th>

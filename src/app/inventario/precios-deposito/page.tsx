@@ -143,7 +143,7 @@ export default function PreciosDepositoPage() {
     <div className="space-y-6">
       <div>
         <Link href="/inventario" className="text-sm text-sky-600 hover:underline">← Inventario</Link>
-        <h1 className="mt-2 text-2xl font-bold text-slate-800 sm:text-3xl">Precios por depósito</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Precios por depósito</h1>
         <p className="max-w-3xl text-slate-600">
           El precio normal de cada producto es el de la lista. Acá se carga la excepción: lo que
           cobra un depósito en particular. Caja usa este precio cuando se vende desde ese depósito.
@@ -162,7 +162,7 @@ export default function PreciosDepositoPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="text-xs font-semibold text-slate-500">
           Depósito
           <Selector
@@ -196,7 +196,7 @@ export default function PreciosDepositoPage() {
         </label>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {cargando ? (
           <p className="p-6 text-sm text-slate-400">Cargando…</p>
         ) : !depositoSel ? (
@@ -211,7 +211,7 @@ export default function PreciosDepositoPage() {
           </p>
         ) : (
           <table className="w-full min-w-[56rem] text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Producto</th>
                 <th className="px-4 py-3 text-right font-semibold">Costo</th>
@@ -243,7 +243,7 @@ export default function PreciosDepositoPage() {
                           value={valor}
                           onChange={(e) => setValor(e.target.value)}
                           placeholder="vacío = lista"
-                          className="w-32 rounded-md border border-amber-300 bg-white px-2 py-1 text-right text-sm tabular-nums"
+                          className="w-32 rounded-lg border border-amber-300 bg-white px-2 py-1 text-right text-sm tabular-nums"
                         />
                       ) : propio ? (
                         <span className="font-bold tabular-nums text-slate-900">{gs(f.precio_deposito!)}</span>

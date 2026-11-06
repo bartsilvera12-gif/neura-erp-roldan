@@ -361,7 +361,7 @@ export default function Header() {
           <button
             type="button"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition-all hover:border-[#4FAEB2]/60"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 transition-all hover:border-[#4FAEB2]/60"
           >
             {/* Fondo blanco y object-contain: el logo es un círculo sobre
                 blanco. El negro de antes le dibujaba un aro oscuro alrededor, y

@@ -42,7 +42,7 @@ export function SettingsModuleCard({
   actionLabel = "Editar",
 }: SettingsModuleCardProps) {
   const shell =
-    "flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300 hover:shadow-md";
+    "flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300 hover:shadow-md";
 
   const footerClass =
     "inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors";

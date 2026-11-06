@@ -139,7 +139,7 @@ export default function UbicacionesPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Depósitos y ubicaciones</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Depósitos y ubicaciones</h1>
           <p className="text-gray-600">
             Donde se almacena físicamente cada producto: depósitos, salones, pasillos, góndolas, estantes, zonas.
           </p>
@@ -174,7 +174,7 @@ export default function UbicacionesPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
+      <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
           Nueva ubicación
         </p>
@@ -239,7 +239,7 @@ export default function UbicacionesPage() {
             <button
               type="submit"
               disabled={creating || !nombre.trim()}
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
             >
               {creating ? "Creando..." : "Crear ubicación"}
             </button>
@@ -248,14 +248,14 @@ export default function UbicacionesPage() {
         {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         {loading ? (
           <p className="p-6 text-sm text-gray-400">Cargando...</p>
         ) : items.length === 0 ? (
           <p className="p-6 text-sm text-gray-400">Todavía no cargaste ubicaciones.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">Nombre</th>
                 <th className="text-left px-4 py-2">Sucursal</th>

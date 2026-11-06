@@ -147,7 +147,7 @@ export default function OmnicanalEquiposPage() {
       </nav>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Equipos y supervisión omnicanal</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Equipos y supervisión omnicanal</h1>
         <p className="text-sm text-slate-500 mt-2 max-w-2xl leading-relaxed">
           Definí qué usuarios supervisan a qué agentes. Las colas siguen siendo solo distribución de trabajo; la
           supervisión es la jerarquía humana: el supervisor ve inbox, historial y monitoreo únicamente de los agentes
@@ -155,12 +155,12 @@ export default function OmnicanalEquiposPage() {
         </p>
       </div>
 
-      <form onSubmit={(e) => void handleAdd(e)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <form onSubmit={(e) => void handleAdd(e)} className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <h2 className="text-sm font-semibold text-slate-800">Nueva relación supervisor → agente</h2>
         <p className="text-xs text-slate-500 leading-relaxed">
           Supervisores: solo usuarios con perfil <strong className="text-slate-700">Supervisor</strong> en el ERP.
           Agentes: solo perfil <strong className="text-slate-700">Usuario</strong> y asignados a al menos una cola en{" "}
-          <Link href="/configuracion/colas" className="font-semibold text-[#0EA5E9] hover:underline">
+          <Link href="/configuracion/colas" className="font-semibold text-[#4FAEB2] hover:underline">
             Colas y enrutamiento
           </Link>
           .
@@ -227,7 +227,7 @@ export default function OmnicanalEquiposPage() {
               !supervisorId ||
               !agentId
             }
-            className="rounded-xl bg-[#0EA5E9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0284C7] disabled:opacity-50"
+            className="rounded-xl bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50"
           >
             {saving ? "Guardando…" : "Asignar agente al supervisor"}
           </button>
@@ -241,7 +241,7 @@ export default function OmnicanalEquiposPage() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-3 bg-slate-50">
           <h2 className="text-sm font-semibold text-slate-800">Equipo por supervisor</h2>
           <p className="text-xs text-slate-500 mt-0.5">

@@ -200,7 +200,7 @@ export default function IngresosEgresosPage() {
           <Link href="/reportes" className="text-xs font-medium text-slate-500 hover:text-slate-800">
             ← Volver a reportes
           </Link>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Ingresos y egresos</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Ingresos y egresos</h1>
           <p className="text-sm text-slate-500">
             Toda la plata que entró y salió sin ser una venta: los movimientos de caja y las facturas de gasto, juntos.
           </p>
@@ -234,7 +234,7 @@ export default function IngresosEgresosPage() {
       )}
 
       {/* ── Filtros ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input type="date" value={desde} max={hasta} onChange={(e) => setDesde(e.target.value)} className={selectCls} />
@@ -304,7 +304,7 @@ export default function IngresosEgresosPage() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
           <p className="text-xs text-slate-500">
             Las ventas no entran acá: tienen su propio informe. Los ingresos son los manuales de caja.
@@ -328,7 +328,7 @@ export default function IngresosEgresosPage() {
             </p>
           ) : (
             <table className="w-full min-w-[64rem] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Fecha</th>
                   <th className="px-4 py-3 font-semibold">Origen</th>

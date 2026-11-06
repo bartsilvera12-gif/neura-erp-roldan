@@ -296,7 +296,7 @@ export default function EditProspectoPage() {
   if (notFound) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-gray-800">Prospecto no encontrado</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Prospecto no encontrado</h1>
         <button
           onClick={() => router.push("/crm")}
           className="text-sm text-gray-500 underline"
@@ -324,7 +324,7 @@ export default function EditProspectoPage() {
           >
             ← Funnel CRM
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{prospecto.empresa}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{prospecto.empresa}</h1>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm text-gray-400 font-mono">{prospecto.numero_control}</span>
             {etapaActual && etapaActualClasses && (
@@ -369,7 +369,7 @@ export default function EditProspectoPage() {
       )}
 
       {/* ── Sección: Cambiar etapa ────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl shadow p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionTitle>Etapa del funnel</SectionTitle>
         <div className="flex flex-wrap gap-2">
           {etapas.map((e) => {
@@ -404,7 +404,7 @@ export default function EditProspectoPage() {
       </div>
 
       {/* ── Sección: Datos del prospecto ─────────────────────────────────── */}
-      <div className="bg-white rounded-xl shadow p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionTitle>Datos del prospecto</SectionTitle>
 
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -415,7 +415,7 @@ export default function EditProspectoPage() {
           {conversationId && (
             <Link
               href={`/dashboard/conversaciones?conversationId=${encodeURIComponent(conversationId)}`}
-              className="text-sm text-[#0EA5E9] hover:underline font-semibold shrink-0"
+              className="text-sm text-[#4FAEB2] hover:underline font-semibold shrink-0"
             >
               Abrir conversación →
             </Link>
@@ -500,7 +500,7 @@ export default function EditProspectoPage() {
                 <p className="font-medium">No hay planes creados para esta empresa.</p>
                 <Link
                   href="/planes/nuevo"
-                  className="mt-2 inline-flex items-center gap-1.5 text-[#0EA5E9] hover:text-[#0284C7] font-medium"
+                  className="mt-2 inline-flex items-center gap-1.5 text-[#4FAEB2] hover:text-[#3F8E91] font-medium"
                 >
                   Ir a crear plan →
                 </Link>
@@ -605,7 +605,7 @@ export default function EditProspectoPage() {
       </div>
 
       {/* ── Sección: Notas internas ──────────────────────────────────────── */}
-      <div className="bg-white rounded-xl shadow p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionTitle>Notas internas ({prospecto.notas.length})</SectionTitle>
 
         <form onSubmit={handleAgregarNota} className="mb-5">

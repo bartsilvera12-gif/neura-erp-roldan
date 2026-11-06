@@ -98,7 +98,7 @@ export default async function SorteoCuponesPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Cupones</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Cupones</h1>
           <p className="text-gray-500 text-sm mt-1">Órdenes con números de cupón generados</p>
         </div>
         <Suspense fallback={null}>
@@ -107,13 +107,13 @@ export default async function SorteoCuponesPage({
       </div>
 
       <nav className="flex flex-wrap gap-2 text-sm border-b border-slate-200 pb-3">
-        <Link href="/sorteos" className="text-slate-600 hover:text-[#0EA5E9]">
+        <Link href="/sorteos" className="text-slate-600 hover:text-[#4FAEB2]">
           Sorteos
         </Link>
-        <Link href="/sorteos/entradas" className="text-slate-600 hover:text-[#0EA5E9]">
+        <Link href="/sorteos/entradas" className="text-slate-600 hover:text-[#4FAEB2]">
           Entradas
         </Link>
-        <span className="font-semibold text-[#0EA5E9]">Cupones</span>
+        <span className="font-semibold text-[#4FAEB2]">Cupones</span>
       </nav>
 
       <form method="get" className="flex flex-wrap gap-2 items-end bg-slate-50 border border-slate-200 rounded-lg p-4">
@@ -138,7 +138,7 @@ export default async function SorteoCuponesPage({
         <SorteoCuponesEstadoPagoFilter />
         <button
           type="submit"
-          className="bg-[#0EA5E9] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-sky-600"
+          className="bg-[#4FAEB2] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-sky-600"
         >
           Filtrar
         </button>
@@ -182,7 +182,7 @@ export default async function SorteoCuponesPage({
         ) : null}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {rows.length === 0 && !queryError ? (
           <div className="py-16 text-center text-gray-400 text-sm">No hay órdenes con cupones</div>
         ) : rows.length === 0 ? null : (
@@ -233,7 +233,7 @@ export default async function SorteoCuponesPage({
                       {r.chat_conversation_id ? (
                         <Link
                           href={`/dashboard/conversaciones?conversationId=${encodeURIComponent(r.chat_conversation_id)}`}
-                          className="text-[#0EA5E9] hover:underline"
+                          className="text-[#4FAEB2] hover:underline"
                         >
                           Abrir
                         </Link>

@@ -148,7 +148,7 @@ export default function NuevoUsuarioPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Nuevo usuario</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo usuario</h1>
         <p className="text-sm text-gray-500 mt-1">Código generado automáticamente al guardar.</p>
       </div>
 
@@ -166,7 +166,7 @@ export default function NuevoUsuarioPage() {
             name="sucursal_id"
             value={sucursalId}
             onChange={(e) => setSucursalId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:border-transparent"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:border-transparent"
           >
             <option value="">Seleccioná una sucursal…</option>
             {sucursales.map((s) => (
@@ -196,7 +196,7 @@ export default function NuevoUsuarioPage() {
           <button
             type="submit"
             disabled={guardando}
-            className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {guardando ? "Creando usuario…" : "Guardar usuario"}
           </button>

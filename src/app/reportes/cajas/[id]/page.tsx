@@ -52,7 +52,7 @@ interface Respuesta {
 
 function Tarjeta({ titulo, valor, pie, color }: { titulo: string; valor: string; pie?: string; color?: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
       <p className="text-[11px] font-medium text-slate-500">{titulo}</p>
       <p className={`text-xl font-bold ${color ?? "text-slate-900"}`}>{valor}</p>
       {pie && <p className="text-xs text-slate-500">{pie}</p>}
@@ -132,7 +132,7 @@ export default function DetalleCierreCajaPage() {
           <Link href="/reportes/cajas" className="text-xs font-medium text-slate-500 hover:text-slate-800">
             ← Volver a cierres de caja
           </Link>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
             Caja {c.numero_caja}
             {abiertaAun && (
               <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 align-middle text-xs font-semibold text-emerald-800">
@@ -179,7 +179,7 @@ export default function DetalleCierreCajaPage() {
       )}
 
       {/* ── Ventas del turno ─────────────────────────────────────────────── */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">Ventas del turno</h2>
@@ -211,7 +211,7 @@ export default function DetalleCierreCajaPage() {
           <p className="px-4 py-8 text-center text-sm text-slate-400">No se registraron ventas en este turno.</p>
         ) : (
           <table className="w-full min-w-[52rem] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Hora</th>
                 <th className="px-4 py-3 font-semibold">Comprobante</th>
@@ -280,7 +280,7 @@ export default function DetalleCierreCajaPage() {
                         ) : (
                           <button
                             onClick={(e) => { e.stopPropagation(); setAnularTarget(v); }}
-                            className="rounded-md border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50"
+                            className="rounded-lg border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50"
                           >
                             Anular
                           </button>
@@ -307,7 +307,7 @@ export default function DetalleCierreCajaPage() {
       </section>
 
       {/* ── Movimientos manuales ─────────────────────────────────────────── */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">Ingresos, egresos y retiros</h2>
@@ -343,7 +343,7 @@ export default function DetalleCierreCajaPage() {
           <p className="px-4 py-8 text-center text-sm text-slate-400">Este turno no tuvo movimientos manuales.</p>
         ) : (
           <table className="w-full min-w-[48rem] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Hora</th>
                 <th className="px-4 py-3 font-semibold">Tipo</th>
@@ -449,7 +449,7 @@ function AnularFacturaModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl border-2 border-red-200 bg-white shadow-2xl"
+        className="w-full max-w-md overflow-hidden rounded-xl border border-2 border-red-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">

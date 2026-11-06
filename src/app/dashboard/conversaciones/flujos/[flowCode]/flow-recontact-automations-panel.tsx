@@ -536,7 +536,7 @@ export function FlowRecontactAutomationsPanel(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold text-slate-800">Automatizaciones</h2>
         <p className="text-sm text-slate-600 mt-1">
           Configurá recontactos automáticos para clientes que quedan detenidos en este flujo.
@@ -552,7 +552,7 @@ export function FlowRecontactAutomationsPanel(props: {
         <button
           type="button"
           onClick={() => openCreate()}
-          className="mt-4 bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium"
+          className="mt-4 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium"
         >
           Nueva automatización
         </button>
@@ -572,9 +572,9 @@ export function FlowRecontactAutomationsPanel(props: {
       ) : items.length === 0 ? (
         <p className="text-sm text-slate-600">No hay automatizaciones configuradas para este flujo.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-left text-xs text-slate-500">
               <tr>
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2">Activo</th>
@@ -622,7 +622,7 @@ export function FlowRecontactAutomationsPanel(props: {
                     </button>
                     <button
                       type="button"
-                      className="text-[#0EA5E9] hover:underline text-xs font-medium"
+                      className="text-[#4FAEB2] hover:underline text-xs font-medium"
                       onClick={() => openEdit(row)}
                     >
                       Editar
@@ -917,7 +917,7 @@ export function FlowRecontactAutomationsPanel(props: {
                 ) : (
                   <div className="space-y-3">
                     {draft.message_buttons.map((btn, idx) => (
-                      <div key={btn.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
+                      <div key={btn.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
                         <div className="flex justify-between items-center gap-2">
                           <span className="text-xs font-medium text-slate-600">Botón {idx + 1}</span>
                           <button
@@ -1030,7 +1030,7 @@ export function FlowRecontactAutomationsPanel(props: {
               <button
                 type="button"
                 disabled={saving}
-                className="px-4 py-2 text-sm rounded-lg bg-[#0EA5E9] text-white hover:bg-[#0284C7] disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-lg bg-[#4FAEB2] text-white hover:bg-[#3F8E91] disabled:opacity-50"
                 onClick={() => void saveDraft()}
               >
                 {saving ? "Guardando…" : "Guardar"}
@@ -1096,7 +1096,7 @@ export function FlowRecontactAutomationsPanel(props: {
 
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="min-w-full text-xs">
-                      <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-500">
+                      <thead className="bg-slate-50 text-left text-[10px] text-xs text-slate-500">
                         <tr>
                           <th className="px-2 py-2">Cliente</th>
                           <th className="px-2 py-2">Nodo actual</th>

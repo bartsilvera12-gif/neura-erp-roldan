@@ -113,7 +113,7 @@ export default function SorteoRevendedoresClient(props: {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Revendedores</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Revendedores</h1>
         <p className="text-sm text-slate-600 mt-1">{props.sorteoNombre}</p>
       </div>
 
@@ -125,7 +125,7 @@ export default function SorteoRevendedoresClient(props: {
         </div>
       )}
 
-      <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+      <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
         <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wide">Nuevo revendedor</h2>
         <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -158,7 +158,7 @@ export default function SorteoRevendedoresClient(props: {
             <button
               type="submit"
               disabled={saving}
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
             >
               {saving ? "Guardando…" : "Crear revendedor"}
             </button>
@@ -181,7 +181,7 @@ export default function SorteoRevendedoresClient(props: {
               return (
                 <li
                   key={r.id}
-                  className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3"
+                  className="bg-white border border-slate-200 rounded-xl p-4 space-y-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -200,7 +200,7 @@ export default function SorteoRevendedoresClient(props: {
                       <button
                         type="button"
                         onClick={() => void toggleActivo(r)}
-                        className="text-xs text-[#0EA5E9] hover:underline"
+                        className="text-xs text-[#4FAEB2] hover:underline"
                       >
                         {r.activo ? "Desactivar" : "Activar"}
                       </button>
@@ -215,7 +215,7 @@ export default function SorteoRevendedoresClient(props: {
                   <div className="grid sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <div className="text-xs font-medium text-slate-500 mb-1">Link oficial</div>
-                      <div className="break-all text-[#0EA5E9] text-xs">{link}</div>
+                      <div className="break-all text-[#4FAEB2] text-xs">{link}</div>
                     </div>
                     <div className="flex gap-3 items-start">
                       {props.baseUrl.trim() !== "" && r.activo ? (

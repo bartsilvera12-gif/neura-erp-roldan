@@ -468,7 +468,7 @@ export default function NuevoProductoPage() {
   }
 
   const inputClass =
-    "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
+    "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
   const labelClass = "block text-sm font-medium text-slate-700 mb-2";
 
   // Todo producto acá se compra y se revende: maneja stock y tiene precio.
@@ -480,7 +480,7 @@ export default function NuevoProductoPage() {
   if (!rolCargado || !isAdmin) {
     return (
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold text-gray-800">Nuevo producto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo producto</h1>
         <p className="text-gray-500 animate-pulse">Cargando…</p>
       </div>
     );
@@ -490,11 +490,11 @@ export default function NuevoProductoPage() {
     <div className="space-y-8">
 
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Nuevo producto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo producto</h1>
         <p className="text-gray-600">Producto de reventa · se compra y se vende tal cual.</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6 max-w-5xl">
+      <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-5xl">
         <form className="space-y-6" onSubmit={handleSubmit} noValidate>
 
           {/* Error general (validacion de codigo, duplicado de codigo barras, etc.) */}
@@ -580,7 +580,7 @@ export default function NuevoProductoPage() {
                   type="button"
                   onClick={handleGenerarSku}
                   disabled={generandoSku}
-                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/5 disabled:opacity-50"
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/5 disabled:opacity-50"
                 >
                   {generandoSku ? "…" : "Generar SKU"}
                 </button>
@@ -589,7 +589,7 @@ export default function NuevoProductoPage() {
                 <Selector
                   onChange={handleSelectPatron}
                   defaultValue=""
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-[#4FAEB2]"
                 >
                   <option value="">Usar patrón existente…</option>
                   {skuPatrones.map((p) => (
@@ -660,7 +660,7 @@ export default function NuevoProductoPage() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <label className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm px-4 py-2 rounded-lg cursor-pointer transition-colors">
+                  <label className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm px-4 py-2 rounded-lg cursor-pointer transition-colors">
                     {imagenFile ? "Cambiar imagen" : "Seleccionar imagen"}
                     <input
                       type="file"
@@ -853,7 +853,7 @@ export default function NuevoProductoPage() {
                   <button
                     type="button"
                     onClick={() => setCrear("categoria")}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
                   >
                     + Crear
                   </button>
@@ -876,7 +876,7 @@ export default function NuevoProductoPage() {
                   <button
                     type="button"
                     onClick={() => setCrear("proveedor")}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
                   >
                     + Crear
                   </button>
@@ -899,7 +899,7 @@ export default function NuevoProductoPage() {
                   <button
                     type="button"
                     onClick={() => setCrear("deposito")}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 hover:text-sky-900"
                   >
                     + Crear
                   </button>
@@ -1096,7 +1096,7 @@ export default function NuevoProductoPage() {
             <button
               type="submit"
               disabled={submitting}
-              className={`${avisoCodigo ? "bg-amber-600 hover:bg-amber-500" : "bg-[#0EA5E9] hover:bg-[#0284C7]"} text-white px-5 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`${avisoCodigo ? "bg-amber-600 hover:bg-amber-500" : "bg-[#4FAEB2] hover:bg-[#3F8E91]"} text-white px-5 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {submitting ? "Guardando..." : avisoCodigo ? "Guardar de todos modos" : "Guardar producto"}
             </button>
@@ -1187,7 +1187,7 @@ function ModalCrearRapido({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="text-sm font-bold text-slate-800">{cfg.titulo}</h3>
           <button type="button" onClick={onClose} className="text-lg leading-none text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>

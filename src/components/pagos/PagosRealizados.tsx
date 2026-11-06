@@ -294,13 +294,13 @@ function FilaPago({ p, abierto, varias, onToggle }: { p: Pago; abierto: boolean;
           <span className="inline-flex gap-2">
             {p.recibo_path && (
               <button type="button" onClick={() => void abrirArchivo(p.recibo_path!)}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/10">
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/10">
                 <FileCheck2 className="h-3.5 w-3.5" /> Recibo
               </button>
             )}
             {p.cheque?.imagen_path && (
               <button type="button" onClick={() => void abrirArchivo(p.cheque!.imagen_path!)}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/10">
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/10">
                 <ImageIcon className="h-3.5 w-3.5" /> Cheque
               </button>
             )}

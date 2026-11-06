@@ -284,7 +284,7 @@ export default function MarketingOpsPage() {
             <Megaphone className="h-5 w-5" aria-hidden />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Marketing Ops</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Marketing Ops</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Calendario y cumplimiento por cliente · schema de datos de la empresa
             </p>
@@ -294,7 +294,7 @@ export default function MarketingOpsPage() {
           <Selector
             value={mes}
             onChange={(e) => setMes(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white shadow-sm"
+            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white"
             aria-label="Mes operativo"
           >
             {Array.from({ length: 24 }, (_, i) => {
@@ -322,7 +322,7 @@ export default function MarketingOpsPage() {
           <button
             type="button"
             onClick={() => void handlePreviewSync()}
-            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-[#0EA5E9] hover:bg-[#0284C7] text-white shadow-sm"
+            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-[#4FAEB2] hover:bg-[#3F8E91] text-white shadow-sm"
           >
             <Sparkles className="h-4 w-4" />
             Sincronizar y regenerar mes
@@ -398,7 +398,7 @@ export default function MarketingOpsPage() {
           role="presentation"
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-100"
+            className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border border-slate-100"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -424,7 +424,7 @@ export default function MarketingOpsPage() {
                 type="button"
                 onClick={() => void handleExecuteSync()}
                 disabled={syncEjecutando}
-                className="inline-flex items-center justify-center gap-2 bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 min-w-[120px]"
+                className="inline-flex items-center justify-center gap-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 min-w-[120px]"
               >
                 {syncEjecutando ? (
                   <>
@@ -451,7 +451,7 @@ export default function MarketingOpsPage() {
           className="fixed inset-0 bg-black/45 flex items-center justify-center z-50 p-4"
           onClick={() => setRegenerarCliente(null)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-100" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-100" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-slate-900 mb-2">Regenerar tareas del mes</h3>
             <p className="text-sm text-slate-600 mb-4">
               Se eliminarán las <strong>tareas automáticas</strong> de{" "}
@@ -468,7 +468,7 @@ export default function MarketingOpsPage() {
                 type="button"
                 onClick={() => void handleRegenerarTareas(regenerarCliente)}
                 disabled={regenerando}
-                className="flex-1 bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="flex-1 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {regenerando ? "Regenerando…" : "Confirmar"}
               </button>
@@ -487,7 +487,7 @@ export default function MarketingOpsPage() {
 
       {modalTarea && (
         <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50 p-4" onClick={() => setModalTarea(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-100" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 border border-slate-100" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-slate-900 mb-2">¿Se cumplió esta tarea?</h3>
             <p className="text-sm text-slate-600 mb-4 capitalize">
               {modalTarea.tipo_contenido} — {modalTarea.fecha_entrega}
@@ -527,7 +527,7 @@ export default function MarketingOpsPage() {
         </div>
 
         {clientesOps.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 mb-3">
               <Users className="h-6 w-6" />
             </div>
@@ -564,7 +564,7 @@ export default function MarketingOpsPage() {
               return (
                 <div
                   key={c.id}
-                  className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+                  className="rounded-xl border border-slate-200 bg-white overflow-hidden"
                 >
                   <button
                     type="button"

@@ -104,7 +104,7 @@ export default function ModalCampo({
       onClick={ocupado ? undefined : onCerrar}
     >
       <div
-        className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="w-full max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
@@ -118,7 +118,7 @@ export default function ModalCampo({
             type="button"
             onClick={onCerrar}
             disabled={ocupado}
-            className="ml-auto rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+            className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
             aria-label="Cerrar"
           >
             <X className="h-4 w-4" />

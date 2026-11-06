@@ -173,7 +173,7 @@ export default function SugerenciasReposicionPage() {
         <Link href="/inventario" className="text-xs font-medium text-slate-500 hover:text-slate-800">
           ← Volver a inventario
         </Link>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">Reposición</h1>
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Reposición</h1>
         <p className="text-sm text-slate-500">
           Cuánto se consumió, cuánto queda y cuánto conviene comprar. Para mover
           mercadería de una sucursal a otra, es Transferencias entre sucursales.
@@ -181,7 +181,7 @@ export default function SugerenciasReposicionPage() {
       </div>
 
       {/* Los dos parámetros que cambian todo el cálculo, a la vista y editables. */}
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Analizar los últimos</span>
           <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export default function SugerenciasReposicionPage() {
           porque responde otra pregunta: no "cuánto compro ahora" sino "cuánto
           no debería bajar nunca". */}
       {data && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-slate-800">Mínimo automático</p>
@@ -300,7 +300,7 @@ export default function SugerenciasReposicionPage() {
       {/* Filtros de trabajo. Van aparte de los parámetros de arriba a propósito:
           aquellos cambian el CÁLCULO (hay que recalcular), estos solo acotan
           lo que se mira. Mezclados, nadie sabría cuál de los dos hace qué. */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Rubro</span>
           <Selector
@@ -372,7 +372,7 @@ export default function SugerenciasReposicionPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>
@@ -517,7 +517,7 @@ function Tarjeta({
     : tono === "ambar" ? "text-amber-600"
     : "text-slate-900";
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}

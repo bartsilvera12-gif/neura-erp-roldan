@@ -81,13 +81,13 @@ function ProductoThumb({ url, alt, size = "h-10 w-10" }: { url?: string | null; 
   const [err, setErr] = useState(false);
   if (!url || err) {
     return (
-      <div className={`flex ${size} shrink-0 items-center justify-center rounded-md border border-slate-100 bg-slate-50 text-slate-300`}>
+      <div className={`flex ${size} shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300`}>
         <ImageIcon className="h-4 w-4" />
       </div>
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt={alt} loading="lazy" onError={() => setErr(true)} className={`${size} shrink-0 rounded-md border border-slate-100 object-cover`} />;
+  return <img src={url} alt={alt} loading="lazy" onError={() => setErr(true)} className={`${size} shrink-0 rounded-lg border border-slate-100 object-cover`} />;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ const tipoPrecioLabel: Record<TipoPrecioVenta, string> = {
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ function SegmentedControl<T extends string>({
           onClick={() => onChange(opt.value)}
           className={`flex-1 py-2 text-sm font-medium transition-colors ${
             value === opt.value
-              ? "bg-[#0EA5E9] text-white"
+              ? "bg-[#4FAEB2] text-white"
               : "bg-white text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -1692,7 +1692,7 @@ export default function NuevaVentaPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Nueva venta</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nueva venta</h1>
           <p className="text-gray-600">
             Buscá un producto y se agrega al instante. Revisá cantidades y precios en la tabla.
           </p>
@@ -1709,7 +1709,7 @@ export default function NuevaVentaPage() {
               <Selector
                 value={depositoId}
                 onChange={(e) => setDepositoId(e.target.value)}
-                className={`rounded-md border px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4FAEB2]/30 ${
+                className={`rounded-lg border px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4FAEB2]/30 ${
                   depositoId ? "border-slate-200 bg-white text-slate-800" : "border-amber-300 bg-amber-50 text-amber-900"
                 }`}
               >
@@ -1737,7 +1737,7 @@ export default function NuevaVentaPage() {
               <Selector
                 value={cajaActivaId}
                 onChange={(e) => setCajaActivaId(e.target.value)}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
               >
                 <option value="">— Elegí caja —</option>
                 {cajasAbiertas.map((c) => (
@@ -1820,7 +1820,7 @@ export default function NuevaVentaPage() {
         )}
 
         {/* ── SECCIÓN 0: Datos de la venta (cliente opcional + condición) ────── */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
           <SectionTitle>Datos de la venta</SectionTitle>
 
           {/* La venta se cobra siempre en guaraníes. Un producto con precio en
@@ -1875,7 +1875,7 @@ export default function NuevaVentaPage() {
                   <button
                     type="button"
                     onClick={() => setVerHistorial(true)}
-                    className="font-medium text-[#0EA5E9] underline-offset-2 hover:underline"
+                    className="font-medium text-[#4FAEB2] underline-offset-2 hover:underline"
                   >
                     Ver historial de compras
                   </button>
@@ -1918,7 +1918,7 @@ export default function NuevaVentaPage() {
                       type="checkbox"
                       checked={generaNotaRemision}
                       onChange={(e) => setGeneraNotaRemision(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                      className="h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                     />
                     Generar nota de remisión
                   </label>
@@ -2038,13 +2038,13 @@ export default function NuevaVentaPage() {
         </div>
 
         {/* ── SECCIÓN 3: Carrito + totales + confirmar ─────────────────────── */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
           <div className="mb-3 flex items-center justify-between gap-2">
             <SectionTitle>Productos en esta venta</SectionTitle>
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#0EA5E9] hover:text-[#0284C7]"
+              className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]"
               title="Buscador avanzado (crear producto)"
             >
               Buscador avanzado
@@ -2055,7 +2055,7 @@ export default function NuevaVentaPage() {
           <div ref={comboContainerRef} className="relative">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#0EA5E9]" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4FAEB2]" />
                 <input
                   ref={comboInputRef}
                   type="text"
@@ -2064,7 +2064,7 @@ export default function NuevaVentaPage() {
                   onFocus={() => setComboOpen(true)}
                   onKeyDown={onComboKeyDown}
                   placeholder="Buscar producto por nombre, SKU o palabras clave…"
-                  className="h-12 w-full rounded-xl border-2 border-[#0EA5E9]/30 bg-white pl-12 pr-4 text-base text-slate-800 outline-none transition-all focus:border-[#0EA5E9] focus:ring-4 focus:ring-[#0EA5E9]/15"
+                  className="h-12 w-full rounded-xl border-2 border-[#4FAEB2]/30 bg-white pl-12 pr-4 text-base text-slate-800 outline-none transition-all focus:border-[#4FAEB2] focus:ring-4 focus:ring-[#4FAEB2]/15"
                   autoComplete="off"
                 />
               </div>
@@ -2075,7 +2075,7 @@ export default function NuevaVentaPage() {
               />
             </div>
             {comboOpen && (comboQuery.trim().length >= 2 || !!comboCategoriaId) && (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[56vh] overflow-y-auto rounded-xl border-2 border-[#0EA5E9]/20 bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.28)]">
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[56vh] overflow-y-auto rounded-xl border-2 border-[#4FAEB2]/20 bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.28)]">
                 {comboBuscando && comboResultados.length === 0 ? (
                   <div className="px-4 py-5 text-center text-sm text-slate-400">Buscando…</div>
                 ) : comboResultados.length === 0 ? (
@@ -2105,7 +2105,7 @@ export default function NuevaVentaPage() {
                             className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                               sinStock
                                 ? "cursor-not-allowed opacity-50"
-                                : i === comboHighlight ? "bg-[#0EA5E9]/8" : "hover:bg-slate-50"
+                                : i === comboHighlight ? "bg-[#4FAEB2]/8" : "hover:bg-slate-50"
                             }`}
                           >
                             <ProductoThumb url={p.imagen_url} alt={p.nombre} />
@@ -2128,7 +2128,7 @@ export default function NuevaVentaPage() {
                                   Sin stock
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 rounded-lg bg-[#0EA5E9]/10 px-2.5 py-1 text-xs font-bold text-[#0284C7] whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2]/10 px-2.5 py-1 text-xs font-bold text-[#3F8E91] whitespace-nowrap">
                                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Agregar
                                 </span>
                               )}
@@ -2190,7 +2190,7 @@ export default function NuevaVentaPage() {
                       const topeLinea = topeDeArticulo(item.producto_id);
                       const topeEfectivo = topeAplicable(descuentoMaximo, topeLinea.pct);
                       return (
-                        <tr key={idx} className="align-middle transition-colors hover:bg-[#0EA5E9]/5">
+                        <tr key={idx} className="align-middle transition-colors hover:bg-[#4FAEB2]/5">
                           {/* Producto + SKU */}
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-3">
@@ -2268,7 +2268,7 @@ export default function NuevaVentaPage() {
                                 const sel = item.tipo_iva === iva;
                                 return (
                                   <button key={iva} type="button" onClick={() => updateItemCampo(idx, { tipo_iva: iva })}
-                                    className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
+                                    className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
                                     {iva === "EXENTA" ? "Ex" : iva}
                                   </button>
                                 );
@@ -2277,7 +2277,7 @@ export default function NuevaVentaPage() {
                           </td>
                           {/* Cantidad */}
                           <td className="px-3 py-2.5">
-                            <div className="mx-auto flex w-fit items-center rounded-md border border-slate-200 bg-white">
+                            <div className="mx-auto flex w-fit items-center rounded-lg border border-slate-200 bg-white">
                               <button type="button" onClick={() => changeCantidadItem(idx, -1)} className="h-8 w-8 rounded-l-md text-slate-500 hover:bg-slate-100"><Minus className="mx-auto h-3.5 w-3.5" /></button>
                               <NumeroEditable
                                 value={item.cantidad}
@@ -2308,7 +2308,7 @@ export default function NuevaVentaPage() {
                                   updateItemCampo(idx, { precio_venta: costoMin });
                                 }
                               }}
-                              className={`h-8 w-28 rounded-md border bg-white px-2 text-right text-sm tabular-nums ${
+                              className={`h-8 w-28 rounded-lg border bg-white px-2 text-right text-sm tabular-nums ${
                                 costoMin > 0 && item.precio_venta < costoMin ? "border-red-300 bg-red-50" : "border-slate-200"
                               }`}
                               title={costoMin > 0
@@ -2466,7 +2466,7 @@ export default function NuevaVentaPage() {
                             value={anticipoUsar}
                             onChange={(e) => setAnticipoUsar(e.target.value)}
                             placeholder="Usar 0"
-                            className="w-28 rounded-md border border-emerald-300 bg-white px-2 py-1 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            className="w-28 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-400"
                           />
                           <button
                             type="button"
@@ -2475,7 +2475,7 @@ export default function NuevaVentaPage() {
                                 String(Math.min(Math.round(anticipoSaldo), Math.round(totalGeneral)))
                               )
                             }
-                            className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                            className="rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
                           >
                             Usar todo
                           </button>
@@ -2483,7 +2483,7 @@ export default function NuevaVentaPage() {
                             <button
                               type="button"
                               onClick={() => setAnticipoUsar("")}
-                              className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-800 underline hover:text-emerald-900"
+                              className="rounded-lg px-2 py-1 text-[11px] font-medium text-emerald-800 underline hover:text-emerald-900"
                             >
                               Quitar
                             </button>
@@ -2573,7 +2573,7 @@ export default function NuevaVentaPage() {
                             type="checkbox"
                             checked={pagoMixto}
                             onChange={(e) => setPagoMixto(e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                           />
                           Pago mixto
                         </label>
@@ -2602,9 +2602,9 @@ export default function NuevaVentaPage() {
                             key={m.v}
                             type="button"
                             onClick={() => handleSelectMetodo(m.v)}
-                            className={`text-xs py-2 rounded-md border transition-colors ${
+                            className={`text-xs py-2 rounded-lg border transition-colors ${
                               metodoPago === m.v
-                                ? "border-[#0EA5E9] bg-[#0EA5E9]/10 text-[#0EA5E9] font-medium"
+                                ? "border-[#4FAEB2] bg-[#4FAEB2]/10 text-[#4FAEB2] font-medium"
                                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                             }`}
                           >
@@ -2637,7 +2637,7 @@ export default function NuevaVentaPage() {
 
                       {/* Transferencia / Tarjeta: resumen compacto + editar */}
                       {!pagoMixto && (metodoPago === "transferencia" || metodoPago === "tarjeta") && (
-                        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs space-y-1">
+                        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-slate-700">
                               {metodoPago === "transferencia" ? "Transferencia" : "Tarjeta / Débito"}
@@ -2742,7 +2742,7 @@ export default function NuevaVentaPage() {
                     ? "Hay un descuento esperando la autorización del administrador."
                     : undefined
               }
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 min-h-[48px] w-full sm:w-auto"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] w-full sm:w-auto"
             >
               {guardando ? "Guardando…" : "Confirmar venta"}
             </button>
@@ -2783,7 +2783,7 @@ export default function NuevaVentaPage() {
       {/* Modal de cobro (transferencia / tarjeta-débito) */}
       {cobroModalOpen && (metodoPago === "transferencia" || metodoPago === "tarjeta") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCobroModalOpen(false)}>
-          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-800">
                 {metodoPago === "transferencia" ? "Datos de transferencia" : "Datos de tarjeta / débito"}
@@ -2835,7 +2835,7 @@ export default function NuevaVentaPage() {
               <input type="text" value={pagoReferencia} onChange={(e) => setPagoReferencia(e.target.value)} placeholder="Comprobante / transacción" className={inputClass} />
             </div>
 
-            <button type="button" onClick={() => setCobroModalOpen(false)} className="w-full rounded-lg bg-[#0EA5E9] py-2 text-sm font-medium text-white hover:bg-[#0284C7]">
+            <button type="button" onClick={() => setCobroModalOpen(false)} className="w-full rounded-lg bg-[#4FAEB2] py-2 text-sm font-medium text-white hover:bg-[#3F8E91]">
               Listo
             </button>
           </div>
@@ -2845,7 +2845,7 @@ export default function NuevaVentaPage() {
       {/* Modal de confirmación: venta sin stock suficiente */}
       {confirmSinStockOpen && faltantes.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmSinStockOpen(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500 leading-none" aria-hidden />
               <div>
@@ -2883,7 +2883,7 @@ export default function NuevaVentaPage() {
             </div>
 
             <div className="flex justify-end">
-              <button type="button" onClick={() => setConfirmSinStockOpen(false)} className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white hover:bg-[#0284C7]">
+              <button type="button" onClick={() => setConfirmSinStockOpen(false)} className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]">
                 Entendido
               </button>
             </div>
@@ -2894,7 +2894,7 @@ export default function NuevaVentaPage() {
       {/* Panel post-venta: abrir ticket y (si aplica) nota de remisión */}
       {postVenta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4 text-center">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-center">
             <CheckCircle2 className="h-8 w-8" aria-hidden />
             <div>
               <h3 className="text-base font-semibold text-slate-800">Venta {postVenta.numero} registrada</h3>
@@ -2914,7 +2914,7 @@ export default function NuevaVentaPage() {
                 href={`/api/ventas/${postVenta.id}/comprobante-a4`}
                 target="_blank"
                 rel="noopener"
-                className="rounded-lg bg-[#0EA5E9] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0284C7]"
+                className="rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#3F8E91]"
               >
                 Abrir ticket
               </a>
@@ -3010,7 +3010,7 @@ function PagosMixtoEditor({
       {pagos.map((p, i) => {
         const needEntidad = p.metodo === "transferencia" || p.metodo === "tarjeta";
         return (
-        <div key={i} className="rounded-lg border border-slate-200 bg-white p-3">
+        <div key={i} className="rounded-xl border border-slate-200 bg-white p-3">
           {/* Grid fijo: metodo | monto | entidad | ref | titular | +resto | ×
               Los slots de entidad/ref/titular quedan vacios en Efectivo para
               que +resto y × queden alineados verticalmente entre lineas.
@@ -3019,7 +3019,7 @@ function PagosMixtoEditor({
             <Selector
               value={p.metodo}
               onChange={(e) => update(i, { metodo: e.target.value as PagoMixtoLinea["metodo"] })}
-              className="h-11 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
+              className="h-11 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium"
             >
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
@@ -3031,13 +3031,13 @@ function PagosMixtoEditor({
               value={p.monto}
               onChange={(e) => update(i, { monto: e.target.value })}
               placeholder="Monto (Gs.)"
-              className="h-11 rounded-md border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
+              className="h-11 rounded-lg border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
             />
             {needEntidad ? (
               <Selector
                 value={p.entidad_id}
                 onChange={(e) => update(i, { entidad_id: e.target.value })}
-                className="h-11 min-w-0 rounded-md border border-slate-200 bg-white px-2.5 text-sm"
+                className="h-11 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-sm"
               >
                 <option value="">— Entidad —</option>
                 {entidades.map((e) => (
@@ -3054,7 +3054,7 @@ function PagosMixtoEditor({
                 value={p.referencia}
                 onChange={(e) => update(i, { referencia: e.target.value })}
                 placeholder="Comprobante / ref."
-                className="h-11 min-w-0 rounded-md border border-slate-200 px-3 text-sm"
+                className="h-11 min-w-0 rounded-lg border border-slate-200 px-3 text-sm"
               />
             ) : <div />}
             {needEntidad && p.metodo === "transferencia" ? (
@@ -3063,14 +3063,14 @@ function PagosMixtoEditor({
                 value={p.titular}
                 onChange={(e) => update(i, { titular: e.target.value })}
                 placeholder="Titular"
-                className="h-11 min-w-0 rounded-md border border-slate-200 px-3 text-sm"
+                className="h-11 min-w-0 rounded-lg border border-slate-200 px-3 text-sm"
               />
             ) : <div />}
             <button
               type="button"
               onClick={() => autoCompletar(i)}
               disabled={restante <= 0}
-              className="h-11 shrink-0 rounded-md border border-[#0EA5E9]/40 bg-[#0EA5E9]/[0.08] px-3 text-xs font-bold text-[#0284C7] hover:bg-[#0EA5E9]/[0.15] disabled:opacity-40"
+              className="h-11 shrink-0 rounded-lg border border-[#4FAEB2]/40 bg-[#4FAEB2]/[0.08] px-3 text-xs font-bold text-[#3F8E91] hover:bg-[#4FAEB2]/[0.15] disabled:opacity-40"
               title="Poner el restante en este pago"
             >
               + resto
@@ -3079,7 +3079,7 @@ function PagosMixtoEditor({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="h-11 w-11 shrink-0 rounded-md border border-slate-200 text-slate-400 text-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                className="h-11 w-11 shrink-0 rounded-lg border border-slate-200 text-slate-400 text-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200"
                 title="Quitar este pago"
               >
                 ×
@@ -3091,7 +3091,7 @@ function PagosMixtoEditor({
             <Selector
               value={p.metodo}
               onChange={(e) => update(i, { metodo: e.target.value as PagoMixtoLinea["metodo"] })}
-              className="h-11 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
+              className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium"
             >
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
@@ -3103,32 +3103,32 @@ function PagosMixtoEditor({
               value={p.monto}
               onChange={(e) => update(i, { monto: e.target.value })}
               placeholder="Monto (Gs.)"
-              className="h-11 flex-1 rounded-md border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
+              className="h-11 flex-1 rounded-lg border border-slate-200 px-3 text-sm text-right tabular-nums font-semibold"
             />
             <button
               type="button"
               onClick={() => autoCompletar(i)}
               disabled={restante <= 0}
-              className="h-11 rounded-md border border-[#0EA5E9]/40 bg-[#0EA5E9]/[0.08] px-3 text-xs font-bold text-[#0284C7] disabled:opacity-40"
+              className="h-11 rounded-lg border border-[#4FAEB2]/40 bg-[#4FAEB2]/[0.08] px-3 text-xs font-bold text-[#3F8E91] disabled:opacity-40"
             >+ resto</button>
             {pagos.length > 1 && (
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="h-11 w-11 rounded-md border border-slate-200 text-slate-400 text-lg"
+                className="h-11 w-11 rounded-lg border border-slate-200 text-slate-400 text-lg"
               >×</button>
             )}
             {needEntidad && (
               <div className="w-full grid grid-cols-1 gap-2">
-                <Selector value={p.entidad_id} onChange={(e) => update(i, { entidad_id: e.target.value })} className="h-10 rounded-md border border-slate-200 bg-white px-2.5 text-sm">
+                <Selector value={p.entidad_id} onChange={(e) => update(i, { entidad_id: e.target.value })} className="h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-sm">
                   <option value="">— Entidad —</option>
                   {entidades.map((e) => (
                     <option key={e.id} value={e.id}>{e.codigo ? `${e.codigo} · ` : ""}{e.nombre}</option>
                   ))}
                 </Selector>
-                <input type="text" value={p.referencia} onChange={(e) => update(i, { referencia: e.target.value })} placeholder="Comprobante / ref." className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
+                <input type="text" value={p.referencia} onChange={(e) => update(i, { referencia: e.target.value })} placeholder="Comprobante / ref." className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
                 {p.metodo === "transferencia" && (
-                  <input type="text" value={p.titular} onChange={(e) => update(i, { titular: e.target.value })} placeholder="Titular" className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
+                  <input type="text" value={p.titular} onChange={(e) => update(i, { titular: e.target.value })} placeholder="Titular" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
                 )}
               </div>
             )}
@@ -3139,7 +3139,7 @@ function PagosMixtoEditor({
       <button
         type="button"
         onClick={add}
-        className="w-full text-sm py-2.5 rounded-md border border-dashed border-slate-300 text-slate-600 hover:bg-white font-medium"
+        className="w-full text-sm py-2.5 rounded-lg border border-dashed border-slate-300 text-slate-600 hover:bg-white font-medium"
       >
         + Agregar pago
       </button>
@@ -3213,7 +3213,7 @@ function CategoriaCombo({
         className={`flex h-12 w-full items-center justify-between gap-2 rounded-xl border-2 bg-white px-3 text-sm outline-none transition-all ${
           open || selected
             ? "border-[#4FAEB2] text-slate-800 ring-4 ring-[#4FAEB2]/15"
-            : "border-[#0EA5E9]/30 text-slate-700 hover:border-[#4FAEB2]/60"
+            : "border-[#4FAEB2]/30 text-slate-700 hover:border-[#4FAEB2]/60"
         }`}
       >
         <span className="truncate">
@@ -3224,7 +3224,7 @@ function CategoriaCombo({
         />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-full min-w-[16rem] overflow-hidden rounded-xl border-2 border-[#4FAEB2]/25 bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.28)]">
+        <div className="absolute right-0 top-full z-40 mt-2 w-full min-w-[16rem] overflow-hidden rounded-xl border border-2 border-[#4FAEB2]/25 bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.28)]">
           <div className="relative border-b border-slate-100 p-2">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4FAEB2]" />
             <input

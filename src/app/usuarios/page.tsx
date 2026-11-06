@@ -73,7 +73,7 @@ export default function UsuariosPage() {
   if (cargando) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Usuarios</h1>
         <div className="py-16 text-center text-sm text-gray-400 animate-pulse">Cargando…</div>
       </div>
     );
@@ -82,7 +82,7 @@ export default function UsuariosPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Usuarios</h1>
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{error}</div>
       </div>
     );
@@ -92,12 +92,12 @@ export default function UsuariosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Usuarios</h1>
           <p className="text-sm text-gray-500 mt-0.5">Usuarios de tu empresa</p>
         </div>
         <Link
           href="/usuarios/nuevo"
-          className="inline-flex items-center gap-2 bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm active:scale-95"
+          className="inline-flex items-center gap-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -106,13 +106,13 @@ export default function UsuariosPage() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div className="bg-white rounded-xl border border-gray-100 p-4">
         <input
           type="text"
           placeholder="Buscar por nombre, email, teléfono…"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full max-w-md pl-4 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+          className="w-full max-w-md pl-4 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
         />
       </div>
 
@@ -126,12 +126,12 @@ export default function UsuariosPage() {
           - Teléfono se oculta en pantallas chicas (ya esta en el bloque del usuario debajo del nombre).
           - Acciones con min-h-[40px] para tap target.
       */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-[#4FAEB2]/15 overflow-x-auto">
+      <div className="bg-white rounded-xl border border-slate-200 ring-1 ring-[#4FAEB2]/15 overflow-x-auto">
         {filtrados.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">No hay usuarios.</div>
         ) : (
           <table className="w-full min-w-[820px] sm:min-w-0 text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Usuario</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Email</th>

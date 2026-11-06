@@ -95,12 +95,12 @@ export default function VerEmpresaPage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{empresa.nombre_empresa}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{empresa.nombre_empresa}</h1>
           <p className="text-sm text-gray-500 mt-1">Detalle de la empresa</p>
         </div>
         <Link
           href={`/admin/empresas/${id}/editar`}
-          className="flex items-center gap-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm shrink-0 active:scale-95"
+          className="flex items-center gap-1.5 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm shrink-0"
         >
           Editar
         </Link>
@@ -108,7 +108,7 @@ export default function VerEmpresaPage() {
 
       <div className="grid gap-6">
         {/* Datos principales */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
               Datos de la empresa
@@ -149,7 +149,7 @@ export default function VerEmpresaPage() {
         </div>
 
         {/* Módulos habilitados */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
               Módulos habilitados
@@ -174,7 +174,7 @@ export default function VerEmpresaPage() {
         </div>
 
         {/* Usuarios */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
               Usuarios de la empresa

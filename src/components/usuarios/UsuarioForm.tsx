@@ -9,11 +9,11 @@ import Selector from "@/components/ui/Selector";
 export const usuarioFormLabel =
   "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 export const usuarioFormInput =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white";
 export const usuarioFormInputGray =
   "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/20 bg-white";
 export const usuarioFormSelect =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white";
 
 export function SectionCard({
   title,
@@ -25,7 +25,7 @@ export function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+    <section className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center gap-2 mb-5 pb-2 border-b border-gray-100">
         <span className="text-slate-500">{icon}</span>
         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">{title}</h3>

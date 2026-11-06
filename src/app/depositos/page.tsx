@@ -97,11 +97,11 @@ export default function DepositosPage() {
 
   const depositoActual = useMemo(() => depositos.find((d) => d.id === ubicacionActiva), [depositos, ubicacionActiva]);
 
-  if (error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error}</div>;
+  if (error) return <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error}</div>;
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/40 to-emerald-50/60 p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/40 to-emerald-50/60 p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/40 bg-emerald-100/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-800">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-600" /> Inventario · Multi-depósito
@@ -109,8 +109,8 @@ export default function DepositosPage() {
         </div>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="flex items-center gap-2.5 text-2xl font-bold text-slate-900">
-              <span className="rounded-lg bg-white p-1.5 ring-1 ring-emerald-300/40 shadow-sm">
+            <h1 className="flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+              <span className="rounded-lg bg-white p-1.5 ring-1 ring-emerald-300/40">
                 <PackageOpen className="h-5 w-5 text-emerald-700" />
               </span>
               Depósitos
@@ -126,12 +126,12 @@ export default function DepositosPage() {
       {cargando ? (
         <p className="text-sm text-slate-500">Cargando depósitos…</p>
       ) : depositos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
           No hay depósitos configurados en la empresa.
         </div>
       ) : (
         <>
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 mr-2">Depósito:</span>
               {depositos.map((u) => (
@@ -148,12 +148,12 @@ export default function DepositosPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">{depositoActual?.nombre}</p>
               <p className="mt-2 text-3xl font-bold tabular-nums leading-none text-emerald-700">{fmt(totalActual)}</p>
               <p className="mt-1 text-[11px] text-slate-500">unidades en stock</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Productos en este depósito</p>
               <p className="mt-2 text-3xl font-bold tabular-nums leading-none text-slate-800">{fmt(enDeposito)}</p>
               <p className="mt-1 text-[11px] text-slate-500">
@@ -162,7 +162,7 @@ export default function DepositosPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-slate-800">Stock en {depositoActual?.nombre}</h2>
               <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600">
@@ -226,7 +226,7 @@ export default function DepositosPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white">
             <h3 className="border-b border-slate-100 px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">
               Últimas transferencias
             </h3>
@@ -327,7 +327,7 @@ function ModalTransferencia({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold text-slate-800">Transferir stock</h3>

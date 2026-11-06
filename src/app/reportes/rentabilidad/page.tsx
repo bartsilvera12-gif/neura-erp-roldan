@@ -96,7 +96,7 @@ export default function RentabilidadReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el reporte de rentabilidad.
         </div>
       ) : (
@@ -113,7 +113,7 @@ export default function RentabilidadReportePage() {
             <StatCard compact label="Margen" value={formatPct(margenTotal)} />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[820px]">
                 <thead>

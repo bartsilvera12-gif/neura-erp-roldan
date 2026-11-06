@@ -43,7 +43,7 @@ function KpiCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm min-w-[140px] flex-1">
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 min-w-[140px] flex-1">
       <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className="text-xl font-bold tabular-nums text-slate-900 mt-1">{value}</p>
       {sub ? <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p> : null}
@@ -66,25 +66,25 @@ export default function SorteosListClient({ ventasKpis }: { ventasKpis: SorteosV
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Sorteos</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Sorteos</h1>
           <p className="text-gray-500 text-sm mt-0.5">Gestión de sorteos y boletos</p>
         </div>
         <Link
           href="/sorteos/nuevo"
-          className="shrink-0 bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm self-start"
+          className="shrink-0 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm self-start"
         >
           Nuevo sorteo
         </Link>
       </div>
 
       <nav className="flex flex-wrap gap-4 text-sm border-b border-slate-200 pb-2.5">
-        <span className="font-semibold text-[#0EA5E9] border-b-2 border-[#0EA5E9] -mb-2.5 pb-2.5">
+        <span className="font-semibold text-[#4FAEB2] border-b-2 border-[#4FAEB2] -mb-2.5 pb-2.5">
           Sorteos
         </span>
-        <Link href="/sorteos/entradas" className="text-slate-600 hover:text-[#0EA5E9] pb-2">
+        <Link href="/sorteos/entradas" className="text-slate-600 hover:text-[#4FAEB2] pb-2">
           Entradas
         </Link>
-        <Link href="/sorteos/cupones" className="text-slate-600 hover:text-[#0EA5E9] pb-2">
+        <Link href="/sorteos/cupones" className="text-slate-600 hover:text-[#4FAEB2] pb-2">
           Cupones
         </Link>
       </nav>
@@ -98,13 +98,13 @@ export default function SorteosListClient({ ventasKpis }: { ventasKpis: SorteosV
 
       {/* overflow-x-auto + min-w activan scroll horizontal mobile.
           Precio/boleto, Máx, Fecha se ocultan progresivamente. */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         {cargando ? (
           <div className="py-16 text-center text-gray-400 text-sm animate-pulse">Cargando…</div>
         ) : rows.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
             <p className="font-medium text-gray-600">No hay sorteos</p>
-            <Link href="/sorteos/nuevo" className="mt-3 inline-block text-sm text-[#0EA5E9] hover:underline">
+            <Link href="/sorteos/nuevo" className="mt-3 inline-block text-sm text-[#4FAEB2] hover:underline">
               Crear el primero
             </Link>
           </div>
@@ -137,7 +137,7 @@ export default function SorteosListClient({ ventasKpis }: { ventasKpis: SorteosV
                   <td className="px-5 py-3 text-sm text-right tabular-nums hidden md:table-cell">{s.max_boletos}</td>
                   <td className="px-5 py-3 text-sm text-right tabular-nums">{s.total_boletos_vendidos}</td>
                   <td className="px-5 py-3">
-                    <Link href={`/sorteos/${s.id}/editar`} className="inline-flex items-center min-h-[40px] text-sm text-[#0EA5E9] hover:underline">
+                    <Link href={`/sorteos/${s.id}/editar`} className="inline-flex items-center min-h-[40px] text-sm text-[#4FAEB2] hover:underline">
                       Editar
                     </Link>
                   </td>

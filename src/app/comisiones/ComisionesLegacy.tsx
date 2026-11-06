@@ -214,7 +214,7 @@ function TotalsStrip({ row }: { row: VendedorRow }) {
 
 function SellerTotalsSummary({ row }: { row: VendedorRow }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sumatoria del período</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
@@ -250,7 +250,7 @@ function SellerMovimientosList({ row }: { row: VendedorRow }) {
       {row.lineas.map((ln, i) => (
         <article
           key={`${ln.pago_id ?? ""}-${ln.factura_id ?? ""}-${i}`}
-          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          className="rounded-xl border border-slate-200 bg-white p-4"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -342,10 +342,10 @@ function renderVendedorView({
 }) {
   return (
     <div className="mx-auto max-w-5xl space-y-6 overflow-hidden px-4 py-10">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Mi comisión del mes</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Mi comisión del mes</h1>
             <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Período</p>
             <p className="mt-1 text-lg font-semibold capitalize text-slate-900">{meta?.periodo ?? "—"}</p>
             <p className="text-xs text-slate-500">
@@ -358,20 +358,20 @@ function renderVendedorView({
               type="month"
               value={selectedSellerMonth}
               onChange={(e) => onMonthChange(e.target.value)}
-              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             />
           </label>
         </div>
       </section>
 
       {!sellerRow ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center">
           <p className="text-sm font-semibold text-slate-800">Todavía no tenés movimientos comisionables en este período.</p>
           <p className="mt-1 text-sm text-slate-500">Cuando tus clientes registren movimientos dentro del período, vas a verlos acá.</p>
         </div>
       ) : (
         <>
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Mini dashboard</p>
@@ -396,7 +396,7 @@ function renderVendedorView({
             </div>
           </section>
 
-          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm open:shadow-md">
+          <details className="group rounded-xl border border-slate-200 bg-white open:shadow-md">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 pr-3 [&::-webkit-details-marker]:hidden">
               <div>
                 <p className="font-semibold text-slate-900">Mis clientes y movimientos</p>
@@ -434,7 +434,7 @@ function renderAdminView({
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Comisiones</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Comisiones</h1>
           <p className="mt-1 text-sm text-slate-600">
             Seguimiento mensual de comisiones según la política activa.
           </p>
@@ -443,21 +443,21 @@ function renderAdminView({
           <button
             type="button"
             onClick={onReload}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" />
             Recalcular
           </button>
           <Link
             href="/configuracion/comisiones"
-            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
           >
             Configuración
           </Link>
         </div>
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Período actual</p>
@@ -529,7 +529,7 @@ function renderAdminView({
             {rows.map((r) => (
               <details
                 key={r.vendedor_usuario_id}
-                className="group rounded-2xl border border-slate-200 bg-white shadow-sm open:shadow-md"
+                className="group rounded-xl border border-slate-200 bg-white open:shadow-md"
               >
                 <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 pr-3 [&::-webkit-details-marker]:hidden">
                   <div className="min-w-0">
@@ -650,7 +650,7 @@ function ComisionesPage() {
     return (
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Comisiones</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Comisiones</h1>
           <p className="mt-1 text-sm text-slate-600">{data?.mensaje}</p>
         </div>
         <Link

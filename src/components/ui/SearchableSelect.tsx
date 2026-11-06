@@ -90,7 +90,7 @@ export default function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-left disabled:cursor-not-allowed disabled:opacity-60 hover:border-gray-400 focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
+        className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-left disabled:cursor-not-allowed disabled:opacity-60 hover:border-gray-400 focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
       >
         <span className={selected ? "truncate text-slate-900" : "truncate text-slate-400"}>
           {selected ? selected.label : placeholder}
@@ -99,7 +99,7 @@ export default function SearchableSelect({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 z-40 mt-1 max-h-72 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute left-0 right-0 z-40 mt-1 max-h-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
           <div className="relative border-b border-slate-100 p-2">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -108,7 +108,7 @@ export default function SearchableSelect({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar…"
-              className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-8 text-sm placeholder:text-slate-400 focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
+              className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-8 text-sm placeholder:text-slate-400 focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
             />
             {q && (
               <button

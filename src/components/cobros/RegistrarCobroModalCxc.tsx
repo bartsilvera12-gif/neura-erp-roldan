@@ -142,14 +142,14 @@ export function RegistrarCobroModalCxc({
               <p className="text-xs text-slate-500">¿Querés generar el recibo de dinero de este cobro?</p>
             </div>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-200 px-5 py-4">
-              <button onClick={onClose} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Listo</button>
+              <button onClick={onClose} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Listo</button>
               <button
                 onClick={async () => {
                   const r = await generarYAbrirRecibo({ origen: "cobro_cxc", cobro_cliente_id: cobroOk.cobroId });
                   if (!r.ok) setError(r.error ?? "No se pudo generar el recibo.");
                   else onClose();
                 }}
-                className="inline-flex items-center justify-center rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
+                className="inline-flex items-center justify-center rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
               >
                 Generar recibo de dinero
               </button>
@@ -158,16 +158,16 @@ export function RegistrarCobroModalCxc({
         ) : (
           <>
             <div className="px-5 py-4 space-y-3">
-              {error && <div className="rounded-md bg-red-50 border border-red-200 p-2.5 text-sm text-red-700">{error}</div>}
+              {error && <div className="rounded-lg bg-red-50 border border-red-200 p-2.5 text-sm text-red-700">{error}</div>}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monto a cobrar</label>
-                <input type="number" min="0" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                <input type="number" min="0" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <button type="button" onClick={() => setMonto(String(cuenta.saldo))} className="mt-1 text-xs text-[#4FAEB2] hover:underline">Cobrar saldo total</button>
                 <p className="mt-1 text-[11px] text-slate-500">Si cobrás menos que el saldo, la cuenta sigue pendiente con la diferencia.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Método de pago</label>
-                <Selector value={metodo} onChange={(e) => setMetodo(e.target.value as (typeof METODOS)[number])} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
+                <Selector value={metodo} onChange={(e) => setMetodo(e.target.value as (typeof METODOS)[number])} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white">
                   {METODOS.map((m) => <option key={m} value={m}>{METODO_LABEL[m]}</option>)}
                 </Selector>
               </div>
@@ -176,7 +176,7 @@ export function RegistrarCobroModalCxc({
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     {metodo === "tarjeta" ? "Procesadora / Banco" : "Entidad bancaria"} <span className="text-gray-400 font-normal">(opcional)</span>
                   </label>
-                  <Selector value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
+                  <Selector value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white">
                     <option value="">— Elegí —</option>
                     {entidadesFiltradas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                   </Selector>
@@ -186,18 +186,18 @@ export function RegistrarCobroModalCxc({
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   {metodo === "tarjeta" ? "Autorización / referencia" : metodo === "transferencia" ? "Referencia / Nº operación" : "Referencia"} <span className="text-gray-400 font-normal">(opcional)</span>
                 </label>
-                <input value={referencia} onChange={(e) => setReferencia(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Nº comprobante, transferencia…" />
+                <input value={referencia} onChange={(e) => setReferencia(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Nº comprobante, transferencia…" />
               </div>
               {pideBanco && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Titular (opcional)</label>
-                  <input value={titular} onChange={(e) => setTitular(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Titular de la cuenta/tarjeta" />
+                  <input value={titular} onChange={(e) => setTitular(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Titular de la cuenta/tarjeta" />
                 </div>
               )}
             </div>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-200 px-5 py-4">
-              <button onClick={onClose} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
-              <button onClick={registrar} disabled={guardando} className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+              <button onClick={onClose} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+              <button onClick={registrar} disabled={guardando} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
                 {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Confirmar pago"}
               </button>
             </div>

@@ -106,7 +106,7 @@ export default function NuevaOrdenCompraModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4" onClick={onClose}>
-      <div className="my-8 w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="my-8 w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-base font-semibold text-slate-900">Nueva orden de compra</h2>
         <p className="mt-0.5 text-xs text-slate-500">
           Es el pedido al proveedor. No mueve stock ni genera deuda: eso pasa cuando se carga la compra.
@@ -160,7 +160,7 @@ export default function NuevaOrdenCompraModal({
 
         <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-2 py-1.5 text-left font-semibold">Artículo</th>
                 <th className="w-24 px-2 py-1.5 text-right font-semibold">Cantidad</th>

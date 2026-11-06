@@ -76,35 +76,35 @@ export default function LibroVentasTotalPage() {
       </div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Libro de Ventas Total</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Libro de Ventas Total</h1>
           <p className="text-sm text-slate-500 mt-1">
             Todas las ventas (facturadas + tickets de caja). Excluye anuladas. NO es reporte fiscal — usar Libro de Ventas para SET.
           </p>
         </div>
       </div>
 
-      <div className="flex gap-2 items-end mb-4 flex-wrap bg-white border border-slate-200 rounded-lg p-3">
+      <div className="flex gap-2 items-end mb-4 flex-wrap bg-white border border-slate-200 rounded-xl p-3">
         <div>
           <label className="text-xs text-slate-600">Desde</label>
           <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
-            className="block mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm" />
+            className="block mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
         </div>
         <div>
           <label className="text-xs text-slate-600">Hasta</label>
           <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
-            className="block mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm" />
+            className="block mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
         </div>
         <div>
           <label className="text-xs text-slate-600">Tipo</label>
           <Selector value={origen} onChange={(e) => setOrigen(e.target.value as "" | "factura" | "ticket")}
-            className="block mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
+            className="block mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <option value="">Todos</option>
             <option value="factura">Solo facturas</option>
             <option value="ticket">Solo tickets</option>
           </Selector>
         </div>
         <button onClick={cargar}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium">
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium">
           Aplicar
         </button>
       </div>
@@ -140,7 +140,7 @@ export default function LibroVentasTotalPage() {
       {!loading && !error && (
         <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Fecha</th>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Tipo</th>

@@ -112,7 +112,7 @@ export default function ProductImageUploader({ productoId, initialUrl, initialPa
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={busy}
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
             >
               {busy ? "Subiendo..." : hasImage ? "Cambiar imagen" : "Subir imagen"}
             </button>

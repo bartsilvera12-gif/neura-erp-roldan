@@ -42,7 +42,7 @@ export default function TesoreriaPage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar la tesorería.
         </div>
       ) : (
@@ -57,7 +57,7 @@ export default function TesoreriaPage() {
             <StatCard compact label="Cuentas con movimiento" value={String(data.filas.length)} />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[760px]">
                 <thead>

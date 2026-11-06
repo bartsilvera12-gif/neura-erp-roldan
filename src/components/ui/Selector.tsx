@@ -333,7 +333,7 @@ export default function Selector({
             minWidth: caja2.width,
             ...(caja2.top != null ? { top: caja2.top } : { bottom: caja2.bottom }),
           }}
-          className="z-[100] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+          className="z-[100] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
         >
           {conBuscador && (
             <div className="relative border-b border-slate-100 p-2">
@@ -346,7 +346,7 @@ export default function Selector({
                 onChange={(e) => { setQ(e.target.value); setMarcado(0); }}
                 onKeyDown={teclas}
                 placeholder="Buscar…"
-                className="w-full rounded-md border border-slate-200 py-1.5 pl-7 pr-2 text-sm outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
+                className="w-full rounded-lg border border-slate-200 py-1.5 pl-7 pr-2 text-sm outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
               />
             </div>
           )}
@@ -372,7 +372,7 @@ export default function Selector({
                       disabled={o.disabled}
                       onClick={() => elegir(o)}
                       onMouseEnter={() => setMarcado(i)}
-                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:text-slate-300 ${
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:text-slate-300 ${
                         i === marcado && !o.disabled ? "bg-[#4FAEB2]/10" : ""
                       } ${esta ? "font-semibold text-[#3F8E91]" : "text-slate-700"}`}
                     >

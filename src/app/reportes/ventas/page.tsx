@@ -166,7 +166,7 @@ export default function VentasReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !dataFiltrada ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el reporte de ventas.
         </div>
       ) : (
@@ -179,7 +179,7 @@ export default function VentasReportePage() {
             <StatCard compact label="Ítems vendidos" value={String(dataFiltrada.cantidadItems)} />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Por tipo de precio</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {TP.map(({ key, label, badge }) => (
@@ -192,7 +192,7 @@ export default function VentasReportePage() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-800">Ventas del mes</h2>
               <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium">
@@ -207,7 +207,7 @@ export default function VentasReportePage() {
                     key={opt.key}
                     type="button"
                     onClick={() => setFiltroAnuladas(opt.key)}
-                    className={`rounded-md px-3 py-1.5 transition-colors ${
+                    className={`rounded-lg px-3 py-1.5 transition-colors ${
                       filtroAnuladas === opt.key
                         ? "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"
                         : "text-slate-500 hover:text-slate-700"
@@ -285,7 +285,7 @@ export default function VentasReportePage() {
             })()}
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Total por producto</h2>
             {dataFiltrada.porProducto.length === 0 ? (
               <p className="text-sm text-slate-400">Sin datos.</p>

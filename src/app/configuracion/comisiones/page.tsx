@@ -414,7 +414,7 @@ export default function ConfiguracionComisionesPage() {
       )}
 
       {/* Una política por empresa (uq_comision_politicas_empresa). Varias políticas requerirían evolución de esquema. */}
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300">
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-slate-300">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700">

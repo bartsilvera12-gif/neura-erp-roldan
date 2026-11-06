@@ -106,7 +106,7 @@ export default function DetalleProductoPage() {
   if (cargando) {
     return (
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold text-gray-800">Detalle del producto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Detalle del producto</h1>
         <p className="text-gray-500 animate-pulse">Cargando…</p>
       </div>
     );
@@ -115,7 +115,7 @@ export default function DetalleProductoPage() {
   if (noEncontrado || !producto) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-800">Detalle del producto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Detalle del producto</h1>
         <p className="text-gray-500">No se encontró el producto.</p>
         <Link href="/inventario" className="text-sm text-sky-700 underline">← Volver al inventario</Link>
       </div>
@@ -138,7 +138,7 @@ export default function DetalleProductoPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">{producto.nombre}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{producto.nombre}</h1>
           <p className="text-gray-600">Detalle del producto (solo lectura)</p>
         </div>
         <div className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export default function DetalleProductoPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Columna principal: datos */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Información general</h2>
             <DatoFila label="Nombre">{producto.nombre}</DatoFila>
             <DatoFila label="Descripción">{producto.descripcion?.trim() || "—"}</DatoFila>
@@ -172,7 +172,7 @@ export default function DetalleProductoPage() {
             <DatoFila label="Unidad de medida">{producto.unidad_medida || "—"}</DatoFila>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Precios</h2>
             <DatoFila label="Costo promedio">{formatGs(producto.costo_promedio)}</DatoFila>
             {mostrarPrecioVenta && <DatoFila label="Precio de venta (minorista)">{formatGs(producto.precio_venta)}</DatoFila>}
@@ -226,7 +226,7 @@ export default function DetalleProductoPage() {
           </div>
 
           {mostrarStock && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Stock</h2>
               <DatoFila label="Stock actual">
                 <span className={stockBajo ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>
@@ -240,7 +240,7 @@ export default function DetalleProductoPage() {
             </div>
           )}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Clasificación y ubicación</h2>
             <DatoFila label="Rubro principal">{nombreCategoria || "—"}</DatoFila>
             {!esInsumo && <DatoFila label="Proveedor principal">{nombreProveedor || "—"}</DatoFila>}
@@ -250,7 +250,7 @@ export default function DetalleProductoPage() {
 
         {/* Columna lateral: imagen */}
         <div className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Imagen</h2>
             {producto.imagen_url ? (
               <div className="aspect-square w-full overflow-hidden rounded-lg border border-slate-100 bg-slate-50">

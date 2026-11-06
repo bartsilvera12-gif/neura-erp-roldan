@@ -84,7 +84,7 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 function MiniatureProducto({ url, alt }: { url?: string | null; alt: string }) {
   if (!url) {
     return (
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
         <Package className="h-4 w-4 text-slate-300" />
       </div>
     );
@@ -95,7 +95,7 @@ function MiniatureProducto({ url, alt }: { url?: string | null; alt: string }) {
       src={url}
       alt={alt}
       loading="lazy"
-      className="h-9 w-9 shrink-0 rounded-md border border-slate-200 object-cover"
+      className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 object-cover"
     />
   );
 }
@@ -242,7 +242,7 @@ export default function InventarioPage() {
               Zentra · Stock
             </p>
           </div>
-          <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Inventario</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Inventario</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             Gestión de productos y control de stock
           </p>
@@ -251,7 +251,7 @@ export default function InventarioPage() {
           <button
             type="button"
             onClick={() => setPlanillaAbierta(true)}
-            className="inline-flex h-10 items-center gap-1.5 rounded-lg border-2 border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition-all hover:border-[#4FAEB2] hover:text-[#4FAEB2] active:scale-95"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-2 border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition-all hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
             title="Imprimir planilla para el conteo físico"
           >
             <Printer className="h-3.5 w-3.5" />
@@ -309,7 +309,7 @@ export default function InventarioPage() {
       </header>
 
       {/* Tarjeta principal */}
-      <section className="rounded-2xl border-2 border-[#4FAEB2]/20 bg-white shadow-[0_2px_10px_-2px_rgba(79,174,178,0.12)]">
+      <section className="rounded-xl border-2 border-[#4FAEB2]/20 bg-white shadow-[0_2px_10px_-2px_rgba(79,174,178,0.12)]">
         {/* Barra de acciones + filtros */}
         <div className="flex flex-col gap-3 border-b border-[#4FAEB2]/15 bg-gradient-to-r from-[#4FAEB2]/5 to-transparent p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-3">
@@ -329,7 +329,7 @@ export default function InventarioPage() {
             <div className="ml-auto">
               <Link
                 href="/inventario/nuevo"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/30 transition-all hover:bg-[#3F8E91] active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/30 transition-all hover:bg-[#3F8E91]"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Nuevo producto
@@ -353,7 +353,7 @@ export default function InventarioPage() {
                 <button
                   type="button"
                   onClick={() => setSearchDraft("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                   aria-label="Limpiar búsqueda"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -509,7 +509,7 @@ export default function InventarioPage() {
                             const c = categoryColor(catNombre);
                             return (
                               <span
-                                className="inline-flex max-w-full items-center gap-1.5 truncate whitespace-nowrap rounded-md border border-slate-200/70 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                                className="inline-flex max-w-full items-center gap-1.5 truncate whitespace-nowrap rounded-lg border border-slate-200/70 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                                 title={catNombre}
                               >
                                 <span
@@ -582,7 +582,7 @@ export default function InventarioPage() {
                             href={`/inventario/${p.id}`}
                             title="Ver ficha del producto"
                             aria-label={`Ver ficha de ${p.nombre}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2]"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2]"
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
@@ -590,7 +590,7 @@ export default function InventarioPage() {
                             href={`/inventario/${p.id}/editar`}
                             title="Editar producto"
                             aria-label={`Editar ${p.nombre}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2]"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2]"
                           >
                             <Pencil className="h-4 w-4" />
                           </Link>
@@ -602,7 +602,7 @@ export default function InventarioPage() {
                             }}
                             title="Eliminar producto"
                             aria-label={`Eliminar ${p.nombre}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-all hover:bg-red-50 hover:text-red-600"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-red-50 hover:text-red-600"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -651,7 +651,7 @@ export default function InventarioPage() {
                     const n = parseInt(e.target.value, 10);
                     if (Number.isFinite(n)) setPage(Math.max(1, Math.min(totalPages, n)));
                   }}
-                  className="h-8 w-16 rounded-md border border-slate-200 bg-white px-2 text-center text-xs outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
+                  className="h-8 w-16 rounded-lg border border-slate-200 bg-white px-2 text-center text-xs outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
                 />
               </div>
               <PagBtn
@@ -680,7 +680,7 @@ export default function InventarioPage() {
           onClick={() => !deleteLoading && setDeleting(null)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 animate-[popIn_.22s_cubic-bezier(.2,.7,.2,1)]"
+            className="w-full max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-900/5 animate-[popIn_.22s_cubic-bezier(.2,.7,.2,1)]"
             onClick={(e) => e.stopPropagation()}
             style={{ animationFillMode: "both" }}
           >
@@ -797,7 +797,7 @@ function PagBtn({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-all hover:border-[#4FAEB2] hover:text-[#4FAEB2] disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-[#4FAEB2] hover:text-[#4FAEB2] disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
     >
       {children}
     </button>
@@ -881,7 +881,7 @@ function ModalPlanilla({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
@@ -896,7 +896,7 @@ function ModalPlanilla({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             aria-label="Cerrar"
           >
             <X className="h-4 w-4" />
@@ -957,7 +957,7 @@ function ModalPlanilla({
                   {rubrosVisibles.map((r) => (
                     <label
                       key={r.id}
-                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       <input
                         type="checkbox"
@@ -971,7 +971,7 @@ function ModalPlanilla({
                   {/* No se filtra con el buscador: no es un rubro con nombre,
                       es la bolsa de los que no tienen uno, y esconderla al
                       escribir dejaría sin forma de contarlos. */}
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={elegidos.includes("__sin__")}

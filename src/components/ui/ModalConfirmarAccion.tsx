@@ -66,7 +66,7 @@ export default function ModalConfirmarAccion({
       onClick={ocupado ? undefined : onCerrar}
     >
       <div
-        className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="w-full max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 px-5 py-4">

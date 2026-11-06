@@ -128,7 +128,7 @@ export default function AjustesPage() {
           <Link href="/inventario" className="text-xs font-medium text-slate-500 hover:text-slate-800">
             ← Volver a inventario
           </Link>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Ajustes de stock</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Ajustes de stock</h1>
           <p className="text-sm text-slate-500">
             Todo lo que cambió el stock sin una compra ni una venta detrás.
           </p>
@@ -187,7 +187,7 @@ export default function AjustesPage() {
       )}
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Desde</span>
           <input
@@ -263,7 +263,7 @@ export default function AjustesPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead>
@@ -357,7 +357,7 @@ function Tarjeta({
   const color =
     tono === "verde" ? "text-emerald-600" : tono === "rojo" ? "text-red-600" : "text-slate-900";
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <p className="text-[11px] font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{valor}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}

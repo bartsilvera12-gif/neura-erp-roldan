@@ -132,7 +132,7 @@ function ResumenSifenCompacto({ resumen, debugUi }: { resumen: Resumen; debugUi:
         {!resumen.sifen_config_activa ? (
           <a
             href="/configuracion/facturacion-electronica"
-            className="text-xs font-semibold text-[#0EA5E9] hover:underline mt-1 inline-block"
+            className="text-xs font-semibold text-[#4FAEB2] hover:underline mt-1 inline-block"
           >
             Configuración SIFEN
           </a>
@@ -781,7 +781,7 @@ export function FacturaElectronicaPanel({
   const busy = action !== null || jobActivo;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5 sm:p-6 w-full min-w-0">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 w-full min-w-0">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch">
         <div className="flex-1 min-w-0 space-y-5">
           <div>
@@ -845,7 +845,7 @@ export function FacturaElectronicaPanel({
                     disabled={busy}
                     onClick={() => void regenerarDocumentoRechazado()}
                     title="Vuelve a leer los datos actuales del cliente (RUC, DV, tipo de contribuyente, dirección) y arma un XML nuevo con CDC nuevo. Úsalo tras corregir datos del cliente para que el reenvío no repita el mismo XML rechazado."
-                    className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm font-semibold shadow-sm disabled:opacity-45 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm font-semibold disabled:opacity-45 disabled:cursor-not-allowed hover:bg-slate-50"
                   >
                     {action === "xml" ? "Regenerando…" : "Regenerar XML desde datos actuales del cliente"}
                   </button>
@@ -916,7 +916,7 @@ export function FacturaElectronicaPanel({
                       type="button"
                       disabled={!puedeBorrador || busy}
                       onClick={() => run("borrador")}
-                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
+                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
                     >
                       {action === "borrador" ? "…" : "Borrador"}
                     </button>
@@ -924,7 +924,7 @@ export function FacturaElectronicaPanel({
                       type="button"
                       disabled={!puedeGenerarXml || busy}
                       onClick={() => run("xml")}
-                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
+                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
                     >
                       {action === "xml" ? "…" : "XML"}
                     </button>
@@ -932,7 +932,7 @@ export function FacturaElectronicaPanel({
                       type="button"
                       disabled={!puedeFirmar || busy}
                       onClick={() => run("firmar")}
-                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
+                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
                     >
                       {action === "firmar" ? "…" : "Firmar"}
                     </button>
@@ -944,7 +944,7 @@ export function FacturaElectronicaPanel({
                           !(stStr === "error_envio" && Boolean(fe?.xml_firmado_path?.trim())))
                       }
                       onClick={() => void runEnviar()}
-                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
+                      className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-200 bg-white text-slate-800 disabled:opacity-40 hover:bg-slate-50"
                     >
                       {action === "enviar" ? "…" : "Solo enviar"}
                     </button>
@@ -1235,7 +1235,7 @@ export function FacturaElectronicaPanel({
                   </summary>
                   <p className="px-2 pb-2 pt-0 flex flex-wrap gap-x-3 gap-y-1">
                     <a
-                      className="text-[#0EA5E9] font-medium hover:underline"
+                      className="text-[#4FAEB2] font-medium hover:underline"
                       href={`/api/facturas/${facturaId}/sifen/payload`}
                       target="_blank"
                       rel="noreferrer"
@@ -1243,7 +1243,7 @@ export function FacturaElectronicaPanel({
                       JSON
                     </a>
                     <a
-                      className="text-[#0EA5E9] font-medium hover:underline"
+                      className="text-[#4FAEB2] font-medium hover:underline"
                       href={`/api/facturas/${facturaId}/sifen/documento`}
                       target="_blank"
                       rel="noreferrer"
@@ -1298,7 +1298,7 @@ export function FacturaElectronicaPanel({
                 value={motivoCancel}
                 onChange={(e) => setMotivoCancel(e.target.value)}
                 rows={3}
-                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
                 placeholder="Ej.: error en datos del cliente acordado verbalmente"
               />
             </label>

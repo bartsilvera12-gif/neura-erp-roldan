@@ -42,7 +42,7 @@ export default function ConfiguracionPage() {
     <div className="mx-auto w-full max-w-6xl space-y-10 px-4 pb-10 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Configuración Global</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Configuración Global</h1>
           <p className="mt-0.5 text-sm text-slate-600">
             Parámetros globales del ERP. Elegí un módulo y tocá <span className="font-semibold">Editar</span> para
             abrir el detalle.

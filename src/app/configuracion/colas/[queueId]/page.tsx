@@ -215,11 +215,11 @@ export default function EditarColaPage() {
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded-xl bg-[#0EA5E9] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0284C7]"
+            className="rounded-xl bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
           >
             Reintentar
           </button>
-          <Link href="/configuracion/colas" className="text-sm font-semibold text-[#0EA5E9] hover:underline inline-flex items-center">
+          <Link href="/configuracion/colas" className="text-sm font-semibold text-[#4FAEB2] hover:underline inline-flex items-center">
             Volver al listado
           </Link>
         </div>
@@ -231,7 +231,7 @@ export default function EditarColaPage() {
     return (
       <div className="max-w-xl space-y-4">
         <p className="text-slate-700">Cola no encontrada.</p>
-        <Link href="/configuracion/colas" className="text-sm font-semibold text-[#0EA5E9] hover:underline">
+        <Link href="/configuracion/colas" className="text-sm font-semibold text-[#4FAEB2] hover:underline">
           Volver
         </Link>
       </div>
@@ -263,7 +263,7 @@ export default function EditarColaPage() {
       )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-900">Editar cola</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editar cola</h1>
         <button
           type="button"
           onClick={() => void handleDeleteQueue()}
@@ -273,7 +273,7 @@ export default function EditarColaPage() {
         </button>
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Datos generales</h2>
         <div>
           <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Nombre</label>
@@ -309,7 +309,7 @@ export default function EditarColaPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Estrategia de distribución</h2>
           <p className="text-sm text-slate-500 mt-1">Define cómo se reparten los chats nuevos entre los agentes de esta cola.</p>
@@ -338,7 +338,7 @@ export default function EditarColaPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Canales asociados a esta cola</h2>
           <p className="text-sm text-slate-500 mt-1">
@@ -411,7 +411,7 @@ export default function EditarColaPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Redistribución por falta de respuesta inicial</h2>
           <p className="text-sm text-slate-500 mt-1">
@@ -495,7 +495,7 @@ export default function EditarColaPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Relación del cliente con el mismo asesor</h2>
           <p className="text-sm text-slate-500 mt-1">
@@ -563,7 +563,7 @@ export default function EditarColaPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Cierre de conversaciones</h2>
@@ -650,7 +650,7 @@ export default function EditarColaPage() {
                 ))}
                 <button
                   type="button"
-                  className="text-xs font-medium text-[#0EA5E9] hover:underline"
+                  className="text-xs font-medium text-[#4FAEB2] hover:underline"
                   onClick={() =>
                     setClosureDraft((d) =>
                       d.map((x, i) =>
@@ -666,7 +666,7 @@ export default function EditarColaPage() {
           ))}
           <button
             type="button"
-            className="text-sm font-medium text-[#0EA5E9] hover:underline"
+            className="text-sm font-medium text-[#4FAEB2] hover:underline"
             onClick={() => setClosureDraft((d) => [...d, { label: "", substates: [] }])}
           >
             + Agregar estado
@@ -674,7 +674,7 @@ export default function EditarColaPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Agentes</h2>
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[200px]">
@@ -727,7 +727,7 @@ export default function EditarColaPage() {
           type="button"
           disabled={saving}
           onClick={() => void handleSaveQueue()}
-          className="rounded-xl bg-[#0EA5E9] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0284C7] disabled:opacity-50"
+          className="rounded-xl bg-[#4FAEB2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
         >
           {saving ? "Guardando…" : "Guardar cola y canales"}
         </button>

@@ -102,7 +102,7 @@ export default function NuevaRecetaPage() {
       </Link>
       <div className="flex items-center gap-3 mb-6">
         <ChefHat className="h-7 w-7 text-amber-600" />
-        <h1 className="text-2xl font-semibold">Nueva receta</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nueva receta</h1>
       </div>
 
       {loading && (
@@ -138,7 +138,7 @@ export default function NuevaRecetaPage() {
       )}
 
       {!loading && productos.length > 0 && (
-        <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-md border border-gray-200">
+        <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg border border-gray-200">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Producto del menú <span className="text-red-500">*</span>
@@ -169,7 +169,7 @@ export default function NuevaRecetaPage() {
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej: Pizza muzzarella grande"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           )}
@@ -185,7 +185,7 @@ export default function NuevaRecetaPage() {
                 min="0.01"
                 value={rendCantidad}
                 onChange={(e) => setRendCantidad(Number(e.target.value))}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -197,7 +197,7 @@ export default function NuevaRecetaPage() {
                 value={rendUnidad}
                 onChange={(e) => setRendUnidad(e.target.value)}
                 placeholder="Unidad"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -210,12 +210,12 @@ export default function NuevaRecetaPage() {
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -223,14 +223,14 @@ export default function NuevaRecetaPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Link
               href="/dashboard/recetas"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Cancelar
             </Link>
             <button
               type="submit"
               disabled={saving || !productoId}
-              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
             >
               {saving ? "Creando…" : "Crear y editar insumos"}
             </button>

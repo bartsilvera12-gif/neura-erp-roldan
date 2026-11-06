@@ -73,14 +73,14 @@ export default function EmpleadoEspecialidades({ empleadoId }: { empleadoId: str
   const disponibles = catalogo.filter((c) => c.activo && !yaAsignadas.has(c.id));
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6 mt-6">
+    <section className="bg-white border border-slate-200 rounded-xl p-6 mt-6">
       <h2 className="text-sm font-semibold text-slate-700 mb-4 uppercase tracking-wide">Especialidades</h2>
 
       <div className="flex gap-2 items-end mb-4">
         <div className="flex-1">
           <label className="text-xs text-slate-600">Especialidad</label>
           <Selector value={addEsp} onChange={(e) => setAddEsp(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
+            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <option value="">— elegir —</option>
             {disponibles.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </Selector>
@@ -88,22 +88,22 @@ export default function EmpleadoEspecialidades({ empleadoId }: { empleadoId: str
         <div>
           <label className="text-xs text-slate-600">Nivel</label>
           <Selector value={addNivel} onChange={(e) => setAddNivel(e.target.value)}
-            className="mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
+            className="mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <option value="">—</option>
             {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
           </Selector>
         </div>
         <button type="button" onClick={agregar} disabled={!addEsp}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium disabled:opacity-50">
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50">
           Agregar
         </button>
       </div>
 
       {loading ? <p className="text-sm text-slate-400">Cargando…</p> : (
         asignaciones.length === 0 ? <p className="text-sm text-slate-400">Sin especialidades asignadas.</p> :
-        <div className="border border-slate-200 rounded-md overflow-hidden">
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Especialidad</th>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Nivel</th>

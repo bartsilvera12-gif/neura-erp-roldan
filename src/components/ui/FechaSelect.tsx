@@ -379,7 +379,7 @@ export function FechaSelect({
               <button
                 type="button"
                 onClick={() => elegir(new Date())}
-                className="rounded-md px-2 py-1 text-[11px] font-medium text-[#2F6E71] transition-colors hover:bg-[#4FAEB2]/12"
+                className="rounded-lg px-2 py-1 text-[11px] font-medium text-[#2F6E71] transition-colors hover:bg-[#4FAEB2]/12"
               >
                 Hoy
               </button>
@@ -391,7 +391,7 @@ export function FechaSelect({
                   setTexto("");
                   setAbierto(false);
                 }}
-                className="rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-rose-600"
+                className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-rose-600"
               >
                 Borrar
               </button>

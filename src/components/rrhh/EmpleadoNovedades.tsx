@@ -110,7 +110,7 @@ export default function EmpleadoNovedades({ empleadoId }: { empleadoId: string }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#3F8E91]">
@@ -161,7 +161,7 @@ export default function EmpleadoNovedades({ empleadoId }: { empleadoId: string }
             <span>{msg.texto}</span>
             {msg.hoja && (
               <a href={msg.hoja} target="_blank" rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100">
+                className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100">
                 <FileSignature className="h-3.5 w-3.5" /> Imprimir para firmar
               </a>
             )}
@@ -241,7 +241,7 @@ export default function EmpleadoNovedades({ empleadoId }: { empleadoId: string }
 
       {/* Historial */}
       {!faltaScript && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
             <h3 className="text-sm font-semibold text-slate-800">
               Historial{filtro !== "todas" && <span className="font-normal text-slate-500"> · {tipoNovedad(filtro).label}</span>}

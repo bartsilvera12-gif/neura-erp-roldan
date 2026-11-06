@@ -294,7 +294,7 @@ export default function PresupuestosPage() {
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-[#4FAEB2]" />
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Presupuestos</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Presupuestos</h1>
             <p className="text-gray-600">Cotizaciones comerciales. No afectan stock hasta convertirse en pedido.</p>
           </div>
         </div>
@@ -397,10 +397,10 @@ export default function PresupuestosPage() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {loading ? (
           <div className="p-8 flex items-center gap-2 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
@@ -416,7 +416,7 @@ export default function PresupuestosPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="py-3 px-4 font-medium">Número</th>
                   <th className="py-3 px-4 font-medium">Cliente</th>

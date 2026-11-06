@@ -222,7 +222,7 @@ export default function GastosNoDeduciblesPage() {
               </p>
             ) : (
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500">
+                <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold">Fecha</th>
                     <th className="px-3 py-2 text-left font-semibold">Categoría</th>

@@ -111,7 +111,7 @@ export default function TiposCambioPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-slate-800">Tipos de cambio</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Tipos de cambio</h1>
         <p className="text-sm text-slate-500">
           Cada cotización queda registrada con su fecha, su hora y quién la cargó.
           Para corregir una se carga otra: las anteriores no se tocan porque son
@@ -127,13 +127,13 @@ export default function TiposCambioPage() {
 
       {vigente && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
             <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
               Comprador vigente
             </div>
             <div className="text-2xl font-semibold text-slate-800">{fmt(vigente.compra)}</div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
             <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
               Vendedor vigente
             </div>
@@ -142,7 +142,7 @@ export default function TiposCambioPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Desde</label>
@@ -169,7 +169,7 @@ export default function TiposCambioPage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-slate-800">Historial</h2>
           <div className="flex items-center gap-3">

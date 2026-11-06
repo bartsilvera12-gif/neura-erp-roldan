@@ -48,7 +48,7 @@ export default function EditarGastoPage() {
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
           Gasto no encontrado
         </div>
-        <Link href="/gastos" className="text-sm text-[#0EA5E9] hover:underline">
+        <Link href="/gastos" className="text-sm text-[#4FAEB2] hover:underline">
           ← Volver a gastos
         </Link>
       </div>
@@ -66,7 +66,7 @@ export default function EditarGastoPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Editar gasto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editar gasto</h1>
         <p className="text-sm text-gray-500 mt-1">
           {gasto.categoria || gasto.descripcion || "Gasto"}
         </p>

@@ -22,7 +22,7 @@ import { FileText, Paperclip } from "lucide-react";
 const LIMITE_LISTADO = 300;
 
 const inputFilterClass =
-  "border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white";
+  "border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white";
 
 function formatGs(valor: number) {
   return `Gs. ${Math.round(valor).toLocaleString("es-PY")}`;
@@ -134,7 +134,7 @@ function Header({ modo, setModo }: { modo: "nutricion" | "consignataria"; setMod
             Zentra · Adquisiciones
           </p>
         </div>
-        <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Compras</h1>
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Compras</h1>
         <p className="mt-0.5 text-xs text-slate-500">Registro de órdenes de compra a proveedores</p>
       </div>
     </div>
@@ -220,7 +220,7 @@ function VistaNutricion() {
 
   return (
     <>
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Órdenes de compra</h2>
           <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ function VistaNutricion() {
             </Link>
             <Link
               href="/compras/nueva"
-              className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91] active:scale-95"
+              className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91]"
             >
               + Nueva compra
             </Link>
@@ -397,7 +397,7 @@ function VistaNutricion() {
                             <Link
                               href={`/compras/nueva?numero=${encodeURIComponent(g.numero_control)}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="mr-2 inline-flex items-center justify-center rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 transition-colors"
+                              className="mr-2 inline-flex items-center justify-center rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 transition-colors"
                               title="Editar esta compra (solo admin)"
                             >
                               Editar
@@ -410,7 +410,7 @@ function VistaNutricion() {
                                 e.stopPropagation();
                                 setNcTarget(g);
                               }}
-                              className="mr-2 inline-flex items-center justify-center rounded-md border border-violet-200 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50 transition-colors"
+                              className="mr-2 inline-flex items-center justify-center rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50 transition-colors"
                               title="Cargar una nota de crédito recibida del proveedor e imputarla a esta compra"
                             >
                               Nota de crédito
@@ -420,7 +420,7 @@ function VistaNutricion() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setPagarTarget(g); }}
-                              className="mr-2 inline-flex items-center justify-center rounded-md border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+                              className="mr-2 inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
                               title="Registrar el pago y descontarlo del turno de caja abierto"
                             >
                               Pagar
@@ -433,7 +433,7 @@ function VistaNutricion() {
                                 e.stopPropagation();
                                 setAnularTarget({ numero: g.numero_control, proveedor: g.proveedor_nombre });
                               }}
-                              className="inline-flex items-center justify-center rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 transition-colors"
+                              className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 transition-colors"
                               title="Anular esta compra (reintegra stock en reverso)"
                             >
                               Anular
@@ -697,12 +697,12 @@ function VistaConsignataria() {
 
   return (
     <>
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Compras de consignación</h2>
           <Link
             href="/compras/nueva-consig"
-            className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91] active:scale-95"
+            className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91]"
           >
             + Nueva compra consig.
           </Link>

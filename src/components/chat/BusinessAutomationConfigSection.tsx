@@ -27,7 +27,7 @@ export function BusinessAutomationConfigSection({ value: s, onChange }: Props) {
 
   return (
     <div className="space-y-5">
-      <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3">
+      <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
         <input
           type="checkbox"
           className="mt-1"
@@ -51,7 +51,7 @@ export function BusinessAutomationConfigSection({ value: s, onChange }: Props) {
             cuando actives el interruptor superior.
           </p>
         ) : null}
-        <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h4 className="text-sm font-semibold text-slate-800">Mensaje de bienvenida</h4>
@@ -77,7 +77,7 @@ export function BusinessAutomationConfigSection({ value: s, onChange }: Props) {
           />
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h4 className="text-sm font-semibold text-slate-800">Horario de atención</h4>
@@ -165,7 +165,7 @@ export function BusinessAutomationConfigSection({ value: s, onChange }: Props) {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h4 className="text-sm font-semibold text-slate-800">Mensaje fuera de horario</h4>

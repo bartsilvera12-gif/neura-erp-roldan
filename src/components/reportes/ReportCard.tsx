@@ -21,7 +21,7 @@ export function ReportCard({
   actionLabel?: string;
 }) {
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-[#4FAEB2]/40 hover:shadow-md">
+    <article className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-[#4FAEB2]/40 hover:shadow-md">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5F4F4] text-[#3F8E91]">
           <Icon className="h-5 w-5" aria-hidden />

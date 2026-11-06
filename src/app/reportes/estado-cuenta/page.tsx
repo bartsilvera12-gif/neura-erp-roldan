@@ -101,7 +101,7 @@ export default function EstadoCuentaReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el estado de cuenta.
         </div>
       ) : (
@@ -125,7 +125,7 @@ export default function EstadoCuentaReportePage() {
             crédito), independiente del mes seleccionado. Ingresos, compras y gastos sí corresponden al período.
           </p>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Movimientos del período</h2>
             {data.movimientos.length === 0 ? (
               <p className="text-sm text-slate-400">No hay movimientos en el período.</p>
@@ -162,7 +162,7 @@ export default function EstadoCuentaReportePage() {
       )}
 
       {/* Estado de cuenta por cliente (cuentas por cobrar / cobros) */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6">
+      <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-semibold text-slate-800">Estado de cuenta por cliente</h2>

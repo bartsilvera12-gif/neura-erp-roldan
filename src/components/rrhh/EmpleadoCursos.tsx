@@ -72,21 +72,21 @@ export default function EmpleadoCursos({ empleadoId }: { empleadoId: string }) {
   }
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6 mt-6">
+    <section className="bg-white border border-slate-200 rounded-xl p-6 mt-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Cursos y certificaciones</h2>
         <button type="button" onClick={() => setShowForm((s) => !s)}
-          className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-xs font-medium">
+          className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium">
           {showForm ? "Cancelar" : "+ Agregar"}
         </button>
       </div>
 
       {showForm && (
-        <form onSubmit={agregar} className="mb-4 p-3 border border-slate-200 rounded-md grid grid-cols-1 md:grid-cols-2 gap-2">
+        <form onSubmit={agregar} className="mb-4 p-3 border border-slate-200 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-slate-600">Del catálogo (opcional)</label>
             <Selector value={form.curso_id} onChange={(e) => pickFromCatalog(e.target.value)}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm">
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm">
               <option value="">— manual —</option>
               {catalogo.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </Selector>
@@ -94,12 +94,12 @@ export default function EmpleadoCursos({ empleadoId }: { empleadoId: string }) {
           <div>
             <label className="text-xs text-slate-600">Nombre *</label>
             <input required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Tipo</label>
             <Selector value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm">
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm">
               <option value="curso">Curso</option>
               <option value="certificado">Certificado</option>
               <option value="habilitacion">Habilitación</option>
@@ -109,29 +109,29 @@ export default function EmpleadoCursos({ empleadoId }: { empleadoId: string }) {
           <div>
             <label className="text-xs text-slate-600">Entidad emisora</label>
             <input value={form.entidad_emisora} onChange={(e) => setForm({ ...form, entidad_emisora: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Fecha emisión</label>
             <input type="date" value={form.fecha_emision} onChange={(e) => setForm({ ...form, fecha_emision: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Fecha vencimiento</label>
             <input type="date" value={form.fecha_vencimiento} onChange={(e) => setForm({ ...form, fecha_vencimiento: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div className="md:col-span-2 flex justify-end">
-            <button type="submit" className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium">Guardar</button>
+            <button type="submit" className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium">Guardar</button>
           </div>
         </form>
       )}
 
       {loading ? <p className="text-sm text-slate-400">Cargando…</p> : (
         cursos.length === 0 ? <p className="text-sm text-slate-400">Sin cursos registrados.</p> :
-        <div className="border border-slate-200 rounded-md overflow-hidden">
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Nombre</th>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Tipo</th>

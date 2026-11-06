@@ -84,7 +84,7 @@ export function OmnichannelChannelCard({
         : `/configuracion/canales/nuevo?tipo=${def.type}`;
 
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-slate-300 hover:shadow-md transition-all">
+    <article className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 hover:border-slate-300 hover:shadow-md transition-all">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-700">

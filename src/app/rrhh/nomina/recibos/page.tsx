@@ -181,9 +181,9 @@ export default function RecibosPage() {
         <StatCard compact label="Costo total" value={gs(totCosto)} icon={<FileText className="h-4 w-4" />} hint="salarios + aporte patronal" />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-4 py-3">Empleado</th>
               <th className="px-4 py-3 text-right">Salario base</th>
@@ -229,9 +229,9 @@ export default function RecibosPage() {
                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{gs(r.liquido)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       <Link href={`/rrhh/nomina/recibos/${r.id}`}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Revisar</Link>
+                        className="rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Revisar</Link>
                       <a href={`/api/rrhh/nomina/recibos/${r.id}/pdf`} target="_blank" rel="noreferrer"
-                        className="ml-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">PDF</a>
+                        className="ml-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">PDF</a>
                       <button onClick={() => setConfirmDelete({ id: r.id, nombre: e.nombre })} title="Eliminar recibo"
                         className="ml-1.5 inline-flex items-center rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                         <Trash2 className="h-3.5 w-3.5" />

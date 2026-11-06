@@ -15,7 +15,7 @@ export default function NuevaEmpresaPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Nueva empresa</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nueva empresa</h1>
         <p className="text-sm text-gray-500 mt-1">
           Crear empresa, usuario administrador y seleccionar módulos habilitados.
         </p>

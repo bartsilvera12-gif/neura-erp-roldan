@@ -70,7 +70,7 @@ export default function CampanasListClient() {
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Campañas WhatsApp</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Campañas WhatsApp</h1>
           <p className="text-sm text-slate-500">Envíos masivos con plantillas aprobadas (Meta / YCloud).</p>
         </div>
         <Link
@@ -81,9 +81,9 @@ export default function CampanasListClient() {
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+          <thead className="bg-slate-50 text-left text-xs text-slate-500">
             <tr>
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Proveedor</th>

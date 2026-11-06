@@ -203,7 +203,7 @@ export default function DetalleVentaModal({
             ) : (
               <div className="overflow-hidden rounded-lg border border-slate-200">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                  <thead className="bg-slate-50 text-[11px] text-xs text-slate-500">
                     <tr>
                       <th className="px-3 py-2 text-left font-semibold">Producto</th>
                       <th className="px-3 py-2 text-right font-semibold">Cant.</th>

@@ -294,7 +294,7 @@ export default function FlujoCajaPage() {
       />
 
       {/* Período y parámetros del mes */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Mes</span>
           <Selector
@@ -345,7 +345,7 @@ export default function FlujoCajaPage() {
       {/* Posición de liquidez — informativa: la foto sobre la que se apoya el flujo.
           No alimenta la proyección de pagos; solo aporta los fondos iniciales. */}
       {data && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4FAEB2]">
@@ -956,7 +956,7 @@ function PanelCelda({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">

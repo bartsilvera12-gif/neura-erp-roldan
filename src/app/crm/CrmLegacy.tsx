@@ -407,7 +407,7 @@ function ProspectoCard({
         e.dataTransfer.effectAllowed = "move";
         onDragStart(prospecto.id);
       }}
-      className={`group cursor-grab select-none rounded-2xl border border-l-4 border-slate-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing [content-visibility:auto] [contain-intrinsic-size:auto_140px] ${tone.borderLeft}`}
+      className={`group cursor-grab select-none rounded-xl border border-l-4 border-slate-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing [content-visibility:auto] [contain-intrinsic-size:auto_140px] ${tone.borderLeft}`}
     >
       <div className="flex items-start gap-2">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${tone.dot}`} />
@@ -426,7 +426,7 @@ function ProspectoCard({
             onEdit(prospecto.id);
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="shrink-0 rounded-md p-1 text-slate-300 opacity-0 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2] group-hover:opacity-100"
+          className="shrink-0 rounded-lg p-1 text-slate-300 opacity-0 transition-all hover:bg-[#4FAEB2]/10 hover:text-[#4FAEB2] group-hover:opacity-100"
           title="Editar"
           aria-label="Editar prospecto"
         >
@@ -633,7 +633,7 @@ function Columna({
 
   return (
     <div
-      className={`flex w-64 min-w-64 flex-col rounded-2xl border bg-white/60 backdrop-blur-sm transition-all duration-150 ${
+      className={`flex w-64 min-w-64 flex-col rounded-xl border bg-white/60 backdrop-blur-sm transition-all duration-150 ${
         isDragOver
           ? `border-[#4FAEB2] ring-2 ring-[#4FAEB2]/30 bg-[#4FAEB2]/[0.04]`
           : `${tone.columnHeaderBorder}`
@@ -655,7 +655,7 @@ function Columna({
           <span className="truncate text-[13px] font-semibold text-slate-800">
             {etapa.nombre}
           </span>
-          <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
+          <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200">
             {prospectos.length}
           </span>
         </div>
@@ -727,8 +727,8 @@ function MetricCard({
 
   const cardCls =
     accent === "featured"
-      ? "relative overflow-hidden rounded-2xl border border-[#4FAEB2]/55 bg-gradient-to-br from-white via-white to-[#4FAEB2]/8 p-4 shadow-[0_4px_18px_rgba(79,174,178,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(79,174,178,0.14)]"
-      : "relative overflow-hidden rounded-2xl border border-[#4FAEB2]/45 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md";
+      ? "relative overflow-hidden rounded-xl border border-[#4FAEB2]/55 bg-gradient-to-br from-white via-white to-[#4FAEB2]/8 p-4 shadow-[0_4px_18px_rgba(79,174,178,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(79,174,178,0.14)]"
+      : "relative overflow-hidden rounded-xl border border-[#4FAEB2]/45 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md";
 
   const interactiveCls = onClick
     ? ` cursor-pointer text-left ${active ? "ring-2 ring-[#4FAEB2] border-[#4FAEB2]" : "hover:border-[#4FAEB2]/70"}`
@@ -780,7 +780,7 @@ function TopProductosWidget({
   total: number;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#4FAEB2]/45 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="relative overflow-hidden rounded-xl border border-[#4FAEB2]/45 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-start justify-between gap-2">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/12 text-[#4FAEB2]">
           <IconBoxes />
@@ -889,7 +889,7 @@ function ProspectoLista({
             <Selector
               value={filtroEtapa}
               onChange={(e) => setFiltroEtapa(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
+              className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
               aria-label="Filtrar por etapa"
             >
               <option value="">Todas</option>
@@ -908,7 +908,7 @@ function ProspectoLista({
             onChange={(e) =>
               setPageSize(e.target.value === "todos" ? "todos" : (Number(e.target.value) as ListPageSize))
             }
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
+            className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20"
             aria-label="Cantidad de registros a mostrar"
           >
             <option value="25">25</option>
@@ -918,9 +918,9 @@ function ProspectoLista({
           </Selector>
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
+          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur bg-slate-50 text-xs text-slate-500">
             <tr className="text-left text-[10px] font-medium text-slate-500">
               <th className="px-4 py-3 font-semibold">Contacto</th>
               <th className="px-4 py-3 font-semibold">Teléfono</th>
@@ -1223,7 +1223,7 @@ export default function CrmPage() {
               Pipeline
             </p>
           </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
             CRM Funnel
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -1329,14 +1329,14 @@ export default function CrmPage() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por número, empresa, contacto o nro. de control…"
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm shadow-sm transition-colors focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
+            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm transition-colors focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
           />
           {busqueda ? (
             <button
               type="button"
               onClick={() => setBusqueda("")}
               aria-label="Limpiar búsqueda"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md px-1.5 py-0.5 text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg px-1.5 py-0.5 text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             >
               <X className="h-4 w-4" />
             </button>

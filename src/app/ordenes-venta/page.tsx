@@ -78,7 +78,7 @@ export default function OrdenesVentaPage() {
     <div className="space-y-6 max-w-6xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Órdenes de venta recibidas</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Órdenes de venta recibidas</h1>
           <p className="text-slate-600">Órdenes de compra que te mandan clientes (Biggie, Casa Rica, etc.). Aprobalas, rechazalas o convertí a venta.</p>
         </div>
         <Link href="/ordenes-venta/nueva"
@@ -105,14 +105,14 @@ export default function OrdenesVentaPage() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         {loading ? (
           <p className="p-6 text-sm text-slate-400">Cargando…</p>
         ) : ordenes.length === 0 ? (
           <p className="p-6 text-sm text-slate-400">No hay órdenes con ese filtro.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">N° Orden</th>
                 <th className="text-left px-4 py-2">Cliente</th>

@@ -138,7 +138,7 @@ export default function TipificacionPage() {
   if (notFound) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-gray-800">Cliente no encontrado</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Cliente no encontrado</h1>
         <button onClick={() => router.push("/clientes")} className="text-sm text-gray-500 underline">
           ← Volver a Clientes
         </button>
@@ -165,10 +165,10 @@ export default function TipificacionPage() {
       </div>
 
       {/* ── Header del cliente ────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-4">
+      <div className="bg-white rounded-xl border border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{clienteNombre(cliente)}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">{clienteNombre(cliente)}</h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
               <span className="font-mono">{cliente.codigo_cliente}</span>
               {cliente.ruc && <span>RUC: {cliente.ruc}</span>}
@@ -185,7 +185,7 @@ export default function TipificacionPage() {
       </div>
 
       {/* ── Formulario de nueva tipificación ─────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
             Nueva tipificación
@@ -273,7 +273,7 @@ export default function TipificacionPage() {
       </div>
 
       {/* ── Historial de tipificaciones ───────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 flex items-center justify-between">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
             Historial de tipificaciones

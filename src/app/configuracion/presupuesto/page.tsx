@@ -83,7 +83,7 @@ export default function PlantillaPresupuestoPage() {
     <div className="max-w-4xl space-y-6">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Textos del presupuesto</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Textos del presupuesto</h1>
         <p className="text-slate-600">
           Lo que sale impreso en todos los presupuestos: forma de pago, validez de la oferta y las
           condiciones del pie. Se cambian acá una vez y valen para los que se emitan de ahora en más
@@ -106,7 +106,7 @@ export default function PlantillaPresupuestoPage() {
       {!pl ? (
         <p className="text-sm text-slate-400">Cargando…</p>
       ) : (
-        <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="block">
               <span className="text-sm font-semibold text-slate-700">Anticipo requerido (%)</span>

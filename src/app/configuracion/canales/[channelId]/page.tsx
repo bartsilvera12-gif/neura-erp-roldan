@@ -88,7 +88,7 @@ export default function EditarCanalPage() {
     return (
       <div className="max-w-xl space-y-4">
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{loadError}</div>
-        <Link href="/configuracion/canales" className="text-sm font-medium text-[#0EA5E9] hover:underline">
+        <Link href="/configuracion/canales" className="text-sm font-medium text-[#4FAEB2] hover:underline">
           ← Volver a canales
         </Link>
       </div>
@@ -103,7 +103,7 @@ export default function EditarCanalPage() {
     return (
       <div className="max-w-xl space-y-4">
         <p className="text-slate-700">No encontramos este canal o no pertenece a tu empresa.</p>
-        <Link href="/configuracion/canales" className="text-sm font-medium text-[#0EA5E9] hover:underline">
+        <Link href="/configuracion/canales" className="text-sm font-medium text-[#4FAEB2] hover:underline">
           ← Volver a canales
         </Link>
       </div>
@@ -134,7 +134,7 @@ export default function EditarCanalPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{row.nombre ?? channelTypeLabel(row.type)}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{row.nombre ?? channelTypeLabel(row.type)}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <ChannelBadge type={row.type} nombre={null} />
             <span className="text-[11px] font-medium text-slate-400">
@@ -166,7 +166,7 @@ export default function EditarCanalPage() {
         </button>
       </div>
 
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
+      <section className="w-full rounded-xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8">
         <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 lg:mb-6">
           {isBaileys ? "Conexión" : "Credenciales y opciones"}
         </h2>

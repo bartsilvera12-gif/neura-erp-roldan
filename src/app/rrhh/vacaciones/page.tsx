@@ -245,7 +245,7 @@ function VacacionesInner() {
           <span>{ok.texto}</span>
           {ok.constancia && (
             <a href={ok.constancia} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100">
+              className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100">
               <FileSignature className="h-3.5 w-3.5" /> Imprimir la comunicación para firmar
             </a>
           )}
@@ -276,7 +276,7 @@ function VacacionesInner() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <CalendarDays className="h-4 w-4 text-[#3F8E91]" /> Registrar ausencia
             </h3>
@@ -356,7 +356,7 @@ function VacacionesInner() {
           </form>
 
           {/* A la derecha: el saldo del elegido, o la regla de la ley. */}
-          <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="rounded-xl border border-slate-200 bg-white p-5">
             {saldoSel ? (
               <>
                 <div className="flex items-center gap-3">
@@ -426,9 +426,9 @@ function VacacionesInner() {
       </div>
 
       {tab === "saldos" ? (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3">Empleado</th>
                 <th className="px-4 py-3">Ingreso</th>
@@ -480,7 +480,7 @@ function VacacionesInner() {
                         <span className="text-[10px] text-amber-600">adelantados</span>
                       </span>
                     ) : (
-                      <span className="rounded-md bg-[#4FAEB2]/10 px-2 py-0.5 font-semibold tabular-nums text-[#3F8E91]">{s.dias_disponibles}</span>
+                      <span className="rounded-lg bg-[#4FAEB2]/10 px-2 py-0.5 font-semibold tabular-nums text-[#3F8E91]">{s.dias_disponibles}</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">
@@ -503,9 +503,9 @@ function VacacionesInner() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[920px] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3">Empleado</th>
                 <th className="px-4 py-3">Tipo</th>
@@ -530,7 +530,7 @@ function VacacionesInner() {
                       {s.observacion && <span className="block max-w-[260px] truncate text-xs font-normal text-slate-400">{s.observacion}</span>}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${TIPO_COLOR[t]}`}>{TIPO_LABEL[t]}</span>
+                      <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${TIPO_COLOR[t]}`}>{TIPO_LABEL[t]}</span>
                     </td>
                     <td className="px-4 py-2.5 text-xs tabular-nums text-slate-600">{fmtFecha(s.fecha_desde)}</td>
                     <td className="px-4 py-2.5 text-xs tabular-nums text-slate-600">{fmtFecha(s.fecha_hasta)}</td>

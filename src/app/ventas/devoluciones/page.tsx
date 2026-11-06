@@ -68,7 +68,7 @@ export default function DevolucionesPage() {
           <Link href="/ventas" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
             <ArrowLeft className="h-4 w-4" /> Volver a ventas
           </Link>
-          <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold text-slate-900">
+          <h1 className="mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
             <RotateCcw className="h-6 w-6 text-[#4FAEB2]" /> Devoluciones
           </h1>
         </div>
@@ -76,7 +76,7 @@ export default function DevolucionesPage() {
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {cargando ? (
           <p className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Cargando…</p>
         ) : rows.length === 0 ? (
@@ -84,7 +84,7 @@ export default function DevolucionesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] text-xs text-slate-500">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold">N°</th>
                   <th className="px-4 py-3 text-left font-bold">Venta</th>
@@ -125,9 +125,9 @@ export default function DevolucionesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => void abrirDetalle(d.id)} className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Detalle</button>
+                        <button onClick={() => void abrirDetalle(d.id)} className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Detalle</button>
                         <a href={`/api/devoluciones/${d.id}/comprobante`} target="_blank" rel="noopener"
-                           className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
                           <Printer className="h-3.5 w-3.5" /> Imprimir
                         </a>
                       </div>
@@ -143,7 +143,7 @@ export default function DevolucionesPage() {
       {/* Detalle */}
       {detalle && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setDetalle(null)}>
-          <div className="my-8 w-full max-w-2xl rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="my-8 w-full max-w-2xl rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{detalle.numero_devolucion}</h2>

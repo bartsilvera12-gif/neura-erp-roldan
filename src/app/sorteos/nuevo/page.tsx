@@ -124,7 +124,7 @@ export default function NuevoSorteoPage() {
         <span>/</span>
         <span className="text-slate-800 font-medium">Nuevo</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Nuevo sorteo</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo sorteo</h1>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-2" role="alert">
@@ -137,7 +137,7 @@ export default function NuevoSorteoPage() {
         </div>
       )}
 
-      <form noValidate onSubmit={handleSubmit} className="space-y-4 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <form noValidate onSubmit={handleSubmit} className="space-y-4 bg-white border border-slate-200 rounded-xl p-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
           <input
@@ -292,7 +292,7 @@ export default function NuevoSorteoPage() {
           <button
             type="submit"
             disabled={guardando}
-            className="bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-medium"
+            className="bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-medium"
           >
             {guardando ? "Guardando…" : "Crear sorteo"}
           </button>

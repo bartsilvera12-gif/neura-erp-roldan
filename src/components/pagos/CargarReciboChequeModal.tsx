@@ -73,7 +73,7 @@ export default function CargarReciboChequeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-base font-semibold text-slate-900">Recibo del proveedor</h2>
         <p className="mt-0.5 text-xs text-slate-500">
           {proveedor} · {moneda === "USD" ? "US$ " : "Gs. "}
@@ -127,7 +127,7 @@ export default function CargarReciboChequeModal({
             type="file"
             accept="application/pdf,image/jpeg,image/png,image/webp"
             onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border file:border-slate-200 file:bg-white file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-slate-600"
+            className="mt-1 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border file:border-slate-200 file:bg-white file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-slate-600"
           />
         </label>
 

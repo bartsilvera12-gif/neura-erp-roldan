@@ -59,7 +59,7 @@ export default function ConfirmModal({
       aria-label={title}
     >
       <div
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200"
+        className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5">

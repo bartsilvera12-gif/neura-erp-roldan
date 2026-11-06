@@ -147,7 +147,7 @@ export default function CategoriasClientePage() {
         <Link href="/clientes" className="inline-flex items-center gap-1 text-sm text-sky-600 hover:underline">
           <ArrowLeft className="h-3.5 w-3.5" /> Clientes
         </Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Categorías de cliente</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Categorías de cliente</h1>
         <p className="text-slate-600">
           Cuándo le cambió la categoría a cada cliente y por cuánto compró ese mes.
         </p>
@@ -164,7 +164,7 @@ export default function CategoriasClientePage() {
       )}
 
       {/* ── Filtros ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         {/* Buscar por nombre o por RUC. El RUC se compara también sin puntos
             ni guiones: en la base conviven 1234567-8, 1.234.567-8 y 1234567, y
             escribirlo de una forma no encontraba al que quedó de otra. */}
@@ -251,7 +251,7 @@ export default function CategoriasClientePage() {
           "ningún cambio" es cierto y no sirve: la pregunta era en qué categoría
           está y cuánto compró. */}
       {!sinCompras && busqueda.trim() !== "" && (data?.situacion.length ?? 0) > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-2.5">
             <p className="text-sm font-semibold text-slate-800">
               En qué categoría está{data!.situacion.length === 1 ? "" : "n"} ahora
@@ -303,7 +303,7 @@ export default function CategoriasClientePage() {
       )}
 
       {/* ── Tabla ───────────────────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           {sinCompras ? (
             <table className="w-full min-w-[720px] text-sm">

@@ -460,7 +460,7 @@ export default function ClientesPage() {
               Zentra · Base
             </p>
           </div>
-          <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Clientes</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Clientes</h1>
           <p className="mt-0.5 text-xs text-slate-500">Base de clientes activos de la empresa</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -475,13 +475,13 @@ export default function ClientesPage() {
           {/* Quién cambió de categoría y quién dejó de comprar. */}
           <Link
             href="/clientes/categorias"
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-[#4FAEB2] hover:text-[#3F8E91]"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-[#4FAEB2] hover:text-[#3F8E91]"
           >
             Categorías
           </Link>
           <Link
             href="/clientes/nuevo"
-            className="flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91] active:scale-95"
+            className="flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91]"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -492,13 +492,13 @@ export default function ClientesPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-[#4FAEB2]/15 p-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-white rounded-xl border border-slate-200 ring-1 ring-[#4FAEB2]/15 p-4 flex flex-wrap gap-3 items-center">
         <input
           type="text"
           placeholder="Buscar por nombre, sucursal/local, ciudad, RUC, código, email..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 min-w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none transition-all"
+          className="flex-1 min-w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none transition-all"
         />
         <FancySelect
           value={filtroEstado}
@@ -573,7 +573,7 @@ export default function ClientesPage() {
             <button
               type="button"
               onClick={() => setColumnasOpen((v) => !v)}
-              className="inline-flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-xs font-medium shadow-sm transition-colors"
+              className="inline-flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
               aria-expanded={columnasOpen}
             >
               <span>Columnas</span>
@@ -603,7 +603,7 @@ export default function ClientesPage() {
                           checked={checked}
                           disabled={col.required}
                           onChange={() => toggleColumn(col.key)}
-                          className="h-4 w-4 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                          className="h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                         />
                       </label>
                     );
@@ -626,7 +626,7 @@ export default function ClientesPage() {
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm ring-1 ring-[#4FAEB2]/15">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden ring-1 ring-[#4FAEB2]/15">
         {cargando ? (
           <div className="py-16 text-center text-gray-400 text-sm animate-pulse">Cargando clientes…</div>
         ) : filtrados.length === 0 ? (

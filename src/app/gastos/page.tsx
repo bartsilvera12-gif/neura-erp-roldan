@@ -140,7 +140,7 @@ export default function GastosPage() {
               Zentra · Egresos
             </p>
           </div>
-          <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Gastos operativos</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Gastos operativos</h1>
           {/* Acá decía "Gastos de la empresa (nutrición)": texto heredado del
               ERP del que se copió este repo, donde la empresa se dedicaba a
               nutrición y había una segunda unidad de negocio (consignataria).
@@ -173,7 +173,7 @@ export default function GastosPage() {
         <div className="flex items-center gap-3">
           <Link
             href={`/gastos/nuevo?modo=${modo}`}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91] active:scale-95"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91]"
           >
             <span>+</span>
             Nuevo gasto
@@ -182,7 +182,7 @@ export default function GastosPage() {
       </div>
 
       {gastos.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="lg:col-span-2">
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
@@ -278,7 +278,7 @@ export default function GastosPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm ring-1 ring-[#4FAEB2]/15">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden ring-1 ring-[#4FAEB2]/15">
         {cargando ? (
           <div className="py-16 text-center text-gray-400 text-sm animate-pulse">Cargando gastos…</div>
         ) : gastos.length === 0 ? (
@@ -287,7 +287,7 @@ export default function GastosPage() {
             <p className="font-medium text-gray-600">No hay gastos registrados</p>
             <Link
               href="/gastos/nuevo"
-              className="mt-4 inline-block text-sm text-[#0EA5E9] hover:underline"
+              className="mt-4 inline-block text-sm text-[#4FAEB2] hover:underline"
             >
               Registrar primer gasto
             </Link>

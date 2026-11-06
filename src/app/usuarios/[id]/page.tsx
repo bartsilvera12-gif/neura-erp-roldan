@@ -476,7 +476,7 @@ function UsuarioDetailContent() {
               .toUpperCase() || "?"}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{usuario.nombre ?? "—"}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">{usuario.nombre ?? "—"}</h1>
             <p className="text-sm text-gray-500 mt-0.5">{usuario.email}</p>
             <span
               className={`inline-flex mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${

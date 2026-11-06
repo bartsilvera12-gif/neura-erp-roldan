@@ -194,7 +194,7 @@ export default function CostoDolarDescuento({
                     type="button"
                     onClick={() => onUsarCostoGs(Math.round(costoConvertido))}
                     disabled={disabled}
-                    className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5"
+                    className="rounded-lg border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5"
                   >
                     Usar como costo
                   </button>

@@ -110,16 +110,16 @@ export default async function SorteoEntradasPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Entradas</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Entradas</h1>
         <p className="text-gray-500 text-sm mt-1">Compras registradas por participante</p>
       </div>
 
       <nav className="flex flex-wrap gap-2 text-sm border-b border-slate-200 pb-3">
-        <Link href="/sorteos" className="text-slate-600 hover:text-[#0EA5E9]">
+        <Link href="/sorteos" className="text-slate-600 hover:text-[#4FAEB2]">
           Sorteos
         </Link>
-        <span className="font-semibold text-[#0EA5E9]">Entradas</span>
-        <Link href="/sorteos/cupones" className="text-slate-600 hover:text-[#0EA5E9]">
+        <span className="font-semibold text-[#4FAEB2]">Entradas</span>
+        <Link href="/sorteos/cupones" className="text-slate-600 hover:text-[#4FAEB2]">
           Cupones
         </Link>
       </nav>
@@ -159,7 +159,7 @@ export default async function SorteoEntradasPage({
         </label>
         <button
           type="submit"
-          className="bg-[#0EA5E9] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-sky-600"
+          className="bg-[#4FAEB2] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-sky-600"
         >
           Filtrar
         </button>
@@ -206,7 +206,7 @@ export default async function SorteoEntradasPage({
         ) : null}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {rows.length === 0 && !queryError ? (
           <div className="py-16 text-center text-gray-400 text-sm">No hay entradas</div>
         ) : rows.length === 0 ? null : (
@@ -268,7 +268,7 @@ export default async function SorteoEntradasPage({
                           href={r.comprobante_url.trim()}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[#0EA5E9] hover:underline font-medium"
+                          className="text-[#4FAEB2] hover:underline font-medium"
                         >
                           Abrir
                         </a>

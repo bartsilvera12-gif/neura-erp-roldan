@@ -71,7 +71,7 @@ export function PlanCuentasImportModal({ onClose, onCompleted }: { onClose: () =
       onClick={onClose}
     >
       <div
-        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[85dvh] sm:rounded-2xl sm:border sm:border-slate-200"
+        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[85dvh] sm:rounded-xl sm:border sm:border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b p-5">
@@ -200,7 +200,7 @@ function PreviewTable({ rows }: { rows: PreviewRow[] }) {
   return (
     <div className="max-h-[40vh] overflow-auto rounded-lg border">
       <table className="w-full text-xs">
-        <thead className="sticky top-0 bg-slate-50 text-slate-600">
+        <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500">
           <tr>
             <th className="px-2 py-1.5 text-left">Fila</th>
             <th className="px-2 py-1.5 text-left">Acción</th>

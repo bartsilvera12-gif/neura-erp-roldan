@@ -142,7 +142,7 @@ export default function ConfiguracionContablePage() {
         </div>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-sm">
-            <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-2 text-left">Período</th><th className="px-3 py-2 text-center">Estado</th><th className="px-3 py-2 text-right">Acción</th></tr></thead>
+            <thead className="border-b bg-slate-50 text-xs text-slate-500"><tr><th className="px-3 py-2 text-left">Período</th><th className="px-3 py-2 text-center">Estado</th><th className="px-3 py-2 text-right">Acción</th></tr></thead>
             <tbody>
               {periodos.length === 0 ? <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-400">Aún no hay períodos registrados.</td></tr>
               : periodos.map((p) => (

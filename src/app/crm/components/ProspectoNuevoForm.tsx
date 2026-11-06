@@ -208,7 +208,7 @@ export default function ProspectoNuevoForm({
       className={
         isModal
           ? "flex h-full min-h-0 flex-col"
-          : "max-w-2xl space-y-6 rounded-2xl border border-[#4FAEB2]/45 bg-white p-6 shadow-sm"
+          : "max-w-2xl space-y-6 rounded-xl border border-[#4FAEB2]/45 bg-white p-6 shadow-sm"
       }
     >
       <div
@@ -221,7 +221,7 @@ export default function ProspectoNuevoForm({
         {/* Datos del prospecto */}
         <section
           className={
-            isModal ? "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" : ""
+            isModal ? "rounded-xl border border-slate-200 bg-white p-5 shadow-sm" : ""
           }
         >
           <SectionTitle>Datos del prospecto</SectionTitle>
@@ -308,7 +308,7 @@ export default function ProspectoNuevoForm({
         {/* Oportunidad */}
         <section
           className={
-            isModal ? "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" : ""
+            isModal ? "rounded-xl border border-slate-200 bg-white p-5 shadow-sm" : ""
           }
         >
           <SectionTitle>Oportunidad</SectionTitle>
@@ -382,7 +382,7 @@ export default function ProspectoNuevoForm({
         {/* Seguimiento */}
         <section
           className={
-            isModal ? "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" : ""
+            isModal ? "rounded-xl border border-slate-200 bg-white p-5 shadow-sm" : ""
           }
         >
           <SectionTitle>Seguimiento</SectionTitle>
@@ -492,7 +492,7 @@ export default function ProspectoNuevoForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-[#4FAEB2]/60 hover:text-[#4FAEB2]"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-[#4FAEB2]/60 hover:text-[#4FAEB2]"
           >
             Cancelar
           </button>

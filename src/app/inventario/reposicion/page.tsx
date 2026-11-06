@@ -219,7 +219,7 @@ export default function ReposicionPage() {
     <div className="space-y-6 max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
             <ArrowLeftRight className="h-6 w-6 text-[#4FAEB2]" /> Transferencias entre sucursales
           </h1>
           <p className="mt-1 text-sm text-slate-500">Solicitá mercadería a otra sucursal y seguí el estado de cada transferencia.</p>
@@ -254,7 +254,7 @@ export default function ReposicionPage() {
           />
           <button
             onClick={() => setCrearAbierto(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91] active:scale-95"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91]"
           >
             <Plus className="h-4 w-4" /> Solicitar reposición
           </button>
@@ -271,7 +271,7 @@ export default function ReposicionPage() {
         ].map((c) => {
           const Icon = c.icon;
           return (
-            <div key={c.k} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={c.k} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-center justify-between">
                 <Icon className={`h-5 w-5 ${c.color}`} />
                 <span className="text-2xl font-bold tabular-nums text-slate-900">{conteos[c.k] ?? 0}</span>
@@ -319,7 +319,7 @@ export default function ReposicionPage() {
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${tab === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${tab === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             {label}
           </button>
@@ -402,7 +402,7 @@ export default function ReposicionPage() {
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Número</th>
                 <th className="px-4 py-3 font-semibold">Remisión</th>
@@ -653,7 +653,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
         {lineas.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold">Producto</th>
                   <th className="px-3 py-2 text-right font-semibold">Stock actual</th>
@@ -833,7 +833,7 @@ function ModalDetalle({
           {/* Ítems */}
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold">Producto</th>
                   <th className="px-3 py-2 text-right font-semibold">Solic.</th>
@@ -1076,7 +1076,7 @@ function ElegirEquivalente({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+        className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
       >
         Elegir el equivalente
       </button>

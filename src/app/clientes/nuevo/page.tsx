@@ -41,7 +41,7 @@ const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -509,7 +509,7 @@ function NuevoClienteForm() {
         >
           ← Clientes
         </button>
-        <h1 className="text-3xl font-bold text-gray-800">Nuevo cliente</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo cliente</h1>
         <p className="text-gray-500 text-sm mt-1">Registrá un cliente en la base de datos</p>
       </div>
 
@@ -524,7 +524,7 @@ function NuevoClienteForm() {
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
+      <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <form className="space-y-8" onSubmit={handleSubmit}>
 
           {/* ── Identificación ───────────────────────────────────────────── */}
@@ -542,7 +542,7 @@ function NuevoClienteForm() {
                     onClick={() => setForm((prev) => ({ ...prev, tipo_cliente: t }))}
                     className={`px-5 py-2.5 text-sm font-medium transition-colors ${
                       form.tipo_cliente === t
-                        ? "bg-[#0EA5E9] text-white"
+                        ? "bg-[#4FAEB2] text-white"
                         : "bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
@@ -721,7 +721,7 @@ function NuevoClienteForm() {
                         ruc: checked ? prev.ruc : "",
                       }));
                     }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                   />
                   <span>
                     <span className="font-medium">Es contribuyente inscripto en la SET</span>
@@ -821,7 +821,7 @@ function NuevoClienteForm() {
                 type="checkbox"
                 checked={form.usa_nota_remision}
                 onChange={(e) => setForm((p) => ({ ...p, usa_nota_remision: e.target.checked }))}
-                className="h-4 w-4 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                className="h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
               />
               Usa nota de remisión
               <span className="text-xs text-slate-400">(se generará junto al ticket al venderle)</span>
@@ -1233,7 +1233,7 @@ function NuevoClienteForm() {
 
           {gestionTributariaEmpresa && (
             <section className="space-y-3">
-              <details className="group rounded-2xl border border-indigo-100/80 bg-gradient-to-b from-slate-50/80 to-white shadow-sm open:shadow-md transition-shadow [open]:shadow-md">
+              <details className="group rounded-xl border border-indigo-100/80 bg-gradient-to-b from-slate-50/80 to-white shadow-sm open:shadow-md transition-shadow [open]:shadow-md">
                 <summary className="cursor-pointer list-none px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between gap-2 text-left [&::-webkit-details-marker]:hidden">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Opcional</p>
@@ -1241,7 +1241,7 @@ function NuevoClienteForm() {
                     <p className="text-xs text-slate-500 mt-0.5 max-w-xl">Expandir para IVA, IRE, honorarios y obligaciones. Los datos fiscales no reemplazan la ficha comercial.</p>
                   </div>
                   <span
-                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:bg-indigo-50 group-open:text-indigo-800 group-open:border-indigo-100"
+                    className="shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:bg-indigo-50 group-open:text-indigo-800 group-open:border-indigo-100"
                     aria-hidden
                   >
                     Expandir
@@ -1271,7 +1271,7 @@ function NuevoClienteForm() {
             <button
               type="submit"
               disabled={guardando}
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {guardando ? "Guardando…" : "Guardar cliente"}
             </button>

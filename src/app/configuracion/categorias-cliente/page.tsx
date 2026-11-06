@@ -201,7 +201,7 @@ export default function CategoriasClientePage() {
     <div className="space-y-8 max-w-4xl">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Rubros de cliente</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Rubros de cliente</h1>
         <p className="text-slate-600">
           Rubros configurables (ej. Supermercado grande, Restaurante, Mayorista).
           Cada rubro tiene un <strong>porcentaje</strong> sobre el precio de lista:
@@ -241,7 +241,7 @@ export default function CategoriasClientePage() {
         </Link>.
       </div>
 
-      <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+      <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 space-y-3">
         <h2 className="text-sm font-semibold text-slate-800">Nuevo rubro</h2>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <input className={`${inputClass} sm:col-span-2`} placeholder="Nombre (ej. Supermercado grande)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
@@ -263,7 +263,7 @@ export default function CategoriasClientePage() {
         </button>
       </form>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-3">
           <h2 className="text-sm font-semibold text-slate-800">Rubros cargados</h2>
         </div>
@@ -271,7 +271,7 @@ export default function CategoriasClientePage() {
           <p className="p-6 text-sm text-slate-400">Todavía no hay rubros.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">Nombre</th>
                 <th className="text-left px-4 py-2 w-48">% sobre lista</th>
@@ -292,7 +292,7 @@ export default function CategoriasClientePage() {
                         autoFocus
                         value={editNombre}
                         onChange={(e) => setEditNombre(e.target.value)}
-                        className="w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-sm"
+                        className="w-full rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm"
                       />
                     ) : c.nombre}
                   </td>
@@ -304,7 +304,7 @@ export default function CategoriasClientePage() {
                         onChange={(e) => setEditAjuste(e.target.value)}
                         disabled={!ajusteDisponible}
                         placeholder="ej. -8"
-                        className="w-24 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm disabled:bg-slate-100"
+                        className="w-24 rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm disabled:bg-slate-100"
                       />
                     ) : c.ajuste_pct == null || c.ajuste_pct === 0 ? (
                       <span className="text-slate-400">Precio de lista</span>
@@ -330,7 +330,7 @@ export default function CategoriasClientePage() {
                         onChange={(e) => setEditMinimo(milesTexto(e.target.value))}
                         disabled={!minimoDisponible}
                         placeholder="a mano"
-                        className="w-32 rounded-md border border-amber-300 bg-white px-2 py-1 text-right text-sm tabular-nums disabled:bg-slate-100"
+                        className="w-32 rounded-lg border border-amber-300 bg-white px-2 py-1 text-right text-sm tabular-nums disabled:bg-slate-100"
                       />
                     ) : c.monto_minimo_mensual == null ? (
                       <span className="text-slate-400">Se asigna a mano</span>
@@ -346,7 +346,7 @@ export default function CategoriasClientePage() {
                         type="number"
                         value={editOrden}
                         onChange={(e) => setEditOrden(e.target.value)}
-                        className="w-20 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm"
+                        className="w-20 rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm"
                       />
                     ) : c.orden}
                   </td>

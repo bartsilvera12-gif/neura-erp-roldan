@@ -28,7 +28,7 @@ export default function MobileFab({ href, label, bottomOffset = "bottom-20" }: P
   return (
     <Link
       href={href}
-      className={`fixed right-4 ${bottomOffset} z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#4FAEB2] text-white shadow-lg shadow-[#4FAEB2]/40 transition-all active:scale-95 active:bg-[#3F8E91] lg:hidden`}
+      className={`fixed right-4 ${bottomOffset} z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#4FAEB2] text-white shadow-lg shadow-[#4FAEB2]/40 transition-all active:bg-[#3F8E91] lg:hidden`}
       aria-label={label}
       title={label}
     >

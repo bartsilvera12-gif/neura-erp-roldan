@@ -14,9 +14,9 @@ import Selector from "@/components/ui/Selector";
 
 const fLabelClass = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInputClass =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white disabled:bg-slate-50 disabled:text-slate-500";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white disabled:bg-slate-50 disabled:text-slate-500";
 const fSelectClass =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white disabled:bg-slate-50 disabled:text-slate-500";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white disabled:bg-slate-50 disabled:text-slate-500";
 
 function formatGs(n: number) {
   return n.toLocaleString("es-PY");
@@ -201,7 +201,7 @@ function PlanDetailContent() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-gray-900">{plan.nombre}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">{plan.nombre}</h1>
             <span className="font-mono text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
               {plan.codigo_plan}
             </span>
@@ -243,7 +243,7 @@ function PlanDetailContent() {
 
       {/* Plan marketing (vista) */}
       {!editing && plan.es_plan_marketing && plan.plantilla_operativa?.items?.length && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
           <SectionTitle>Plan de marketing</SectionTitle>
           <p className="text-sm text-slate-600 mb-3">Este plan genera tareas de contenido automáticamente.</p>
           <ul className="space-y-2">
@@ -262,7 +262,7 @@ function PlanDetailContent() {
 
       {/* Resumen de límites (vista) */}
       {!editing && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
           <SectionTitle>Límites del plan</SectionTitle>
           <div className="grid grid-cols-3 gap-6">
             {[
@@ -291,7 +291,7 @@ function PlanDetailContent() {
             </div>
           )}
 
-          <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <section className="bg-white rounded-xl border border-slate-200 p-6">
             <SectionTitle>Información general</SectionTitle>
             <div className="space-y-4">
               <div>
@@ -325,7 +325,7 @@ function PlanDetailContent() {
             </div>
           </section>
 
-          <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <section className="bg-white rounded-xl border border-slate-200 p-6">
             <SectionTitle>Precio y periodicidad</SectionTitle>
             <div className="grid grid-cols-3 gap-4">
               <div>
@@ -356,7 +356,7 @@ function PlanDetailContent() {
             </div>
           </section>
 
-          <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <section className="bg-white rounded-xl border border-slate-200 p-6">
             <SectionTitle>Plan de marketing</SectionTitle>
             <div className="space-y-4">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -473,7 +473,7 @@ function PlanDetailContent() {
                       ...p,
                       plantilla_items: [...p.plantilla_items, { tipo_contenido: "post", periodicidad: "semanal", cantidad: 3, dias_semana: [1, 3, 5] }],
                     }))}
-                    className="text-sm text-[#0EA5E9] hover:underline"
+                    className="text-sm text-[#4FAEB2] hover:underline"
                   >
                     + Agregar item
                   </button>
@@ -482,7 +482,7 @@ function PlanDetailContent() {
             </div>
           </section>
 
-          <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <section className="bg-white rounded-xl border border-slate-200 p-6">
             <SectionTitle>Límites del plan</SectionTitle>
             <p className="text-xs text-gray-400 mb-4">
               Dejar en blanco para indicar que el límite es <strong>ilimitado</strong>.
@@ -506,7 +506,7 @@ function PlanDetailContent() {
           <div className="flex items-center gap-3">
 <button
             type="submit"
-            className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm active:scale-95"
+            className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm"
           >
             Guardar cambios
           </button>
@@ -523,7 +523,7 @@ function PlanDetailContent() {
       )}
 
       {/* Zona peligrosa */}
-      <div className="bg-white rounded-xl border border-red-100 shadow-sm p-6">
+      <div className="bg-white rounded-xl border border-red-100 p-6">
         <SectionTitle>Zona peligrosa</SectionTitle>
         {!showDel ? (
           <button

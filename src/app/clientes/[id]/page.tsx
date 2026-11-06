@@ -74,7 +74,7 @@ const SIMPLE_CLIENTE = NEURA_CLIENT_SCHEMA === "roldanerp";
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
 const labelClass = "block text-xs font-medium text-slate-500 mb-1";
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -122,11 +122,11 @@ function PlaceholderTab({ icon, title, desc }: { icon: React.ReactNode; title: s
 }
 
 function ClienteFichaSkeleton() {
-  const bar = "animate-pulse rounded-md bg-slate-200/90";
+  const bar = "animate-pulse rounded-lg bg-slate-200/90";
   return (
     <div className="space-y-6 max-w-5xl">
       <div className={`h-3 w-28 ${bar}`} aria-hidden />
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="h-40 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 animate-pulse" aria-hidden />
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 border-t border-gray-100">
           {Array.from({ length: 7 }).map((_, i) => (
@@ -137,7 +137,7 @@ function ClienteFichaSkeleton() {
           ))}
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="flex gap-2 px-3 py-3 border-b border-gray-100">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className={`h-8 flex-1 max-w-[7rem] ${bar}`} />
@@ -982,7 +982,7 @@ export default function ClienteDetailPage() {
   if (notFound) {
     return (
       <div className="space-y-4 max-w-5xl">
-        <h1 className="text-2xl font-bold text-gray-800">Cliente no encontrado</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Cliente no encontrado</h1>
         <p className="text-xs font-mono text-gray-400 break-all">ID en URL: {id || "—"}</p>
         <button onClick={() => router.push("/clientes")} className="text-sm text-gray-500 underline">
           ← Volver a Clientes
@@ -994,10 +994,10 @@ export default function ClienteDetailPage() {
   if (errorCarga) {
     return (
       <div className="space-y-4 max-w-5xl">
-        <h1 className="text-xl font-bold text-gray-800">No se pudo cargar el cliente</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">No se pudo cargar el cliente</h1>
         <p className="text-sm text-red-600">{errorCarga}</p>
         <p className="text-xs font-mono text-gray-400 break-all">ID: {id}</p>
-        <button type="button" onClick={() => void cargar()} className="text-sm text-[#0EA5E9] underline">
+        <button type="button" onClick={() => void cargar()} className="text-sm text-[#4FAEB2] underline">
           Reintentar
         </button>
         <button type="button" onClick={() => router.push("/clientes")} className="ml-4 text-sm text-gray-500 underline">
@@ -1033,7 +1033,7 @@ export default function ClienteDetailPage() {
       </button>
 
       {/* ── Panel resumen ─────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="bg-white px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -1052,7 +1052,7 @@ export default function ClienteDetailPage() {
                     Cliente
                   </span>
                 </div>
-                <h1 className="text-2xl font-bold text-slate-900 leading-tight">{nombre}</h1>
+                <h1 className="leading-tight text-xl font-semibold tracking-tight text-slate-900">{nombre}</h1>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
                   <span className="text-slate-400 font-mono text-xs">{cliente.codigo_cliente}</span>
                   {cliente.ruc && (
@@ -1165,7 +1165,7 @@ export default function ClienteDetailPage() {
               {
                 label: "Plan activo",
                 value: cargandoDetalleCliente ? (
-                  <span className="inline-block h-4 w-36 max-w-full animate-pulse rounded-md bg-slate-200" aria-hidden />
+                  <span className="inline-block h-4 w-36 max-w-full animate-pulse rounded-lg bg-slate-200" aria-hidden />
                 ) : suscripcionActiva ? (
                   `${planes.find((p) => p.id === suscripcionActiva.plan_id)?.nombre ?? suscripcionActiva.plan_nombre ?? "Plan"} (${suscripcionActiva.moneda})`
                 ) : (
@@ -1470,7 +1470,7 @@ export default function ClienteDetailPage() {
       )}
 
       {/* ── Pestañas ──────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Tab nav */}
         <div className="border-b border-gray-200 flex overflow-x-auto">
           {TABS.filter((tab) => !tab.showWhen || tab.showWhen(cliente)).map((tab) => (
@@ -1552,7 +1552,7 @@ export default function ClienteDetailPage() {
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, tipo_cliente: t }))}
                         className={`px-4 py-2 text-sm font-medium transition-colors ${
-                          form.tipo_cliente === t ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                          form.tipo_cliente === t ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
                         }`}
                       >
                         {t === "empresa" ? "Empresa" : "Persona"}
@@ -1696,7 +1696,7 @@ export default function ClienteDetailPage() {
                             ruc: checked ? prev.ruc : "",
                           }));
                         }}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                       />
                       <span>
                         <span className="font-medium">Es contribuyente inscripto en la SET</span>
@@ -1761,7 +1761,7 @@ export default function ClienteDetailPage() {
                     type="checkbox"
                     checked={form.usa_nota_remision}
                     onChange={(e) => setForm((p) => ({ ...p, usa_nota_remision: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                    className="h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                   />
                   Usa nota de remisión
                   <span className="text-xs text-slate-400">(se generará junto al ticket al venderle)</span>
@@ -2144,7 +2144,7 @@ export default function ClienteDetailPage() {
               {gestionTributariaEmpresa && (
                 <section className="space-y-3">
                   <details
-                    className="group rounded-2xl border border-indigo-100/80 bg-gradient-to-b from-slate-50/80 to-white shadow-sm open:shadow-md transition-shadow [open]:shadow-md"
+                    className="group rounded-xl border border-indigo-100/80 bg-gradient-to-b from-slate-50/80 to-white shadow-sm open:shadow-md transition-shadow [open]:shadow-md"
                     open={tributBlockOpen}
                     onToggle={(e) => {
                       setTributBlockOpen((e.currentTarget as HTMLDetailsElement).open);
@@ -2159,7 +2159,7 @@ export default function ClienteDetailPage() {
                         </p>
                       </div>
                       <span
-                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:bg-indigo-50 group-open:text-indigo-800 group-open:border-indigo-100"
+                        className="shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:bg-indigo-50 group-open:text-indigo-800 group-open:border-indigo-100"
                         aria-hidden
                       >
                         Expandir
@@ -2187,7 +2187,7 @@ export default function ClienteDetailPage() {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm active:scale-95"
+                  className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
                 >
                   Guardar cambios
                 </button>
@@ -2235,7 +2235,7 @@ export default function ClienteDetailPage() {
                       setErrorPago(null);
                               setModalPago(true);
                     }}
-                    className="text-sm font-medium text-[#0EA5E9] hover:text-[#0284C7]"
+                    className="text-sm font-medium text-[#4FAEB2] hover:text-[#3F8E91]"
                   >
                     Registrar pago
                   </button>
@@ -2246,7 +2246,7 @@ export default function ClienteDetailPage() {
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-50 text-xs text-slate-500">
                       <tr>
                         {["Número", "Fecha", "Vencimiento", "Total", "Estado", "SIFEN"].map((h) => (
                           <th key={h} className="text-left text-xs font-semibold text-slate-600 px-4 py-3">{h}</th>
@@ -2258,7 +2258,7 @@ export default function ClienteDetailPage() {
                       {facturas.map((f) => (
                         <tr key={f.id} className="hover:bg-slate-50">
                           <td className="px-4 py-3 font-mono text-slate-800">
-                            <Link href={`/facturas/${f.id}`} className="text-[#0EA5E9] hover:underline font-semibold">
+                            <Link href={`/facturas/${f.id}`} className="text-[#4FAEB2] hover:underline font-semibold">
                               {f.numero_factura}
                             </Link>
                           </td>
@@ -2286,14 +2286,14 @@ export default function ClienteDetailPage() {
                                 type="button"
                                 onClick={() => { setFacturaPago(f); setFormPago({ factura_id: f.id, monto: String(f.saldo), fecha_pago: new Date().toISOString().slice(0, 10), metodo_pago: "efectivo", referencia: "" }); setErrorPago(null);
                               setModalPago(true); }}
-                                className="text-xs font-medium text-[#0EA5E9] hover:underline"
+                                className="text-xs font-medium text-[#4FAEB2] hover:underline"
                               >
                                 Registrar pago
                               </button>
                             )}
                             <Link
                               href={`/facturas/${f.id}`}
-                              className="text-xs font-medium text-slate-500 hover:text-[#0EA5E9] hover:underline ml-2"
+                              className="text-xs font-medium text-slate-500 hover:text-[#4FAEB2] hover:underline ml-2"
                             >
                               Ver
                             </Link>
@@ -2315,7 +2315,7 @@ export default function ClienteDetailPage() {
                 <button
                   type="button"
                   onClick={() => { setFormSusc({ plan_id: "", precio: "", fecha_inicio: new Date().toISOString().slice(0, 10), duracion_meses: "12", dia_facturacion: "1", dia_vencimiento: "10", generar_factura_este_mes: false }); setModalSuscripcion(true); }}
-                  className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium"
+                  className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium"
                 >
                   Nueva suscripción
                 </button>
@@ -2325,7 +2325,7 @@ export default function ClienteDetailPage() {
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-50 text-xs text-slate-500">
                       <tr>
                         {["Plan", "Precio", "Moneda", "Inicio", "Meses", "Día fact.", "Día venc.", "Estado"].map((h) => (
                           <th key={h} className="text-left text-xs font-semibold text-slate-600 px-4 py-3">{h}</th>
@@ -2370,7 +2370,7 @@ export default function ClienteDetailPage() {
                     setErrorTarea(null);
                     setModalNuevaTarea(true);
                   }}
-                  className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium"
+                  className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium"
                 >
                   Nueva tarea
                 </button>
@@ -2380,7 +2380,7 @@ export default function ClienteDetailPage() {
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-50 text-xs text-slate-500">
                       <tr>
                         {["Título", "Tipo", "Estado", "Fecha entrega", "Responsable", "Origen"].map((h) => (
                           <th key={h} className="text-left text-xs font-semibold text-slate-600 px-4 py-3">{h}</th>
@@ -2466,12 +2466,12 @@ export default function ClienteDetailPage() {
                   }}
                   rows={3}
                   placeholder="Escribí una nota interna (Ctrl+Enter para guardar)..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm resize-none mb-3"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm resize-none mb-3"
                 />
 <button
                 type="submit"
                 disabled={!nuevaNota.trim() || guardandoNota}
-                className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
                   Agregar nota
                 </button>
@@ -2486,7 +2486,7 @@ export default function ClienteDetailPage() {
                     return (
                       <div
                         key={nota.id}
-                        className="group bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:border-[#4FAEB2]/50 hover:shadow transition-all"
+                        className="group bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-[#4FAEB2]/50 hover:shadow transition-all"
                       >
                         {enEdicion ? (
                           <div className="space-y-3">
@@ -2505,14 +2505,14 @@ export default function ClienteDetailPage() {
                               }}
                               rows={3}
                               autoFocus
-                              className="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm resize-none"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm resize-none"
                             />
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => void handleGuardarEdicionNota()}
                                 disabled={!notaEditandoTexto.trim() || notaProcesando}
-                                className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                                className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 Guardar cambios
                               </button>
@@ -2539,7 +2539,7 @@ export default function ClienteDetailPage() {
                                   disabled={notaProcesando}
                                   title="Editar nota"
                                   aria-label="Editar nota"
-                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#0EA5E9]/50 hover:text-[#0284C7] hover:bg-sky-50 transition-colors disabled:opacity-40"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2]/50 hover:text-[#3F8E91] hover:bg-sky-50 transition-colors disabled:opacity-40"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                                     <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793ZM11.379 5.793 3 14.172V17h2.828l8.38-8.379-2.83-2.828Z" />
@@ -2581,7 +2581,7 @@ export default function ClienteDetailPage() {
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
           onClick={() => setModalFacturaContado(false)}
         >
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-800 mb-1">Nueva factura al contado</h3>
             <p className="text-xs text-slate-500 mb-4">
               Compra puntual: no crea suscripción. El ítem se guarda en el servidor junto con la factura.
@@ -2651,7 +2651,7 @@ export default function ClienteDetailPage() {
                 <button
                   type="submit"
                   disabled={guardandoFacturaContado || !formFacturaContado.monto.trim()}
-                  className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
+                  className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
                 >
                   {guardandoFacturaContado ? "Guardando…" : "Emitir factura"}
                 </button>
@@ -2664,7 +2664,7 @@ export default function ClienteDetailPage() {
       {/* Modal Nueva suscripción */}
       {modalSuscripcion && cliente && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModalSuscripcion(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-800 mb-4">Nueva suscripción</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -2729,7 +2729,7 @@ export default function ClienteDetailPage() {
                 <label htmlFor="gen_fact" className="text-sm text-slate-600">Emitir factura este mes</label>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={guardandoSusc} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                <button type="submit" disabled={guardandoSusc} className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                   Guardar
                 </button>
                 <button type="button" onClick={() => setModalSuscripcion(false)} className="border border-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-50">
@@ -2744,7 +2744,7 @@ export default function ClienteDetailPage() {
       {/* Modal Nueva tarea marketing */}
       {modalNuevaTarea && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModalNuevaTarea(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-800 mb-4">Nueva tarea de marketing</h3>
             <form onSubmit={handleGuardarTarea} className="space-y-4">
               <div>
@@ -2807,7 +2807,7 @@ export default function ClienteDetailPage() {
                 <p className="text-sm text-red-600">{errorTarea}</p>
               )}
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={guardandoTarea} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                <button type="submit" disabled={guardandoTarea} className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                   Guardar
                 </button>
                 <button type="button" onClick={() => setModalNuevaTarea(false)} className="border border-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-50">
@@ -2822,7 +2822,7 @@ export default function ClienteDetailPage() {
       {/* Modal Registrar pago */}
       {modalPago && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModalPago(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-800 mb-4">Registrar pago</h3>
             {facturaPago && <p className="text-sm text-slate-600 mb-4">Factura {facturaPago.numero_factura} — Saldo: Gs. {facturaPago.saldo.toLocaleString("es-PY")}</p>}
             <form onSubmit={async (e) => {
@@ -2911,7 +2911,7 @@ export default function ClienteDetailPage() {
                 </p>
               )}
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={guardandoPago} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                <button type="submit" disabled={guardandoPago} className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                   Guardar
                 </button>
                 <button type="button" onClick={() => setModalPago(false)} className="border border-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-50">

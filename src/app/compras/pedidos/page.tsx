@@ -24,7 +24,7 @@ type Orden = {
 const UNIDADES = ["UNIDAD", "BOLSA", "KG", "G", "LT", "ML", "CAJA", "PAQUETE", "DOCENA", "LATA", "BOTELLA", "PORCION", "COMBO"];
 const fmt = (n: number, m = "PYG") => (m === "USD" ? "USD " : "Gs ") + Math.round(Number(n) || 0).toLocaleString("es-PY");
 const fmtFecha = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
-const inp = "w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm";
+const inp = "w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm";
 
 async function imprimir(id: string) {
   try {
@@ -170,7 +170,7 @@ export default function OrdenesDeCompraPage() {
       <div className="flex items-start justify-between mb-5">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#4FAEB2]">Compras · Pedidos</p>
-          <h1 className="text-2xl font-bold text-slate-900">Órdenes de compra (pedidos)</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Órdenes de compra (pedidos)</h1>
           <p className="text-sm text-slate-500 mt-0.5">Pedidos para enviar al proveedor. No es una compra registrada; sirve para que el proveedor despache y facture.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ export default function OrdenesDeCompraPage() {
               <input type="number" min="0" step="any" value={nl.precio_unitario} onChange={(e) => setNl({ ...nl, precio_unitario: e.target.value })} className={inp} />
             </div>
             <div className="md:col-span-1">
-              <button type="button" onClick={agregarItem} className="w-full px-3 py-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white rounded-md text-sm font-medium">+</button>
+              <button type="button" onClick={agregarItem} className="w-full px-3 py-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white rounded-lg text-sm font-medium">+</button>
             </div>
           </div>
 
@@ -263,8 +263,8 @@ export default function OrdenesDeCompraPage() {
           </div>
 
           <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => { setCreando(false); setEditandoId(null); setItems([]); }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md">Cancelar</button>
-            <button onClick={guardar} disabled={saving} className="px-5 py-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white rounded-md text-sm font-medium disabled:opacity-50">
+            <button onClick={() => { setCreando(false); setEditandoId(null); setItems([]); }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+            <button onClick={guardar} disabled={saving} className="px-5 py-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white rounded-lg text-sm font-medium disabled:opacity-50">
               {saving ? "Guardando…" : editandoId ? "Guardar cambios" : "Guardar e imprimir"}
             </button>
           </div>
@@ -274,7 +274,7 @@ export default function OrdenesDeCompraPage() {
       {loading ? <p className="text-sm text-slate-500">Cargando…</p> : (
         <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-medium">N°</th>
                 <th className="text-left px-3 py-2 font-medium">Fecha</th>

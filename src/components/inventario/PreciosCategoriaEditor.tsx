@@ -69,7 +69,7 @@ export default function PreciosCategoriaEditor({ productoId }: { productoId: str
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-800">Precio especial por rubro de cliente</h3>
@@ -88,7 +88,7 @@ export default function PreciosCategoriaEditor({ productoId }: { productoId: str
       {mensaje && <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">{mensaje}</div>}
       {error && <div className="rounded border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700">{error}</div>}
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+        <thead className="bg-slate-50 text-xs text-slate-500">
           <tr>
             <th className="text-left px-3 py-2">Rubro</th>
             <th className="text-right px-3 py-2 w-40">Precio (Gs.)</th>

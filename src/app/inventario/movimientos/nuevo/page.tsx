@@ -275,11 +275,11 @@ export default function NuevoMovimientoPage() {
     <div className="space-y-8">
 
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Nuevo movimiento</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo movimiento</h1>
         <p className="text-gray-600">Registra una entrada, salida o ajuste de stock</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6 max-w-2xl">
+      <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-2xl">
         <form className="space-y-6" onSubmit={handleSubmit}>
 
           {/* Producto */}

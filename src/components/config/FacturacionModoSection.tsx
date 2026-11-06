@@ -49,7 +49,7 @@ const impresionLabels: Record<Impresion, string> = {
   ticket_58mm: "Ticket térmico 58 mm",
 };
 
-const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white";
+const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white";
 const labelClass = "block text-xs font-medium text-slate-600 mb-1";
 
 export default function FacturacionModoSection() {
@@ -145,7 +145,7 @@ export default function FacturacionModoSection() {
   return (
     <div className="space-y-6">
       {/* MODO */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex items-baseline justify-between mb-3">
           <h3 className="text-sm font-semibold text-slate-800">Modo de facturación</h3>
           {okModo && <span className="text-xs text-emerald-600">{okModo}</span>}
@@ -233,7 +233,7 @@ export default function FacturacionModoSection() {
 
       {/* AUTOIMPRESOR (solo si modo=autoimpresor) */}
       {modo.modo === "autoimpresor" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="flex items-baseline justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-800">Datos del autoimpresor / timbrado</h3>
             {okAuto && <span className="text-xs text-emerald-600">{okAuto}</span>}

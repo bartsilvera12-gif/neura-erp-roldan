@@ -45,7 +45,7 @@ export default function HistorialNRPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-700">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-600" /> Historial
@@ -53,8 +53,8 @@ export default function HistorialNRPage() {
         </div>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="flex items-center gap-2.5 text-2xl font-bold text-slate-900">
-              <span className="rounded-lg bg-white p-1.5 ring-1 ring-slate-200 shadow-sm">
+            <h1 className="flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+              <span className="rounded-lg bg-white p-1.5 ring-1 ring-slate-200">
                 <Truck className="h-5 w-5 text-slate-700" />
               </span>
               Notas de Remisión
@@ -80,11 +80,11 @@ export default function HistorialNRPage() {
         <Kpi label="Rechazadas" value={String(stats.rechazadas)} icon={<XCircle className="h-5 w-5" />} tone="rose" />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 px-5 py-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div>
             <label className="text-[10px] font-mediumr text-slate-500">Estado</label>
-            <Selector value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               <option value="pendiente">Pendientes</option>
               <option value="aprobada">Aprobadas</option>
@@ -93,21 +93,21 @@ export default function HistorialNRPage() {
           </div>
           <div>
             <label className="text-[10px] font-mediumr text-slate-500">Origen</label>
-            <Selector value={filtroOrigen} onChange={(e) => setFiltroOrigen(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={filtroOrigen} onChange={(e) => setFiltroOrigen(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </Selector>
           </div>
           <div>
             <label className="text-[10px] font-mediumr text-slate-500">Destino</label>
-            <Selector value={filtroDestino} onChange={(e) => setFiltroDestino(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={filtroDestino} onChange={(e) => setFiltroDestino(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="">Todos</option>
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </Selector>
           </div>
           <div>
             <label className="text-[10px] font-mediumr text-slate-500">Buscar</label>
-            <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Nro o emisor…" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Nro o emisor…" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </div>
         </div>
 
@@ -149,13 +149,13 @@ export default function HistorialNRPage() {
                       <div className="inline-flex items-center gap-1.5">
                         <Link
                           href={`/notas-remision/${nr.id}/documento`}
-                          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                           title="Ver documento imprimible"
                         >
                           Imprimir
                         </Link>
                         {nr.estado === "pendiente" && (
-                          <Link href="/notas-remision/recepcion" className="rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100">Recibir</Link>
+                          <Link href="/notas-remision/recepcion" className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100">Recibir</Link>
                         )}
                       </div>
                     </td>
@@ -187,7 +187,7 @@ function Kpi({ label, value, icon, tone }: { label: string; value: string; icon:
   } as const;
   const t = tones[tone];
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>

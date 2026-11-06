@@ -198,7 +198,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
 
   if (loading && cajas.length === 0) {
     return (
-      <div className="rounded-2xl border-2 border-[#4FAEB2]/20 bg-white p-4 flex items-center gap-3">
+      <div className="rounded-xl border-2 border-[#4FAEB2]/20 bg-white p-4 flex items-center gap-3">
         <Loader2 className="h-4 w-4 animate-spin text-[#4FAEB2]" />
         <span className="text-sm text-slate-500">Cargando estado de caja...</span>
       </div>
@@ -208,7 +208,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
   // === Sin cajas activas ===
   if (cajas.length === 0) {
     return (
-      <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/60 shadow-sm p-5 flex items-center justify-between gap-4 flex-wrap">
+      <div className="rounded-xl border-2 border-amber-200 bg-amber-50/60 shadow-sm p-5 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shadow-amber-300/40">
             <Lock className="h-4.5 w-4.5 text-white" />
@@ -269,7 +269,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
         const c = cr.caja;
         const enCierre = c.estado === "en_cierre";
         return (
-          <div key={c.id} className="rounded-2xl border-2 border-[#4FAEB2]/25 bg-white shadow-[0_2px_10px_-2px_rgba(79,174,178,0.12)] overflow-hidden">
+          <div key={c.id} className="rounded-xl border border-2 border-[#4FAEB2]/25 bg-white shadow-[0_2px_10px_-2px_rgba(79,174,178,0.12)] overflow-hidden">
             {/* Header por caja */}
             <div className="px-5 py-4 border-b border-[#4FAEB2]/15 bg-gradient-to-r from-[#4FAEB2]/5 to-transparent flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
@@ -600,7 +600,7 @@ function ModalBase({
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} border-2 border-[#4FAEB2]/20 overflow-hidden`}
+        className={`bg-white rounded-xl shadow-2xl w-full ${maxWidthClass} border-2 border-[#4FAEB2]/20 overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-[#4FAEB2]/5 to-transparent flex items-start justify-between">
@@ -1112,7 +1112,7 @@ function ModalMovimiento({
                 key={t}
                 type="button"
                 onClick={() => setTipo(t)}
-                className={`rounded-md py-1.5 text-xs font-bold border-2 transition-colors capitalize ${
+                className={`rounded-lg py-1.5 text-xs font-bold border-2 transition-colors capitalize ${
                   tipo === t
                     ? "border-[#4FAEB2] bg-[#4FAEB2] text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"

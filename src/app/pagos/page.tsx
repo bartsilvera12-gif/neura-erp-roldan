@@ -304,18 +304,18 @@ export default function PagosPage() {
         </button>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
       {loading ? (
         <div className="p-8 flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Cargando…</div>
       ) : tab === "pendientes" ? (
-        <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
           {pendientes.length === 0 ? (
             <div className="p-10 text-center text-sm text-gray-500">No hay cuentas pendientes {hayFiltro ? "en el rango seleccionado" : ""}.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+                <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="py-3 px-4 font-medium">Cliente</th>
                     <th className="py-3 px-4 font-medium">Venta</th>
@@ -377,13 +377,13 @@ export default function PagosPage() {
           )}
         </div>
       ) : (
-        <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
           {cobradosVista.length === 0 ? (
             <div className="p-10 text-center text-sm text-gray-500">No hay cobros {hayFiltro ? "en el rango seleccionado" : "registrados"}.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+                <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="py-3 px-4 font-medium">Fecha</th>
                     <th className="py-3 px-4 font-medium">Cliente</th>

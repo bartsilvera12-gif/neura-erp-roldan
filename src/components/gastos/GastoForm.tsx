@@ -15,7 +15,7 @@ import Selector from "@/components/ui/Selector";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white";
 
 type Props = {
   gasto?: Gasto | null;
@@ -166,7 +166,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="flex items-center gap-2 mb-5 pb-2 border-b border-slate-200">
           <ClipboardList className="h-4 w-4" aria-hidden />
           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
@@ -356,7 +356,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
               name="recurrente"
               checked={form.recurrente}
               onChange={handleChange}
-              className="rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+              className="rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
             />
             <label htmlFor="recurrente" className="text-sm text-slate-700">
               Gasto recurrente
@@ -393,7 +393,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
         <button
           type="submit"
           disabled={guardando}
-          className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {guardando ? "Guardando…" : gasto ? "Guardar cambios" : "Crear gasto"}
         </button>

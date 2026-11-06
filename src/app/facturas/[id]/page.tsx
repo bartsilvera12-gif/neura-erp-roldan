@@ -190,7 +190,7 @@ function FacturaDetalleInner() {
     return (
       <div className="max-w-6xl mx-auto py-20 text-center space-y-3">
         <p className="text-slate-600">Factura no encontrada.</p>
-        <Link href="/gestion-clientes" className="text-[#0EA5E9] text-sm font-medium hover:underline">
+        <Link href="/gestion-clientes" className="text-[#4FAEB2] text-sm font-medium hover:underline">
           Volver a gestión de clientes
         </Link>
       </div>
@@ -201,7 +201,7 @@ function FacturaDetalleInner() {
     return (
       <div className="max-w-6xl mx-auto py-20 text-center space-y-3">
         <p className="text-red-600 text-sm">{loadErr ?? "Error"}</p>
-        <Link href="/gestion-clientes" className="text-[#0EA5E9] text-sm font-medium hover:underline">
+        <Link href="/gestion-clientes" className="text-[#4FAEB2] text-sm font-medium hover:underline">
           Volver
         </Link>
       </div>
@@ -219,30 +219,30 @@ function FacturaDetalleInner() {
           {factura.origen_venta_id ? (
             <Link
               href="/ventas"
-              className="text-xs font-medium text-[#0EA5E9] hover:underline"
+              className="text-xs font-medium text-[#4FAEB2] hover:underline"
             >
               ← Ventas
             </Link>
           ) : factura.cliente_id ? (
             <Link
               href={`/gestion-clientes?cliente=${encodeURIComponent(factura.cliente_id)}`}
-              className="text-xs font-medium text-[#0EA5E9] hover:underline"
+              className="text-xs font-medium text-[#4FAEB2] hover:underline"
             >
               ← Gestión de clientes
             </Link>
           ) : (
             <Link
               href="/gestion-clientes"
-              className="text-xs font-medium text-[#0EA5E9] hover:underline"
+              className="text-xs font-medium text-[#4FAEB2] hover:underline"
             >
               ← Gestión de clientes
             </Link>
           )}
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">Factura {factura.numero_factura}</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Factura {factura.numero_factura}</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Cliente:{" "}
             {factura.cliente_id ? (
-              <Link href={`/clientes/${factura.cliente_id}`} className="text-[#0EA5E9] font-medium hover:underline">
+              <Link href={`/clientes/${factura.cliente_id}`} className="text-[#4FAEB2] font-medium hover:underline">
                 {factura.cliente_display ?? "Ver cliente"}
               </Link>
             ) : (
@@ -293,7 +293,7 @@ function FacturaDetalleInner() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5 space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumen comercial</h2>
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <div>
@@ -371,7 +371,7 @@ function FacturaDetalleInner() {
       </div>
 
       {factura.items && factura.items.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Detalle de productos</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

@@ -107,7 +107,7 @@ export default function ReporteCajasPage() {
               ← Volver a reportes
             </Link>
           )}
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Cierres de caja</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Cierres de caja</h1>
           <p className="text-sm text-slate-500">
             Un turno por fila: lo que se vendió, lo que se contó al cerrar y la diferencia.
           </p>
@@ -144,7 +144,7 @@ export default function ReporteCajasPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead>
@@ -215,7 +215,7 @@ export default function ReporteCajasPage() {
                             hoja para firmar está adentro. */}
                         <Link
                           href={`/reportes/cajas/${c.id}`}
-                          className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+                          className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
                           title="Ventas del turno, anulaciones con su motivo, ingresos y egresos, y el arqueo"
                         >
                           Ver cierre
@@ -229,7 +229,7 @@ export default function ReporteCajasPage() {
                             type="button"
                             onClick={() => void reabrir(c.id, c.numero_caja)}
                             disabled={reabriendo === c.id}
-                            className="ml-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                            className="ml-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                             title="Reabrir este turno para corregirlo"
                           >
                             {reabriendo === c.id ? "…" : "Reabrir"}

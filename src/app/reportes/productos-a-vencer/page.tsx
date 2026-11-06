@@ -119,7 +119,7 @@ export default function ProductosAVencerPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
             <AlertTriangle className="w-7 h-7 text-amber-500" />
             Productos a vencer
           </h1>
@@ -170,9 +170,9 @@ export default function ProductosAVencerPage() {
           Ningún lote activo vence en los próximos {dias} días. Todo bajo control.
         </p>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
           <table className="w-full min-w-[720px] table-auto text-sm text-left border-collapse">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="py-2.5 px-3 font-medium">Producto</th>
                 <th className="py-2.5 px-3 font-medium">SKU</th>

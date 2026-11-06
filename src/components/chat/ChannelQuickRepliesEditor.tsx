@@ -93,7 +93,7 @@ export function ChannelQuickRepliesEditor({ channelId, disabled = false, hideInt
 
       <form
         onSubmit={(e) => void handleCreate(e)}
-        className="rounded-lg border border-slate-200 bg-white p-4 space-y-4"
+        className="rounded-xl border border-slate-200 bg-white p-4 space-y-4"
       >
         <h4 className="text-sm font-semibold text-slate-800">Nueva respuesta rápida</h4>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -134,20 +134,20 @@ export function ChannelQuickRepliesEditor({ channelId, disabled = false, hideInt
           <button
             type="submit"
             disabled={disabled || creating || !draftTitle.trim() || !draftBody.trim()}
-            className="rounded-lg bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-5 py-2 text-sm font-medium"
+            className="rounded-lg bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-5 py-2 text-sm font-medium"
           >
             {creating ? "Guardando…" : "Agregar"}
           </button>
         </div>
       </form>
 
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="bg-slate-50/90 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between gap-2">
           <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Respuestas definidas</span>
           <button
             type="button"
             onClick={() => void load()}
-            className="text-xs font-semibold text-[#0EA5E9] hover:underline disabled:opacity-50"
+            className="text-xs font-semibold text-[#4FAEB2] hover:underline disabled:opacity-50"
             disabled={loading || disabled}
           >
             Actualizar

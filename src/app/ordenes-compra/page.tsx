@@ -296,7 +296,7 @@ export default function OrdenesCompraPage() {
                               <p className="mb-2 text-[11px] italic text-slate-500">{o.observaciones}</p>
                             )}
                             <table className="w-full text-xs">
-                              <thead className="text-slate-400">
+                              <thead className="bg-slate-50 text-xs text-slate-500">
                                 <tr>
                                   <th className="py-1 text-left font-medium">Artículo</th>
                                   <th className="py-1 text-right font-medium">Cantidad</th>

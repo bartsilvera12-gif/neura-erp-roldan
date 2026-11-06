@@ -64,7 +64,7 @@ export function BaileysConnectPanel({ channelId }: { channelId: string }) {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         {loading && !status ? (
           <div className="text-center">
             <div className="mx-auto h-56 w-56 animate-pulse rounded-lg bg-slate-100" />
@@ -119,7 +119,7 @@ export function BaileysConnectPanel({ channelId }: { channelId: string }) {
         <button
           type="button"
           onClick={() => void tick()}
-          className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
         >
           Actualizar ahora
         </button>

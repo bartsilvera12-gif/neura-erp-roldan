@@ -3,12 +3,12 @@
 export const F_LABEL =
   "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 export const F_INPUT =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white";
 export const F_SELECT =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
+  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white";
 
 export function ConfigFormCard({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">{children}</div>;
+  return <div className="rounded-xl border border-slate-200 bg-white p-5">{children}</div>;
 }
 
 export function ConfigSectionTitle({ children }: { children: React.ReactNode }) {

@@ -61,7 +61,7 @@ export default function SorteoRevendedoresPage() {
     return (
       <div className="space-y-4">
         <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-2">{error}</div>
-        <Link href="/sorteos" className="text-sm text-[#0EA5E9] hover:underline">
+        <Link href="/sorteos" className="text-sm text-[#4FAEB2] hover:underline">
           Volver a sorteos
         </Link>
       </div>

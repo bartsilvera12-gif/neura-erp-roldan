@@ -167,7 +167,7 @@ export function CanalesHubInner() {
             <span>/</span>
             <span className="text-slate-800 font-medium">Canales y comunicación</span>
           </nav>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Canales y comunicación</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Canales y comunicación</h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
             Podés tener varios WhatsApp por empresa (por ejemplo cobranzas, ventas o coexistencia YCloud). Cada uno es
             una fila en el sistema; activalos o desactivalos sin perder la configuración guardada.
@@ -182,7 +182,7 @@ export function CanalesHubInner() {
           </Link>
           <Link
             href="/configuracion/canales/nuevo?tipo=whatsapp"
-            className="inline-flex items-center justify-center shrink-0 rounded-xl bg-[#0EA5E9] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0284C7] transition-colors"
+            className="inline-flex items-center justify-center shrink-0 rounded-xl bg-[#4FAEB2] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#3F8E91] transition-colors"
           >
             Conectar canal
           </Link>
@@ -198,7 +198,7 @@ export function CanalesHubInner() {
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="h-44 rounded-2xl border border-slate-200 bg-slate-50 animate-pulse"
+              className="h-44 rounded-xl border border-slate-200 bg-slate-50 animate-pulse"
               aria-hidden
             />
           ))}
@@ -215,7 +215,7 @@ export function CanalesHubInner() {
 
           <section
             id="whatsapp-canales"
-            className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden scroll-mt-6"
+            className="rounded-xl border border-slate-200 bg-white overflow-hidden scroll-mt-6"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
               <div>
@@ -228,7 +228,7 @@ export function CanalesHubInner() {
               </div>
               <Link
                 href="/configuracion/canales/nuevo?tipo=whatsapp"
-                className="inline-flex items-center justify-center shrink-0 rounded-xl bg-[#0EA5E9] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0284C7]"
+                className="inline-flex items-center justify-center shrink-0 rounded-xl bg-[#4FAEB2] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#3F8E91]"
               >
                 Agregar WhatsApp
               </Link>
@@ -279,7 +279,7 @@ export function CanalesHubInner() {
                     </label>
                     <Link
                       href={`/configuracion/canales/${r.id}`}
-                      className="shrink-0 text-sm font-semibold text-[#0EA5E9] hover:underline"
+                      className="shrink-0 text-sm font-semibold text-[#4FAEB2] hover:underline"
                     >
                       Editar
                     </Link>
@@ -292,12 +292,12 @@ export function CanalesHubInner() {
       )}
 
       {tipoFiltro && tipoFiltro !== "whatsapp" && filteredRows.length > 0 && (
-        <section className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
               Conexiones {channelTypeLabel(tipoFiltro)}
             </h2>
-            <Link href="/configuracion/canales" className="text-xs font-semibold text-[#0EA5E9] hover:underline">
+            <Link href="/configuracion/canales" className="text-xs font-semibold text-[#4FAEB2] hover:underline">
               Ver todos los canales
             </Link>
           </div>
@@ -313,7 +313,7 @@ export function CanalesHubInner() {
                 </div>
                 <Link
                   href={`/configuracion/canales/${r.id}`}
-                  className="shrink-0 text-sm font-semibold text-[#0EA5E9] hover:underline"
+                  className="shrink-0 text-sm font-semibold text-[#4FAEB2] hover:underline"
                 >
                   Editar
                 </Link>

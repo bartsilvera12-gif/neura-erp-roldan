@@ -274,7 +274,7 @@ ${body}
 /** Tarjeta de cupón en pantalla — mismo diseño visual para todos los formatos. */
 function CouponCard({ row }: { row: PhysicalCouponPrintRow }) {
   return (
-    <article className="flex flex-col justify-between rounded-lg border border-dashed border-slate-400 bg-slate-50/80 p-3 text-center shadow-sm print:bg-white print:shadow-none break-inside-avoid page-break-inside-avoid">
+    <article className="flex flex-col justify-between rounded-xl border border-dashed border-slate-400 bg-slate-50/80 p-3 text-center print:bg-white print:shadow-none break-inside-avoid page-break-inside-avoid">
       <div className="space-y-1">
         <p className="text-[10px] font-medium text-slate-500">
           {row.sorteo_nombre}
@@ -480,7 +480,7 @@ export default function PhysicalCouponsPrintClient({
         </div>
 
         <div className="no-print space-y-2">
-          <h1 className="text-2xl font-bold text-slate-900">Imprimir cupones para urna</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Imprimir cupones para urna</h1>
           <p className="text-slate-600 text-sm">
             Se imprimirá un cupón físico por cada cupón confirmado del sorteo.
           </p>
@@ -638,7 +638,7 @@ export default function PhysicalCouponsPrintClient({
           <div className="no-print flex flex-wrap gap-2">
             <Link
               href={`/sorteos/${encodeURIComponent(sorteoId)}/imprimir-cupones`}
-              className="text-sm font-medium text-[#0EA5E9] hover:underline"
+              className="text-sm font-medium text-[#4FAEB2] hover:underline"
             >
               Ver todos los cupones del sorteo (sin filtrar por orden)
             </Link>
@@ -667,7 +667,7 @@ export default function PhysicalCouponsPrintClient({
             type="button"
             onClick={handlePrint}
             disabled={rows.length === 0}
-            className="rounded-lg bg-[#0EA5E9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0284C7] disabled:opacity-50 disabled:pointer-events-none"
+            className="rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50 disabled:pointer-events-none"
           >
             Imprimir cupones
           </button>

@@ -363,7 +363,7 @@ export default function ConfiguracionProyectosPage() {
 
       {message ? (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
+          className={`rounded-xl border px-4 py-3 text-sm ${
             message.type === "ok"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-rose-200 bg-rose-50 text-rose-800"
@@ -374,7 +374,7 @@ export default function ConfiguracionProyectosPage() {
       ) : null}
 
       {!canEdit ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Estás viendo esta configuración en modo lectura. Solo admin, administrador o super_admin pueden editar.
         </div>
       ) : null}
@@ -416,7 +416,7 @@ export default function ConfiguracionProyectosPage() {
                 (!draft.activo || !draft.es_estado_inicial);
 
               return (
-                <div key={estado.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div key={estado.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <span
@@ -558,7 +558,7 @@ export default function ConfiguracionProyectosPage() {
         )}
 
         {canEdit ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-4">
+          <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-4">
             <h3 className="text-sm font-bold text-slate-900">Crear columna</h3>
             <ConfigHelpText>
               El código técnico se define solo al crear. No uses un código existente y evitá cambiarlo luego por SQL.
@@ -669,7 +669,7 @@ export default function ConfiguracionProyectosPage() {
             {prioridades.map((prioridad) => {
               const draft = prioridadDrafts[prioridad.id] ?? toPrioridadDraft(prioridad);
               return (
-                <div key={prioridad.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div key={prioridad.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-slate-900">{prioridad.nombre}</p>

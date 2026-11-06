@@ -85,13 +85,13 @@ export default function NotaCreditoCompraModal({
     }
   }
 
-  const inCls = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40";
+  const inCls = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40";
   const lbCls = "block text-xs font-medium text-slate-600 mb-1";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
-      <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-2xl">
+      <div className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
         <div className="border-b border-slate-100 px-5 py-4">
           <h3 className="text-lg font-semibold text-slate-900">Nota de crédito del proveedor</h3>
           <p className="text-xs text-slate-500">
@@ -139,11 +139,11 @@ export default function NotaCreditoCompraModal({
             </div>
           </div>
           {typeof total === "number" && montoNum > total && (
-            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
               El monto supera el saldo de la compra; se descontará todo el saldo (quedará en 0).
             </div>
           )}
-          {error && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{error}</div>}
+          {error && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{error}</div>}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50">Cancelar</button>

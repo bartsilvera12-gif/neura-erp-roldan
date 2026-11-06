@@ -107,7 +107,7 @@ export default function MarketingOpsPiezaDetalleClient({ piezaId }: { piezaId: s
 
       {err ? <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{err}</div> : null}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="mb-3 flex flex-wrap gap-2">
@@ -116,7 +116,7 @@ export default function MarketingOpsPiezaDetalleClient({ piezaId }: { piezaId: s
               <Badge className={estadoBadgeClass(pieza.estado_cliente)}>{labelFor(ESTADO_CLIENTE_OPTIONS, pieza.estado_cliente)}</Badge>
               <Badge className={estadoBadgeClass(pieza.estado_publicacion)}>{labelFor(ESTADO_PUBLICACION_OPTIONS, pieza.estado_publicacion)}</Badge>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{pieza.titulo}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">{pieza.titulo}</h1>
             <p className="mt-1 text-sm text-slate-500">{clienteLabel(pieza.cliente)} · {pieza.responsable?.nombre ?? pieza.responsable?.email ?? "Sin responsable"}</p>
           </div>
           {pieza.link_archivo ? (
@@ -142,7 +142,7 @@ export default function MarketingOpsPiezaDetalleClient({ piezaId }: { piezaId: s
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Cambiar estados</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <EstadoSelect
@@ -169,7 +169,7 @@ export default function MarketingOpsPiezaDetalleClient({ piezaId }: { piezaId: s
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Comentarios</h2>
           <form onSubmit={agregarComentario} className="mt-4 space-y-2">
             <textarea
@@ -194,7 +194,7 @@ export default function MarketingOpsPiezaDetalleClient({ piezaId }: { piezaId: s
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Historial de estados</h2>
         <div className="mt-4 space-y-2">
           {historial.length === 0 ? <p className="text-sm text-slate-500">Sin cambios registrados todavía.</p> : null}

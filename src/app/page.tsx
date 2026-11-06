@@ -537,7 +537,7 @@ function KpiCard({
     return (
       <motion.div
         whileHover={{ y: -2 }}
-        className="rounded-2xl border border-slate-200 p-6 shadow-lg shadow-black/10"
+        className="rounded-xl border border-slate-200 p-6 shadow-lg shadow-black/10"
         style={{ backgroundColor: Z.card }}
       >
         <div className="flex items-start justify-between gap-2">
@@ -570,7 +570,7 @@ function KpiCard({
   return (
     <motion.div
       whileHover={{ y: -2 }}
-      className="rounded-2xl border border-[#4FAEB2]/30 bg-white p-6 shadow-sm ring-1 ring-[#4FAEB2]/10 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+      className="rounded-xl border border-[#4FAEB2]/30 bg-white p-6 ring-1 ring-[#4FAEB2]/10 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="text-2xl">{icon}</div>
@@ -806,7 +806,7 @@ const DashComercial = memo(function DashComercial({
   const nClientesNuevos = filasClientesPeriodo.length;
   const ticketPromedio = nClientesNuevos > 0 ? totalValorClientesNuevos / nClientesNuevos : 0;
 
-  const panelClass = "rounded-2xl border border-slate-200 p-6 shadow-lg shadow-black/10 sm:p-8";
+  const panelClass = "rounded-xl border border-slate-200 p-6 shadow-lg shadow-black/10 sm:p-8";
   const panelStyle = { backgroundColor: Z.card } as const;
   const titleClass = "text-xs font-bold uppercase tracking-wider";
   const titleStyle = { color: Z.muted } as const;
@@ -894,7 +894,7 @@ const DashComercial = memo(function DashComercial({
 
       <motion.div
         whileHover={{ y: -3 }}
-        className="rounded-2xl border p-6 shadow-xl shadow-black/25 sm:p-10"
+        className="rounded-xl border p-6 shadow-xl shadow-black/25 sm:p-10"
         style={{ backgroundColor: Z.surface, borderColor: "rgba(37,99,235,0.35)" }}
       >
         <div className="flex flex-col gap-2 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -952,7 +952,7 @@ const DashComercial = memo(function DashComercial({
             style={{ backgroundColor: Z.card }}
           >
             <table className="w-full text-sm">
-              <thead className="sticky top-0 border-b border-slate-200" style={{ backgroundColor: Z.card }}>
+              <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-xs text-slate-500" style={{ backgroundColor: Z.card }}>
                 <tr>
                   {["Cliente", "Alta", "Plan / servicio", "Monto (Gs.)", "Origen valor", "Vendedor"].map((h) => (
                     <th
@@ -1222,7 +1222,7 @@ const DashFinanciero = memo(function DashFinanciero({
       const key = raw || "__sin__";
       map.set(key, (map.get(key) ?? 0) + 1);
     }
-    const PALETTE = ["#2563EB", "#3B82F6", "#60A5FA", "#22C55E", "#A78BFA", "#F59E0B", "#EC4899", "#38BDF8"];
+    const PALETTE = ["#2563EB", "#3B82F6", "#60A5FA", "#22C55E", "#A78BFA", "#F59E0B", "#EC4899", "#7FC8CB"];
     const entries = [...map.entries()].sort((a, b) => b[1] - a[1]);
     return {
       dimCliente: dim,
@@ -1257,7 +1257,7 @@ const DashFinanciero = memo(function DashFinanciero({
       const slug = byCliente.get(String(f.cliente_id)) ?? "__sin__";
       m.set(slug, (m.get(slug) ?? 0) + s);
     }
-    const pal = ["#2563EB", "#3B82F6", "#60A5FA", "#22C55E", "#A78BFA", "#F59E0B", "#EC4899", "#38BDF8"];
+    const pal = ["#2563EB", "#3B82F6", "#60A5FA", "#22C55E", "#A78BFA", "#F59E0B", "#EC4899", "#7FC8CB"];
     const list = [...m.entries()]
       .map(([k, v]) => ({
         key: k,
@@ -1296,7 +1296,7 @@ const DashFinanciero = memo(function DashFinanciero({
       const slug = byCliente.get(String(factura.cliente_id)) ?? "__sin__";
       m.set(slug, (m.get(slug) ?? 0) + pagoMonto);
     }
-    const pal = ["#2563EB", "#3B82F6", "#60A5FA", "#22C55E", "#A78BFA", "#F59E0B", "#EC4899", "#38BDF8"];
+    const pal = ["#2563EB", "#3B82F6", "#60A5FA", "#22C55E", "#A78BFA", "#F59E0B", "#EC4899", "#7FC8CB"];
     const list = [...m.entries()]
       .map(([k, v]) => ({
         key: k,
@@ -1323,7 +1323,7 @@ const DashFinanciero = memo(function DashFinanciero({
   // natural y las de una misma fila quedaban desparejas, una más arriba que
   // la otra. Con esto comparten alto y los bordes se alinean.
   const finCard =
-    "flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm shadow-slate-200/50 transition-shadow hover:shadow-md sm:p-7";
+    "flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white p-6 shadow-sm shadow-slate-200/50 transition-shadow hover:shadow-md sm:p-7";
   /** Caja de consulta (inline-size) para `cqi`; alinea al fondo y estira con la card. */
   const finKpiValueWrap =
     "flex min-h-0 w-full min-w-0 flex-1 [container-type:inline-size] items-end";
@@ -1331,7 +1331,7 @@ const DashFinanciero = memo(function DashFinanciero({
   const finAccent = "#2563EB";
 
   return (
-    <div className="space-y-6 rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50 to-white p-4 sm:space-y-8 sm:p-6 md:p-8">
+    <div className="space-y-6 rounded-xl border border-slate-200/80 bg-gradient-to-b from-slate-50 to-white p-4 sm:space-y-8 sm:p-6 md:p-8">
       <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
         <motion.div whileHover={{ y: -2 }} className={finKpiCard}>
           <p className="shrink-0 text-[11px] font-medium text-slate-500">Facturado del período</p>
@@ -1687,7 +1687,7 @@ const DashInventario = memo(function DashInventario({
 
       {/* Donut + Críticos */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6">
+        <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Estado del stock</h3>
           <DonutChart segments={[
             { label: "Saludable", value: cntSaludable, color: "#22c55e" },
@@ -1695,7 +1695,7 @@ const DashInventario = memo(function DashInventario({
             { label: "Crítico",   value: cntCritico,   color: "#ef4444" },
           ]} centerLabel="productos" />
         </motion.div>
-        <motion.div whileHover={{ y: -2 }} className="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6 transition-shadow hover:shadow-md">
+        <motion.div whileHover={{ y: -2 }} className="lg:col-span-2 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6 transition-shadow">
           <div className="mb-4 flex items-baseline justify-between gap-3">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               {inventarioSinCargar ? "Productos sin stock" : "Productos críticos — stock bajo mínimo"}
@@ -1731,7 +1731,7 @@ const DashInventario = memo(function DashInventario({
           ) : (
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
                   <tr>
                     {["Producto", "Stock actual", "Stock mín.", "Estado", "Proveedor"].map(h => (
                       <th key={h} className="px-3 py-3 text-left text-[11px] font-mediumr text-slate-500">{h}</th>
@@ -1783,7 +1783,7 @@ const DashInventario = memo(function DashInventario({
       </div>
 
       {/* Top por valor */}
-      <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6 transition-shadow hover:shadow-md">
+      <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6 transition-shadow">
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
           Top productos por valor de inventario
         </h3>
@@ -1792,7 +1792,7 @@ const DashInventario = memo(function DashInventario({
         ) : (
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
                 <tr>
                   {["Producto", "SKU", "Stock", "Costo promedio", "Valor inventario"].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-slate-500 px-3 py-3 uppercase tracking-wide">{h}</th>
@@ -1947,7 +1947,7 @@ const DashVentas = memo(function DashVentas({
 
       {/* KPIs rentabilidad */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-3">
           <Wallet className="h-6 w-6" aria-hidden />
           <div>
             <p className={`text-2xl font-bold tabular-nums ${ganancia >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -1957,7 +1957,7 @@ const DashVentas = memo(function DashVentas({
             <p className="text-xs text-gray-400">precio venta − costo promedio × cant.</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-3">
           <BarChart3 className="h-6 w-6" aria-hidden />
           <div>
             <p className={`text-2xl font-bold tabular-nums ${margenProm >= 20 ? "text-green-600" : margenProm >= 10 ? "text-amber-600" : "text-red-600"}`}>
@@ -1971,7 +1971,7 @@ const DashVentas = memo(function DashVentas({
 
       {/* Productos más vendidos + Ventas por hora */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">
             Productos más vendidos
           </h3>
@@ -1980,7 +1980,7 @@ const DashVentas = memo(function DashVentas({
             : <HBarChart data={topProductos} color="bg-indigo-400" />
           }
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">
             Ventas por hora — hoy
           </h3>
@@ -1992,7 +1992,7 @@ const DashVentas = memo(function DashVentas({
       </div>
 
       {/* Desglose por tipo */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-100 p-5">
         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">
           Desglose por tipo de venta
         </h3>
@@ -2000,7 +2000,7 @@ const DashVentas = memo(function DashVentas({
           <p className="text-sm text-gray-400 text-center py-6">Sin ventas en el periodo seleccionado.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-gray-50 border-b border-gray-100 bg-slate-50 text-xs text-slate-500">
               <tr>
                 {["Tipo", "Cantidad", "Total", "Ticket promedio", "Unidades"].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-500 px-3 py-2.5 uppercase tracking-wide">{h}</th>
@@ -2011,7 +2011,7 @@ const DashVentas = memo(function DashVentas({
               {desglose.map(r => (
                 <tr key={r.tipo} className="hover:bg-gray-50/60 transition-colors">
                   <td className="px-3 py-2.5">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.tipo === "CONTADO" ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-text)]" : "bg-[#E0F2FE] text-[#0284C7]"}`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.tipo === "CONTADO" ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-text)]" : "bg-[#EAF6F6] text-[#3F8E91]"}`}>
                       {r.tipo}
                     </span>
                   </td>
@@ -2259,7 +2259,7 @@ export default function DashboardPage() {
   if (!config) {
     return (
       <div
-        className="zentra-dashboard-shell flex min-h-[40vh] items-center justify-center rounded-2xl py-24 text-sm"
+        className="zentra-dashboard-shell flex min-h-[40vh] items-center justify-center rounded-xl py-24 text-sm"
         style={{ color: Z.muted }}
       >
         Cargando…
@@ -2280,7 +2280,7 @@ export default function DashboardPage() {
           Cambiar a:
           {usuarios.filter(u => u.nivel !== "usuario").map(u => (
             <button key={u.id} onClick={() => handleUsuarioChange(u.id)}
-              className="px-3 py-1.5 rounded-lg bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-medium transition-colors">
+              className="px-3 py-1.5 rounded-lg bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-xs font-medium transition-colors">
               {u.nombre}
             </button>
           ))}
@@ -2292,7 +2292,7 @@ export default function DashboardPage() {
   if (dashScope.kind === "empty") {
     return (
       <div
-        className="zentra-dashboard-shell space-y-8 rounded-2xl border border-slate-200 px-4 py-8 sm:px-6 md:px-8"
+        className="zentra-dashboard-shell space-y-8 rounded-xl border border-slate-200 px-4 py-8 sm:px-6 md:px-8"
         style={{ color: Z.muted }}
       >
         <header className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -2302,7 +2302,7 @@ export default function DashboardPage() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: Z.accent }}>
                 Zentra
               </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl" style={{ color: Z.text }}>
+              <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900" style={{ color: Z.text }}>
                 Dashboard
               </h1>
               <p className="mt-1 max-w-md text-sm leading-relaxed" style={{ color: Z.muted }}>
@@ -2312,7 +2312,7 @@ export default function DashboardPage() {
           </div>
         </header>
         <div
-          className="rounded-2xl border border-slate-200 px-5 py-10 text-center text-sm"
+          className="rounded-xl border border-slate-200 px-5 py-10 text-center text-sm"
           style={{ backgroundColor: Z.surface, color: Z.muted }}
         >
           <p className="font-medium" style={{ color: Z.text }}>
@@ -2348,7 +2348,7 @@ export default function DashboardPage() {
       {/* DESKTOP (>= md=768px): dashboard original con todos los sub-tabs,
           gráficos, tablas. Intacto, cero cambios. */}
       <div
-      className="hidden lg:block zentra-dashboard-shell space-y-8 rounded-2xl border border-slate-200 px-4 py-8 sm:px-6 md:px-8"
+      className="hidden lg:block zentra-dashboard-shell space-y-8 rounded-xl border border-slate-200 px-4 py-8 sm:px-6 md:px-8"
       style={{ color: Z.muted }}
     >
       <header className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -2358,7 +2358,7 @@ export default function DashboardPage() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: Z.accent }}>
               Zentra
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl" style={{ color: Z.text }}>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900" style={{ color: Z.text }}>
               Dashboard
             </h1>
             <p className="mt-1 max-w-md text-sm leading-relaxed" style={{ color: Z.muted }}>
@@ -2390,7 +2390,7 @@ export default function DashboardPage() {
 
       {showTabNav ? (
         <nav
-          className="flex w-full flex-wrap gap-1 rounded-2xl border border-slate-200 p-1.5 sm:w-fit"
+          className="flex w-full flex-wrap gap-1 rounded-xl border border-slate-200 p-1.5 sm:w-fit"
           style={{ backgroundColor: Z.surface }}
         >
           {effectiveTabs.map((tid) => {

@@ -66,32 +66,32 @@ export default function EmpleadoArchivos({ empleadoId }: { empleadoId: string })
   }
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6 mt-6">
+    <section className="bg-white border border-slate-200 rounded-xl p-6 mt-6">
       <h2 className="text-sm font-semibold text-slate-700 mb-4 uppercase tracking-wide">Archivos</h2>
 
       <form onSubmit={subir} className="mb-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[180px]">
           <label className="text-xs text-slate-600">Nombre descriptivo</label>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
             placeholder="Ej: Contrato firmado 2026" />
         </div>
         <div>
           <label className="text-xs text-slate-600">Archivo (máx 25 MB)</label>
           <input ref={fileRef} type="file"
-            className="mt-1 block text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-teal-50 file:text-teal-700 file:text-xs file:font-medium" />
+            className="mt-1 block text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-teal-50 file:text-teal-700 file:text-xs file:font-medium" />
         </div>
         <button type="submit" disabled={uploading}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium disabled:opacity-50">
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50">
           {uploading ? "Subiendo…" : "Subir"}
         </button>
       </form>
 
       {loading ? <p className="text-sm text-slate-400">Cargando…</p> : (
         archivos.length === 0 ? <p className="text-sm text-slate-400">Sin archivos.</p> :
-        <div className="border border-slate-200 rounded-md overflow-hidden">
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Nombre</th>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Tipo</th>

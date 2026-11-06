@@ -129,7 +129,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
       <div className="mb-1 flex items-center gap-2">
         <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[#4FAEB2]" style={{ boxShadow: "0 0 0 3px rgba(79,174,178,0.18)" }} />
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#4FAEB2]">Zentra · Abastecimiento</p>
@@ -179,13 +179,13 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                                 if (e.key === "Enter") { e.preventDefault(); guardarMarca(p.proveedor_id); }
                                 if (e.key === "Escape") { e.preventDefault(); cancelarEdicion(); }
                               }}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-800 focus:border-[#4FAEB2] focus:outline-none focus:ring-1 focus:ring-[#4FAEB2]/40"
+                              className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-800 focus:border-[#4FAEB2] focus:outline-none focus:ring-1 focus:ring-[#4FAEB2]/40"
                             />
                             <button
                               type="button"
                               onClick={() => guardarMarca(p.proveedor_id)}
                               disabled={guardando}
-                              className="rounded-md bg-[#4FAEB2] px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-[#3F8E91] disabled:opacity-60"
+                              className="rounded-lg bg-[#4FAEB2] px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-[#3F8E91] disabled:opacity-60"
                             >
                               {guardando ? "Guardando…" : "Guardar"}
                             </button>
@@ -193,7 +193,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                               type="button"
                               onClick={cancelarEdicion}
                               disabled={guardando}
-                              className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-60"
+                              className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-60"
                             >
                               Cancelar
                             </button>
@@ -221,7 +221,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                     <button
                       type="button"
                       onClick={() => toggle(key)}
-                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-[#3F8E91] transition-colors hover:border-[#4FAEB2]/60 hover:bg-[#4FAEB2]/5"
+                      className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-[#3F8E91] transition-colors hover:border-[#4FAEB2]/60 hover:bg-[#4FAEB2]/5"
                     >
                       {abierto ? "Ocultar historial" : "Ver historial"}
                     </button>
@@ -240,7 +240,7 @@ export default function ProveedoresCostos({ productoId }: { productoId: string }
                   {abierto && (
                     <div className="overflow-x-auto border-t border-slate-200">
                       <table className="w-full min-w-[560px] text-left text-sm">
-                        <thead className="bg-white text-gray-500">
+                        <thead className="bg-white bg-slate-50 text-xs text-slate-500">
                           <tr>
                             <th className="py-2 px-4 font-medium">Fecha</th>
                             <th className="py-2 px-4 font-medium">N° Control</th>

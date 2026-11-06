@@ -51,7 +51,7 @@ export function ChannelBadge({
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 ${className}`}
+      className={`inline-flex max-w-full items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 ${className}`}
       title={label}
     >
       {icon}

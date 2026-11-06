@@ -470,7 +470,7 @@ const inputCls =
 
 export function Section({ icon, title, hint, children }: { icon?: ReactNode; title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-xl border border-slate-200 bg-white p-5">
       <div className="mb-4 flex items-start gap-2.5">
         {icon && (
           <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#3F8E91]">
@@ -569,7 +569,7 @@ function CatalogSelectField({ label, value, onChange, options, onCreate }: {
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeModal}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-800">
               <BadgeCheck className="h-4 w-4 text-[#3F8E91]" /> Nuevo {label.toLowerCase()}
             </h3>

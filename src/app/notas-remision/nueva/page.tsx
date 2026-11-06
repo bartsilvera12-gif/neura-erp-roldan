@@ -104,17 +104,17 @@ export default function EmitirNRPage() {
   if (creada) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm text-emerald-900">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm text-emerald-900">
           <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold"><Check className="h-4 w-4" /> Nota de Remisión {creada.numero} emitida</h2>
           <p className="mt-2 text-sm">Queda en estado <strong>pendiente</strong> hasta que {creada.destinoNombre} confirme la recepción.</p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/notas-remision" className="rounded-md border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100">Ver historial</Link>
+            <Link href="/notas-remision" className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100">Ver historial</Link>
             <button
               type="button"
               onClick={() => { setCreada(null); setCantidades({}); setProductosAgregados([]); setEmisor(""); setObs(""); }}
-              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >Emitir otra</button>
-            <button type="button" onClick={() => router.push("/notas-remision/recepcion")} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700">Ir a Recepción</button>
+            <button type="button" onClick={() => router.push("/notas-remision/recepcion")} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700">Ir a Recepción</button>
           </div>
         </div>
       </div>
@@ -123,14 +123,14 @@ export default function EmitirNRPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-amber-50/40 to-amber-50/60 p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-amber-50/40 to-amber-50/60 p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-100/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-800">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-600" /> Nueva emisión
           </span>
         </div>
-        <h1 className="mt-2 flex items-center gap-2.5 text-2xl font-bold text-slate-900">
-          <span className="rounded-lg bg-white p-1.5 ring-1 ring-amber-300/40 shadow-sm">
+        <h1 className="mt-2 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+          <span className="rounded-lg bg-white p-1.5 ring-1 ring-amber-300/40">
             <Truck className="h-5 w-5 text-amber-700" />
           </span>
           Emitir Nota de Remisión
@@ -140,46 +140,46 @@ export default function EmitirNRPage() {
 
       {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
         <h2 className="text-sm font-semibold text-slate-800">Datos generales</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Field label="Depósito Origen *">
-            <Selector value={origen} onChange={(e) => setOrigen(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={origen} onChange={(e) => setOrigen(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </Selector>
           </Field>
           <Field label="Depósito Destino *">
-            <Selector value={destino} onChange={(e) => setDestino(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={destino} onChange={(e) => setDestino(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               {depositos.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </Selector>
           </Field>
           <Field label="Motivo">
-            <Selector value={motivo} onChange={(e) => setMotivo(e.target.value as typeof motivo)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+            <Selector value={motivo} onChange={(e) => setMotivo(e.target.value as typeof motivo)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="traslado">Traslado</option>
               <option value="venta">Venta</option>
               <option value="devolucion">Devolución</option>
             </Selector>
           </Field>
           <Field label="Emisor *">
-            <input type="text" value={emisor} onChange={(e) => setEmisor(e.target.value)} placeholder="Ej: Marcial (Central)" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <input type="text" value={emisor} onChange={(e) => setEmisor(e.target.value)} placeholder="Ej: Marcial (Central)" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </Field>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
         <h2 className="text-sm font-semibold text-slate-800">Transporte (opcional)</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Field label="Transportista"><input type="text" value={transportista} onChange={(e) => setTransportista(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
-          <Field label="RUC transportista"><input type="text" value={rucTransp} onChange={(e) => setRucTransp(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
-          <Field label="Conductor"><input type="text" value={conductor} onChange={(e) => setConductor(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
-          <Field label="CI conductor"><input type="text" value={ciConductor} onChange={(e) => setCiConductor(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
-          <Field label="Chapa vehículo"><input type="text" value={chapa} onChange={(e) => setChapa(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
-          <Field label="Inicio traslado"><input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
-          <Field label="Fin traslado"><input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="Transportista"><input type="text" value={transportista} onChange={(e) => setTransportista(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="RUC transportista"><input type="text" value={rucTransp} onChange={(e) => setRucTransp(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="Conductor"><input type="text" value={conductor} onChange={(e) => setConductor(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="CI conductor"><input type="text" value={ciConductor} onChange={(e) => setCiConductor(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="Chapa vehículo"><input type="text" value={chapa} onChange={(e) => setChapa(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="Inicio traslado"><input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
+          <Field label="Fin traslado"><input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></Field>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 px-5 py-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">Productos a trasladar</h2>
@@ -193,7 +193,7 @@ export default function EmitirNRPage() {
               onFocus={() => setDropdownAbierto(true)}
               onBlur={() => setTimeout(() => setDropdownAbierto(false), 150)}
               placeholder="Buscar producto por nombre o SKU…"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
             {dropdownAbierto && (() => {
               const q = busqueda.trim().toLowerCase();
@@ -203,7 +203,7 @@ export default function EmitirNRPage() {
                 .slice(0, 8);
               if (disponibles.length === 0) return null;
               return (
-                <div className="absolute z-10 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                <div className="absolute z-10 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
                   {disponibles.map((p) => (
                     <button
                       key={p.producto_id}
@@ -260,7 +260,7 @@ export default function EmitirNRPage() {
                         value={cant === 0 ? "" : cant}
                         placeholder="0"
                         onChange={(e) => setCantidades({ ...cantidades, [pid]: Number(e.target.value) || 0 })}
-                        className={`w-full rounded-md border px-2 py-1 text-right text-sm ${cant > p.stock ? "border-rose-400 bg-rose-50" : "border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"}`}
+                        className={`w-full rounded-lg border px-2 py-1 text-right text-sm ${cant > p.stock ? "border-rose-400 bg-rose-50" : "border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"}`}
                       />
                     </td>
                     <td className="px-5 py-3 text-right">
@@ -270,7 +270,7 @@ export default function EmitirNRPage() {
                           setProductosAgregados(productosAgregados.filter((x) => x !== pid));
                           const c = { ...cantidades }; delete c[pid]; setCantidades(c);
                         }}
-                        className="text-rose-600 hover:bg-rose-50 rounded-md w-8 h-8 inline-flex items-center justify-center"
+                        className="text-rose-600 hover:bg-rose-50 rounded-lg w-8 h-8 inline-flex items-center justify-center"
                         title="Quitar"
                       ><X className="h-4 w-4" /></button>
                     </td>
@@ -290,14 +290,14 @@ export default function EmitirNRPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <label className="text-xs font-medium text-slate-600">Observaciones</label>
-        <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm resize-none" />
+        <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm resize-none" />
       </div>
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => router.push("/notas-remision")} className="rounded-md border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</button>
-        <button type="button" onClick={emitir} disabled={enviando} className="rounded-md bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-md inline-flex items-center gap-2 disabled:opacity-60">
+        <button type="button" onClick={() => router.push("/notas-remision")} className="rounded-lg border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</button>
+        <button type="button" onClick={emitir} disabled={enviando} className="rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-md inline-flex items-center gap-2 disabled:opacity-60">
           <Send className="h-4 w-4" />
           {enviando ? "Emitiendo…" : "Emitir NR"}
         </button>

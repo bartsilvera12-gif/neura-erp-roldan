@@ -394,7 +394,7 @@ export default function ConfiguracionCrmPipelinePage() {
                     setNuevaEtapa({ nombre: "", codigo: "", color: "gray", orden: 0 });
                     loadEtapas();
                   }}
-                  className="rounded bg-[#0EA5E9] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0284C7]"
+                  className="rounded bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
                 >
                   Crear etapa
                 </button>

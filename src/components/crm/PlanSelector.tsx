@@ -50,7 +50,7 @@ export default function PlanSelector({
             return (
               <span
                 key={plan.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0EA5E9]/10 text-[#0284C7] text-sm font-medium"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#4FAEB2]/10 text-[#3F8E91] text-sm font-medium"
               >
                 {plan.nombre}
                 <span className="text-xs text-gray-500">
@@ -84,7 +84,7 @@ export default function PlanSelector({
           onFocus={() => setAbierto(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm disabled:bg-slate-50 disabled:cursor-not-allowed"
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm disabled:bg-slate-50 disabled:cursor-not-allowed"
         />
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
           ▼
@@ -111,7 +111,7 @@ export default function PlanSelector({
                         setBusqueda("");
                       }}
                       className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors ${
-                        yaSeleccionado ? "bg-[#0EA5E9]/5 text-[#0284C7]" : "text-gray-800"
+                        yaSeleccionado ? "bg-[#4FAEB2]/5 text-[#3F8E91]" : "text-gray-800"
                       }`}
                     >
                       <span className="truncate">{plan.nombre}</span>

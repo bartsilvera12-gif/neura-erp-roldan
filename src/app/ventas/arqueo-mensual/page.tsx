@@ -98,7 +98,7 @@ export default function ArqueoMensualPage() {
           <Link href="/ventas" className="text-xs font-medium text-slate-500 hover:text-slate-800">
             ← Volver a caja
           </Link>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Arqueo mensual</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Arqueo mensual</h1>
           <p className="text-sm text-slate-500">
             Las diferencias de cada día, compensadas en el mes. No modifica ningún cierre.
           </p>
@@ -136,7 +136,7 @@ export default function ArqueoMensualPage() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <h2 className="border-b border-slate-100 px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">
           Detalle por día
         </h2>

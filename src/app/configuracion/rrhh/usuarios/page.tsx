@@ -93,7 +93,7 @@ export default function RRHHUsuariosPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Usuarios RRHH</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Usuarios RRHH</h1>
         <p className="text-sm text-slate-500 mt-1">Asignar rol RRHH granular a cada usuario y el descuento máximo que puede aplicar en Caja. El rol RRHH se suma al rol legacy del ERP.</p>
       </div>
 
@@ -101,9 +101,9 @@ export default function RRHHUsuariosPage() {
       {error && <p className="text-sm text-red-600">Error: {error}</p>}
 
       {!loading && (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Usuario</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
@@ -129,7 +129,7 @@ export default function RRHHUsuariosPage() {
                       value={u.rol_rrhh ?? ""}
                       onChange={(e) => cambiarRol(u, e.target.value)}
                       disabled={saving === u.id}
-                      className="px-2 py-1 border border-slate-300 rounded-md text-sm min-w-[220px]"
+                      className="px-2 py-1 border border-slate-300 rounded-lg text-sm min-w-[220px]"
                     >
                       {ROLES.map((r) => (
                         <option key={r.value} value={r.value} title={r.hint}>{r.label}</option>

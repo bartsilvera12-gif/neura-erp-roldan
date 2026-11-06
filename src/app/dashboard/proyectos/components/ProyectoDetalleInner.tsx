@@ -574,7 +574,7 @@ export default function ProyectoDetalleInner({
                     {pedidoObservacion ? (
                       <div className="border-b border-slate-200 pb-2">
                         <dt className={`${labelCls} mb-1`}>Observación</dt>
-                        <dd className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[13px] italic text-amber-900">
+                        <dd className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[13px] italic text-amber-900">
                           {pedidoObservacion}
                         </dd>
                       </div>
@@ -820,7 +820,7 @@ export default function ProyectoDetalleInner({
                   <li key={tid} className="flex flex-wrap items-center gap-2 py-3 text-sm">
                     <span className="flex-1 font-medium text-slate-900">{String(t.titulo ?? "")}</span>
                     <Selector
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+                      className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
                       value={estado}
                       onChange={(e) => void patchTarea(tid, { estado: e.target.value })}
                     >
@@ -889,10 +889,10 @@ export default function ProyectoDetalleInner({
         ) : null}
 
         {tab === "historial" ? (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <thead className="bg-slate-50 text-left text-xs text-slate-500">
                   <tr>
                     <th className="px-3 py-2">Estado anterior</th>
                     <th className="px-3 py-2">Estado nuevo</th>

@@ -25,7 +25,7 @@ import Selector from "@/components/ui/Selector";
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
 const fInputClass =
-  "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white";
+  "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white";
 const fLabelClass = "mb-0.5 block text-[11px] font-medium text-slate-500";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ function FacturaRowAccionesSifen({
         <button
           type="button"
           onClick={onCobrar}
-          className="ml-0.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 whitespace-nowrap rounded-md px-1.5 py-1 hover:bg-slate-100"
+          className="ml-0.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 whitespace-nowrap rounded-lg px-1.5 py-1 hover:bg-slate-100"
           title="Registrar cobro (mismo formulario que en Pagos)"
         >
           Cobrar
@@ -382,7 +382,7 @@ function ModalFacturacion({
                           type="button"
                           disabled={emitiendo === item.mes}
                           onClick={() => handleEmitir(item.mes)}
-                          className="text-xs font-medium text-[#0EA5E9] hover:text-[#0284C7] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-xs font-medium text-[#4FAEB2] hover:text-[#3F8E91] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {emitiendo === item.mes ? "Emitiendo..." : "Emitir factura"}
                         </button>
@@ -390,7 +390,7 @@ function ModalFacturacion({
                       {item.factura_id && (
                         <Link
                           href={`/facturas/${item.factura_id}`}
-                          className="text-xs font-medium text-[#0EA5E9] hover:text-[#0284C7] hover:underline"
+                          className="text-xs font-medium text-[#4FAEB2] hover:text-[#3F8E91] hover:underline"
                         >
                           Ver factura
                         </Link>
@@ -495,7 +495,7 @@ function ClienteBusquedaGlobal({
             setQuery("");
             setOpen(true);
           }}
-          className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-left text-xs font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 text-left text-xs font-medium text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
           title="Buscar otro cliente"
         >
           <IconoLupa className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -505,7 +505,7 @@ function ClienteBusquedaGlobal({
         <button
           type="button"
           onClick={onClear}
-          className="shrink-0 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           title="Quitar cliente"
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -822,14 +822,14 @@ function GestionClientesPageInner() {
       <header className="shrink-0 border-b border-slate-200/80 pb-2">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900">Gestión del Cliente</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Gestión del Cliente</h1>
             <p className="text-[11px] text-slate-500">Panel operativo · consultas y tipificaciones</p>
           </div>
         </div>
       </header>
 
       <div
-        className="flex min-h-0 flex-1 flex-col overflow-visible rounded-xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/[0.03]"
+        className="flex min-h-0 flex-1 flex-col overflow-visible rounded-xl border border-slate-200/90 bg-white ring-1 ring-slate-900/[0.03]"
         style={{ minHeight: "min(560px, calc(100dvh - 10.5rem))" }}
       >
         {selected === null ? (
@@ -1027,14 +1027,14 @@ function GestionClientesPageInner() {
                       </span>
                     ) : null}
                     <span className="hidden h-3 w-px bg-slate-200 sm:inline" />
-                    <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">
+                    <span className="rounded-lg bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">
                       {facturasOrdenadas.length} docs
                     </span>
-                    <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">
+                    <span className="rounded-lg bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">
                       Saldo Gs. {formatGs(totalSaldo)}
                     </span>
                     {cntVencidas > 0 ? (
-                      <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-red-100">
+                      <span className="rounded-lg bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-red-100">
                         {cntVencidas} venc.
                       </span>
                     ) : null}
@@ -1097,7 +1097,7 @@ function GestionClientesPageInner() {
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[1040px] text-sm">
-                          <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50 shadow-sm">
+                          <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50 shadow-sm text-xs text-slate-500">
                             <tr>
                               {[
                                 "Tipo",

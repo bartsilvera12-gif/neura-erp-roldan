@@ -100,7 +100,7 @@ export default function ClienteReportes({ clienteId }: { clienteId: string }) {
       )}
 
       {/* Últimas compras */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl">
         <div className="border-b border-slate-100 px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-700">Últimas 10 compras</h3>
         </div>
@@ -108,7 +108,7 @@ export default function ClienteReportes({ clienteId }: { clienteId: string }) {
           <p className="p-6 text-sm text-slate-500">Este cliente no tiene compras registradas en los últimos 12 meses.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">Factura</th>
                 <th className="text-left px-4 py-2">Fecha</th>
@@ -145,7 +145,7 @@ export default function ClienteReportes({ clienteId }: { clienteId: string }) {
       </div>
 
       {/* Top productos */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl">
         <div className="border-b border-slate-100 px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-700">Top 5 productos comprados (últimos 12m)</h3>
         </div>
@@ -153,7 +153,7 @@ export default function ClienteReportes({ clienteId }: { clienteId: string }) {
           <p className="p-6 text-sm text-slate-500">Sin datos.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">Producto</th>
                 <th className="text-right px-4 py-2">Unidades</th>

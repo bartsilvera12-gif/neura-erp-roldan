@@ -375,7 +375,7 @@ export default function ProspectoDetalleForm({
             >
               ← Funnel CRM
             </button>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{prospecto.empresa}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">{prospecto.empresa}</h1>
             <div className="mt-1 flex items-center gap-2">
               <span className="font-mono text-sm text-slate-400">{prospecto.numero_control}</span>
               {etapaActual && etapaActualClasses ? (
@@ -436,7 +436,7 @@ export default function ProspectoDetalleForm({
 
         {/* Etapa del funnel */}
         <section
-          className={isModal ? "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" : "rounded-2xl border border-[#4FAEB2]/45 bg-white p-5 shadow-sm"}
+          className={isModal ? "rounded-xl border border-slate-200 bg-white p-5 shadow-sm" : "rounded-xl border border-[#4FAEB2]/45 bg-white p-5 shadow-sm"}
         >
           <SectionTitle>Etapa del funnel</SectionTitle>
           <div className="flex flex-wrap gap-2">
@@ -474,7 +474,7 @@ export default function ProspectoDetalleForm({
 
         {/* Datos del prospecto */}
         <section
-          className={isModal ? "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" : "rounded-2xl border border-[#4FAEB2]/45 bg-white p-5 shadow-sm"}
+          className={isModal ? "rounded-xl border border-slate-200 bg-white p-5 shadow-sm" : "rounded-xl border border-[#4FAEB2]/45 bg-white p-5 shadow-sm"}
         >
           <SectionTitle>Datos del prospecto</SectionTitle>
 
@@ -701,7 +701,7 @@ export default function ProspectoDetalleForm({
 
         {/* Notas internas */}
         <section
-          className={isModal ? "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" : "rounded-2xl border border-[#4FAEB2]/45 bg-white p-5 shadow-sm"}
+          className={isModal ? "rounded-xl border border-slate-200 bg-white p-5 shadow-sm" : "rounded-xl border border-[#4FAEB2]/45 bg-white p-5 shadow-sm"}
         >
           <SectionTitle>Notas internas ({prospecto.notas.length})</SectionTitle>
 
@@ -737,7 +737,7 @@ export default function ProspectoDetalleForm({
               {[...prospecto.notas].reverse().map((nota: Nota) => (
                 <div
                   key={nota.id}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-3"
                 >
                   <p className="whitespace-pre-wrap text-sm text-slate-700">{nota.texto}</p>
                   <p className="mt-2 text-xs text-slate-400">{formatFecha(nota.fecha)}</p>
@@ -753,7 +753,7 @@ export default function ProspectoDetalleForm({
             <button
               type="button"
               onClick={() => setConfirmarEliminar(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:bg-rose-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path

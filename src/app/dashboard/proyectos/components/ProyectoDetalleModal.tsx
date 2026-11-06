@@ -51,7 +51,7 @@ export default function ProyectoDetalleModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="proyecto-detalle-titulo"
-        className="relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20"
+        className="relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20"
       >
         <ProyectoDetalleInner
           projectId={projectId}

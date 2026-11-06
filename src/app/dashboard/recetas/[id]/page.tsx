@@ -421,7 +421,7 @@ export default function EditarRecetaPage() {
   if (!receta) {
     return (
       <div className="p-6">
-        <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
           {error ?? "Receta no encontrada"}
         </div>
       </div>
@@ -440,14 +440,14 @@ export default function EditarRecetaPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <ChefHat className="h-7 w-7 text-[#4FAEB2]" />
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
             {receta.nombre?.trim() || (receta.producto_nombre ? `Receta: ${receta.producto_nombre}` : "Receta")}
           </h1>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={openFabricar}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
           >
             <Factory className="h-4 w-4" /> Fabricar
           </button>
@@ -463,7 +463,7 @@ export default function EditarRecetaPage() {
       </div>
 
       {fabOk && (
-        <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700 mb-4">
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700 mb-4">
           <Check className="h-4 w-4" /> {fabOk}
         </div>
       )}
@@ -471,23 +471,23 @@ export default function EditarRecetaPage() {
       {/* Costeo summary */}
       {costeo && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="rounded-md bg-white border border-gray-200 p-4">
+          <div className="rounded-lg bg-white border border-gray-200 p-4">
             <div className="text-xs text-gray-500 uppercase">Costo total receta</div>
             <div className="text-lg font-semibold text-gray-900">{fmtGs(costeo.costo_total)}</div>
           </div>
-          <div className="rounded-md bg-white border border-gray-200 p-4">
+          <div className="rounded-lg bg-white border border-gray-200 p-4">
             <div className="text-xs text-gray-500 uppercase">Costo unitario</div>
             <div className="text-lg font-semibold text-gray-900">{fmtGs(costeo.costo_unitario)}</div>
             <div className="text-xs text-gray-500">costo total / rendimiento</div>
           </div>
-          <div className="rounded-md bg-white border border-gray-200 p-4">
+          <div className="rounded-lg bg-white border border-gray-200 p-4">
             <div className="text-xs text-gray-500 uppercase">Margen</div>
             <div className={`text-lg font-semibold ${(costeo.margen_pct ?? 0) >= 0 ? "text-green-700" : "text-red-700"}`}>
               {costeo.margen_pct == null ? "—" : `${costeo.margen_pct}%`}
             </div>
             <div className="text-xs text-gray-500">{fmtGs(costeo.margen_abs)} / unidad</div>
           </div>
-          <div className="rounded-md bg-white border border-gray-200 p-4">
+          <div className="rounded-lg bg-white border border-gray-200 p-4">
             <div className="text-xs text-gray-500 uppercase">Unidades posibles</div>
             <div className="text-lg font-semibold text-gray-900">
               {costeo.unidades_posibles == null
@@ -505,13 +505,13 @@ export default function EditarRecetaPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4">
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4">
           {error}
         </div>
       )}
 
       {/* Header form */}
-      <div className="bg-white p-5 rounded-md border border-gray-200 mb-6">
+      <div className="bg-white p-5 rounded-lg border border-gray-200 mb-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-1">Datos de la receta</h2>
         <p className="text-xs text-gray-500 mb-3">
           El <b>rendimiento</b> es cuántas unidades produce esta receta con los insumos indicados.
@@ -521,7 +521,7 @@ export default function EditarRecetaPage() {
           {RECETA_SIMPLE ? (
             <div className="md:col-span-3">
               <label className="block text-xs font-medium text-gray-600 mb-1">Receta de</label>
-              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-800">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-800">
                 {receta.producto_nombre ?? "—"}
               </div>
               <p className="mt-1 text-[11px] text-gray-400">La receta pertenece a este producto del menú.</p>
@@ -534,7 +534,7 @@ export default function EditarRecetaPage() {
               value={receta.nombre ?? ""}
               onChange={(e) => setReceta({ ...receta, nombre: e.target.value })}
               placeholder={receta.producto_nombre ? `Ej: Receta de ${receta.producto_nombre}` : "Ej: Granola Orgánica 250g"}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
             <p className="mt-1 text-[11px] text-gray-400">
               Si lo dejás vacío, se mostrará el nombre del producto: <b>{receta.producto_nombre ?? "—"}</b>.
@@ -549,7 +549,7 @@ export default function EditarRecetaPage() {
               min="0.01"
               value={receta.rendimiento_cantidad}
               onChange={(e) => setReceta({ ...receta, rendimiento_cantidad: Number(e.target.value) || 1 })}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
             <p className="mt-1 text-[11px] text-gray-400">¿Cuántas unidades produce?</p>
           </div>
@@ -558,7 +558,7 @@ export default function EditarRecetaPage() {
             <Selector
               value={receta.rendimiento_unidad ?? ""}
               onChange={(e) => setReceta({ ...receta, rendimiento_unidad: e.target.value })}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
             >
               <option value="">— Elegí —</option>
               {UNIDADES_RENDIMIENTO.map((u) => <option key={u} value={u}>{formatUnidad(u)}</option>)}
@@ -585,7 +585,7 @@ export default function EditarRecetaPage() {
               value={receta.notas ?? ""}
               onChange={(e) => setReceta({ ...receta, notas: e.target.value })}
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -595,7 +595,7 @@ export default function EditarRecetaPage() {
       </div>
 
       {/* Items */}
-      <div className="bg-white p-5 rounded-md border border-gray-200">
+      <div className="bg-white p-5 rounded-lg border border-gray-200">
         <h2 className="text-sm font-semibold text-gray-700 mb-1">Insumos (materia prima)</h2>
         <p className="text-xs text-gray-500 mb-3">
           Cargá cada materia prima con la <b>cantidad usada</b> para todo el rendimiento, su <b>unidad de consumo</b>
@@ -615,7 +615,7 @@ export default function EditarRecetaPage() {
               Unid. posibles) se ocultan progresivamente para no aplastar todo. */
           <div className="overflow-x-auto -mx-px sm:mx-0">
           <table className="w-full min-w-[840px] sm:min-w-0 text-sm mb-4">
-            <thead className="text-left text-xs text-gray-500 uppercase">
+            <thead className="text-left bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="py-2">Insumo</th>
                 <th className="py-2">Cantidad usada</th>
@@ -774,7 +774,7 @@ export default function EditarRecetaPage() {
                     if (v === "" || /^\d*\.?\d*$/.test(v)) setNewCantidad(v);
                   }}
                   placeholder="Ej: 1500"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
               <div>
@@ -782,7 +782,7 @@ export default function EditarRecetaPage() {
                 <Selector
                   value={newUnidad}
                   onChange={(e) => setNewUnidad(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
                 >
                   <option value="">— Elegí —</option>
                   {UNIDADES_INSUMO.map((u) => <option key={u} value={u}>{formatUnidad(u)}</option>)}
@@ -800,7 +800,7 @@ export default function EditarRecetaPage() {
                     if (v === "" || /^\d{0,2}(\.\d{0,2})?$/.test(v)) setNewMerma(v);
                   }}
                   placeholder="Ej: 5"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
               <p className="md:col-span-5 -mt-1 text-[11px] text-gray-400">
@@ -816,7 +816,7 @@ export default function EditarRecetaPage() {
               <button
                 onClick={addItem}
                 disabled={addingItem || !newInsumoId || !(Number(newCantidad) > 0)}
-                className="md:col-span-5 inline-flex items-center justify-center gap-1 rounded-md bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
+                className="md:col-span-5 inline-flex items-center justify-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" /> {addingItem ? "Agregando…" : "Agregar insumo"}
               </button>
@@ -831,7 +831,7 @@ export default function EditarRecetaPage() {
         {savedOk && <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600 sm:mr-auto"><Check className="h-4 w-4" /> Receta guardada</span>}
         <Link
           href="/dashboard/recetas"
-          className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
           Volver a recetas
         </Link>
@@ -839,7 +839,7 @@ export default function EditarRecetaPage() {
         <button
           onClick={saveHeader}
           disabled={savingHeader}
-          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
         >
           <Save className="h-4 w-4" /> {savingHeader ? "Guardando…" : "Guardar receta"}
         </button>
@@ -876,7 +876,7 @@ export default function EditarRecetaPage() {
                     min="0.01"
                     value={fabCantidad}
                     onChange={(e) => setFabCantidad(Number(e.target.value) || 0)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
                     Unidades del producto terminado a producir.
@@ -889,13 +889,13 @@ export default function EditarRecetaPage() {
                     value={fabObs}
                     onChange={(e) => setFabObs(e.target.value)}
                     placeholder="Ej: lote mañana"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
               </div>
 
               {fabError && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
                   {fabError}
                 </div>
               )}
@@ -909,11 +909,11 @@ export default function EditarRecetaPage() {
               {fabPreview && !fabLoadingPreview && (
                 <>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                    <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
                       <div className="text-[11px] text-gray-500 uppercase">Costo total</div>
                       <div className="text-base font-semibold text-gray-900">{fmtGs(fabPreview.costo_total)}</div>
                     </div>
-                    <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                    <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
                       <div className="text-[11px] text-gray-500 uppercase">Costo unitario</div>
                       <div className="text-base font-semibold text-gray-900">{fmtGs(fabPreview.costo_unitario)}</div>
                     </div>
@@ -921,7 +921,7 @@ export default function EditarRecetaPage() {
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="text-left text-xs text-gray-500 uppercase">
+                      <thead className="text-left bg-slate-50 text-xs text-slate-500">
                         <tr>
                           <th className="py-2">Materia prima</th>
                           <th className="py-2 text-right">Requerido</th>
@@ -953,14 +953,14 @@ export default function EditarRecetaPage() {
                   </div>
 
                   {fabPreview.insumos_incompatibles.length > 0 && (
-                    <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
                       <AlertTriangle className="h-4 w-4" /> Insumos con unidad incompatible (no se descuentan):{" "}
                       {fabPreview.insumos_incompatibles.join(", ")}. Revisá las unidades en la receta.
                     </div>
                   )}
 
                   {fabPreview.hay_faltantes && (
-                    <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
                       No hay suficiente materia prima para fabricar esta cantidad. Podés fabricar igual
                       (el stock de los insumos faltantes quedará en 0) o reducir la cantidad.
                     </div>
@@ -972,7 +972,7 @@ export default function EditarRecetaPage() {
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-200 px-5 py-4 sticky bottom-0 bg-white">
               <button
                 onClick={() => setFabOpen(false)}
-                className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
               >
                 Cancelar
               </button>
@@ -980,7 +980,7 @@ export default function EditarRecetaPage() {
                 <button
                   onClick={() => submitFabricar(true)}
                   disabled={fabSubmitting || !(fabCantidad > 0)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                 >
                   <Factory className="h-4 w-4" /> {fabSubmitting ? "Fabricando…" : "Fabricar sin stock"}
                 </button>
@@ -988,7 +988,7 @@ export default function EditarRecetaPage() {
                 <button
                   onClick={() => submitFabricar(false)}
                   disabled={fabSubmitting || fabLoadingPreview || !fabPreview || !(fabCantidad > 0)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
                 >
                   <Factory className="h-4 w-4" /> {fabSubmitting ? "Fabricando…" : "Confirmar fabricación"}
                 </button>

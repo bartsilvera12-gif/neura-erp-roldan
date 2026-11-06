@@ -148,17 +148,17 @@ export default function ProyectoNuevoClient() {
           ← Volver
         </Link>
       </div>
-      <h1 className="text-xl font-semibold text-slate-900">Nuevo pedido</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-slate-900">Nuevo pedido</h1>
 
-      {err ? <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div> : null}
+      {err ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div> : null}
 
-      <form onSubmit={onSubmit} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={onSubmit} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Título</span>
             <input
               required
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
             />
@@ -167,7 +167,7 @@ export default function ProyectoNuevoClient() {
             <span className="font-medium text-slate-700">Tipo</span>
             <Selector
               required
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={tipoId}
               onChange={(e) => setTipoId(e.target.value)}
             >
@@ -183,7 +183,7 @@ export default function ProyectoNuevoClient() {
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Estado inicial (opcional)</span>
             <Selector
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={estadoId}
               onChange={(e) => setEstadoId(e.target.value)}
             >
@@ -198,7 +198,7 @@ export default function ProyectoNuevoClient() {
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Prioridad</span>
             <Selector
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={prioridad}
               onChange={(e) => setPrioridad(e.target.value)}
             >
@@ -211,7 +211,7 @@ export default function ProyectoNuevoClient() {
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Resp. comercial</span>
             <Selector
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={rc}
               onChange={(e) => setRc(e.target.value)}
             >
@@ -226,7 +226,7 @@ export default function ProyectoNuevoClient() {
           <label className="block text-sm">
             <span className="font-medium text-slate-700">Resp. técnico</span>
             <Selector
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={rt}
               onChange={(e) => setRt(e.target.value)}
             >
@@ -243,7 +243,7 @@ export default function ProyectoNuevoClient() {
             <input
               type="date"
               required
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={fechaIngreso}
               onChange={(e) => setFechaIngreso(e.target.value)}
             />
@@ -252,7 +252,7 @@ export default function ProyectoNuevoClient() {
             <span className="font-medium text-slate-700">Fecha prometida</span>
             <input
               type="date"
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={fechaProm}
               onChange={(e) => setFechaProm(e.target.value)}
             />
@@ -262,7 +262,7 @@ export default function ProyectoNuevoClient() {
         <label className="block text-sm">
           <span className="font-medium text-slate-700">Descripción breve</span>
           <textarea
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             rows={3}
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
@@ -289,7 +289,7 @@ export default function ProyectoNuevoClient() {
                   <label key={f.key} className="block text-sm sm:col-span-2">
                     <span className="text-slate-700">{f.label}</span>
                     <input
-                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                       placeholder={f.placeholder}
                       value={brief[f.key] ?? ""}
                       onChange={(e) => setBrief((b) => ({ ...b, [f.key]: e.target.value }))}
@@ -308,7 +308,7 @@ export default function ProyectoNuevoClient() {
               <label className="block text-sm">
                 <span className="text-slate-700">Nombre de la empresa</span>
                 <input
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   value={saasEmpresaNombre}
                   onChange={(e) => setSaasEmpresaNombre(e.target.value)}
                 />
@@ -316,7 +316,7 @@ export default function ProyectoNuevoClient() {
               <label className="block text-sm">
                 <span className="text-slate-700">WhatsApp contacto</span>
                 <input
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   placeholder="+595..."
                   value={saasWhatsapp}
                   onChange={(e) => setSaasWhatsapp(e.target.value)}
@@ -335,7 +335,7 @@ export default function ProyectoNuevoClient() {
               <label className="block text-sm sm:col-span-2">
                 <span className="text-slate-700">Observaciones</span>
                 <textarea
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   rows={3}
                   value={saasObservaciones}
                   onChange={(e) => setSaasObservaciones(e.target.value)}

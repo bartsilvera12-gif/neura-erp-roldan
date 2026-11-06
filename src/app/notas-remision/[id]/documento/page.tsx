@@ -75,14 +75,14 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
           <a href="/notas-remision" className="text-sm text-slate-600 hover:underline">← Volver al historial</a>
           <button
             onClick={() => window.print()}
-            className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+            className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
           >
             Imprimir
           </button>
         </div>
 
         <div
-          className="bg-white ring-1 ring-slate-200 rounded-md p-10 print:ring-0 print:rounded-none print:p-0 print:shadow-none"
+          className="bg-white ring-1 ring-slate-200 rounded-lg p-10 print:ring-0 print:rounded-none print:p-0 print:shadow-none"
           style={{ minHeight: "270mm" }}
         >
           {/* Encabezado: logo + datos empresa | título doc + número */}
@@ -109,9 +109,9 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
 
-            <div className="shrink-0 rounded-md border border-slate-300 px-4 py-3 text-right">
+            <div className="shrink-0 rounded-lg border border-slate-300 px-4 py-3 text-right">
               <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500">Documento no fiscal</p>
-              <h1 className="mt-1 text-[15px] font-bold uppercase tracking-wide text-slate-900">Nota de Remisión</h1>
+              <h1 className="mt-1 text-[15px] font-semibold uppercase tracking-wide text-slate-900">Nota de Remisión</h1>
               <p className="mt-2 font-mono text-[18px] font-bold text-slate-900">{nr.numero}</p>
               <p className="mt-1 text-[10px] text-slate-500">
                 Estado: <strong className="uppercase text-slate-700">{nr.estado}</strong>
@@ -133,12 +133,12 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
 
           {/* Punto de partida / llegada */}
           <div className="mt-5 grid grid-cols-2 gap-4">
-            <div className="rounded-md border border-slate-300 px-4 py-3">
+            <div className="rounded-lg border border-slate-300 px-4 py-3">
               <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500">Punto de partida</p>
               <p className="mt-1 text-[13px] font-semibold text-slate-900">{origenNombre || "—"}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Dirección: —</p>
             </div>
-            <div className="rounded-md border border-slate-300 px-4 py-3">
+            <div className="rounded-lg border border-slate-300 px-4 py-3">
               <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500">Punto de llegada</p>
               <p className="mt-1 text-[13px] font-semibold text-slate-900">{destinoNombre || "—"}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Dirección: —</p>
@@ -146,13 +146,13 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* Motivo del traslado — checkboxes estilo SIFEN */}
-          <div className="mt-5 rounded-md border border-slate-300 px-4 py-3">
+          <div className="mt-5 rounded-lg border border-slate-300 px-4 py-3">
             <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500 mb-2">Motivo del traslado (marque una sola opción)</p>
             <MotivoChecks motivo={nr.motivo} />
           </div>
 
           {/* Transporte */}
-          <div className="mt-5 rounded-md border border-slate-300 px-4 py-3">
+          <div className="mt-5 rounded-lg border border-slate-300 px-4 py-3">
             <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500 mb-2">Datos del transporte</p>
             <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-[11px]">
               <Field label="Marca del vehículo" value="—" />
@@ -202,7 +202,7 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
 
           {/* Observaciones */}
           {nr.observaciones?.trim() && (
-            <div className="mt-5 rounded-md border border-slate-300 px-4 py-3">
+            <div className="mt-5 rounded-lg border border-slate-300 px-4 py-3">
               <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500">Observaciones</p>
               <p className="mt-1 text-[12px] text-slate-800 whitespace-pre-wrap">{nr.observaciones}</p>
             </div>
@@ -210,12 +210,12 @@ export default function DocumentoNRPage({ params }: { params: Promise<{ id: stri
 
           {/* Estado de recepción */}
           {nr.estado === "aprobada" && (
-            <div className="mt-4 rounded-md border border-slate-300 bg-slate-50 px-4 py-2 text-[11px] text-slate-700">
+            <div className="mt-4 rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-[11px] text-slate-700">
               Recepción confirmada por <strong>{nr.aprobada_por}</strong> el {fmtFechaHora(nr.aprobada_at)}.
             </div>
           )}
           {nr.estado === "rechazada" && (
-            <div className="mt-4 rounded-md border border-slate-400 bg-slate-100 px-4 py-2 text-[11px] text-slate-700">
+            <div className="mt-4 rounded-lg border border-slate-400 bg-slate-100 px-4 py-2 text-[11px] text-slate-700">
               Rechazada. Motivo: {nr.motivo_rechazo}
             </div>
           )}

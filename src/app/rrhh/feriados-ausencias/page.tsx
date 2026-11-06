@@ -267,7 +267,7 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
 
       {/* Formulario: se abre solo cuando hace falta */}
       {abierto ? (
-        <form onSubmit={guardar} className="rounded-xl border border-[#4FAEB2]/30 bg-white p-5 shadow-sm">
+        <form onSubmit={guardar} className="rounded-xl border border-[#4FAEB2]/30 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800">Registrar ausencia</h3>
             <button type="button" onClick={() => setAbierto(false)} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Cerrar"><X className="h-4 w-4" /></button>
@@ -344,7 +344,7 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
           {([["todas", "Todas"], ["actuales", "Hoy"], ["proximas", "Próximas"], ["pasadas", "Pasadas"]] as const).map(([v, l]) => (
             <button key={v} type="button" onClick={() => setFCuando(v)}
-              className={`rounded-md px-2.5 py-1.5 font-medium ${fCuando === v ? "bg-[#4FAEB2] text-white" : "text-slate-600 hover:bg-slate-50"}`}>{l}</button>
+              className={`rounded-lg px-2.5 py-1.5 font-medium ${fCuando === v ? "bg-[#4FAEB2] text-white" : "text-slate-600 hover:bg-slate-50"}`}>{l}</button>
           ))}
         </div>
         {hayFiltros && (
@@ -359,9 +359,9 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-4 py-3">Empleado</th>
               <th className="px-4 py-3">Tipo</th>
@@ -512,7 +512,7 @@ function TabFeriados({ feriados, loading, avisar, recargar, onBorrar }: {
       </div>
 
       {abierto && (
-        <form onSubmit={guardar} className="flex flex-wrap items-end gap-3 rounded-xl border border-[#4FAEB2]/30 bg-white p-5 shadow-sm">
+        <form onSubmit={guardar} className="flex flex-wrap items-end gap-3 rounded-xl border border-[#4FAEB2]/30 bg-white p-5">
           <div>
             <label className={lblCls}>Fecha</label>
             <input type="date" className={inputCls} value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
@@ -541,7 +541,7 @@ function TabFeriados({ feriados, loading, avisar, recargar, onBorrar }: {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {porMes.map((g) => (
-            <section key={g.mes} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <section key={g.mes} className="rounded-xl border border-slate-200 bg-white p-4">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{g.mes}</h3>
               <ul className="divide-y divide-slate-100">
                 {g.items.map((f) => {

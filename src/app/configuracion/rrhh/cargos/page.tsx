@@ -75,7 +75,7 @@ export function CatalogoCrud({ endpoint, listKey, itemKey, title, subtitle }: {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">{title}</h1>
         <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
       </div>
 
@@ -83,11 +83,11 @@ export function CatalogoCrud({ endpoint, listKey, itemKey, title, subtitle }: {
         <div className="flex-1">
           <label className="text-xs text-slate-600 font-medium">Nombre</label>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
             placeholder="Ej: Vendedor" />
         </div>
         <button type="submit" disabled={saving}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium disabled:opacity-50">
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50">
           {saving ? "Guardando…" : "+ Agregar"}
         </button>
       </form>
@@ -96,9 +96,9 @@ export function CatalogoCrud({ endpoint, listKey, itemKey, title, subtitle }: {
       {error && <p className="text-sm text-red-600">Error: {error}</p>}
 
       {!loading && (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Nombre</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Slug</th>

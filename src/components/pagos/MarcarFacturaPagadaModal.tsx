@@ -82,7 +82,7 @@ export default function MarcarFacturaPagadaModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-semibold text-slate-900">Marcar la factura como pagada</h3>
         <p className="mt-1 text-xs text-slate-500">
           {factura.proveedor_nombre} · {factura.numero_factura || factura.numero_control} ·{" "}

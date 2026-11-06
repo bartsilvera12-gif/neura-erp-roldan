@@ -247,12 +247,12 @@ function FlowsListContent() {
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-3 items-start">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Flujos conversacionales</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Flujos conversacionales</h1>
           <p className="text-sm text-slate-600 mt-1">Creá el flujo que usará tu bot de WhatsApp</p>
         </div>
         <Link
           href="/configuracion/canales"
-          className="text-sm font-medium text-[#0EA5E9] hover:underline px-3 py-2 rounded-lg border border-sky-200 bg-sky-50"
+          className="text-sm font-medium text-[#4FAEB2] hover:underline px-3 py-2 rounded-lg border border-sky-200 bg-sky-50"
         >
           Ir a Canales y comunicación
         </Link>
@@ -291,7 +291,7 @@ function FlowsListContent() {
             <button
               type="submit"
               disabled={creating}
-              className="shrink-0 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-semibold"
+              className="shrink-0 bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-semibold"
             >
               {creating ? "Creando…" : "Crear flujo"}
             </button>
@@ -301,7 +301,7 @@ function FlowsListContent() {
             <label className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
               <input
                 type="checkbox"
-                className="rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
+                className="rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
                 checked={advancedOpen}
                 onChange={(e) => {
                   const on = e.target.checked;
@@ -358,7 +358,7 @@ function FlowsListContent() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="text-left px-4 py-2">Nombre</th>
                   <th className="text-left px-4 py-2">ID interno</th>
@@ -389,7 +389,7 @@ function FlowsListContent() {
                     </td>
                     <td className="px-4 py-2">{fmt(r.updated_at)}</td>
                     <td className="px-4 py-2 flex gap-3">
-                      <Link href={`/configuracion/conversaciones/flujos/${encodeURIComponent(r.flow_code)}`} className="text-[#0EA5E9] hover:underline">
+                      <Link href={`/configuracion/conversaciones/flujos/${encodeURIComponent(r.flow_code)}`} className="text-[#4FAEB2] hover:underline">
                         Editar
                       </Link>
                       <button type="button" onClick={() => void toggleFlow(r.flow_code, r.activo)} className="text-slate-600 hover:underline" disabled={togglingCode === r.flow_code}>

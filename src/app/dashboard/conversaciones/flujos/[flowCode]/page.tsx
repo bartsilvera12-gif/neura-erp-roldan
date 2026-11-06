@@ -1255,7 +1255,7 @@ export default function FlowEditorPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-3 items-start">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Editor de flujo conversacional</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editor de flujo conversacional</h1>
           <p className="text-sm text-slate-500 font-mono mt-0.5">{flowCode}</p>
           <p className="text-sm text-slate-600 mt-1">
             Pasos del bot, mensajes, botones o listas, capturas y el siguiente paso en WhatsApp.
@@ -1263,7 +1263,7 @@ export default function FlowEditorPage() {
         </div>
         <Link
           href="/configuracion/conversaciones/flujos"
-          className="text-sm font-medium text-[#0EA5E9] hover:underline px-3 py-2 rounded-lg border border-sky-200 bg-sky-50"
+          className="text-sm font-medium text-[#4FAEB2] hover:underline px-3 py-2 rounded-lg border border-sky-200 bg-sky-50"
         >
           Volver a Configuración de Flujos
         </Link>
@@ -1275,7 +1275,7 @@ export default function FlowEditorPage() {
           onClick={() => setEditorTab("pasos")}
           className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
             editorTab === "pasos"
-              ? "bg-[#0EA5E9] text-white border-[#0EA5E9]"
+              ? "bg-[#4FAEB2] text-white border-[#4FAEB2]"
               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
           }`}
         >
@@ -1286,7 +1286,7 @@ export default function FlowEditorPage() {
           onClick={() => setEditorTab("automatizaciones")}
           className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
             editorTab === "automatizaciones"
-              ? "bg-[#0EA5E9] text-white border-[#0EA5E9]"
+              ? "bg-[#4FAEB2] text-white border-[#4FAEB2]"
               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
           }`}
         >
@@ -1322,7 +1322,7 @@ export default function FlowEditorPage() {
         </div>
       )}
 
-      <form onSubmit={createNode} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-end shadow-sm">
+      <form onSubmit={createNode} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[180px]">
           <label className="block text-xs text-slate-500 mb-1">Nombre del paso (código interno)</label>
           <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newNodeCode} onChange={(e) => setNewNodeCode(e.target.value)} placeholder="ej: datos_pago" />
@@ -1339,7 +1339,7 @@ export default function FlowEditorPage() {
         <button
           type="submit"
           disabled={creatingNode}
-          className="bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          className="bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium"
         >
           {creatingNode ? "Creando..." : "Crear nodo"}
         </button>
@@ -1416,7 +1416,7 @@ export default function FlowEditorPage() {
                   {node.node_type !== "buttons" && node.node_type !== "list" && (
                     <button
                       type="button"
-                      className="text-xs px-2 py-1 rounded-md border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
+                      className="text-xs px-2 py-1 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
                       title="Inserta un paso después del actual y antes de su siguiente destino"
                       onClick={() => {
                         setInsertDraft({ node_code: "", node_type: "text", message_text: "", save_as_field: "" });
@@ -1429,7 +1429,7 @@ export default function FlowEditorPage() {
                   {node.node_type !== "buttons" && node.node_type !== "list" && (
                     <button
                       type="button"
-                      className="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      className="text-xs px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                       onClick={() => {
                         setChangeNextValue(node.next_node_code ?? "");
                         setChangeNextModal({ kind: "node", nodeId: node.id });
@@ -1446,7 +1446,7 @@ export default function FlowEditorPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedNodeId((prev) => (prev === node.id ? null : node.id))}
-                    className="text-xs text-[#0EA5E9] hover:underline"
+                    className="text-xs text-[#4FAEB2] hover:underline"
                   >
                     {isExpanded ? "Cerrar edición" : "Editar"}
                   </button>
@@ -1584,7 +1584,7 @@ export default function FlowEditorPage() {
               )}
 
               {node.node_type === "media" && (
-                <div className="border border-fuchsia-100 rounded-lg p-4 space-y-3 bg-white shadow-sm ring-1 ring-fuchsia-100/80">
+                <div className="border border-fuchsia-100 rounded-xl p-4 space-y-3 bg-white ring-1 ring-fuchsia-100/80">
                   <div className="text-sm font-semibold text-fuchsia-800">Mensaje con imagen</div>
                   <p className="text-xs text-slate-600">
                     WhatsApp envía una sola burbuja: imagen arriba y texto opcional debajo (caption).
@@ -1711,7 +1711,7 @@ export default function FlowEditorPage() {
                     <button
                       type="button"
                       disabled={creatingBlockKey === blockBusyKey(node.id, "image")}
-                      className="inline-flex items-center rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white hover:bg-[#0284C7] disabled:opacity-60 disabled:pointer-events-none"
+                      className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-60 disabled:pointer-events-none"
                       onClick={async () => {
                         const busy = blockBusyKey(node.id, "image");
                         setError(null);
@@ -1776,7 +1776,7 @@ export default function FlowEditorPage() {
                             <img
                               src={mediaUrl}
                               alt="Vista previa"
-                              className="max-h-40 w-auto rounded-lg border border-slate-200 bg-white shadow-sm"
+                              className="max-h-40 w-auto rounded-lg border border-slate-200 bg-white"
                             />
                             <p className="text-sm text-slate-800 whitespace-pre-wrap">
                               {caption || "Sin texto bajo la imagen"}
@@ -1845,7 +1845,7 @@ export default function FlowEditorPage() {
                       <button
                         type="button"
                         disabled={creatingBlockKey === blockBusyKey(node.id, "text")}
-                        className="text-xs text-[#0EA5E9] hover:underline disabled:opacity-50"
+                        className="text-xs text-[#4FAEB2] hover:underline disabled:opacity-50"
                         onClick={async () => {
                           const busy = blockBusyKey(node.id, "text");
                           setCreatingBlockKey(busy);
@@ -1876,7 +1876,7 @@ export default function FlowEditorPage() {
                     <button
                       type="button"
                       disabled={creatingBlockKey === blockBusyKey(node.id, "image")}
-                      className="text-xs text-[#0EA5E9] hover:underline disabled:opacity-50"
+                      className="text-xs text-[#4FAEB2] hover:underline disabled:opacity-50"
                       onClick={async () => {
                         const busy = blockBusyKey(node.id, "image");
                         setCreatingBlockKey(busy);
@@ -1907,7 +1907,7 @@ export default function FlowEditorPage() {
                       <button
                         type="button"
                         disabled={creatingBlockKey === blockBusyKey(node.id, "buttons")}
-                        className="text-xs text-[#0EA5E9] hover:underline disabled:opacity-50"
+                        className="text-xs text-[#4FAEB2] hover:underline disabled:opacity-50"
                         onClick={async () => {
                           const busy = blockBusyKey(node.id, "buttons");
                           setCreatingBlockKey(busy);
@@ -1953,7 +1953,7 @@ export default function FlowEditorPage() {
                   ? node.blocks.filter((b) => b.block_type === "image")
                   : node.blocks
                 ).map((block, bi) => (
-                  <div key={block.id} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+                  <div key={block.id} className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-slate-500">Bloque #{bi + 1} ({block.block_type})</div>
                       <div className="flex gap-2">
@@ -2034,7 +2034,7 @@ export default function FlowEditorPage() {
                         onChange={(e) => setNodes((prev) => prev.map((n) => n.id !== node.id ? n : ({ ...n, blocks: n.blocks.map((b) => b.id === block.id ? { ...b, content_text: e.target.value } : b) })))}
                       />
                     )}
-                    <button type="button" className="text-xs text-[#0EA5E9] hover:underline" onClick={async () => {
+                    <button type="button" className="text-xs text-[#4FAEB2] hover:underline" onClick={async () => {
                       try {
                         const latestNode = nodes.find((n) => n.id === node.id);
                         const latestBlock = latestNode?.blocks.find((b) => b.id === block.id);
@@ -2078,7 +2078,7 @@ export default function FlowEditorPage() {
                     setSavingNodeId(null);
                   }
                 }}
-                className="bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                className="bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium"
               >
                 {savingNodeId === node.id ? "Guardando..." : "Guardar paso"}
               </button>
@@ -2210,7 +2210,7 @@ export default function FlowEditorPage() {
                               setOptionSaveError((prev) => ({ ...prev, [opt.id]: msg }));
                             }
                           }}
-                          className="text-[#0EA5E9] hover:underline text-sm"
+                          className="text-[#4FAEB2] hover:underline text-sm"
                         >
                           Guardar
                         </button>
@@ -2342,7 +2342,7 @@ export default function FlowEditorPage() {
                       <div className="md:col-span-4 flex flex-wrap gap-2 pt-1">
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded-md border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
+                          className="text-xs px-2 py-1 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
                           onClick={() => {
                             setInsertDraft({ node_code: "", node_type: "text", message_text: "", save_as_field: "" });
                             setInsertModal({
@@ -2357,7 +2357,7 @@ export default function FlowEditorPage() {
                         </button>
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          className="text-xs px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                           onClick={() => {
                             setChangeNextValue(opt.next_node_code ?? "");
                             setChangeNextModal({ kind: "option", nodeId: node.id, optionId: opt.id });
@@ -2371,7 +2371,7 @@ export default function FlowEditorPage() {
                           <label className="block text-xs text-slate-500">Datos de la opción seleccionada</label>
                           <button
                             type="button"
-                            className="text-xs text-[#0EA5E9] hover:underline"
+                            className="text-xs text-[#4FAEB2] hover:underline"
                             onClick={() =>
                               setOptionEditorMode((prev) => ({
                                 ...prev,
@@ -2565,7 +2565,7 @@ export default function FlowEditorPage() {
                             setError(e instanceof Error ? e.message : "Error al crear opción");
                           }
                         }}
-                        className="text-sm text-[#0EA5E9] hover:underline"
+                        className="text-sm text-[#4FAEB2] hover:underline"
                       >
                         + Agregar opción
                       </button>
@@ -2581,7 +2581,7 @@ export default function FlowEditorPage() {
                               setError(e instanceof Error ? e.message : "Error al crear opción");
                             }
                           }}
-                          className="text-sm text-[#0EA5E9] hover:underline"
+                          className="text-sm text-[#4FAEB2] hover:underline"
                         >
                           + Nuevo grupo
                         </button>
@@ -2611,7 +2611,7 @@ export default function FlowEditorPage() {
                             setError(e instanceof Error ? e.message : "Error al crear opción");
                           }
                         }}
-                        className="text-sm text-[#0EA5E9] hover:underline"
+                        className="text-sm text-[#4FAEB2] hover:underline"
                       >
                         + Agregar botón
                       </button>
@@ -2694,7 +2694,7 @@ export default function FlowEditorPage() {
               </button>
               <button
                 type="button"
-                className="px-4 py-2 text-sm rounded-lg bg-[#0EA5E9] text-white hover:bg-[#0284C7] disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-lg bg-[#4FAEB2] text-white hover:bg-[#3F8E91] disabled:opacity-50"
                 disabled={insertBusy}
                 onClick={() => void submitInsertBetween()}
               >
@@ -2735,7 +2735,7 @@ export default function FlowEditorPage() {
               </button>
               <button
                 type="button"
-                className="px-4 py-2 text-sm rounded-lg bg-[#0EA5E9] text-white hover:bg-[#0284C7] disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-lg bg-[#4FAEB2] text-white hover:bg-[#3F8E91] disabled:opacity-50"
                 disabled={changeNextBusy}
                 onClick={() => void applyChangeNextModal()}
               >
@@ -2746,7 +2746,7 @@ export default function FlowEditorPage() {
         </div>
       )}
 
-      <details className="bg-white border border-slate-200 rounded-xl shadow-sm group">
+      <details className="bg-white border border-slate-200 rounded-xl group">
         <summary className="cursor-pointer list-none px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-800 hover:bg-slate-50/80 rounded-xl [&::-webkit-details-marker]:hidden">
           <span className="inline-flex items-center gap-2">
             <span className="text-slate-400 group-open:rotate-90 transition-transform">▸</span>
@@ -2796,7 +2796,7 @@ export default function FlowEditorPage() {
               Mensaje si faltan datos para registrar la compra del sorteo (WhatsApp). Vacío = texto por defecto del sistema.
             </label>
             <textarea
-              className="w-full min-h-[88px] rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="w-full min-h-[88px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={sorteoIncompleteMsgDraft}
               onChange={(e) => setSorteoIncompleteMsgDraft(e.target.value)}
               placeholder="Ej.: No pudimos registrar esta compra. Tocá de nuevo tu opción y enviá el comprobante."
@@ -2804,7 +2804,7 @@ export default function FlowEditorPage() {
             />
             <button
               type="button"
-              className="rounded-md bg-slate-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+              className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
               disabled={savingSorteoIncompleteMsg}
               onClick={() => void saveSorteoIncompleteMessage()}
             >

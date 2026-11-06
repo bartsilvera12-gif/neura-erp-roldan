@@ -65,7 +65,7 @@ export default function ProveedoresPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Proveedores</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Proveedores</h1>
           <p className="text-gray-600">
             Maestro de abastecimiento: rubros, condiciones de pago y vínculo futuro con compras.
           </p>
@@ -101,27 +101,27 @@ export default function ProveedoresPage() {
           />
           <Link
             href="/proveedores/categorias"
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Rubros
           </Link>
           <Link
             href="/proveedores/nuevo"
-            className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#0284C7]"
+            className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#3F8E91]"
           >
             + Nuevo proveedor
           </Link>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <input
             type="search"
             placeholder="Buscar por nombre, RUC, email o rubro…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0EA5E9]"
+            className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-[#4FAEB2]"
           />
           <span className="text-sm text-slate-400">
             {filtradas.length} de {lista.length}

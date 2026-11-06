@@ -36,7 +36,7 @@ export function ConectarCanalModal({ open, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="conectar-canal-title"
-        className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+        className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl"
       >
         <h2 id="conectar-canal-title" className="text-lg font-bold text-slate-900">
           Conectar canal
@@ -48,7 +48,7 @@ export function ConectarCanalModal({ open, onClose }: Props) {
             <Link
               href="/configuracion/canales/nuevo"
               onClick={onClose}
-              className="flex w-full items-center justify-between rounded-xl border-2 border-[#0EA5E9] bg-sky-50 px-4 py-3 text-left font-semibold text-slate-900 hover:bg-sky-100 transition-colors"
+              className="flex w-full items-center justify-between rounded-xl border-2 border-[#4FAEB2] bg-sky-50 px-4 py-3 text-left font-semibold text-slate-900 hover:bg-sky-100 transition-colors"
             >
               <span>WhatsApp (Meta)</span>
               <span className="text-[11px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">

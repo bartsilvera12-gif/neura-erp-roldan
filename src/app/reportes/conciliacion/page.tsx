@@ -120,7 +120,7 @@ export default function ConciliacionReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar la conciliación.
         </div>
       ) : (
@@ -133,7 +133,7 @@ export default function ConciliacionReportePage() {
           </div>
 
           {/* Resumen de conciliación: saldo sistema vs banco */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-1">Resumen de conciliación</h2>
             <p className="text-xs text-slate-400 mb-4">Cargá el saldo de tu extracto bancario para ver la diferencia contra el sistema.</p>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -149,7 +149,7 @@ export default function ConciliacionReportePage() {
                   onChange={(e) => setSaldoBanco(e.target.value)}
                   inputMode="numeric"
                   placeholder="Cargá del extracto"
-                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-lg font-bold tabular-nums outline-none focus:ring-2 focus:ring-[#4FAEB2]/40"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-lg font-bold tabular-nums outline-none focus:ring-2 focus:ring-[#4FAEB2]/40"
                 />
                 <div className="text-xs text-slate-400">del extracto (no se guarda)</div>
               </div>
@@ -184,7 +184,7 @@ export default function ConciliacionReportePage() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Por método */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h2 className="text-base font-semibold text-slate-800 mb-4">Por método</h2>
               {data.porMetodo.length === 0 ? (
                 <p className="text-sm text-slate-400">Sin cobros con detalle.</p>
@@ -211,7 +211,7 @@ export default function ConciliacionReportePage() {
             </div>
 
             {/* Por entidad */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h2 className="text-base font-semibold text-slate-800 mb-4">Por entidad / caja</h2>
               {data.porEntidad.length === 0 ? (
                 <p className="text-sm text-slate-400">Sin cobros con detalle.</p>
@@ -239,7 +239,7 @@ export default function ConciliacionReportePage() {
           </div>
 
           {/* Movimientos del mes con conciliación (aprobar / rechazar) */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Movimientos del mes</h2>
             {movs.length === 0 ? (
               <p className="text-sm text-slate-400">No hay cobros por transferencia o tarjeta en el período.</p>

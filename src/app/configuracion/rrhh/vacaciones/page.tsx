@@ -87,7 +87,7 @@ export default function PoliticaVacacionesPage() {
       />
 
       <div className="grid max-w-5xl grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="mb-4 flex items-center gap-2.5">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#3F8E91]"><Scale className="h-4 w-4" /></span>
             <div>
@@ -112,7 +112,7 @@ export default function PoliticaVacacionesPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="mb-4 flex items-center gap-2.5">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#4FAEB2]/10 text-[#3F8E91]"><CalendarDays className="h-4 w-4" /></span>
             <div>

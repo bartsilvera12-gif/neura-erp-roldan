@@ -92,14 +92,14 @@ export default function PlanesPage() {
       {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Planes</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Planes</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Gestión de planes disponibles del sistema
           </p>
         </div>
         <Link
           href="/planes/nuevo"
-          className="inline-flex items-center gap-2 bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -109,7 +109,7 @@ export default function PlanesPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
@@ -119,14 +119,14 @@ export default function PlanesPage() {
             placeholder="Buscar por nombre, código…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white"
           />
         </div>
 
         <Selector
           value={filtroEst}
           onChange={(e) => setFiltroEst(e.target.value as typeof filtroEst)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white"
+          className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white"
         >
           <option value="">Todos los estados</option>
           <option value="activo">Activo</option>
@@ -136,7 +136,7 @@ export default function PlanesPage() {
         <Selector
           value={filtroPer}
           onChange={(e) => setFiltroPer(e.target.value as typeof filtroPer)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white"
+          className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white"
         >
           <option value="">Todas las periodicidades</option>
           <option value="mensual">Mensual</option>
@@ -162,14 +162,14 @@ export default function PlanesPage() {
 
       {/* Tabla — overflow-x-auto + min-w fuerzan scroll horizontal en mobile;
           columnas Codigo/Usuarios/Clientes/Facturas se ocultan progresivamente. */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         {filtrados.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">
             No se encontraron planes con los filtros aplicados.
           </div>
         ) : (
           <table className="w-full min-w-[960px] sm:min-w-0 text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-gray-50 border-b border-gray-100 bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left text-sm font-semibold text-slate-600 px-4 py-3 uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">Código</th>
                 <th className="text-left text-sm font-semibold text-slate-600 px-4 py-3 uppercase tracking-wide whitespace-nowrap">Nombre</th>

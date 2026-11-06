@@ -190,7 +190,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
     });
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center bg-gray-50">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl p-8">
           <AlertTriangle className="h-10 w-10 text-amber-500 mb-3" aria-hidden />
           <h1 className="text-lg font-semibold text-gray-900 mb-2">
             Módulo no habilitado para esta empresa.
@@ -203,7 +203,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
           </p>
           <Link
             href={fallback}
-            className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
+            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
           >
             Volver al inicio
           </Link>

@@ -142,7 +142,7 @@ export default function EmpleadosPage() {
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
           {([["activos", "Activos"], ["baja", "De baja"], ["todos", "Todos"]] as const).map(([v, l]) => (
             <button key={v} type="button" onClick={() => setFiltro(v)}
-              className={`rounded-md px-3 py-1.5 font-medium transition-colors ${filtro === v ? "bg-[#4FAEB2] text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+              className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${filtro === v ? "bg-[#4FAEB2] text-white" : "text-slate-600 hover:bg-slate-50"}`}>
               {l}
             </button>
           ))}
@@ -154,7 +154,7 @@ export default function EmpleadosPage() {
       {error && <p className="text-sm text-red-600">Error: {error}</p>}
 
       {!loading && !error && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-sm">
               <thead>
@@ -182,7 +182,7 @@ export default function EmpleadosPage() {
                 {filtrados.map((e) => (
                   <tr key={e.id} className="transition-colors hover:bg-[#4FAEB2]/[0.04]">
                     <td className="px-4 py-3">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
+                      <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
                         {e.legajo || "—"}
                       </span>
                     </td>

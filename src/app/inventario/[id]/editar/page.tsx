@@ -445,7 +445,7 @@ export default function EditarProductoPage() {
   if (cargando || !rolCargado || !isAdmin) {
     return (
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold text-gray-800">Editar producto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editar producto</h1>
         <p className="text-gray-500 animate-pulse">Cargando…</p>
       </div>
     );
@@ -460,11 +460,11 @@ export default function EditarProductoPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Editar producto</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editar producto</h1>
         <p className="text-gray-600">Modifica los datos del producto</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6 max-w-5xl">
+      <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-5xl">
         <form className="space-y-6" onSubmit={handleSubmit} noValidate>
           {errorGeneral && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -541,7 +541,7 @@ export default function EditarProductoPage() {
                   type="button"
                   onClick={handleGenerarSku}
                   disabled={generandoSku}
-                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/5 disabled:opacity-50"
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-[#3F8E91] hover:bg-[#4FAEB2]/5 disabled:opacity-50"
                 >
                   {generandoSku ? "…" : "Generar SKU"}
                 </button>
@@ -550,7 +550,7 @@ export default function EditarProductoPage() {
                 <Selector
                   onChange={handleSelectPatron}
                   defaultValue=""
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-[#4FAEB2]"
                 >
                   <option value="">Usar patrón existente…</option>
                   {skuPatrones.map((p) => (
@@ -653,7 +653,7 @@ export default function EditarProductoPage() {
                   </span>
                   <Link
                     href="/inventario/categorias"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-lg transition-colors"
                   >
                     + Crear
                   </Link>
@@ -673,7 +673,7 @@ export default function EditarProductoPage() {
                   </span>
                   <Link
                     href="/proveedores/nuevo"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-lg transition-colors"
                   >
                     + Crear
                   </Link>
@@ -694,7 +694,7 @@ export default function EditarProductoPage() {
                   </span>
                   <Link
                     href="/inventario/ubicaciones"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-md transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 px-2.5 py-1 rounded-lg transition-colors"
                   >
                     + Crear
                   </Link>

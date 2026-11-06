@@ -1459,7 +1459,7 @@ export function ConversacionesClient({
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl p-5"
+            className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl p-5"
             onClick={(ev) => ev.stopPropagation()}
           >
             <p className="text-sm text-slate-800 font-medium">Confirmar aprobación</p>
@@ -1546,7 +1546,7 @@ export function ConversacionesClient({
             role="dialog"
             aria-modal="true"
             aria-labelledby="finalize-chat-title"
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
             onClick={(ev) => ev.stopPropagation()}
           >
             <h2 id="finalize-chat-title" className="text-lg font-semibold text-slate-900">
@@ -1650,7 +1650,7 @@ export function ConversacionesClient({
             role="dialog"
             aria-modal="true"
             aria-labelledby="nuevo-chat-title"
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl"
+            className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl"
             onClick={(ev) => ev.stopPropagation()}
             onSubmit={handleCreateChat}
           >
@@ -1767,7 +1767,7 @@ export function ConversacionesClient({
             role="dialog"
             aria-modal="true"
             aria-labelledby="transfer-chat-title"
-            className="w-full max-w-lg max-h-[min(92vh,720px)] overflow-hidden flex flex-col rounded-2xl border border-slate-200 bg-white shadow-xl"
+            className="w-full max-w-lg max-h-[min(92vh,720px)] overflow-hidden flex flex-col rounded-xl border border-slate-200 bg-white shadow-xl"
             onClick={(ev) => ev.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 shrink-0">
@@ -1872,7 +1872,7 @@ export function ConversacionesClient({
                               <span className="font-semibold text-slate-900 text-sm leading-snug">{a.nombre}</span>
                               {roleLabel ? (
                                 <span
-                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border shrink-0 ${omnicanalRoleBadgeClass(a.omnicanal_role)}`}
+                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border shrink-0 ${omnicanalRoleBadgeClass(a.omnicanal_role)}`}
                                 >
                                   {roleLabel}
                                 </span>
@@ -1920,7 +1920,7 @@ export function ConversacionesClient({
           <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4FAEB2] sm:inline">
             Omnicanal
           </span>
-          <h1 className="truncate text-base font-semibold leading-tight tracking-tight text-slate-900">
+          <h1 className="truncate leading-tight text-xl font-semibold tracking-tight text-slate-900">
             {agentDisplayName}
           </h1>
           <span className="text-xs leading-snug text-slate-500">
@@ -1933,7 +1933,7 @@ export function ConversacionesClient({
             {mode === "historial" ? (
               <>
                 {" · "}
-                <Link href="/dashboard/conversaciones" className="text-[#0EA5E9] hover:underline font-medium">
+                <Link href="/dashboard/conversaciones" className="text-[#4FAEB2] hover:underline font-medium">
                   Inbox
                 </Link>
               </>
@@ -1948,7 +1948,7 @@ export function ConversacionesClient({
               </span>
               <span className="text-[10px] text-slate-600 leading-snug">
                 Sin puesto en colas ·{" "}
-                <Link href="/configuracion/colas" className="font-semibold text-[#0EA5E9] hover:underline">
+                <Link href="/configuracion/colas" className="font-semibold text-[#4FAEB2] hover:underline">
                   Colas
                 </Link>
               </span>
@@ -1960,7 +1960,7 @@ export function ConversacionesClient({
               </span>
               <span className="text-[10px] text-slate-600 leading-snug">
                 Sin fila de agente en colas ·{" "}
-                <Link href="/configuracion/colas" className="font-semibold text-[#0EA5E9] hover:underline">
+                <Link href="/configuracion/colas" className="font-semibold text-[#4FAEB2] hover:underline">
                   Colas
                 </Link>
               </span>
@@ -2202,7 +2202,7 @@ export function ConversacionesClient({
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+      <div className="flex flex-1 min-h-0 border border-slate-200 rounded-xl overflow-hidden bg-white">
         {/* Lista — Master/Detail responsive:
               MOBILE (< lg): visible cuando NO hay chat seleccionado, ocupa todo el ancho.
                              Cuando user selecciona un chat -> se oculta y aparece el panel mensajes.
@@ -2301,7 +2301,7 @@ export function ConversacionesClient({
                   }`}
                 >
                   {activo ? (
-                    <span className="absolute inset-y-0 left-0 w-[3px] bg-[#0EA5E9]" aria-hidden="true" />
+                    <span className="absolute inset-y-0 left-0 w-[3px] bg-[#4FAEB2]" aria-hidden="true" />
                   ) : null}
                   <div className="flex items-start gap-2.5">
                     <span
@@ -2317,16 +2317,16 @@ export function ConversacionesClient({
                         </span>
                         <span className="flex shrink-0 items-center gap-1">
                           {vista === "bot" ? (
-                            <span className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md">
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-lg">
                               Bot
                             </span>
                           ) : c.human_taken_over || c.flow_status === "human" ? (
-                            <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-lg">
                               Humano
                             </span>
                           ) : null}
                           {c.unread_count > 0 ? (
-                            <span className="min-w-[20px] h-5 px-1.5 grid place-items-center bg-[#0EA5E9] text-white text-[11px] font-bold rounded-full tabular-nums">
+                            <span className="min-w-[20px] h-5 px-1.5 grid place-items-center bg-[#4FAEB2] text-white text-[11px] font-bold rounded-full tabular-nums">
                               {c.unread_count}
                             </span>
                           ) : null}
@@ -2350,13 +2350,13 @@ export function ConversacionesClient({
                       </p>
                       <div className="flex flex-wrap items-center gap-1 mt-2">
                         <span
-                          className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md border ${badgeEstadoClass(c.status)}`}
+                          className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-lg border ${badgeEstadoClass(c.status)}`}
                         >
                           {labelEstado(c.status)}
                         </span>
                         {c.queue_name ? (
                           <span
-                            className="text-[9px] font-medium text-indigo-800 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md truncate max-w-full"
+                            className="text-[9px] font-medium text-indigo-800 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-lg truncate max-w-full"
                             title={`Cola: ${c.queue_name}`}
                           >
                             Cola · {c.queue_name}
@@ -2367,7 +2367,7 @@ export function ConversacionesClient({
                       <div className="flex flex-wrap items-center gap-1 mt-1">
                         {c.assigned_agent_name ? (
                           <span
-                            className="text-[9px] font-semibold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md truncate max-w-full"
+                            className="text-[9px] font-semibold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-lg truncate max-w-full"
                             title={`Agente asignado: ${c.assigned_agent_name}`}
                           >
                             Agente · {c.assigned_agent_name}
@@ -2377,7 +2377,7 @@ export function ConversacionesClient({
                             const w = assignmentWaitBadge(c.assignment_wait_code, Boolean(c.queue_id));
                             return (
                               <span
-                                className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md border truncate max-w-full ${assignmentWaitBadgeClass(w.tone)}`}
+                                className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-lg border truncate max-w-full ${assignmentWaitBadgeClass(w.tone)}`}
                                 title="Sin agente asignado"
                               >
                                 {w.label}
@@ -2411,7 +2411,7 @@ export function ConversacionesClient({
                 <button
                   type="button"
                   onClick={() => setListColumnHidden(false)}
-                  className="text-xs font-medium text-[#0EA5E9] hover:underline"
+                  className="text-xs font-medium text-[#4FAEB2] hover:underline"
                 >
                   Mostrar lista de chats
                 </button>
@@ -2429,7 +2429,7 @@ export function ConversacionesClient({
                         <button
                           type="button"
                           onClick={() => setSelectedId(null)}
-                          className="lg:hidden inline-flex items-center justify-center min-w-[36px] min-h-[36px] -ml-1 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0"
+                          className="lg:hidden inline-flex items-center justify-center min-w-[36px] min-h-[36px] -ml-1 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0"
                           aria-label="Volver a la lista de chats"
                           title="Volver"
                         >
@@ -2526,7 +2526,7 @@ export function ConversacionesClient({
                             setTransferQueueTarget(selected.queue_id?.trim() ? selected.queue_id : "");
                             setTransferModalOpen(true);
                           }}
-                          className="inline-flex items-center gap-1 rounded-md bg-sky-600 text-white px-2 py-1 text-[11px] font-semibold shadow-sm hover:bg-sky-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg bg-sky-600 text-white px-2 py-1 text-[11px] font-semibold shadow-sm hover:bg-sky-700 disabled:opacity-50"
                         >
                           <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
                           Transferir
@@ -2537,7 +2537,7 @@ export function ConversacionesClient({
                           type="button"
                           disabled={opsBusy || finalizeSaving}
                           onClick={() => void openFinalizeModal()}
-                          className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
                         >
                           Finalizar
                         </button>
@@ -2550,7 +2550,7 @@ export function ConversacionesClient({
                               changeConversationStatus(selected.id, "open")
                             )
                           }
-                          className="inline-flex items-center rounded-md border border-emerald-400 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                          className="inline-flex items-center rounded-lg border border-emerald-400 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
                         >
                           Reabrir
                         </button>
@@ -2560,7 +2560,7 @@ export function ConversacionesClient({
                           type="button"
                           disabled={releasingBot}
                           onClick={() => void handleReleaseToBot()}
-                          className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                         >
                           {releasingBot ? "…" : "Modo bot"}
                         </button>
@@ -2571,7 +2571,7 @@ export function ConversacionesClient({
                           disabled={resendFlowStepLoading || opsBusy}
                           onClick={() => void handleResendCurrentFlowStep()}
                           title='Vuelve a enviar la pregunta o mensaje del nodo actual sin avanzar el flujo. Útil si el bot quedó trabado o el cliente no recibió el último paso.'
-                          className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50"
                         >
                           <RefreshCw
                             className={`w-3.5 h-3.5 shrink-0 ${resendFlowStepLoading ? "animate-spin" : ""}`}
@@ -2583,7 +2583,7 @@ export function ConversacionesClient({
                       {selected.contact.cliente_id ? (
                         <Link
                           href={`/clientes/${selected.contact.cliente_id}`}
-                          className="inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold text-[#0EA5E9] hover:underline"
+                          className="inline-flex items-center rounded-lg px-2 py-1 text-[11px] font-semibold text-[#4FAEB2] hover:underline"
                         >
                           Cliente
                         </Link>
@@ -2591,7 +2591,7 @@ export function ConversacionesClient({
                       {selected.contact.crm_prospecto_id ? (
                         <Link
                           href={`/crm/${selected.contact.crm_prospecto_id}`}
-                          className="inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold text-violet-600 hover:underline"
+                          className="inline-flex items-center rounded-lg px-2 py-1 text-[11px] font-semibold text-violet-600 hover:underline"
                         >
                           CRM
                         </Link>
@@ -2634,7 +2634,7 @@ export function ConversacionesClient({
                           {compVals.map((v) => (
                             <li
                               key={v.id}
-                              className="flex flex-wrap items-center gap-1.5 text-[11px] bg-white border border-slate-200 rounded-md px-1.5 py-1"
+                              className="flex flex-wrap items-center gap-1.5 text-[11px] bg-white border border-slate-200 rounded-lg px-1.5 py-1"
                             >
                               <span className="font-mono text-slate-600">{v.estado_validacion}</span>
                               {v.monto_validacion_status != null && v.monto_validacion_status !== "" ? (
@@ -2668,7 +2668,7 @@ export function ConversacionesClient({
                                   href={v.comprobante_url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="text-[#0EA5E9] hover:underline"
+                                  className="text-[#4FAEB2] hover:underline"
                                 >
                                   Ver archivo
                                 </a>
@@ -2735,9 +2735,9 @@ export function ConversacionesClient({
                         }`}
                       >
                         <div
-                          className={`max-w-[88%] rounded-2xl px-2.5 py-1.5 text-sm ${
+                          className={`max-w-[88%] rounded-xl px-2.5 py-1.5 text-sm ${
                             m.from_me
-                              ? "bg-[#0EA5E9] text-white rounded-br-md shadow-md shadow-sky-900/15 ring-1 ring-white/15"
+                              ? "bg-[#4FAEB2] text-white rounded-br-md shadow-md shadow-sky-900/15 ring-1 ring-white/15"
                               : "bg-white text-slate-800 rounded-bl-md border border-slate-200/95 shadow-sm border-l-[3px] border-l-sky-300/90"
                           }`}
                         >
@@ -2908,7 +2908,7 @@ export function ConversacionesClient({
                   onChange={(e) => void handleSendFile(e)}
                 />
                 {sendError && (
-                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
                     {sendError}
                   </div>
                 )}
@@ -3017,7 +3017,7 @@ export function ConversacionesClient({
                     ) : null}
                   </div>
                   <input
-                    className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2.5 py-2 text-sm min-h-[2.25rem] focus:ring-2 focus:ring-[#0EA5E9]/30 focus:border-[#0EA5E9] outline-none"
+                    className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2.5 py-2 text-sm min-h-[2.25rem] focus:ring-2 focus:ring-[#4FAEB2]/30 focus:border-[#4FAEB2] outline-none"
                     placeholder="Escribí un mensaje…"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -3026,7 +3026,7 @@ export function ConversacionesClient({
                   <button
                     type="submit"
                     disabled={sending || !input.trim()}
-                    className="bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm font-medium shrink-0 min-h-[2.25rem]"
+                    className="bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm font-medium shrink-0 min-h-[2.25rem]"
                   >
                     {sending ? "…" : "Enviar"}
                   </button>

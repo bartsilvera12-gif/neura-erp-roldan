@@ -150,7 +150,7 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
       {/* El alto se limita a la pantalla y el cuerpo scrollea: con "Más
           datos" abierto el formulario pasaba de largo y los botones
           quedaban fuera del borde, sin manera de confirmar. */}
-      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl">
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-xl bg-white shadow-2xl">
         <div className="shrink-0 px-6 pt-6">
         <h3 className="text-lg font-semibold text-slate-900">Nuevo cliente</h3>
         <p className="mt-1 text-xs text-slate-500">

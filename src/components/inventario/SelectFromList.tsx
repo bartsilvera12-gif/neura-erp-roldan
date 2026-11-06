@@ -40,7 +40,7 @@ export default function SelectFromList({
         onChange={(e) => onChange(e.target.value || null)}
         disabled={isEmpty}
         className={
-          "block w-full min-w-0 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white text-sm truncate disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed " +
+          "block w-full min-w-0 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white text-sm truncate disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed " +
           className
         }
       >

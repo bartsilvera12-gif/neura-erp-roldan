@@ -402,7 +402,7 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
 
       {/* ── El pago recién armado ─────────────────────────────────────── */}
       {chequeCreado && (
-        <div className="rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-emerald-200 bg-white p-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
             <div className="min-w-0 flex-1">
@@ -415,21 +415,21 @@ export default function OrdenDePago({ proveedorInicial = "", onPagoArmado }: {
                 <a
                   href={`/api/pagos/orden-pago/imprimir?cheque_id=${chequeCreado.id}`}
                   target="_blank" rel="noopener"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <Printer className="h-4 w-4" /> Imprimir la orden
                 </a>
                 {chequeCreado.imagen_storage_path && (
                   <button
                     type="button" onClick={() => void abrirArchivo(chequeCreado.imagen_storage_path!)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     <Eye className="h-4 w-4" /> Ver el cheque
                   </button>
                 )}
                 <button
                   type="button" onClick={() => inputImagenDespues.current?.click()} disabled={subiendoImagen}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 >
                   <ImagePlus className="h-4 w-4" />
                   {subiendoImagen ? "Subiendo…" : chequeCreado.imagen_storage_path ? "Cambiar la foto" : "Subir la foto del cheque"}

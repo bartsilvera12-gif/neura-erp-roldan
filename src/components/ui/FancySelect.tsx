@@ -218,7 +218,7 @@ export function FancySelect({
         </span>
         <span
           aria-hidden="true"
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[#4FAEB2] transition-all ${
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[#4FAEB2] transition-all ${
             open
               ? "rotate-180 bg-[#4FAEB2]/10"
               : "bg-transparent group-hover:bg-[#4FAEB2]/8"

@@ -24,7 +24,7 @@ function OnMissingSelect(props: {
 }) {
   return (
     <Selector
-      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white"
+      className="w-full border border-slate-200 rounded-xl px-2 py-1.5 text-xs bg-white"
       value={props.value}
       disabled={props.disabled}
       onChange={(e) => props.onChange(e.target.value as OnMissingBehavior)}
@@ -52,7 +52,7 @@ export function ComprobanteValidationPanelComprobantesCore({ value: s, onChange 
         Activar validación inteligente en este canal
       </label>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
         <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
           Monto del comprobante vs monto elegido en el flujo
         </h4>

@@ -233,7 +233,7 @@ export default function ProductPickerModal({
       {/* dvh (dynamic viewport height) en lugar de vh: en iOS Safari el vh
           incluye el espacio del URL bar/safe-area y el modal queda parcialmente
           oculto debajo del browser chrome. dvh devuelve el viewport REAL visible. */}
-      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[94dvh] sm:max-h-[88vh]" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-6xl bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col max-h-[94dvh] sm:max-h-[88vh]" onClick={(e) => e.stopPropagation()}>
         {/* Header con buscador */}
         <div className="p-4 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -354,7 +354,7 @@ export default function ProductPickerModal({
                   <button
                     type="button"
                     onClick={() => setSel(null)}
-                    className="inline-flex items-center gap-1.5 min-h-[40px] px-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-200/60 hover:text-slate-900 transition-colors"
+                    className="inline-flex items-center gap-1.5 min-h-[40px] px-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200/60 hover:text-slate-900 transition-colors"
                     aria-label="Volver a la lista de productos"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -412,7 +412,7 @@ export default function ProductPickerModal({
                           type="button"
                           onClick={() => handleTipoPrecio(t)}
                           className={`flex-1 py-1.5 px-1 text-center transition-colors ${
-                            tipoPrecio === t ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                            tipoPrecio === t ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
                           }`}
                         >
                           <span className="block text-xs font-medium">
@@ -458,7 +458,7 @@ export default function ProductPickerModal({
                         <button
                           key={opt} type="button"
                           onClick={() => setIva(opt)}
-                          className={`flex-1 py-1.5 text-xs font-medium ${iva === opt ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+                          className={`flex-1 py-1.5 text-xs font-medium ${iva === opt ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
                         >
                           {opt}
                         </button>

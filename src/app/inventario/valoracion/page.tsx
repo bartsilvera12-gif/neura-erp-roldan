@@ -118,14 +118,14 @@ export default function ValoracionPage() {
         <Link href="/inventario" className="text-xs font-medium text-slate-500 hover:text-slate-800">
           ← Volver a inventario
         </Link>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">Valoración de existencias</h1>
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Valoración de existencias</h1>
         <p className="text-sm text-slate-500">
           Cuánta mercadería había y cuánto valía, a la fecha que elijas.
         </p>
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Al cierre del día</span>
           <input
@@ -201,7 +201,7 @@ export default function ValoracionPage() {
       )}
 
       {agrupar ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -232,7 +232,7 @@ export default function ValoracionPage() {
           </table>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[840px] text-sm">
               <thead>

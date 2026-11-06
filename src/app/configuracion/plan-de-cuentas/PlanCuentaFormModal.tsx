@@ -132,7 +132,7 @@ export function PlanCuentaFormModal({
       onClick={onClose}
     >
       <div
-        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[88dvh] sm:rounded-2xl sm:border sm:border-slate-200"
+        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[88dvh] sm:rounded-xl sm:border sm:border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b p-5">

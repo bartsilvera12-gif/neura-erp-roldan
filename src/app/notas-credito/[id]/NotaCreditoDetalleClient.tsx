@@ -76,7 +76,7 @@ export default function NotaCreditoDetalleClient() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">{err ?? "Sin datos"}</div>
-        <Link href="/notas-credito" className="inline-block mt-4 text-[#0EA5E9] text-sm font-semibold hover:underline">
+        <Link href="/notas-credito" className="inline-block mt-4 text-[#4FAEB2] text-sm font-semibold hover:underline">
           ← Volver al listado
         </Link>
       </div>
@@ -91,10 +91,10 @@ export default function NotaCreditoDetalleClient() {
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/notas-credito" className="text-xs font-semibold text-[#0EA5E9] hover:underline">
+          <Link href="/notas-credito" className="text-xs font-semibold text-[#4FAEB2] hover:underline">
             ← Notas de crédito
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">Detalle de nota de crédito</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Detalle de nota de crédito</h1>
           <p className="text-xs font-mono text-slate-500 mt-0.5">{String(nc.id)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -117,13 +117,13 @@ export default function NotaCreditoDetalleClient() {
         </div>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Datos generales</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div>
             <dt className="text-slate-400 text-xs">Cliente</dt>
             <dd className="font-medium">
-              <Link href={`/clientes/${data.cliente.id}`} className="text-[#0EA5E9] hover:underline">
+              <Link href={`/clientes/${data.cliente.id}`} className="text-[#4FAEB2] hover:underline">
                 {data.cliente.display}
               </Link>
               {data.cliente.ruc ? <span className="text-slate-500 text-xs ml-1">RUC {data.cliente.ruc}</span> : null}
@@ -165,7 +165,7 @@ export default function NotaCreditoDetalleClient() {
       </section>
 
       {data.items.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
               Detalle de ítems{" "}
@@ -177,7 +177,7 @@ export default function NotaCreditoDetalleClient() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Producto</th>
                   <th className="px-3 py-2">SKU</th>
@@ -228,7 +228,7 @@ export default function NotaCreditoDetalleClient() {
       )}
 
       {ne && (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-2">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-2">
           <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Documento electrónico (SIFEN)</h2>
           <dl className="grid grid-cols-1 gap-2 text-xs font-mono text-slate-600 break-all">
             <div>
@@ -253,7 +253,7 @@ export default function NotaCreditoDetalleClient() {
             </div>
           </dl>
           <details className="text-xs">
-            <summary className="cursor-pointer text-[#0EA5E9] font-semibold">Respuestas SET (JSON)</summary>
+            <summary className="cursor-pointer text-[#4FAEB2] font-semibold">Respuestas SET (JSON)</summary>
             <pre className="mt-2 max-h-64 overflow-auto rounded bg-slate-50 p-2 text-[10px]">
               {JSON.stringify(
                 {
@@ -269,7 +269,7 @@ export default function NotaCreditoDetalleClient() {
         </section>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Acciones SIFEN</h2>
           <span className="text-[11px] text-slate-400">
@@ -278,7 +278,7 @@ export default function NotaCreditoDetalleClient() {
         </div>
         {flash && (
           <div
-            className={`rounded-md border px-3 py-2 text-xs ${
+            className={`rounded-lg border px-3 py-2 text-xs ${
               flash.kind === "ok"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-red-200 bg-red-50 text-red-800"
@@ -348,7 +348,7 @@ export default function NotaCreditoDetalleClient() {
           Los botones se habilitan según el estado SIFEN actual. También podés operar desde el panel embebido en la ficha
           de la factura origen. Para descargar XML/KUDE de la nota de crédito ya aprobada, andá al
           {" "}
-          <Link href={`/facturas/${data.factura.id}`} className="text-[#0EA5E9] font-medium hover:underline">
+          <Link href={`/facturas/${data.factura.id}`} className="text-[#4FAEB2] font-medium hover:underline">
             panel de la factura
           </Link>{" "}
           (mismo pipeline reutilizado).

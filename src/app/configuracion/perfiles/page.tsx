@@ -120,7 +120,7 @@ export default function PerfilesPage() {
     <div className="max-w-5xl space-y-5">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Perfiles de usuario</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Perfiles de usuario</h1>
         <p className="text-slate-600">
           Qué puede <strong>hacer</strong> cada puesto. Lo que puede <strong>ver</strong> se sigue
           asignando por módulos, en la ficha de cada usuario.
@@ -151,7 +151,7 @@ export default function PerfilesPage() {
           {perfiles.map((p) => {
             const abiertoEste = abierto === p.id;
             return (
-              <div key={p.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div key={p.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <button
                   type="button"
                   onClick={() => setAbierto(abiertoEste ? null : p.id)}

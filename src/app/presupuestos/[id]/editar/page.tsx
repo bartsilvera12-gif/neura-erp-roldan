@@ -81,7 +81,7 @@ const VALIDEZ_DIAS = 1;
 
 const IVAS: IvaTipoPresupuesto[] = ["10%", "5%", "EXENTA"];
 const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm";
+const inputClass = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm";
 
 export default function EditarPresupuestoPage() {
   const params = useParams<{ id: string }>();
@@ -447,9 +447,9 @@ export default function EditarPresupuestoPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-[#4FAEB2]" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Editar {numero || "presupuesto"}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editar {numero || "presupuesto"}</h1>
         </div>
-        <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm cursor-pointer select-none">
+        <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={usarMayorista}
@@ -460,10 +460,10 @@ export default function EditarPresupuestoPage() {
         </label>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
       {/* Cliente */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Cliente</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
@@ -533,7 +533,7 @@ export default function EditarPresupuestoPage() {
       </div>
 
       {/* Productos */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Productos</h2>
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
@@ -547,10 +547,10 @@ export default function EditarPresupuestoPage() {
                 .map((p) => ({ id: p.id, label: p.nombre, hint: p.sku || undefined }))}
             />
           </div>
-          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-md bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
             <Plus className="h-4 w-4" /> Agregar
           </button>
-          <button type="button" onClick={agregarManual} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          <button type="button" onClick={agregarManual} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
             <Plus className="h-4 w-4" /> Ítem manual
           </button>
         </div>
@@ -560,7 +560,7 @@ export default function EditarPresupuestoPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-sm">
-              <thead className="text-left text-xs text-gray-500 uppercase">
+              <thead className="text-left bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="py-2 pr-2">Descripción</th>
                   <th className="py-2 px-2 w-32">Cant.</th>
@@ -665,7 +665,7 @@ export default function EditarPresupuestoPage() {
       </div>
 
       {/* Condiciones */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Condiciones comerciales</h2>
         {/* Dos columnas desde que se sacó "Validez (días)": con tres quedaba un
             hueco a la derecha. */}
@@ -767,10 +767,10 @@ export default function EditarPresupuestoPage() {
       <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={puedeSinStock} />
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-        <Link href={`/presupuestos/${id}`} className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+        <Link href={`/presupuestos/${id}`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
           Cancelar
         </Link>
-        <button onClick={guardar} disabled={!valido || guardando} className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+        <button onClick={guardar} disabled={!valido || guardando} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
           {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar cambios"}
         </button>
       </div>

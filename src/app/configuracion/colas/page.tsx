@@ -102,13 +102,13 @@ export default function ConfiguracionColasPage() {
         <span>/</span>
         <span className="text-slate-800 font-medium">Colas y enrutamiento</span>
         <span className="text-slate-300">·</span>
-        <Link href="/configuracion/omnicanal-equipos" className="text-[#0EA5E9] hover:underline font-medium">
+        <Link href="/configuracion/omnicanal-equipos" className="text-[#4FAEB2] hover:underline font-medium">
           Equipos y supervisión
         </Link>
       </nav>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Colas y enrutamiento</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Colas y enrutamiento</h1>
           <p className="text-sm text-slate-500 mt-1 max-w-xl">
             Definí colas, canales asociados, estrategia de distribución y agentes por cola. El inbox y el webhook
             existentes siguen usando la misma base de datos.
@@ -117,7 +117,7 @@ export default function ConfiguracionColasPage() {
         <button
           type="button"
           onClick={() => void handleNew()}
-          className="rounded-xl bg-[#0EA5E9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0284C7]"
+          className="rounded-xl bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#3F8E91]"
         >
           Nueva cola
         </button>
@@ -133,7 +133,7 @@ export default function ConfiguracionColasPage() {
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         {loading ? (
           <p className="p-6 text-sm text-slate-400">Cargando…</p>
         ) : rows.length === 0 ? (
@@ -156,7 +156,7 @@ export default function ConfiguracionColasPage() {
                   </span>
                   <Link
                     href={`/configuracion/colas/${encodeURIComponent(String(q.id ?? "").trim())}`}
-                    className="text-sm font-semibold text-[#0EA5E9] hover:underline"
+                    className="text-sm font-semibold text-[#4FAEB2] hover:underline"
                   >
                     Editar
                   </Link>
@@ -167,7 +167,7 @@ export default function ConfiguracionColasPage() {
         )}
       </div>
       <p className="text-xs text-slate-400">
-        El módulo <Link href="/dashboard/monitoreo" className="text-[#0EA5E9] hover:underline">Monitoreo</Link> resume
+        El módulo <Link href="/dashboard/monitoreo" className="text-[#4FAEB2] hover:underline">Monitoreo</Link> resume
         carga operativa en tiempo casi real.
       </p>
     </div>

@@ -96,31 +96,31 @@ export default function EmpleadoSalarios({ empleadoId }: { empleadoId: string })
   }
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6 mt-6">
+    <section className="bg-white border border-slate-200 rounded-xl p-6 mt-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Histórico salarial</h2>
         <button type="button" onClick={() => setShowForm((s) => !s)}
-          className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-xs font-medium">
+          className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium">
           {showForm ? "Cancelar" : "+ Nuevo tramo"}
         </button>
       </div>
 
       {showForm && (
-        <form onSubmit={agregar} className="mb-4 p-3 border border-slate-200 rounded-md grid grid-cols-2 md:grid-cols-4 gap-2">
+        <form onSubmit={agregar} className="mb-4 p-3 border border-slate-200 rounded-lg grid grid-cols-2 md:grid-cols-4 gap-2">
           <div>
             <label className="text-xs text-slate-600">Desde *</label>
             <input required type="date" value={form.fecha_vigencia_desde} onChange={(e) => setForm({ ...form, fecha_vigencia_desde: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Hasta</label>
             <input type="date" value={form.fecha_vigencia_hasta} onChange={(e) => setForm({ ...form, fecha_vigencia_hasta: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Moneda</label>
             <Selector value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm">
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm">
               <option value="PYG">Guaraníes</option>
               <option value="USD">USD</option>
             </Selector>
@@ -129,37 +129,37 @@ export default function EmpleadoSalarios({ empleadoId }: { empleadoId: string })
           <div>
             <label className="text-xs text-slate-600">Salario bruto *</label>
             <input required type="number" min="0" value={form.salario_bruto} onChange={(e) => setForm({ ...form, salario_bruto: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Salario neto</label>
             <input type="number" min="0" value={form.salario_neto} onChange={(e) => setForm({ ...form, salario_neto: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Adic. insalubridad</label>
             <input type="number" min="0" value={form.plus_peligrosidad} onChange={(e) => setForm({ ...form, plus_peligrosidad: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
             <label className="text-xs text-slate-600">Adic. EPP/seguridad</label>
             <input type="number" min="0" value={form.plus_prl} onChange={(e) => setForm({ ...form, plus_prl: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div className="col-span-2">
             <label className="text-xs text-slate-600">Costo empresa (con aportes)</label>
             <input type="number" min="0" value={form.coste_empresa} onChange={(e) => setForm({ ...form, coste_empresa: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div className="col-span-2 md:col-span-4">
             <label className="text-xs text-slate-600">Observaciones</label>
             <input value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm"
+              className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm"
               placeholder="Ej: aumento por antigüedad, cambio de cargo, etc." />
           </div>
           <div className="col-span-2 md:col-span-4 flex justify-end">
             <button type="submit" disabled={saving}
-              className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium disabled:opacity-50">
+              className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50">
               {saving ? "Guardando…" : "Guardar tramo"}
             </button>
           </div>
@@ -169,9 +169,9 @@ export default function EmpleadoSalarios({ empleadoId }: { empleadoId: string })
       {loading ? <p className="text-sm text-slate-400">Cargando…</p> : (
         error ? <p className="text-sm text-red-600">Error: {error}</p> :
         salarios.length === 0 ? <p className="text-sm text-slate-400">Sin historial salarial.</p> :
-        <div className="border border-slate-200 rounded-md overflow-x-auto">
+        <div className="border border-slate-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Desde</th>
                 <th className="text-left px-3 py-2 font-medium text-slate-600">Hasta</th>

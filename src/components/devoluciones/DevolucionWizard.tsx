@@ -171,7 +171,7 @@ export default function DevolucionWizard({ ventaId, onClose, onDone }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="my-8 w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+      <div className="my-8 w-full max-w-3xl rounded-xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
           <div>

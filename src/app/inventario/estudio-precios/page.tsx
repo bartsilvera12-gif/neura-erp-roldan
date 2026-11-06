@@ -273,9 +273,9 @@ export default function EstudioPreciosPage() {
 
       {/* Resumen por rubro: cuántos artículos y con qué margen (punto 10.5). */}
       {porRubro.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-2.5 font-semibold">Rubro</th>
                 <th className="px-4 py-2.5 font-semibold text-right">Artículos</th>
@@ -314,7 +314,7 @@ export default function EstudioPreciosPage() {
       )}
 
       {/* Filtros */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Rubro</label>
@@ -343,7 +343,7 @@ export default function EstudioPreciosPage() {
 
       {/* Cambio masivo */}
       {isAdmin && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-800">Cambio masivo</h2>
           <p className="mb-3 text-xs text-slate-500">
             Se aplica a {marcados.size > 0
@@ -392,7 +392,7 @@ export default function EstudioPreciosPage() {
 
       {/* Historial de cambios (requisito 11.3). Colapsado: es para cuando se
           pregunta "¿quién tocó esto?", no para el uso de todos los días. */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <button
           type="button"
           onClick={() => setVerHistorial((v) => !v)}
@@ -454,7 +454,7 @@ export default function EstudioPreciosPage() {
 
           <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <thead className="sticky top-0 bg-slate-50 text-[11px] text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Producto</th>
                   <th className="px-3 py-2 font-semibold text-right">Costo</th>
@@ -498,10 +498,10 @@ export default function EstudioPreciosPage() {
       )}
 
       {/* Listado */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 {isAdmin && <th className="px-3 py-3 w-8" />}
                 <th className="px-4 py-3 font-semibold">Producto</th>

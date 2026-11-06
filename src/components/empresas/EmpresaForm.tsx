@@ -14,7 +14,7 @@ import { BarChart3, Building2, Package, User } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
-const fInput = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-white";
+const fInput = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] bg-white";
 
 export default function EmpresaForm() {
   const router = useRouter();
@@ -133,7 +133,7 @@ export default function EmpresaForm() {
       )}
 
       {/* Datos empresa */}
-      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 mb-5 pb-2 border-b border-gray-100">
           <Building2 className="h-4 w-4" aria-hidden />
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Datos de la empresa</h3>
@@ -191,7 +191,7 @@ export default function EmpresaForm() {
       </section>
 
       {/* Usuario administrador */}
-      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 mb-5 pb-2 border-b border-gray-100">
           <User className="h-4 w-4" aria-hidden />
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Usuario administrador</h3>
@@ -238,7 +238,7 @@ export default function EmpresaForm() {
       </section>
 
       {/* Módulos habilitados */}
-      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 mb-5 pb-2 border-b border-gray-100">
           <Package className="h-4 w-4" aria-hidden />
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Módulos habilitados</h3>
@@ -268,7 +268,7 @@ export default function EmpresaForm() {
         )}
       </section>
 
-      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 mb-5 pb-2 border-b border-gray-100">
           <BarChart3 className="h-4 w-4" aria-hidden />
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
@@ -309,7 +309,7 @@ export default function EmpresaForm() {
         <button
           type="submit"
           disabled={guardando}
-          className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+          className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {guardando ? "Creando…" : "Crear empresa"}
         </button>

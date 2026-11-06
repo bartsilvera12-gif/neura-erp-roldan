@@ -169,7 +169,7 @@ export default function AdjuntosEgreso({
                       Pegá la captura con Ctrl+V
                     </p>
                   )}
-                  <label className="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5">
+                  <label className="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5">
                     {ocupado ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
                     {ocupado ? "Subiendo…" : "Elegir archivo"}
                     <input

@@ -472,7 +472,7 @@ export default function EditarSorteoPage() {
         <span>/</span>
         <span className="text-slate-800 font-medium">Editar</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Editar sorteo</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-slate-900">Editar sorteo</h1>
       <div className="pt-1 flex flex-wrap gap-2">
         <Link
           href={`/configuracion/conversaciones/flujos?sorteo_id=${encodeURIComponent(id)}`}
@@ -527,7 +527,7 @@ export default function EditarSorteoPage() {
       )}
 
       <form noValidate onSubmit={handleSubmit} className="space-y-6">
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Datos del sorteo</h2>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
@@ -607,7 +607,7 @@ export default function EditarSorteoPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">
             Numeración de cupones
           </h2>
@@ -808,7 +808,7 @@ export default function EditarSorteoPage() {
             )}
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white">
                 {templatePreviewSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -851,7 +851,7 @@ export default function EditarSorteoPage() {
           </p>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Datos bancarios</h2>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Datos bancarios (JSON)</label>
@@ -866,7 +866,7 @@ export default function EditarSorteoPage() {
           <button
             type="submit"
             disabled={guardando}
-            className="bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-medium"
+            className="bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-medium"
           >
             {guardando ? "Guardando…" : "Guardar"}
           </button>

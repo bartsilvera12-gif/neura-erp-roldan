@@ -99,39 +99,39 @@ export default function EmpleadoDetallePage() {
       </Link>
 
       {/* Cabecera: quién es, de un vistazo. */}
-      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <Iniciales nombre={empleado.nombre} grande />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-bold text-slate-900">{empleado.nombre}</h1>
+              <h1 className="truncate text-xl font-semibold tracking-tight text-slate-900">{empleado.nombre}</h1>
               <EstadoEmpleadoBadge estado={String(empleado.estado ?? "activo")} />
             </div>
             <p className="mt-0.5 text-sm text-slate-500">
               {[empleado.cargo, empleado.departamento].filter(Boolean).join(" · ") || "Sin cargo cargado"}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono font-semibold text-slate-700">
+              <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-mono font-semibold text-slate-700">
                 Código {legajo ?? "—"}
               </span>
-              <span className="rounded-md bg-slate-50 px-2 py-0.5 font-medium text-slate-600">
+              <span className="rounded-lg bg-slate-50 px-2 py-0.5 font-medium text-slate-600">
                 {empleado.tipo_periodo === "jornal" ? "Jornalero" : "Mensualero"}
               </span>
               {(() => {
                 const h = normalizarHorario(empleado.horario_semanal);
                 return h ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-slate-600">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-0.5 text-slate-600">
                     <Clock className="h-3 w-3" /> {resumenHorario(h)}
                   </span>
                 ) : null;
               })()}
               {usuario ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-[#4FAEB2]/10 px-2 py-0.5 text-[#3F8E91]">
+                <span className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2]/10 px-2 py-0.5 text-[#3F8E91]">
                   <KeyRound className="h-3 w-3" /> {usuario.nombre || usuario.email}
                   {usuario.nombre && usuario.email ? <span className="text-slate-400">· {usuario.email}</span> : null}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-slate-400">
+                <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-0.5 text-slate-400">
                   <UserX className="h-3 w-3" /> Sin usuario del sistema
                 </span>
               )}

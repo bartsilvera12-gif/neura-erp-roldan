@@ -45,7 +45,7 @@ function ivaIncluido(total: number, tipo: IvaTipo): number {
   return 0;
 }
 
-const inp = "w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
+const inp = "w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
 
 export default function NuevaCompraConsignacionPage() {
   const router = useRouter();
@@ -201,7 +201,7 @@ export default function NuevaCompraConsignacionPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <Link href="/compras" className="text-sm text-teal-700 hover:underline">← Volver a compras</Link>
-      <h1 className="text-2xl font-bold text-slate-900 mt-2 mb-1">
+      <h1 className="mt-2 mb-1 text-xl font-semibold tracking-tight text-slate-900">
         {editando ? `Editar compra ${numeroEdit}` : "Nueva compra de consignación"}
       </h1>
       <p className="text-sm text-slate-500 mb-6">
@@ -214,7 +214,7 @@ export default function NuevaCompraConsignacionPage() {
 
       <form onSubmit={guardar} className="space-y-5">
         {/* ── Cabecera ── */}
-        <section className="bg-white border border-slate-200 rounded-lg p-5">
+        <section className="bg-white border border-slate-200 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Datos de la compra</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
@@ -282,7 +282,7 @@ export default function NuevaCompraConsignacionPage() {
         </section>
 
         {/* ── Líneas ── */}
-        <section className="bg-white border border-slate-200 rounded-lg p-5">
+        <section className="bg-white border border-slate-200 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Conceptos</h2>
           <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end mb-3">
             <div className="col-span-2 md:col-span-3">
@@ -312,7 +312,7 @@ export default function NuevaCompraConsignacionPage() {
               </Selector>
             </div>
             <div className="md:col-span-1">
-              <button type="button" onClick={agregarLinea} className="w-full px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium">+</button>
+              <button type="button" onClick={agregarLinea} className="w-full px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium">+</button>
             </div>
           </div>
 
@@ -365,14 +365,14 @@ export default function NuevaCompraConsignacionPage() {
           )}
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-lg p-5">
+        <section className="bg-white border border-slate-200 rounded-xl p-5">
           <label className="text-xs text-slate-600">Observaciones</label>
           <textarea rows={2} value={header.observaciones} onChange={(e) => setHeader({ ...header, observaciones: e.target.value })} className={inp} placeholder="Detalles adicionales…" />
         </section>
 
         <div className="flex justify-end gap-2">
-          <Link href="/compras" className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md text-sm">Cancelar</Link>
-          <button type="submit" disabled={saving} className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium disabled:opacity-50">
+          <Link href="/compras" className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</Link>
+          <button type="submit" disabled={saving} className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50">
             {saving ? "Guardando…" : editando ? "Guardar cambios" : "Guardar compra"}
           </button>
         </div>

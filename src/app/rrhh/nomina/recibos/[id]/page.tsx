@@ -158,12 +158,12 @@ export default function ReciboPage() {
         <span aria-hidden>←</span> Salarios de {nombreMes(cab.periodo_desde)}
       </Link>
 
-      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <Iniciales nombre={nombre} grande />
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3F8E91]">Recibo de salario · <span className="capitalize">{nombreMes(cab.periodo_desde)}</span></p>
-            <h1 className="truncate text-xl font-bold text-slate-900">{nombre}</h1>
+            <h1 className="truncate text-xl font-semibold tracking-tight text-slate-900">{nombre}</h1>
             <p className="text-xs text-slate-500">
               {[cab.empleado_cargo_snapshot, cab.empleado_documento_snapshot ? `CI ${cab.empleado_documento_snapshot}` : null,
                 cab.empleado_afiliacion_ips_snapshot ? `IPS ${cab.empleado_afiliacion_ips_snapshot}` : null].filter(Boolean).join(" · ") || "—"}
@@ -190,7 +190,7 @@ export default function ReciboPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           {/* Días */}
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-5">
             <div>
               <h2 className="text-sm font-semibold text-slate-800">Días trabajados</h2>
               <p className="text-xs text-slate-500">El mes se liquida sobre 30 días. Con menos, el salario se ajusta solo.</p>
@@ -204,7 +204,7 @@ export default function ReciboPage() {
           </section>
 
           {/* Ingresos */}
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <section className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
               <h2 className="text-sm font-semibold text-slate-800">Ingresos</h2>
               <span className="text-sm font-semibold tabular-nums text-slate-800">{gs(tot.total_ingresos)}</span>
@@ -241,7 +241,7 @@ export default function ReciboPage() {
           </section>
 
           {/* Descuentos */}
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <section className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
               <h2 className="text-sm font-semibold text-slate-800">Descuentos</h2>
               <span className="text-sm font-semibold tabular-nums text-slate-800">− {gs(tot.total_descuentos)}</span>
@@ -276,7 +276,7 @@ export default function ReciboPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
             <label className="text-xs font-medium text-slate-600">Observaciones (salen en el recibo)</label>
             <textarea rows={2} value={cab.observaciones ?? ""} onChange={(e) => { setCab({ ...cab, observaciones: e.target.value }); marcar(); }}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
@@ -293,7 +293,7 @@ export default function ReciboPage() {
               <div className="flex justify-between"><dt className="text-slate-500">Descuentos</dt><dd className="tabular-nums text-slate-800">− {gs(tot.total_descuentos)}</dd></div>
             </dl>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Para la empresa</p>
             <dl className="mt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><dt className="text-slate-500">IPS patronal ({String(IPS_PATRONAL_PCT).replace(".", ",")}%)</dt><dd className="tabular-nums text-slate-800">{gs(ipsPatr?.importe ?? 0)}</dd></div>

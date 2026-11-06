@@ -94,7 +94,7 @@ export default function ComprasReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el reporte de compras.
         </div>
       ) : (
@@ -109,7 +109,7 @@ export default function ComprasReportePage() {
           </div>
 
           {/* Compras del mes (agrupadas por N° control) */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Compras del mes</h2>
             {data.compras.length === 0 ? (
               <p className="text-sm text-slate-400">No hay compras en el período.</p>
@@ -192,7 +192,7 @@ export default function ComprasReportePage() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Total por proveedor */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h2 className="text-base font-semibold text-slate-800 mb-4">Total por proveedor</h2>
               {data.porProveedor.length === 0 ? (
                 <p className="text-sm text-slate-400">Sin datos.</p>
@@ -221,7 +221,7 @@ export default function ComprasReportePage() {
             </div>
 
             {/* Total por producto */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h2 className="text-base font-semibold text-slate-800 mb-4">Total por producto</h2>
               {data.porProducto.length === 0 ? (
                 <p className="text-sm text-slate-400">Sin datos.</p>

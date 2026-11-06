@@ -59,7 +59,7 @@ export default function FlujoCajaPage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el flujo de caja.
         </div>
       ) : (
@@ -77,7 +77,7 @@ export default function FlujoCajaPage() {
           </div>
 
           {/* Detalle de movimientos */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-700">Movimientos de caja del período</h2>
               <p className="text-xs text-slate-400 mt-0.5">Entradas cobradas y salidas pagadas (máx. 500)</p>

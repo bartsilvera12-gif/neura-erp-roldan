@@ -17,7 +17,7 @@ function ncNumeroCorto(id: string): string {
 }
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] text-sm bg-white";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] text-sm bg-white";
 const labelClass = "block text-xs font-medium text-slate-500 mb-1";
 
 function badgeErp(e: string) {
@@ -166,13 +166,13 @@ export default function NotasCreditoListClient() {
   return (
     <div className="max-w-[1400px] mx-auto px-4 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Notas de crédito</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Notas de crédito</h1>
         <p className="text-sm text-slate-500 mt-1">
           Auditoría operativa: listado global, estados ERP/SIFEN y vínculo a factura y cliente.
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           <div>
             <label className={labelClass}>Desde</label>
@@ -264,7 +264,7 @@ export default function NotasCreditoListClient() {
           <button
             type="button"
             onClick={() => setPage(1)}
-            className="px-4 py-2 rounded-lg bg-[#0EA5E9] text-white text-sm font-semibold hover:bg-sky-600"
+            className="px-4 py-2 rounded-lg bg-[#4FAEB2] text-white text-sm font-semibold hover:bg-sky-600"
           >
             Aplicar filtros
           </button>
@@ -295,10 +295,10 @@ export default function NotasCreditoListClient() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">{err}</div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left min-w-[1100px]">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="px-3 py-2.5">Número</th>
                 <th className="px-3 py-2.5">Fecha</th>
@@ -339,12 +339,12 @@ export default function NotasCreditoListClient() {
                       {new Date(nc.created_at).toLocaleString("es-PY", { dateStyle: "short", timeStyle: "short" })}
                     </td>
                     <td className="px-3 py-2 max-w-[160px]">
-                      <Link href={`/clientes/${nc.cliente_id}`} className="text-[#0EA5E9] font-medium hover:underline truncate block">
+                      <Link href={`/clientes/${nc.cliente_id}`} className="text-[#4FAEB2] font-medium hover:underline truncate block">
                         {nc.cliente_display}
                       </Link>
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
-                      <Link href={`/facturas/${nc.factura_id}`} className="text-[#0EA5E9] hover:underline">
+                      <Link href={`/facturas/${nc.factura_id}`} className="text-[#4FAEB2] hover:underline">
                         {nc.factura_numero ?? nc.factura_id.slice(0, 8) + "…"}
                       </Link>
                     </td>
@@ -368,7 +368,7 @@ export default function NotasCreditoListClient() {
                       {nc.last_error_resumido ?? "—"}
                     </td>
                     <td className="px-3 py-2">
-                      <Link href={`/notas-credito/${nc.id}`} className="text-[#0EA5E9] font-semibold text-xs hover:underline">
+                      <Link href={`/notas-credito/${nc.id}`} className="text-[#4FAEB2] font-semibold text-xs hover:underline">
                         Ver detalle
                       </Link>
                     </td>

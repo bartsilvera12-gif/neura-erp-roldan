@@ -28,7 +28,7 @@ export function GlobalConfigSubpageShell({
         </div>
         <Link
           href="/configuracion"
-          className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
         >
           ← Volver al centro
         </Link>

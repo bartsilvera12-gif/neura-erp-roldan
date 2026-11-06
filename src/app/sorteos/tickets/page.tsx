@@ -119,7 +119,7 @@ export default function SorteosTicketsPage() {
         <span>/</span>
         <span className="text-slate-800 font-medium">Tickets</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Tickets / Comprobantes</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-slate-900">Tickets / Comprobantes</h1>
       <p className="text-sm text-slate-600">
         Registro de generación y envío de comprobantes en imagen tras confirmar compras en WhatsApp.
       </p>
@@ -175,7 +175,7 @@ export default function SorteosTicketsPage() {
       ) : (
         <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-600">
+            <thead className="bg-slate-50 text-left text-xs text-slate-500">
               <tr>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Orden</th>

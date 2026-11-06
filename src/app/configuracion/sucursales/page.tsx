@@ -154,7 +154,7 @@ export default function ConfiguracionSucursalesPage() {
     <div className="space-y-8 max-w-6xl">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Sucursales</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Sucursales</h1>
         <p className="text-slate-600">Casa central y sucursales. Cada usuario opera en la que tiene activa.</p>
       </div>
 
@@ -163,7 +163,7 @@ export default function ConfiguracionSucursalesPage() {
       )}
 
       {/* Alta */}
-      <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+      <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-white p-6 space-y-3">
         <h2 className="text-sm font-semibold text-slate-800">Nueva sucursal</h2>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <input className={inputClass} placeholder="Código (ej. ASU)" value={nueva.codigo}
@@ -181,7 +181,7 @@ export default function ConfiguracionSucursalesPage() {
       </form>
 
       {/* Listado */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-3">
           <h2 className="text-sm font-semibold text-slate-800">Sucursales de la empresa</h2>
         </div>
@@ -191,7 +191,7 @@ export default function ConfiguracionSucursalesPage() {
           <p className="p-6 text-sm text-slate-400">Todavía no hay sucursales.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">Código</th>
                 <th className="text-left px-4 py-2">Nombre</th>
@@ -242,7 +242,7 @@ export default function ConfiguracionSucursalesPage() {
       </div>
 
       {/* Matriz de asignación */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-3">
           <h2 className="text-sm font-semibold text-slate-800">Asignación de usuarios a sucursales</h2>
           <p className="text-xs text-slate-500 mt-1">Los usuarios con rol <code>admin</code> ven todas las sucursales automáticamente. Para el resto, tildá las sucursales a las que tienen acceso.</p>
@@ -252,7 +252,7 @@ export default function ConfiguracionSucursalesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="text-left px-4 py-2 sticky left-0 bg-slate-50">Usuario</th>
                   {sucursales.map((s) => (

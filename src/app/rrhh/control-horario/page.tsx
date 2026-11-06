@@ -174,7 +174,7 @@ export default function ControlHorarioPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Fecha</th>
                 <th className="px-4 py-3 font-semibold">Empleado</th>
@@ -355,7 +355,7 @@ function KioscoLinkCard() {
                   <input
                     readOnly
                     value={urlCorto ?? ""}
-                    className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
                     onFocus={(e) => e.target.select()}
                   />
                   <button type="button" onClick={() => void copiar(urlCorto)}
@@ -388,7 +388,7 @@ function KioscoLinkCard() {
                       <input
                         readOnly
                         value={url ?? ""}
-                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
+                        className="flex-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
                         onFocus={(e) => e.target.select()}
                       />
                       <button type="button" onClick={() => void copiar(url)}
@@ -410,7 +410,7 @@ function KioscoLinkCard() {
 
       {confirmar && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !busy && setConfirmar(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-sm font-semibold text-slate-900">Regenerar link</h4>
             <p className="mt-2 text-xs text-slate-600">
               El link anterior dejará de funcionar inmediatamente. ¿Continuar?

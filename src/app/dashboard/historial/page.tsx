@@ -142,14 +142,14 @@ export default function HistorialPage() {
     <div className="h-[calc(100vh-8rem)] min-h-[560px] flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Historial Omnicanal</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Historial Omnicanal</h1>
           <p className="text-sm text-slate-500">
             Auditoría por contacto: IA + humano + sistema + cliente
           </p>
         </div>
         <Link
           href="/dashboard/conversaciones"
-          className="text-sm font-medium text-[#0EA5E9] hover:underline px-3 py-2 rounded-lg border border-sky-200 bg-sky-50"
+          className="text-sm font-medium text-[#4FAEB2] hover:underline px-3 py-2 rounded-lg border border-sky-200 bg-sky-50"
         >
           Ir a inbox
         </Link>
@@ -190,7 +190,7 @@ export default function HistorialPage() {
           type="button"
           onClick={() => void runSearch()}
           disabled={searching}
-          className="md:col-span-5 justify-self-start bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          className="md:col-span-5 justify-self-start bg-[#4FAEB2] hover:bg-[#3F8E91] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
         >
           {searching ? "Buscando..." : "Buscar historial"}
         </button>
@@ -198,7 +198,7 @@ export default function HistorialPage() {
 
       {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>}
 
-      <div className="flex flex-1 min-h-0 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className="flex flex-1 min-h-0 border border-slate-200 rounded-xl overflow-hidden bg-white">
         <aside className="w-full max-w-[360px] border-r border-slate-200 bg-slate-50/80 overflow-y-auto">
           <div className="p-3 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             Contactos encontrados
@@ -212,7 +212,7 @@ export default function HistorialPage() {
                 type="button"
                 onClick={() => void openDetail(item.contact_id)}
                 className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-white transition-colors ${
-                  selectedId === item.contact_id ? "bg-white border-l-4 border-l-[#0EA5E9]" : ""
+                  selectedId === item.contact_id ? "bg-white border-l-4 border-l-[#4FAEB2]" : ""
                 }`}
               >
                 <p className="font-medium text-slate-800 truncate">{item.name || item.phone}</p>
@@ -245,7 +245,7 @@ export default function HistorialPage() {
                   <h2 className="text-lg font-semibold text-slate-800">{detail.contact.name || detail.contact.phone_number}</h2>
                   <span className="text-xs font-mono text-slate-500">{detail.contact.phone_number}</span>
                   {detail.contact.cliente_id && (
-                    <Link href={`/clientes/${detail.contact.cliente_id}`} className="text-xs text-[#0EA5E9] hover:underline">
+                    <Link href={`/clientes/${detail.contact.cliente_id}`} className="text-xs text-[#4FAEB2] hover:underline">
                       Ver cliente
                     </Link>
                   )}
@@ -273,7 +273,7 @@ export default function HistorialPage() {
                       </div>
                       <Link
                         href={`/dashboard/conversaciones?conversationId=${conv.id}`}
-                        className="text-xs text-[#0EA5E9] hover:underline"
+                        className="text-xs text-[#4FAEB2] hover:underline"
                       >
                         Abrir conversación actual
                       </Link>

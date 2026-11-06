@@ -250,7 +250,7 @@ export default function PlanDeCuentasPage() {
       </div>
 
       {/* Búsqueda + filtros */}
-      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -307,9 +307,9 @@ export default function PlanDeCuentasPage() {
       )}
 
       {/* Tabla / árbol */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[760px] text-sm">
-          <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-2 py-2.5 text-left">Cuenta</th>
               <th className="px-2 py-2.5 text-left">Denominación</th>

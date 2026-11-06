@@ -123,7 +123,7 @@ export default function PaqueteMensualPage() {
           <Link href="/reportes" className="hover:text-[#4FAEB2]">Reportes</Link> /{" "}
           <span className="font-semibold text-slate-700">Paquete mensual</span>
         </nav>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Paquete mensual</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Paquete mensual</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-500">
           Descarga en un solo ZIP todos los informes del mes, cada uno en su planilla de Excel
           con encabezado, totales y formato listo para imprimir. Es lo que se le manda al
@@ -131,7 +131,7 @@ export default function PaqueteMensualPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-end gap-4">
           <label className="text-xs font-semibold text-slate-500">
             Mes a cerrar
@@ -170,7 +170,7 @@ export default function PaqueteMensualPage() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{aviso}</div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-700">Qué incluye</h2>
           <button
@@ -206,7 +206,7 @@ export default function PaqueteMensualPage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
         <p className="font-semibold text-slate-700">Para tener en cuenta</p>
         <ul className="mt-1.5 list-disc space-y-1 pl-4">
           <li>

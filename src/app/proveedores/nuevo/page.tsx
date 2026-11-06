@@ -58,11 +58,11 @@ export default function NuevoProveedorPage() {
         <Link href="/proveedores" className="text-sm text-sky-600 hover:underline">
           ← Proveedores
         </Link>
-        <h1 className="mt-2 text-3xl font-bold text-gray-800">Nuevo proveedor</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Nuevo proveedor</h1>
         <p className="text-gray-600">Los datos se guardan en la base de tu empresa.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+      <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 space-y-6">
         <ProveedorForm values={form} onChange={setForm} categorias={categorias} disabled={saving} />
         {error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -71,7 +71,7 @@ export default function NuevoProveedorPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-[#0EA5E9] px-5 py-2 text-sm font-medium text-white hover:bg-[#0284C7] disabled:opacity-50"
+            className="rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
           >
             {saving ? "Guardando…" : "Guardar"}
           </button>

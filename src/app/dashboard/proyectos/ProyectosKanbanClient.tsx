@@ -500,12 +500,12 @@ export default function ProyectosKanbanClient() {
               Zentra · Cocina
             </p>
           </div>
-          <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Pedidos</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
           <p className="mt-0.5 text-xs text-slate-500">Tablero de cocina — pedidos por modalidad y estado.</p>
         </div>
         <div className="flex w-full items-center sm:w-auto">
           <input
-            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm sm:w-72"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm sm:w-72"
             placeholder="Buscar título o cliente…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -751,7 +751,7 @@ function ProjectCardView({
           <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
             <label className="block text-[10px] font-medium text-slate-500">Mover a</label>
             <Selector
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               value={p.estado_id}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
@@ -836,7 +836,7 @@ function PedidoCardBody({
 
       {/* Observación */}
       {pedido.observacion ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] italic text-amber-900">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] italic text-amber-900">
           {pedido.observacion}
         </div>
       ) : null}
@@ -862,7 +862,7 @@ function EstadoMetric({
   color: string;
 }) {
   return (
-    <div className="min-w-[120px] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+    <div className="min-w-[120px] flex-1 rounded-xl border border-slate-200 bg-white px-2.5 py-2">
       <div className="mb-1 h-0.5 rounded-full" style={{ backgroundColor: color || "#94a3b8" }} />
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-[10px] font-medium uppercase tracking-wide text-slate-500" title={label}>

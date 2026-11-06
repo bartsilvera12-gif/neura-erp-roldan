@@ -13,7 +13,7 @@ import {
 } from "@/lib/entidades/storage";
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0EA5E9] outline-none";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#4FAEB2] outline-none";
 
 const TIPOS: { value: TipoEntidad; label: string }[] = [
   { value: "caja", label: "Caja" },
@@ -90,13 +90,13 @@ export default function EntidadesBancariasPage() {
     <div className="mx-auto w-full max-w-4xl space-y-8 px-4 pb-10 sm:px-6 lg:px-8">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900">Entidades bancarias</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Entidades bancarias</h1>
         <p className="text-sm text-slate-600">
           Cajas, bancos, tarjetas/POS y billeteras usados al cobrar una venta. El código corto agiliza la búsqueda del cajero.
         </p>
       </div>
 
-      <form onSubmit={handleCrear} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 max-w-xl">
+      <form onSubmit={handleCrear} className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 max-w-xl">
         <h2 className="text-sm font-semibold text-slate-800">Nueva entidad</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
@@ -115,12 +115,12 @@ export default function EntidadesBancariasPage() {
           </Selector>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white hover:bg-[#0284C7]">
+        <button type="submit" className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]">
           Crear entidad
         </button>
       </form>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm overflow-x-auto">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 overflow-x-auto">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-xs text-slate-500">
             {lista.filter((e) => e.activo).length} activas

@@ -43,7 +43,7 @@ function formatFecha(iso: string) {
 const LIMITE_LISTADO = 500;
 
 const inputFilterClass =
-  "border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none";
+  "border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none";
 
 const tipoVentaBadge: Record<TipoVenta, string> = {
   CONTADO: "bg-blue-50 text-blue-700",
@@ -186,13 +186,13 @@ export default function VentasPage() {
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900">Caja</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Caja</h1>
             <p className="mt-0.5 text-xs text-slate-500">Cobro, facturación y cierre de pedidos</p>
           </div>
           {devolucionesOn && (
             <Link
               href="/ventas/devoluciones"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
             >
               Devoluciones
             </Link>
@@ -206,13 +206,13 @@ export default function VentasPage() {
 
 
       {/* ── Tabla de ventas ───────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Órdenes de venta</h2>
           <Link
             href="/ventas/nueva"
-            className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
           >
             + Nueva venta
           </Link>
@@ -426,7 +426,7 @@ export default function VentasPage() {
                             <button
                               type="button"
                               onClick={() => setDevolverVentaId(v.id)}
-                              className="inline-flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                              className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
                               title="Ver detalle y registrar una devolución"
                             >
                               {v.estado === "parcialmente_devuelta" ? "Devolver más" : "Devolver"}
@@ -436,7 +436,7 @@ export default function VentasPage() {
                             href={`/api/ventas/${v.id}/comprobante-a4`}
                             target="_blank"
                             rel="noopener"
-                            className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
                             title="Abrir comprobante A4 imprimible"
                           >
                             Imprimir
@@ -446,7 +446,7 @@ export default function VentasPage() {
                           {v.factura_id && (
                             <Link
                               href={`/facturas/${v.factura_id}`}
-                              className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
                               title={
                                 v.factura_estado_sifen
                                   ? `Factura ${v.numero_factura ?? ""} · SIFEN: ${v.factura_estado_sifen}`
@@ -461,7 +461,7 @@ export default function VentasPage() {
                               href={`/api/ventas/${v.id}/ticket?tipo=remision`}
                               target="_blank"
                               rel="noopener"
-                              className="inline-flex items-center justify-center rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 transition-colors"
+                              className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 transition-colors"
                               title="Nota de remisión (documento no fiscal)"
                             >
                               Nota de remisión
@@ -471,7 +471,7 @@ export default function VentasPage() {
                             <button
                               type="button"
                               onClick={() => setEditar(v)}
-                              className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                              className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
                               title="Editar la venta. Queda registrado quién, cuándo y qué cambió."
                             >
                               Editar
@@ -481,7 +481,7 @@ export default function VentasPage() {
                             <button
                               type="button"
                               onClick={() => setReclasificar(v)}
-                              className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
                               title="El cliente pagó por otro medio del previsto. No toca la factura."
                             >
                               Medio de cobro
@@ -491,7 +491,7 @@ export default function VentasPage() {
                             <button
                               type="button"
                               onClick={() => setAnularTarget(v)}
-                              className="inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                              className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
                               title={
                                 v.estado === "devuelta_total" || v.estado === "parcialmente_devuelta"
                                   ? "Anular la operación completa (venta + devolución)"
@@ -598,7 +598,7 @@ function AnularVentaModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl border-2 border-red-200 bg-white shadow-2xl"
+        className="w-full max-w-md overflow-hidden rounded-xl border border-2 border-red-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
@@ -660,7 +660,7 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl border-2 border-[#4FAEB2]/20 bg-white shadow-2xl"
+        className="w-full max-w-2xl overflow-hidden rounded-xl border border-2 border-[#4FAEB2]/20 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -704,7 +704,7 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
         <div className="max-h-[50vh] overflow-y-auto px-5 pb-2">
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full min-w-[520px] text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold">Producto</th>
                   <th className="px-3 py-2 text-center font-semibold">Cant.</th>
@@ -811,7 +811,7 @@ function ModalMedioCobro({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold text-slate-800">Cambiar medio de cobro</h3>

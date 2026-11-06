@@ -84,7 +84,7 @@ export default function ModificacionesPage() {
     <div className="space-y-6">
       <div>
         <Link href="/reportes" className="text-sm text-sky-600 hover:underline">← Reportes</Link>
-        <h1 className="mt-2 text-2xl font-bold text-slate-800 sm:text-3xl">Modificaciones administrativas</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Modificaciones administrativas</h1>
         <p className="text-slate-600">
           Qué se tocó, quién lo tocó y cuándo: anulaciones de ventas, ediciones, turnos de caja
           reabiertos. El detalle de cada cambio sigue en el historial de su módulo.
@@ -98,7 +98,7 @@ export default function ModificacionesPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
 
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="text-xs font-semibold text-slate-500">
           Desde
           <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)}
@@ -120,7 +120,7 @@ export default function ModificacionesPage() {
         </label>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {cargando ? (
           <p className="p-6 text-sm text-slate-400">Cargando…</p>
         ) : movs.length === 0 ? (
@@ -130,7 +130,7 @@ export default function ModificacionesPage() {
           </p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Cuándo</th>
                 <th className="px-4 py-3 text-left font-semibold">Quién</th>

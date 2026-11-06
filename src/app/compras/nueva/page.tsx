@@ -44,7 +44,7 @@ function ivaMonto(total: number, iva: TipoIva): number {
 }
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0EA5E9] focus:outline-none bg-white text-sm";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
 const inputSmClass = inputClass;
 const labelClass = "block text-sm font-medium text-slate-700 mb-2";
 const labelSmClass = "block text-xs font-medium text-slate-600 mb-1.5";
@@ -89,7 +89,7 @@ function SegmentedControl<T extends string>({
           type="button"
           onClick={() => onChange(opt.value)}
           className={`flex-1 font-medium transition-colors ${small ? "py-2 text-xs" : "py-2.5 text-sm"} ${
-            value === opt.value ? "bg-[#0EA5E9] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+            value === opt.value ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
           }`}
         >
           {opt.label}
@@ -636,7 +636,7 @@ export default function NuevaCompraPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">{editando ? `Editar compra ${numeroEdit}` : "Nueva compra"}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">{editando ? `Editar compra ${numeroEdit}` : "Nueva compra"}</h1>
         <p className="text-gray-600">
           {editando
             ? "Edición completa (solo admin): cabecera, ítems, montos y estado. No recalcula el costo promedio de los productos."
@@ -644,7 +644,7 @@ export default function NuevaCompraPage() {
         </p>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
+      <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <form className="space-y-8" onSubmit={handleSubmit}>
 
           {/* ── Cabecera ─────────────────────────────────────────────────────── */}
@@ -897,7 +897,7 @@ export default function NuevaCompraPage() {
             {lineas.length > 0 && (
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="bg-slate-50 text-gray-500">
+                  <thead className="bg-slate-50 text-xs text-slate-500">
                     <tr>
                       <th className="py-2 px-3 font-medium">Producto</th>
                       <th className="py-2 px-3 font-medium text-right">Cant.</th>
@@ -946,7 +946,7 @@ export default function NuevaCompraPage() {
                       <td className="py-2 px-3 text-xs font-semibold uppercase tracking-wide text-gray-500" colSpan={5}>
                         Total compra ({lineas.length} {lineas.length === 1 ? "ítem" : "ítems"})
                       </td>
-                      <td className="py-2 px-3 text-right tabular-nums font-bold text-[#0EA5E9]">{formatGs(totales.total)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-bold text-[#4FAEB2]">{formatGs(totales.total)}</td>
                       <td />
                     </tr>
                   </tfoot>
@@ -1166,7 +1166,7 @@ export default function NuevaCompraPage() {
               )}
 
               <button type="button" onClick={handleAgregarLinea} disabled={!lineaLista}
-                className="w-full rounded-lg bg-[#4FAEB2] py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3F8E91] disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
+                className="w-full rounded-lg bg-[#4FAEB2] py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3F8E91] disabled:opacity-40 disabled:cursor-not-allowed">
                 + Agregar producto a la compra
               </button>
             </div>
@@ -1201,7 +1201,7 @@ export default function NuevaCompraPage() {
                   <div>Descuento: <span className="font-medium text-rose-600">− {formatGs(descuentoNum)}</span></div>
                 </div>
               </div>
-              <div className="bg-[#0EA5E9] text-white rounded-lg px-3 py-3 text-center">
+              <div className="bg-[#4FAEB2] text-white rounded-lg px-3 py-3 text-center">
                 <p className="text-xs text-gray-200 mb-1">Total a pagar</p>
                 <p className="text-lg font-bold tabular-nums">{formatGs(totalAPagar)}</p>
               </div>
@@ -1227,7 +1227,7 @@ export default function NuevaCompraPage() {
 
           <div className="flex gap-4 pt-2">
             <button type="submit" disabled={lineas.length === 0 || submitting}
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-5 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-5 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
               {submitting ? "Guardando..." : editando ? "Guardar cambios" : "Guardar compra"}
             </button>
             <button type="button" onClick={() => router.push("/compras")}
@@ -1258,11 +1258,11 @@ function InlineFormBox({
       {children}
       <div className="flex gap-3 pt-1">
         <button type="button" onClick={onSave} disabled={saveDisabled}
-          className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
+          className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
           Guardar {titulo.toLowerCase()}
         </button>
         <button type="button" onClick={onCancel}
-          className="border border-slate-200 px-4 py-2 rounded-lg text-xs hover:bg-white transition-colors">
+          className="border border-slate-200 px-4 py-2 rounded-xl text-xs hover:bg-white transition-colors">
           Cancelar
         </button>
       </div>

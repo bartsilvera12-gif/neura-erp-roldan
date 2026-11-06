@@ -98,14 +98,14 @@ export default function RecepcionNRPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-sky-50/40 to-sky-50/60 p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-sky-50/40 to-sky-50/60 p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/40 bg-sky-100/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-sky-800">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-600" /> Recepción
           </span>
         </div>
-        <h1 className="mt-2 flex items-center gap-2.5 text-2xl font-bold text-slate-900">
-          <span className="rounded-lg bg-white p-1.5 ring-1 ring-sky-300/40 shadow-sm">
+        <h1 className="mt-2 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+          <span className="rounded-lg bg-white p-1.5 ring-1 ring-sky-300/40">
             <Inbox className="h-5 w-5 text-sky-700" />
           </span>
           Recepción de Nota de Remisión
@@ -126,7 +126,7 @@ export default function RecepcionNRPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-sm font-semibold text-slate-800 mb-4">Buscar NR</h2>
         <div>
           <label className="text-xs font-medium text-slate-600">Nro. documento NR</label>
@@ -137,9 +137,9 @@ export default function RecepcionNRPage() {
               onChange={(e) => setNumeroBuscar(e.target.value.toUpperCase())}
               onKeyDown={(e) => { if (e.key === "Enter") buscar(); }}
               placeholder="Ej: NR-000001"
-              className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
-            <button type="button" onClick={buscar} className="shrink-0 rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 inline-flex items-center gap-1.5">
+            <button type="button" onClick={buscar} className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 inline-flex items-center gap-1.5">
               <Search className="h-4 w-4" /> Buscar
             </button>
           </div>
@@ -153,7 +153,7 @@ export default function RecepcionNRPage() {
                 <button
                   key={p.id}
                   onClick={() => tomarPendiente(p.id)}
-                  className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
                 >
                   {p.numero} — {nombreUbic(p.ubicacion_origen_id)} → {nombreUbic(p.ubicacion_destino_id)}
                 </button>
@@ -164,7 +164,7 @@ export default function RecepcionNRPage() {
       </div>
 
       {nr && (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-5 py-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-800">NR {nr.numero}</h2>
@@ -209,7 +209,7 @@ export default function RecepcionNRPage() {
           </div>
 
           {nr.observaciones && (
-            <p className="mx-5 mb-4 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <p className="mx-5 mb-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
               <strong>Observaciones:</strong> {nr.observaciones}
             </p>
           )}
@@ -218,27 +218,27 @@ export default function RecepcionNRPage() {
             <div className="border-t border-slate-100 bg-slate-50/60 p-5 space-y-3">
               <div>
                 <label className="text-xs font-medium text-slate-600">Quien recibe *</label>
-                <input type="text" value={aprobador} onChange={(e) => setAprobador(e.target.value)} placeholder="Ej: Gladis (Abasto Norte)" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={aprobador} onChange={(e) => setAprobador(e.target.value)} placeholder="Ej: Gladis (Abasto Norte)" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
               </div>
               {modoRechazo && (
                 <div>
                   <label className="text-xs font-medium text-slate-600">Motivo del rechazo *</label>
-                  <input type="text" value={motivoRechazo} onChange={(e) => setMotivoRechazo(e.target.value)} placeholder="Ej: cantidades no coinciden" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="text" value={motivoRechazo} onChange={(e) => setMotivoRechazo(e.target.value)} placeholder="Ej: cantidades no coinciden" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
                 </div>
               )}
               <div className="flex flex-wrap justify-end gap-2 pt-2">
                 {!modoRechazo ? (
                   <>
-                    <button type="button" onClick={() => setModoRechazo(true)} disabled={procesando} className="rounded-md border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60">Rechazar</button>
-                    <button type="button" onClick={aprobar} disabled={procesando} className="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-60">
+                    <button type="button" onClick={() => setModoRechazo(true)} disabled={procesando} className="rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60">Rechazar</button>
+                    <button type="button" onClick={aprobar} disabled={procesando} className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-60">
                       <CheckCircle2 className="h-4 w-4" />
                       {procesando ? "Procesando…" : "Aprobar recepción"}
                     </button>
                   </>
                 ) : (
                   <>
-                    <button type="button" onClick={() => setModoRechazo(false)} className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Volver</button>
-                    <button type="button" onClick={rechazar} disabled={procesando} className="rounded-md bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700 inline-flex items-center gap-1.5 disabled:opacity-60">
+                    <button type="button" onClick={() => setModoRechazo(false)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Volver</button>
+                    <button type="button" onClick={rechazar} disabled={procesando} className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700 inline-flex items-center gap-1.5 disabled:opacity-60">
                       <XCircle className="h-4 w-4" /> Confirmar rechazo
                     </button>
                   </>
@@ -254,7 +254,7 @@ export default function RecepcionNRPage() {
                 <p className="inline-flex items-center gap-1.5 text-xs text-rose-700"><X className="h-4 w-4" /> Rechazada. Motivo: <strong>{nr.motivo_rechazo}</strong></p>
               )}
               <div className="mt-3">
-                <Link href="/notas-remision" className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Ir al historial</Link>
+                <Link href="/notas-remision" className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Ir al historial</Link>
               </div>
             </div>
           )}

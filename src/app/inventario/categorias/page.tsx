@@ -442,7 +442,7 @@ export default function CategoriasProductosPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Rubros de productos</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Rubros de productos</h1>
           <p className="text-gray-600">Clasificá tus productos para reportes y búsqueda.</p>
           {/* Las dos columnas configurables no se descubren solas: el valor
               parece un dato de la fila y no un control. Se dice en una línea
@@ -490,7 +490,7 @@ export default function CategoriasProductosPage() {
       </div>
 
       {/* Alta */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
+      <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
           Nuevo rubro
         </p>
@@ -531,7 +531,7 @@ export default function CategoriasProductosPage() {
             <button
               type="submit"
               disabled={creating || !nombre.trim()}
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+              className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
             >
               {creating ? "Creando..." : "Crear rubro"}
             </button>
@@ -543,7 +543,7 @@ export default function CategoriasProductosPage() {
       </div>
 
       {/* Lista */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         {loading ? (
           <p className="p-6 text-sm text-gray-400">Cargando...</p>
         ) : items.length === 0 ? (
@@ -619,7 +619,7 @@ export default function CategoriasProductosPage() {
             </p>
           ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="text-left px-4 py-2">Rubro</th>
                 <th className="text-left px-4 py-2">Código</th>
@@ -704,7 +704,7 @@ export default function CategoriasProductosPage() {
                          ahí se hace clic para configurarlo. */
                       <button
                         onClick={() => editarDiasCritico(c)}
-                        className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
+                        className="group inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
                         title="Clic para cambiar los días de cobertura crítica de este rubro"
                       >
                         {c.dias_critico == null ? (
@@ -729,7 +729,7 @@ export default function CategoriasProductosPage() {
                       ) : (
                       <button
                         onClick={() => editarRemarcacionRubro(c)}
-                        className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
+                        className="group inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
                         title="Clic para cambiar la remarcación de referencia del rubro. No cambia los precios ya cargados."
                       >
                         {c.markup_pct != null ? (
@@ -762,7 +762,7 @@ export default function CategoriasProductosPage() {
                       ) : (
                       <button
                         onClick={() => editarDescuentoRubro(c)}
-                        className="group inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
+                        className="group inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
                         title="Clic para cambiar el descuento que se aplica a todos los artículos de este rubro"
                       >
                         {c.descuento_pct ? (

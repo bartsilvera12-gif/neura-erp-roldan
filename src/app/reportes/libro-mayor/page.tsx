@@ -65,13 +65,13 @@ export default function LibroMayorPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <nav className="mb-1 text-xs text-slate-500"><Link href="/reportes" className="hover:text-[#4FAEB2]">Reportes</Link> / <span className="font-semibold text-slate-700">Libro Mayor</span></nav>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Libro Mayor</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Libro Mayor</h1>
           <p className="mt-1 text-sm text-slate-500">Movimientos y saldos por cuenta. En esta etapa contiene únicamente asientos de Compras y Gastos y Servicios.</p>
         </div>
         <button onClick={exportar} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/5">Exportar Excel</button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-6">
         <label className="text-xs font-semibold text-slate-500">Desde<input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm" /></label>
         <label className="text-xs font-semibold text-slate-500">Hasta<input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm" /></label>
         <div className="text-xs font-semibold text-slate-500">Cuenta<div className="mt-1"><CuentaCombobox cuentas={cuentas} value={cuentaId || null} onChange={(id) => setCuentaId(id ?? "")} placeholder="Todas" /></div></div>
@@ -83,17 +83,17 @@ export default function LibroMayorPage() {
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-400">Cargando…</div>
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">Cargando…</div>
       ) : data.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-400">Sin movimientos en el período/filtros.</div>
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">Sin movimientos en el período/filtros.</div>
       ) : data.map((c) => (
-        <div key={c.cuenta_codigo} className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div key={c.cuenta_codigo} className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-slate-50 px-4 py-2.5">
             <span className="text-sm font-semibold text-slate-800"><span className="font-mono">{c.cuenta_codigo}</span> — {c.denominacion} <span className="ml-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600">{c.naturaleza === "D" ? "Deudora" : "Acreedora"}</span></span>
             <span className="text-xs text-slate-500">Saldo inicial: <b className="tabular-nums text-slate-700">{fmt(c.saldo_inicial)}</b> · Saldo final: <b className="tabular-nums text-slate-900">{fmt(c.saldo_final)}</b></span>
           </div>
           <table className="w-full min-w-[820px] text-xs">
-            <thead className="border-b bg-white uppercase tracking-wide text-slate-500">
+            <thead className="border-b bg-white bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-2 py-1.5 text-left">Fecha</th><th className="px-2 py-1.5 text-left">Asiento</th>
                 <th className="px-2 py-1.5 text-left">Documento</th><th className="px-2 py-1.5 text-left">Descripción</th>

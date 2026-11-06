@@ -41,7 +41,7 @@ export function ClienteSearchSelect({ clientes, value, onChange }: Props) {
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <input
           type="text"
-          className="min-w-[200px] flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm"
+          className="min-w-[200px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           placeholder="Buscar por nombre o empresa…"
           value={open ? q : selected ? clienteLabel(selected) : q}
           onChange={(e) => {
@@ -54,7 +54,7 @@ export function ClienteSearchSelect({ clientes, value, onChange }: Props) {
         />
         <button
           type="button"
-          className="whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
           onClick={() => {
             onChange("");
             setQ("");
@@ -66,13 +66,13 @@ export function ClienteSearchSelect({ clientes, value, onChange }: Props) {
       </div>
 
       {open && q.trim() && filtered.length === 0 ? (
-        <div className="absolute left-0 right-0 z-20 mt-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-lg">
+        <div className="absolute left-0 right-0 z-20 mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-lg">
           Sin coincidencias
         </div>
       ) : null}
       {open && filtered.length > 0 ? (
         <ul
-          className="absolute left-0 right-0 z-20 mt-1 max-h-52 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 right-0 z-20 mt-1 max-h-52 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           role="listbox"
         >
           {filtered.slice(0, 100).map((c) => (

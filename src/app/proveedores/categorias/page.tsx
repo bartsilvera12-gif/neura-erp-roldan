@@ -11,7 +11,7 @@ import {
 import type { ProveedorCategoria } from "@/lib/proveedores/types";
 
 const inputClass =
-  "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0EA5E9]";
+  "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#4FAEB2]";
 
 export default function ProveedorCategoriasPage() {
   const [lista, setLista] = useState<ProveedorCategoria[]>([]);
@@ -90,7 +90,7 @@ export default function ProveedorCategoriasPage() {
           <Link href="/proveedores" className="text-sm text-sky-600 hover:underline">
             ← Proveedores
           </Link>
-          <h1 className="mt-2 text-3xl font-bold text-gray-800">Rubros de proveedor</h1>
+          <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Rubros de proveedor</h1>
           <p className="text-gray-600">Etiquetas para clasificar proveedores (textil, importación, etc.).</p>
           <div className="mt-3 max-w-2xl rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
             Los rubros que cargues acá <strong>se importan automáticamente</strong> como
@@ -105,7 +105,7 @@ export default function ProveedorCategoriasPage() {
 
       <form
         onSubmit={handleCrear}
-        className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3 max-w-xl"
+        className="rounded-xl border border-slate-200 bg-white p-6 space-y-3 max-w-xl"
       >
         <h2 className="text-sm font-semibold text-slate-800">Nuevo rubro</h2>
         <div>
@@ -119,13 +119,13 @@ export default function ProveedorCategoriasPage() {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
-          className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white hover:bg-[#0284C7]"
+          className="rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
         >
           Crear
         </button>
       </form>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-x-auto">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-600">

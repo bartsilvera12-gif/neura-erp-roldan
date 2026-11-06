@@ -29,7 +29,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
             /* noop */
           }
         }}
-        className="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+        className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
       >
         {copied ? "Copiado" : "Copiar"}
       </button>
@@ -207,7 +207,7 @@ export function WhatsAppQrConnect({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         {connected ? (
           <div className="text-center">
             <CheckCircle2 className="h-8 w-8" aria-hidden />

@@ -108,7 +108,7 @@ export function EstadoCuentaClienteBlock({
   const sinCuentas = !loading && movs.length === 0;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       {toast && (
         <div className="inline-flex items-center gap-1.5 fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg"><Check className="h-4 w-4" /> {toast}</div>
       )}
@@ -122,8 +122,8 @@ export function EstadoCuentaClienteBlock({
           <span className="text-[11px] font-mediumr text-slate-600">Estado de cuenta</span>
           <span className="hidden text-[10px] font-normal text-slate-400 sm:inline">del cliente</span>
           <span className="hidden h-3 w-px bg-slate-200 sm:inline" />
-          <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">{m.cuentas} cuenta{m.cuentas === 1 ? "" : "s"}</span>
-          <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">Saldo {fmtGs(m.saldoPend)}</span>
+          <span className="rounded-lg bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">{m.cuentas} cuenta{m.cuentas === 1 ? "" : "s"}</span>
+          <span className="rounded-lg bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200/80">Saldo {fmtGs(m.saldoPend)}</span>
           {m.vencidas > 0 ? (
             <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-red-200/80">{m.vencidas} venc.</span>
           ) : null}
@@ -150,7 +150,7 @@ export function EstadoCuentaClienteBlock({
             <Card label="Pagadas" value={String(m.pagadas)} valueClass="text-emerald-700" ring="ring-emerald-200/70" />
           </div>
 
-          {error && <div className="mx-3 mb-3 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700 sm:mx-4">{error}</div>}
+          {error && <div className="mx-3 mb-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 sm:mx-4">{error}</div>}
 
           {loading ? (
             <div className="p-8 flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Cargando…</div>
@@ -159,7 +159,7 @@ export function EstadoCuentaClienteBlock({
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-500">
+                <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="py-2.5 px-3 font-medium sm:px-4">Tipo</th>
                     <th className="py-2.5 px-3 font-medium">Venta</th>

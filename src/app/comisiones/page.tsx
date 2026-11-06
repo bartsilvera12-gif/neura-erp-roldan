@@ -119,7 +119,7 @@ export default function ComisionesPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Vendedores y comisiones</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Vendedores y comisiones</h1>
           <p className="text-sm text-slate-500">
             Cuánto vendió cada uno, cuánto le corresponde y de quién es cada cliente.
           </p>
@@ -208,7 +208,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <Campo label="Desde">
           <input type="date" value={desde} max={hasta} onChange={(e) => setDesde(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
@@ -249,7 +249,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead>
@@ -312,7 +312,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
                         href={`/api/comisiones/hoja?vendedor=${v.vendedor_id}&desde=${desde}&hasta=${hasta}&auto=1`}
                         target="_blank" rel="noopener"
                         onClick={(e) => e.stopPropagation()}
-                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
                         title="Hoja imprimible con el detalle y espacio para firma"
                       >
                         Hoja para firmar
@@ -327,7 +327,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
       </div>
 
       {verDetalle && data && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-sm">
               <thead>
@@ -473,7 +473,7 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-sm text-slate-600">
           {/* De qué sucursal es. Sin esto, el que reasigna no sabe a quién le
               está sacando el cliente: la cartera de Casa Central y la de la
@@ -517,7 +517,7 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
@@ -578,7 +578,7 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
                             void guardar(c.id, { accion: "liberar" });
                           }
                         }}
-                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-amber-300 hover:text-amber-700"
+                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-amber-300 hover:text-amber-700"
                       >
                         Liberar
                       </button>
@@ -1452,7 +1452,7 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 
 function Caja({ titulo, ayuda, children }: { titulo: string; ayuda?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>
       {ayuda && <p className="mt-0.5 mb-2 text-[11px] leading-snug text-slate-400">{ayuda}</p>}
       <div className="mt-2">{children}</div>

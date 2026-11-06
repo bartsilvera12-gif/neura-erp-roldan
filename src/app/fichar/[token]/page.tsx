@@ -152,9 +152,9 @@ export default function FicharKioscoPage({ params }: { params: Promise<{ token: 
   if (tokenOk === false) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div className="max-w-sm rounded-xl border border-slate-200 bg-white p-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700"><AlertTriangle className="h-6 w-6" aria-hidden /></div>
-          <h1 className="text-base font-semibold text-slate-900">Link no válido</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Link no válido</h1>
           <p className="mt-2 text-sm text-slate-600">
             Este link de fichaje no existe o fue revocado. Pedile a RRHH el link actualizado.
           </p>
@@ -167,18 +167,18 @@ export default function FicharKioscoPage({ params }: { params: Promise<{ token: 
     <div className="min-h-svh bg-gradient-to-b from-[#E5F4F4] to-slate-50 px-4 py-6 sm:py-10">
       <div className="mx-auto w-full max-w-md">
         <header className="text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4FAEB2] text-white shadow-md">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-[#4FAEB2] text-white shadow-md">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-7 w-7">
               <circle cx="12" cy="12" r="9" />
               <path strokeLinecap="round" d="M12 7v5l3 2" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Fichaje de empleados</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Fichaje de empleados</h1>
           <p className="mt-1 text-sm text-slate-600">Marcá tu entrada o salida del día.</p>
           <p className="mt-3 font-mono text-3xl font-bold tabular-nums text-[#3F8E91]">{reloj || "--:--:--"}</p>
         </header>
 
-        <main className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <main className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
           {estado.tipo === "ok" ? (
             <div className="text-center">
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Check className="h-7 w-7" aria-hidden /></div>

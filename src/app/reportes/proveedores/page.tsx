@@ -71,7 +71,7 @@ export default function ProveedoresReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el reporte de proveedores.
         </div>
       ) : (
@@ -95,7 +95,7 @@ export default function ProveedoresReportePage() {
             />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Proveedores</h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[920px] text-left text-sm">

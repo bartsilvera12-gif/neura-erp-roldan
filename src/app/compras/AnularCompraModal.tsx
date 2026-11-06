@@ -48,7 +48,7 @@ export default function AnularCompraModal({ numeroControl, proveedorNombre, onCl
         if (e.target === e.currentTarget && !enviando) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
         <h3 className="text-lg font-semibold text-slate-900">Anular compra {numeroControl}</h3>
         <p className="mt-1 text-sm text-slate-600">
           Proveedor: <span className="font-medium">{proveedorNombre}</span>.

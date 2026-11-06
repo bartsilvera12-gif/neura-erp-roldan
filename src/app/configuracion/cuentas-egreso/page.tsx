@@ -80,7 +80,7 @@ export default function CuentasEgresoPage() {
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">
           ← Configuración
         </Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Cuentas de los egresos de caja</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Cuentas de los egresos de caja</h1>
         <p className="text-slate-600">
           A qué cuenta del plan va cada clase de egreso. Sin esto, todos los egresos del mes caen
           en una sola bolsa y separarlos es trabajo a mano.
@@ -116,9 +116,9 @@ export default function CuentasEgresoPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-4 py-2 text-left">Clase de egreso</th>
               <th className="px-4 py-2 text-left">Cuenta del plan</th>

@@ -63,7 +63,7 @@ export default function ExcelImportWizard({
 
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-slate-900/60 backdrop-blur-sm pt-16 px-4" onClick={onClose}>
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-5xl bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">Importar {entidad} desde Excel</h2>
@@ -92,7 +92,7 @@ export default function ExcelImportWizard({
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={onClose} className="px-4 py-2 text-sm border rounded-lg">Cancelar</button>
                 <button onClick={handleUpload} disabled={!file || busy}
-                  className="px-4 py-2 text-sm rounded-lg bg-[#0EA5E9] text-white disabled:opacity-50">
+                  className="px-4 py-2 text-sm rounded-lg bg-[#4FAEB2] text-white disabled:opacity-50">
                   {busy ? "Analizando..." : "Analizar (preview)"}
                 </button>
               </div>
@@ -164,7 +164,7 @@ export default function ExcelImportWizard({
                 </ul>
               )}
               <div className="flex justify-end gap-2 pt-2">
-                <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg bg-[#0EA5E9] text-white">Cerrar</button>
+                <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg bg-[#4FAEB2] text-white">Cerrar</button>
               </div>
             </div>
           )}
@@ -211,7 +211,7 @@ function PreviewTable({ rows }: { rows: import("@/lib/excel/import-types").Previ
        "Detalle" y "Mensajes" no se aplasten — sin esto el usuario importa a ciegas. */
     <div className="border rounded-lg overflow-auto max-h-[40vh]">
       <table className="w-full min-w-[640px] sm:min-w-0 text-xs">
-        <thead className="bg-slate-50 text-slate-600 sticky top-0">
+        <thead className="bg-slate-50 sticky top-0 text-xs text-slate-500">
           <tr>
             <th className="text-left px-2 py-1.5">Fila</th>
             <th className="text-left px-2 py-1.5">Acción</th>

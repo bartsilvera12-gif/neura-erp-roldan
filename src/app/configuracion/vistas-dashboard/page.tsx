@@ -22,7 +22,7 @@ export default function VistasDashboardConfigPage() {
         </p>
 
         <div className="grid gap-4 sm:grid-cols-1">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="mb-2 flex items-center gap-2 text-slate-900">
               <Building2 className="h-5 w-5 shrink-0" aria-hidden />
               <h2 className="text-base font-semibold">Nivel empresa (super admin)</h2>
@@ -41,7 +41,7 @@ export default function VistasDashboardConfigPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="mb-2 flex items-center gap-2 text-slate-900">
               <UserCircle className="h-5 w-5 shrink-0" aria-hidden />
               <h2 className="text-base font-semibold">Nivel usuario (admin de empresa)</h2>

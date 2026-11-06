@@ -116,7 +116,7 @@ export default function LotesProducto({ productoId }: { productoId: string }) {
   }, [cargar]);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 max-w-5xl">
+    <div className="bg-white rounded-xl border border-slate-200 p-5 max-w-5xl">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
           Lotes activos
@@ -142,7 +142,7 @@ export default function LotesProducto({ productoId }: { productoId: string }) {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="py-2 px-3 font-medium">Nº lote</th>
                 <th className="py-2 px-3 font-medium">Vencimiento</th>

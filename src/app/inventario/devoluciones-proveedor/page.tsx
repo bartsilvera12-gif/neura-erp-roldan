@@ -20,7 +20,7 @@ type DevRow = {
   fecha: string;
 };
 
-const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm";
+const inputClass = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm";
 const labelClass = "block text-xs font-medium text-gray-600 mb-1";
 
 
@@ -177,16 +177,16 @@ export default function DevolucionesProveedorPage() {
       <div className="flex items-center gap-3">
         <PackageX className="h-7 w-7 text-[#4FAEB2]" />
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Devolución a proveedor</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Devolución a proveedor</h1>
           <p className="text-gray-600">Devolvé productos al proveedor. Al guardar se descuenta el stock automáticamente.</p>
         </div>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-      {ok && <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+      {ok && <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
 
       {/* Datos */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Proveedor (opcional)</label>
@@ -205,7 +205,7 @@ export default function DevolucionesProveedorPage() {
       </div>
 
       {/* Datos de transporte para la remisión (opcional) */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-1">Transporte (para la remisión)</h2>
         <p className="text-xs text-gray-500 mb-3">Opcional — aparece en la remisión impresa. Útil para los controles en ruta.</p>
         <div className="grid gap-4 md:grid-cols-3">
@@ -230,7 +230,7 @@ export default function DevolucionesProveedorPage() {
       </div>
 
       {/* Productos */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Productos a devolver</h2>
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
@@ -244,7 +244,7 @@ export default function DevolucionesProveedorPage() {
                 .map((p) => ({ id: p.id, label: p.nombre, hint: `${p.sku || ""} · stock ${p.stock}` }))}
             />
           </div>
-          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-md bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
             <Plus className="h-4 w-4" /> Agregar
           </button>
         </div>
@@ -254,7 +254,7 @@ export default function DevolucionesProveedorPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="text-left text-xs text-gray-500 uppercase">
+              <thead className="text-left bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="py-2 pr-2">Producto</th>
                   <th className="py-2 px-2 w-28">Stock actual</th>
@@ -294,7 +294,7 @@ export default function DevolucionesProveedorPage() {
         {items.length > 0 && (
           <div className="mt-4 flex items-center justify-between">
             <span className="text-sm text-gray-600">Total a devolver: <strong className="tabular-nums">{totalUnidades}</strong> unidad(es)</span>
-            <button onClick={guardar} disabled={!valido || guardando} className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+            <button onClick={guardar} disabled={!valido || guardando} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#4FAEB2] px-5 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
               {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Registrar devolución y descontar stock"}
             </button>
           </div>
@@ -302,7 +302,7 @@ export default function DevolucionesProveedorPage() {
       </div>
 
       {/* Historial */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-gray-700">Devoluciones registradas</h2>
         </div>
@@ -311,7 +311,7 @@ export default function DevolucionesProveedorPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="py-3 px-4 font-medium">N°</th>
                   <th className="py-3 px-4 font-medium">Fecha</th>
@@ -334,7 +334,7 @@ export default function DevolucionesProveedorPage() {
                         href={`/api/devoluciones-proveedor/${d.id}/remision`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
                       >
                         <Printer className="h-3.5 w-3.5" /> Imprimir
                       </a>

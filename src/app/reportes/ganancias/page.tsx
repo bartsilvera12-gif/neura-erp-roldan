@@ -200,7 +200,7 @@ export default function GananciasReportePage() {
       {cargando ? (
         <p className="text-slate-500 animate-pulse">Cargando…</p>
       ) : !data ? (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-slate-500">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
           No se pudo cargar el reporte de ganancias.
         </div>
       ) : (
@@ -291,7 +291,7 @@ function ContenidoGanancias({ data }: { data: GananciasReporte }) {
       )}
 
       {/* Tabla comparativa detallada */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-slate-700">Detalle comparativo</h2>
           <p className="text-xs text-slate-400 mt-0.5">Período actual vs. período anterior</p>

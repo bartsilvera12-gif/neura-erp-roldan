@@ -120,7 +120,7 @@ export default function ConfiguracionFacturacionPage() {
             </div>
             <Link
               href="/configuracion/facturacion-electronica"
-              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-[#0EA5E9] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0284C7]"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-[#4FAEB2] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91]"
             >
               Configurar SIFEN
             </Link>
@@ -306,7 +306,7 @@ export default function ConfiguracionFacturacionPage() {
           <button
             type="button"
             onClick={handleGuardar}
-            className="rounded-lg bg-[#0EA5E9] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0284C7] active:scale-95"
+            className="rounded-lg bg-[#4FAEB2] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91]"
           >
             Guardar configuración
           </button>

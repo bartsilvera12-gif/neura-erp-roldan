@@ -131,7 +131,7 @@ export default function TipoCambioCard() {
   if (!migrado) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ export default function TipoCambioCard() {
               type="button"
               onClick={() => setAbierto(false)}
               disabled={guardando}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-white"
+              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-white"
             >
               Cancelar
             </button>

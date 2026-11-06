@@ -124,7 +124,7 @@ export default function VendedoresReportePage() {
       {cargando ? (
         <p className="animate-pulse text-slate-500">Cargando…</p>
       ) : !data ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500">
           No se pudo cargar el reporte por vendedor.
         </div>
       ) : (
@@ -147,7 +147,7 @@ export default function VendedoresReportePage() {
           </div>
 
           {data.vendedores.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500">
               No hay ventas en el período.
             </div>
           ) : (
@@ -167,7 +167,7 @@ export default function VendedoresReportePage() {
 
               {/* ── El detalle del elegido ───────────────────────────────── */}
               {vendedor && data.detalle ? (
-                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <div>
                       <h2 className="text-sm font-semibold text-slate-800">

@@ -114,7 +114,7 @@ export default function AnticiposPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Anticipos de clientes</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Anticipos de clientes</h1>
           <p className="text-sm text-slate-500">
             Plata que dejaron a cuenta y todavía no se facturó.
           </p>
@@ -163,7 +163,7 @@ export default function AnticiposPage() {
       )}
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Estado</span>
           <Selector value={estado} onChange={(e) => setEstado(e.target.value)}
@@ -203,7 +203,7 @@ export default function AnticiposPage() {
 
       {/* Acumulado por cliente */}
       {data && data.por_cliente.length > 0 && estado === "activo" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-[11px] font-medium text-slate-500">
             Acumulado por cliente
           </p>
@@ -220,7 +220,7 @@ export default function AnticiposPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead>
@@ -275,7 +275,7 @@ export default function AnticiposPage() {
                   <td className="px-4 py-2.5 text-right">
                     {a.estado === "activo" && isAdmin && (
                       <button type="button" onClick={() => void anular(a)}
-                        className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100">
+                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100">
                         Anular
                       </button>
                     )}
@@ -388,7 +388,7 @@ function ModalNuevo({ onClose, onCreado }: { onClose: () => void; onCreado: (m: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
         <div className="border-b border-slate-100 px-5 py-4">
           <h3 className="text-sm font-semibold text-slate-900">Registrar anticipo</h3>
           <p className="mt-0.5 text-[11px] leading-snug text-slate-500">

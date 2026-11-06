@@ -85,7 +85,7 @@ export default function EstadoCuentaPage() {
   if (!cliente || !resumen) {
     return (
       <div className="p-6 space-y-3">
-        <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error ?? "Cliente no encontrado"}</div>
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error ?? "Cliente no encontrado"}</div>
         <Link href="/clientes" className="text-sm text-[#4FAEB2] hover:underline">Volver a clientes</Link>
       </div>
     );
@@ -105,7 +105,7 @@ export default function EstadoCuentaPage() {
         <div className="flex items-center gap-3">
           <Banknote className="h-7 w-7 text-[#4FAEB2]" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Estado de cuenta</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Estado de cuenta</h1>
             <p className="text-gray-600">{cliente.nombre}{cliente.ruc ? ` · ${cliente.ruc}` : ""}</p>
           </div>
         </div>
@@ -119,10 +119,10 @@ export default function EstadoCuentaPage() {
         </a>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="text-xs uppercase tracking-wide text-gray-400">Total vendido</div>
           <div className="mt-1 text-xl font-bold text-slate-800">{fmtGs(resumen.total_vendido)}</div>
         </div>
@@ -141,14 +141,14 @@ export default function EstadoCuentaPage() {
       </div>
 
       {/* Movimientos (créditos) */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold text-gray-700">Cuentas a crédito</h2></div>
         {movs.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-500">Este cliente no tiene ventas a crédito.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="py-2.5 px-4 font-medium">Venta</th>
                   <th className="py-2.5 px-4 font-medium">Emisión</th>
@@ -190,14 +190,14 @@ export default function EstadoCuentaPage() {
       </div>
 
       {/* Historial de cobros */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold text-gray-700">Historial de cobros</h2></div>
         {cobros.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-500">Sin cobros registrados.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="py-2.5 px-4 font-medium">Fecha</th>
                   <th className="py-2.5 px-4 font-medium">Método</th>

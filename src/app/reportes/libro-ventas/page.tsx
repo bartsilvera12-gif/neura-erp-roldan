@@ -93,7 +93,7 @@ export default function LibroVentasPage() {
           <nav className="mb-1 text-xs text-slate-500">
             <Link href="/reportes" className="hover:text-[#4FAEB2]">Reportes</Link> / <span className="font-semibold text-slate-700">Libro de Ventas</span>
           </nav>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Libro de Ventas</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Libro de Ventas</h1>
           <p className="mt-1 text-sm text-slate-500">Solo comprobantes fiscales válidos (facturas con DTE aprobado) por fecha del comprobante. Las notas de crédito figuran como movimientos negativos. No incluye ventas POS ni documentos no fiscales.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default function LibroVentasPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-7">
         <label className="text-xs font-semibold text-slate-500">Desde
           <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm" /></label>
         <label className="text-xs font-semibold text-slate-500">Hasta
@@ -151,9 +151,9 @@ export default function LibroVentasPage() {
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[1100px] text-xs">
-          <thead className="border-b bg-slate-50 uppercase tracking-wide text-slate-500">
+          <thead className="border-b bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-2 py-2 text-left">Fecha</th>
               <th className="px-2 py-2 text-left">Comprobante</th>

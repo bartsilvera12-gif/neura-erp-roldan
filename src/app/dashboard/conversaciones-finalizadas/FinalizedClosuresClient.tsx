@@ -239,7 +239,7 @@ export default function FinalizedClosuresClient({ filterOptions }: { filterOptio
     <div className="flex flex-col gap-6 pb-12 px-4 md:px-6 max-w-[1400px] mx-auto">
       <div className="flex flex-wrap items-start justify-between gap-4 pt-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Conversaciones finalizadas</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Conversaciones finalizadas</h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
             {filterOptions.ux_scope === "team"
               ? "Vista acotada a tu alcance omnicanal: los combos solo listan colas, agentes y canales relevantes para tu equipo. Exportá el resultado filtrado."
@@ -263,7 +263,7 @@ export default function FinalizedClosuresClient({ filterOptions }: { filterOptio
         <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">{info}</div>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 md:p-5 space-y-4">
         <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filtros</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
@@ -430,10 +430,10 @@ export default function FinalizedClosuresClient({ filterOptions }: { filterOptio
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-[1000px] w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
               <tr>
                 <th className="px-3 py-3 whitespace-nowrap">Finalización</th>
                 <th className="px-3 py-3">Contacto</th>
@@ -530,7 +530,7 @@ export default function FinalizedClosuresClient({ filterOptions }: { filterOptio
           }}
         >
           <div
-            className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200"
+            className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-white shadow-xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 shrink-0">

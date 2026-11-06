@@ -115,7 +115,7 @@ export default function ProfesionesPage() {
     <div className="max-w-3xl space-y-8">
       <div>
         <Link href="/configuracion" className="text-sm text-sky-600 hover:underline">← Configuración</Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-800">Profesiones</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Profesiones</h1>
         <p className="text-slate-600">
           Los oficios con los que se clasifica a los clientes (albañil, herrero, constructora…).
           Se eligen de esta lista en la ficha del cliente y en los presupuestos, para que el mismo
@@ -130,7 +130,7 @@ export default function ProfesionesPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
       )}
 
-      <form onSubmit={crear} className="space-y-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={crear} className="space-y-3 rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-sm font-semibold text-slate-800">Nueva profesión</h2>
         <div className="flex flex-wrap gap-3">
           <input
@@ -149,7 +149,7 @@ export default function ProfesionesPage() {
         <p className="text-xs text-slate-500">Se guarda en mayúsculas, para que no entre dos veces la misma.</p>
       </form>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 px-6 py-3">
           <h2 className="text-sm font-semibold text-slate-800">
             Cargadas <span className="ml-1 text-xs font-normal text-slate-500">{items.length}</span>
@@ -159,7 +159,7 @@ export default function ProfesionesPage() {
           <p className="p-6 text-sm text-slate-400">Todavía no hay profesiones cargadas.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-2 text-left">Nombre</th>
                 <th className="w-32 px-4 py-2 text-left">Activa</th>
@@ -177,7 +177,7 @@ export default function ProfesionesPage() {
                           autoFocus
                           value={editNombre}
                           onChange={(e) => setEditNombre(e.target.value)}
-                          className="w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-sm"
+                          className="w-full rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm"
                         />
                       ) : p.nombre}
                     </td>

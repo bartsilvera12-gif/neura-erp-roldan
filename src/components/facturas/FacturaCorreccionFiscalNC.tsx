@@ -719,7 +719,7 @@ export function FacturaCorreccionFiscalNC({
           {debugUi ? (
             <Link
               href="/notas-credito"
-              className="text-[11px] font-semibold text-[#0EA5E9] hover:underline shrink-0"
+              className="text-[11px] font-semibold text-[#4FAEB2] hover:underline shrink-0"
             >
               Módulo NC
             </Link>
@@ -766,7 +766,7 @@ export function FacturaCorreccionFiscalNC({
               setFlash(null);
               abrirModalCrear();
             }}
-            className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-[#0EA5E9] text-white hover:bg-[#0284C7] shadow-sm"
+            className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-[#4FAEB2] text-white hover:bg-[#3F8E91] shadow-sm"
           >
             Emitir nota de crédito
           </button>
@@ -827,7 +827,7 @@ export function FacturaCorreccionFiscalNC({
               return (
                 <li
                   key={nc.id}
-                  className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden min-w-0"
+                  className="rounded-xl border border-slate-200 bg-white overflow-hidden min-w-0"
                 >
                   <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/80 space-y-2">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -890,7 +890,7 @@ export function FacturaCorreccionFiscalNC({
                             type="button"
                             disabled={sifenNcId === nc.id}
                             onClick={() => void ejecutarPasoSifen(nc, pasoTestOv)}
-                            className="w-full sm:w-auto text-center px-2 py-1.5 rounded-md border border-dashed border-slate-400 text-slate-600 text-[10px] font-medium hover:bg-slate-50 disabled:opacity-50"
+                            className="w-full sm:w-auto text-center px-2 py-1.5 rounded-lg border border-dashed border-slate-400 text-slate-600 text-[10px] font-medium hover:bg-slate-50 disabled:opacity-50"
                           >
                             {pasoTestOv.label}
                           </button>
@@ -899,7 +899,7 @@ export function FacturaCorreccionFiscalNC({
                           <button
                             type="button"
                             onClick={() => void anularBorrador(nc)}
-                            className="text-[#0284C7] font-semibold hover:underline text-[11px] text-left"
+                            className="text-[#3F8E91] font-semibold hover:underline text-[11px] text-left"
                           >
                             Anular borrador
                           </button>
@@ -1004,7 +1004,7 @@ export function FacturaCorreccionFiscalNC({
                           <span className="font-mono">consulta-lote</span> según estado.
                         </p>
                         {jsonSet ? (
-                          <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-slate-900 text-slate-100 p-3 text-[10px] leading-relaxed whitespace-pre-wrap break-words border border-slate-700">
+                          <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-slate-900 text-slate-100 p-3 text-[10px] leading-relaxed whitespace-pre-wrap break-words border border-slate-700">
                             {jsonSet}
                           </pre>
                         ) : (
@@ -1035,7 +1035,7 @@ export function FacturaCorreccionFiscalNC({
               <div className="col-span-2">
                 <dt className="text-slate-400">Cliente</dt>
                 <dd className="font-medium">
-                  <Link href={`/clientes/${clienteId}`} className="text-[#0EA5E9] hover:underline">
+                  <Link href={`/clientes/${clienteId}`} className="text-[#4FAEB2] hover:underline">
                     {clienteDisplay || "Cliente"}
                   </Link>
                 </dd>
@@ -1066,7 +1066,7 @@ export function FacturaCorreccionFiscalNC({
                 <dt className="text-slate-400">
                   Disponible para NC {tipoNc === "total" ? "(= NC)" : ""}
                 </dt>
-                <dd className="tabular-nums font-bold text-[#0284C7]">
+                <dd className="tabular-nums font-bold text-[#3F8E91]">
                   {monedaLabel} {formatGs(disponibleParaNc, moneda)}
                 </dd>
               </div>
@@ -1088,7 +1088,7 @@ export function FacturaCorreccionFiscalNC({
                     title={t.hint}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${
                       tipoFiscal === t.value
-                        ? "bg-[#0EA5E9] text-white border-[#0EA5E9]"
+                        ? "bg-[#4FAEB2] text-white border-[#4FAEB2]"
                         : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                     }`}
                   >
@@ -1113,7 +1113,7 @@ export function FacturaCorreccionFiscalNC({
                   onClick={() => setTipoNc("total")}
                   className={`px-3 py-1.5 text-xs font-semibold ${
                     tipoNc === "total"
-                      ? "bg-[#0EA5E9] text-white"
+                      ? "bg-[#4FAEB2] text-white"
                       : "bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >
@@ -1125,7 +1125,7 @@ export function FacturaCorreccionFiscalNC({
                   title="Elegí líneas de la factura y/o cargá conceptos a mano."
                   className={`px-3 py-1.5 text-xs font-semibold ${
                     tipoNc === "parcial"
-                      ? "bg-[#0EA5E9] text-white"
+                      ? "bg-[#4FAEB2] text-white"
                       : "bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >
@@ -1144,7 +1144,7 @@ export function FacturaCorreccionFiscalNC({
               <div className="rounded-lg border border-slate-200 overflow-hidden">
                 <div className="max-h-64 overflow-auto">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-slate-50 sticky top-0">
+                    <thead className="bg-slate-50 sticky top-0 text-xs text-slate-500">
                       <tr className="text-left text-slate-500">
                         <th className="px-2 py-1 w-8"></th>
                         <th className="px-2 py-1">Producto</th>
@@ -1308,7 +1308,7 @@ export function FacturaCorreccionFiscalNC({
                         <td colSpan={4} className="px-2 py-1 text-right font-semibold text-slate-600">
                           Total NC seleccionada
                         </td>
-                        <td className="px-2 py-1 text-right tabular-nums font-bold text-[#0284C7]">
+                        <td className="px-2 py-1 text-right tabular-nums font-bold text-[#3F8E91]">
                           {monedaLabel} {formatGs(totalParcialSeleccionado, moneda)}
                         </td>
                         <td />
@@ -1332,7 +1332,7 @@ export function FacturaCorreccionFiscalNC({
                   <button
                     type="button"
                     onClick={agregarLineaManual}
-                    className="text-[11px] font-semibold text-[#0284C7] hover:underline"
+                    className="text-[11px] font-semibold text-[#3F8E91] hover:underline"
                   >
                     + Agregar concepto manual
                   </button>
@@ -1357,7 +1357,7 @@ export function FacturaCorreccionFiscalNC({
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 rows={3}
-                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
                 placeholder="Ej.: Promoción 2x1, bonificación acordada, error de facturación…"
               />
               <span className="mt-1 block text-[11px] font-normal text-slate-400">
@@ -1370,7 +1370,7 @@ export function FacturaCorreccionFiscalNC({
                 value={obs}
                 onChange={(e) => setObs(e.target.value)}
                 rows={2}
-                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
               />
             </label>
             <div className="flex flex-wrap justify-end gap-2 pt-1">
@@ -1386,7 +1386,7 @@ export function FacturaCorreccionFiscalNC({
                 type="button"
                 disabled={submitting}
                 onClick={() => void handleCrear()}
-                className="px-3 py-2 text-xs font-semibold rounded-lg bg-[#0EA5E9] text-white hover:bg-[#0284C7] disabled:opacity-50"
+                className="px-3 py-2 text-xs font-semibold rounded-lg bg-[#4FAEB2] text-white hover:bg-[#3F8E91] disabled:opacity-50"
               >
                 {submitting ? "Guardando…" : "Confirmar creación"}
               </button>
@@ -1440,7 +1440,7 @@ export function FacturaCorreccionFiscalNC({
                 rows={3}
                 autoFocus
                 disabled={sifenNcId === anularNc.id}
-                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] disabled:opacity-50"
+                className="mt-1 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FAEB2] disabled:opacity-50"
                 placeholder="Ej.: Nota de crédito duplicada por error"
               />
               <span className="mt-1 block text-[11px] font-normal text-slate-400">

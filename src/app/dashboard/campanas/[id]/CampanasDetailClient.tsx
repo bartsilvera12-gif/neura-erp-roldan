@@ -466,7 +466,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
         <Link href="/dashboard/campanas" className="text-sm text-indigo-600 hover:underline">
           ← Campañas
         </Link>
-        <h1 className="mt-2 text-xl font-semibold text-slate-900">{String(campaign.name)}</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">{String(campaign.name)}</h1>
         <p className="text-sm text-slate-500">
           Estado: <strong>{String(campaign.status)}</strong> · Plantilla {String(campaign.template_name)} (
           {String(campaign.template_language)})
@@ -488,14 +488,14 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
           ["Fallidos", campaign.failed_count],
           ["Respondieron", campaign.replied_count],
         ].map(([label, val]) => (
-          <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-xs font-medium uppercase text-slate-500">{String(label)}</div>
             <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(val ?? 0)}</div>
           </div>
         ))}
       </div>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-900">Importación (.xlsx / .csv)</h2>
         <input
           type="file"
@@ -518,7 +518,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
       </section>
 
       {placeholderSlots.length > 0 ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Mapeo de variables</h2>
             <p className="mt-1 text-xs text-slate-600">
@@ -535,7 +535,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
 
           <div className="overflow-x-auto rounded-lg border border-slate-100">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-600">
+              <thead className="bg-slate-50 text-left text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Variable en plantilla</th>
                   <th className="px-3 py-2">Columna del Excel</th>
@@ -613,7 +613,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
       ) : null}
 
       {quickReplyTemplateButtons.length > 0 ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-900">Acciones de botones</h2>
           <p className="text-xs text-slate-600">
             Configurá qué hace cada respuesta rápida de la plantilla cuando el cliente la toca. El valor{" "}
@@ -788,13 +788,13 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
         </button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white">
         <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
           Destinatarios (primeras filas)
         </h2>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-100 text-xs">
-            <thead className="bg-slate-50 text-left text-slate-600">
+            <thead className="bg-slate-50 text-left text-xs text-slate-500">
               <tr>
                 <th className="px-3 py-2">#</th>
                 <th className="px-3 py-2">Teléfono</th>
@@ -820,7 +820,7 @@ export default function CampanasDetailClient({ campaignId }: { campaignId: strin
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white">
         <button
           type="button"
           className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-900"

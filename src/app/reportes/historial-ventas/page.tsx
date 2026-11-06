@@ -200,7 +200,7 @@ export default function HistorialVentasPage() {
             <Link href="/reportes" className="hover:text-[#4FAEB2]">Reportes</Link> /{" "}
             <span className="font-semibold text-slate-700">Historial de ventas</span>
           </nav>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Historial de ventas</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Historial de ventas</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Todas las ventas de un período, para buscar una y para mandarla. Para los
             promedios y los cortes por producto está <Link href="/reportes/ventas" className="underline hover:text-[#4FAEB2]">Ventas del mes</Link>.
@@ -216,7 +216,7 @@ export default function HistorialVentasPage() {
         />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <label className="text-xs font-semibold text-slate-500">
             Desde
@@ -319,7 +319,7 @@ export default function HistorialVentasPage() {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         {cargando ? (
           <p className="px-4 py-10 text-center text-sm text-slate-400">Cargando…</p>
         ) : vista.length === 0 ? (
@@ -328,7 +328,7 @@ export default function HistorialVentasPage() {
           </p>
         ) : (
           <table className="w-full min-w-[60rem] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Fecha</th>
                 <th className="px-4 py-3 font-semibold">Hora</th>

@@ -140,7 +140,7 @@ export default function EditarRubroModal({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4"
       onClick={onClose}
     >
-      <div className="my-8 w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="my-8 w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-base font-semibold text-slate-900">Editar rubro</h2>
         <p className="mt-0.5 text-xs text-slate-500">
           {rutaActual || rubro.nombre}

@@ -234,7 +234,7 @@ export default function PresupuestoDetallePage() {
   if (!presu) {
     return (
       <div className="p-6 space-y-3">
-        <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error ?? "Presupuesto no encontrado"}</div>
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error ?? "Presupuesto no encontrado"}</div>
         <Link href="/presupuestos" className="text-sm text-[#4FAEB2] hover:underline">Volver a presupuestos</Link>
       </div>
     );
@@ -261,20 +261,20 @@ export default function PresupuestoDetallePage() {
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-[#4FAEB2]" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">{presu.numero_control}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">{presu.numero_control}</h1>
             <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_BADGE[presu.estado]}`}>
               {ESTADO_LABEL[presu.estado]}
             </span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={abrirPdf} disabled={busy} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          <button onClick={abrirPdf} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Descargar PDF
           </button>
           {presu.estado !== "convertido" && (
             <Link
               href={`/presupuestos/${presu.id}/editar`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               title="Editar productos, cliente y condiciones"
             >
               <Pencil className="h-4 w-4" /> Editar
@@ -284,7 +284,7 @@ export default function PresupuestoDetallePage() {
             <button
               onClick={eliminar}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
               title="Eliminar presupuesto"
             >
               <Trash2 className="h-4 w-4" /> Eliminar
@@ -299,7 +299,7 @@ export default function PresupuestoDetallePage() {
                 type="button"
                 onClick={() => void mandarACaja(false)}
                 disabled={enviando}
-                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
                 title={`Mandado por ${presu.enviado_a_caja_por ?? "—"}`}
               >
                 En la caja — sacar de la lista
@@ -309,7 +309,7 @@ export default function PresupuestoDetallePage() {
                 type="button"
                 onClick={() => void mandarACaja(true)}
                 disabled={enviando}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {enviando ? "Mandando…" : "Mandar a cobrar"}
               </button>
@@ -318,7 +318,7 @@ export default function PresupuestoDetallePage() {
           {presu.estado === "aprobado" && (
             <Link
               href={`/ventas/nueva?presupuesto_id=${presu.id}`}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
             >
               <FileCheck2 className="h-4 w-4" /> Cobrar en Caja
             </Link>
@@ -326,15 +326,15 @@ export default function PresupuestoDetallePage() {
         </div>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-      {ok && <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+      {ok && <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
 
       {presu.estado === "convertido" && presu.convertido_pedido_id && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-violet-50 border border-violet-200 p-3 text-sm text-violet-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-violet-50 border border-violet-200 p-3 text-sm text-violet-800">
           <span>Este presupuesto ya fue convertido en pedido.</span>
           <Link
             href={`/dashboard/proyectos/${presu.convertido_pedido_id}`}
-            className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"
           >
             <FileCheck2 className="h-3.5 w-3.5" /> Abrir pedido
           </Link>
@@ -343,11 +343,11 @@ export default function PresupuestoDetallePage() {
 
       {/* Estados */}
       {SIGUIENTES[presu.estado].length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Cambiar estado</h2>
           <div className="flex flex-wrap gap-2">
             {SIGUIENTES[presu.estado].map((s) => (
-              <button key={s} onClick={() => cambiarEstado(s)} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+              <button key={s} onClick={() => cambiarEstado(s)} disabled={busy} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
                 Marcar como {ESTADO_LABEL[s]}
               </button>
             ))}
@@ -381,14 +381,14 @@ export default function PresupuestoDetallePage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Cliente</h3>
           <p className="font-semibold text-gray-800">{presu.cliente_nombre}</p>
           {presu.cliente_ruc && <p className="text-sm text-gray-600">RUC/CI: {presu.cliente_ruc}</p>}
           {presu.cliente_telefono && <p className="text-sm text-gray-600">Tel: {presu.cliente_telefono}</p>}
           {presu.cliente_direccion && <p className="text-sm text-gray-600">{presu.cliente_direccion}</p>}
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Datos</h3>
           <p className="text-sm text-gray-600">Fecha: {fmtFecha(presu.fecha)}</p>
           {presu.validez_dias != null && (() => {
@@ -433,10 +433,10 @@ export default function PresupuestoDetallePage() {
       </div>
 
       {/* Items */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-gray-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="py-3 px-4 text-left font-medium">Descripción</th>
                 <th className="py-3 px-4 text-center font-medium">Cant.</th>
@@ -471,14 +471,14 @@ export default function PresupuestoDetallePage() {
       </div>
 
       {presu.condiciones_comerciales && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Condiciones comerciales</h3>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{presu.condiciones_comerciales}</p>
         </div>
       )}
 
       {presu.observaciones && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Observaciones</h3>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{presu.observaciones}</p>
         </div>

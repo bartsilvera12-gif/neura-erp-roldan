@@ -120,7 +120,7 @@ export default function GastroInventoryView({
             key={key}
             type="button"
             onClick={() => setFiltro(key)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
               filtro === key
                 ? "border-amber-500 bg-amber-50 text-amber-700"
                 : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
@@ -135,9 +135,9 @@ export default function GastroInventoryView({
       </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 bg-slate-50 text-xs text-slate-500">
             <tr className="text-xs uppercase text-gray-500">
               <th className="py-2.5 px-3 font-medium">Producto</th>
               <th className="py-2.5 px-3 font-medium">Tipo</th>
@@ -241,7 +241,7 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-md border p-3 bg-white ${
+      className={`rounded-lg border p-3 bg-white ${
         highlight ? "border-red-300" : "border-gray-200"
       }`}
     >

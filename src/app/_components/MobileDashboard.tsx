@@ -341,7 +341,7 @@ export default function MobileDashboard({
       {/* ── Header: selector de período (sticky inside scrollable parent) ── */}
       <div className="sticky top-0 -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 z-10 bg-[#F8FAFC] px-4 pt-4 pb-3 sm:px-6 sm:pt-6 border-b border-slate-200">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-xl font-bold text-slate-900">Inicio</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Inicio</h1>
           <div className="flex items-center gap-1 text-xs text-slate-500">
             <Calendar className="h-3.5 w-3.5" aria-hidden />
             <span>{PERIODO_LABELS[periodo]}</span>
@@ -376,7 +376,7 @@ export default function MobileDashboard({
       {seccion === "ventas" && (
       <>
       {/* ── KPI principal: Total Ventas del periodo (tabla ventas, no facturas) ── */}
-      <div className="bg-gradient-to-br from-[#4FAEB2] to-[#3F8E91] rounded-2xl p-5 text-white shadow-md">
+      <div className="bg-[#4FAEB2] rounded-xl p-5 text-white shadow-md">
         <p className="text-[10px] font-bold uppercase tracking-widest opacity-90 mb-2">
           Ventas {PERIODO_LABELS[periodo].toLowerCase()}
         </p>
@@ -390,7 +390,7 @@ export default function MobileDashboard({
 
       {/* ── 2 KPIs secundarios: Cobrado (pagos del periodo) + Gastos ── */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-1.5 mb-1.5">
             <TrendingUp className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -404,7 +404,7 @@ export default function MobileDashboard({
             {metrics.cantidadPagos} pago{metrics.cantidadPagos === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-1.5 mb-1.5">
             <TrendingDown className="h-3.5 w-3.5 text-red-600" aria-hidden />
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -481,7 +481,7 @@ export default function MobileDashboard({
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-1">
           Resumen {PERIODO_LABELS[periodo].toLowerCase()}
         </p>
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
           <SummaryRow
             label="Total ventas"
             value={formatGs(metrics.totalVentas)}
@@ -520,7 +520,7 @@ export default function MobileDashboard({
             {ultimasVentas.map((v) => (
               <div
                 key={String(v.id)}
-                className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm"
+                className="bg-white rounded-xl border border-slate-200 p-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -564,7 +564,7 @@ export default function MobileDashboard({
       {seccion === "financiero" && (
       <>
         {/* KPI principal: cartera pendiente del período */}
-        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl p-5 text-white shadow-md">
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-5 text-white shadow-md">
           <p className="text-[10px] font-bold uppercase tracking-widest opacity-90 mb-2">
             Cartera pendiente del período
           </p>
@@ -578,14 +578,14 @@ export default function MobileDashboard({
 
         {/* Facturado + Recaudado */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Facturado</p>
             <p className="text-base sm:text-lg font-bold text-slate-900 tabular-nums break-all leading-tight">
               {formatGs(financieroMetrics.facturadoCohort)}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">cohorte fiscal</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex items-center gap-1.5 mb-1.5">
               <TrendingUp className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Recaudado</p>
@@ -600,7 +600,7 @@ export default function MobileDashboard({
         </div>
 
         {/* Barra progreso cobranza */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-slate-700">Cobranza del cohorte</p>
             <p className="text-xs font-bold tabular-nums text-emerald-700">
@@ -625,7 +625,7 @@ export default function MobileDashboard({
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-1">
               Composición {PERIODO_LABELS[periodo].toLowerCase()}
             </p>
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium text-slate-700">Contado</span>
@@ -669,7 +669,7 @@ export default function MobileDashboard({
                 Ver todos →
               </Link>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 shadow-sm">
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
               {topDeudores.map((d, idx) => (
                 <Link
                   key={d.id}
@@ -697,7 +697,7 @@ export default function MobileDashboard({
       {seccion === "inventario" && (
       <>
         {/* KPI principal: valor total inventario */}
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-5 text-white shadow-md">
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-5 text-white shadow-md">
           <p className="text-[10px] font-bold uppercase tracking-widest opacity-90 mb-2">
             Valor total del inventario
           </p>
@@ -735,15 +735,15 @@ export default function MobileDashboard({
             Estado del stock
           </p>
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-white rounded-xl border border-emerald-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-emerald-200 p-3">
               <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Saludable</p>
               <p className="text-xl font-bold text-emerald-700 tabular-nums mt-1">{inventarioMetrics.saludable}</p>
             </div>
-            <div className="bg-white rounded-xl border border-amber-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-amber-200 p-3">
               <p className="text-[9px] font-bold uppercase tracking-wider text-amber-700">Bajo</p>
               <p className="text-xl font-bold text-amber-700 tabular-nums mt-1">{inventarioMetrics.bajo}</p>
             </div>
-            <div className="bg-white rounded-xl border border-red-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-red-200 p-3">
               <p className="text-[9px] font-bold uppercase tracking-wider text-red-700">Sin stock</p>
               <p className="text-xl font-bold text-red-700 tabular-nums mt-1">{inventarioMetrics.critico}</p>
             </div>
@@ -772,7 +772,7 @@ export default function MobileDashboard({
                 Ver todos →
               </Link>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 shadow-sm">
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
               {productosCriticos.map((p) => {
                 const actual = Number(p.stock_actual ?? 0);
                 const minimo = Number(p.stock_minimo ?? 0);
