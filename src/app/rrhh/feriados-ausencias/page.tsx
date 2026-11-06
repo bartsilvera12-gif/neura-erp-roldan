@@ -9,7 +9,11 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import { Iniciales } from "@/components/rrhh/EmpleadoBadges";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { diasCorridos, feriadosFijosPy } from "@/lib/rrhh/vacaciones-py";
-import { CalendarDays, CalendarOff, ChevronLeft, ChevronRight, Flag, HeartPulse, Plus, Search, Trash2, UserX, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, CalendarOff, ChevronLeft, ChevronRight, Flag, HeartPulse, Plus, Search, Trash2, UserX, X } from "lucide-react";
+import {
+  TOPE_AUSENCIAS, VENTANA_DIAS, contarEnVentana, estadoDelTope, lugarEnLaVentana,
+  pasadosDelTope, textoDelTope,
+} from "@/lib/rrhh/tope-ausencias";
 import Selector from "@/components/ui/Selector";
 
 export const dynamic = "force-dynamic";
@@ -221,6 +225,29 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
     });
   }, [ausencias, fEmpleado, fTipo, fCuando, fMes, q, hoy]);
 
+  // ── El tope: 3 ausencias cada 30 días, por persona ──────────────────────
+  //
+  // El lugar de cada ausencia se calcula sobre TODAS las cargadas, no sobre
+  // las filtradas: si se calculara sobre lo filtrado, filtrar por mes borraría
+  // las de la semana anterior y la cuarta dejaría de salir en rojo.
+  const lugares = useMemo(() => lugarEnLaVentana(ausencias), [ausencias]);
+  const pasados = useMemo(() => pasadosDelTope(ausencias, hoy), [ausencias, hoy]);
+  const nombrePorId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of empleados) m.set(e.id, e.nombre);
+    for (const a of ausencias) if (!m.has(a.empleado_id)) m.set(a.empleado_id, empleadoNombre(a));
+    return m;
+  }, [empleados, ausencias]);
+
+  // Lo que pasaría si se guarda la que se está cargando. Se avisa ANTES: el
+  // que la carga es el que puede ir a preguntar qué pasó.
+  const topeDelForm = useMemo(() => {
+    if (!form.empleado_id) return null;
+    const estado = estadoDelTope(ausencias, form.empleado_id, form.fecha_desde || hoy);
+    const seria = contarEnVentana(ausencias, form.empleado_id, form.fecha_desde || hoy) + 1;
+    return { estado, seria, pasaria: seria > TOPE_AUSENCIAS };
+  }, [ausencias, form.empleado_id, form.fecha_desde, hoy]);
+
   const hayFiltros = Boolean(fEmpleado || fTipo || fCuando !== "todas" || fMes || q);
   const ausentesHoy = ausencias.filter((a) => a.fecha_desde <= hoy && a.fecha_hasta >= hoy);
   const mesActual = hoy.slice(0, 7);
@@ -265,6 +292,39 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
         <StatCard compact label="Próximas" value={ausencias.filter((a) => a.fecha_desde > hoy).length} icon={<CalendarOff className="h-4 w-4" />} hint="ya registradas" />
       </div>
 
+      {/* El aviso en rojo. Va arriba de todo y solo aparece cuando alguien se
+          pasó: un aviso que está siempre deja de leerse. */}
+      {pasados.length > 0 && (
+        <div className="rounded-xl border-2 border-rose-300 bg-rose-50 p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold text-rose-900">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {pasados.length === 1
+              ? "Una persona pasó el tope de ausencias"
+              : `${pasados.length} personas pasaron el tope de ausencias`}
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {pasados.map((p) => (
+              <li key={p.empleado_id}>
+                <button
+                  type="button"
+                  onClick={() => { setFEmpleado(p.empleado_id); setFCuando("todas"); setFMes(""); }}
+                  className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-900 hover:bg-rose-100"
+                  title="Ver sus ausencias"
+                >
+                  {nombrePorId.get(p.empleado_id) ?? "—"}
+                  <span className="ml-1.5 font-semibold tabular-nums">{p.usadas}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-rose-800">
+            El tope es {TOPE_AUSENCIAS} ausencias cada {VENTANA_DIAS} días por persona. Son {VENTANA_DIAS} días
+            móviles, no el mes: cuentan los últimos {VENTANA_DIAS} desde hoy. Las vacaciones no suman —van en
+            su módulo y son un derecho—.
+          </p>
+        </div>
+      )}
+
       {/* Formulario: se abre solo cuando hace falta */}
       {abierto ? (
         <form onSubmit={guardar} className="rounded-xl border border-[#4FAEB2]/30 bg-white p-5">
@@ -307,6 +367,22 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
                 onChange={(e) => setForm({ ...form, observacion: e.target.value })} />
             </div>
           </div>
+          {/* Cómo viene esa persona. Se avisa antes de guardar, no después. */}
+          {topeDelForm && (
+            <p className={`mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+              topeDelForm.pasaria
+                ? "border-rose-300 bg-rose-50 font-medium text-rose-900"
+                : "border-slate-200 bg-slate-50 text-slate-600"
+            }`}>
+              {topeDelForm.pasaria && <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />}
+              <span>
+                {topeDelForm.pasaria
+                  ? `Con esta serían ${topeDelForm.seria} ausencias en ${VENTANA_DIAS} días: pasa el tope de ${TOPE_AUSENCIAS}.`
+                  : textoDelTope(topeDelForm.estado)}
+              </span>
+            </p>
+          )}
+
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-600">
               {dias > 0 ? <><b className="text-slate-900">{dias}</b> {dias === 1 ? "día" : "días"} corridos</> : "Revisá las fechas"}
@@ -340,7 +416,7 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
           {(Object.keys(TIPO) as TipoAusencia[]).filter((t) => TIPOS_CARGA.includes(t) || ausencias.some((a) => a.tipo === t))
             .map((t) => <option key={t} value={t}>{TIPO[t].label}</option>)}
         </Selector>
-        <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className={`${inputCls} w-auto`} title="Del mes" />
+        <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className={inputCls.replace("w-full", "w-auto")} title="Del mes" />
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
           {([["todas", "Todas"], ["actuales", "Hoy"], ["proximas", "Próximas"], ["pasadas", "Pasadas"]] as const).map(([v, l]) => (
             <button key={v} type="button" onClick={() => setFCuando(v)}
@@ -382,12 +458,26 @@ function TabAusencias({ ausencias, empleados, loading, avisar, recargar, onBorra
             ) : filtradas.map((a) => {
               const enCurso = a.fecha_desde <= hoy && a.fecha_hasta >= hoy;
               const d = diasCorridos(a.fecha_desde, a.fecha_hasta);
+              // El rojo va en la que se pasó, no en todo el bloque: las tres
+              // primeras están permitidas, y pintarlas también haría que el
+              // rojo no diga cuál fue la que se pasó.
+              const lugar = lugares.get(a.id);
+              const pasada = lugar?.pasada === true;
               return (
-                <tr key={a.id} className="hover:bg-[#4FAEB2]/[0.04]">
+                <tr key={a.id} className={pasada ? "bg-rose-50/70 hover:bg-rose-50" : "hover:bg-[#4FAEB2]/[0.04]"}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <Iniciales nombre={empleadoNombre(a)} />
-                      <span className="font-medium text-slate-800">{empleadoNombre(a)}</span>
+                      <span className={`font-medium ${pasada ? "text-rose-900" : "text-slate-800"}`}>{empleadoNombre(a)}</span>
+                      {pasada && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                          title={`Es la ${lugar!.orden}.ª ausencia en ${VENTANA_DIAS} días. El tope es ${TOPE_AUSENCIAS}.`}
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          {lugar!.orden}.ª en {VENTANA_DIAS} días
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
