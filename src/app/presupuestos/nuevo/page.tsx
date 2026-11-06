@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, ArrowLeft, Plus, Trash2, Loader2, History } from "lucide-react";
+import { Plus, Trash2, Loader2, History } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
+import SeccionForm from "@/components/ui/SeccionForm";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
@@ -94,8 +96,9 @@ function itemTotals(it: Item) {
 const VALIDEZ_DIAS = 1;
 
 const IVAS: IvaTipoPresupuesto[] = ["10%", "5%", "EXENTA"];
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm";
+const labelClass = "mb-1 block text-[11px] font-medium text-slate-500";
+const inputClass =
+  "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20";
 
 export default function NuevoPresupuestoPage() {
   const router = useRouter();
@@ -725,48 +728,67 @@ export default function NuevoPresupuestoPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/presupuestos" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
-        <ArrowLeft className="h-4 w-4" /> Volver a presupuestos
-      </Link>
+      <PageHeader
+        backHref="/presupuestos"
+        backLabel="Volver a presupuestos"
+        eyebrow="Presupuestos"
+        title="Nuevo presupuesto"
+        description="Se guarda solo mientras lo armás: si salís, al volver lo encontrás como lo dejaste."
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <FileText className="h-7 w-7 text-[#4FAEB2]" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Nuevo presupuesto</h1>
-        </div>
-        <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={usarMayorista}
-            onChange={(e) => setUsarMayorista(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-[#4FAEB2] focus:ring-[#4FAEB2]"
-          />
-          <span>Usar precios mayoristas por defecto</span>
-        </label>
+      {/*
+        Las opciones del presupuesto, juntas.
+
+        Estaban desparramadas: el tilde de precios mayoristas flotaba arriba a
+        la derecha compitiendo con el título, y "Precios de Casa Central" vivía
+        en su propia tarjeta al lado de un combo, con el texto sin alinear con
+        el campo. Son tres cosas del mismo tipo —cómo se arma este presupuesto,
+        no qué lleva— así que van en una sola fila.
+      */}
+      {(sucursalNombre || (isAdmin && vendedores.length > 0)) && (
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        {sucursalNombre && (
+          <div>
+            <p className="text-[11px] font-medium text-slate-500">Precios de</p>
+            <p className="mt-1 flex h-[38px] items-center text-sm font-semibold text-slate-800">
+              {sucursalNombre}
+            </p>
+          </div>
+        )}
+        {isAdmin && vendedores.length > 0 && (
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-slate-500">Presupuesto a nombre de</span>
+            <Selector
+              value={vendedorId}
+              onChange={(e) => setVendedorId(e.target.value)}
+              className="h-[38px] w-56 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+            >
+              <option value="">Mío</option>
+              {vendedores.map((v) => (
+                <option key={v.id} value={v.id}>{v.nombre}</option>
+              ))}
+            </Selector>
+          </label>
+        )}
       </div>
+      )}
 
+      {/* El aviso del borrador recuperado: una línea, no un bloque. */}
       {recuperado && hayAlgoCargado && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#4FAEB2]/40 bg-[#4FAEB2]/5 px-4 py-3 text-sm text-slate-700">
-          <History className="h-4 w-4 shrink-0 text-[#3F8E91]" />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[#4FAEB2]/30 bg-[#4FAEB2]/5 px-3 py-2 text-xs text-slate-600">
+          <History className="h-3.5 w-3.5 shrink-0 text-[#3F8E91]" />
           <span className="flex-1">
-            Seguís con el presupuesto que estabas armando <span className="text-slate-500">(del {recuperado})</span>.
-
+            Seguís con el presupuesto que estabas armando del {recuperado}
           </span>
           <button type="button" onClick={empezarDeCero}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            className="font-medium text-[#3F8E91] hover:underline">
             Empezar de cero
           </button>
-          <button type="button" onClick={() => setRecuperado(null)} className="text-xs text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={() => setRecuperado(null)} className="text-slate-400 hover:text-slate-600">
             Ocultar
           </button>
         </div>
       )}
-      {!recuperado && borradorListo && hayAlgoCargado && (
-        <p className="-mt-3 text-xs text-slate-400">
-          Se guarda solo mientras lo armás. Si salís, al volver lo encontrás como lo dejaste.
-        </p>
-      )}
-
       {borradorListo && hayAlgoCargado && (
         <p className="-mt-3 text-xs">
           {!listoParaSistema ? (
@@ -786,44 +808,14 @@ export default function NuevoPresupuestoPage() {
         </p>
       )}
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div>}
 
-      {/* De dónde salen los precios. Cada usuario ve el catálogo de su
-          sucursal y nada más, pero eso no se veía en ninguna parte: dos
-          personas comparando un mismo producto con precios distintos no
-          tenían cómo darse cuenta de por qué. */}
-      {(sucursalNombre || isAdmin) && (
-        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          {sucursalNombre && (
-            <div>
-              <p className="text-[11px] font-medium text-slate-400">Precios de</p>
-              <p className="text-sm font-semibold text-slate-800">{sucursalNombre}</p>
-            </div>
-          )}
-          {isAdmin && vendedores.length > 0 && (
-            <div className="min-w-[220px]">
-              <label className={labelClass}>Presupuesto a nombre de</label>
-              <Selector
-                value={vendedorId}
-                onChange={(e) => setVendedorId(e.target.value)}
-                className={`${inputClass} bg-white`}
-              >
-                <option value="">Mío</option>
-                {vendedores.map((v) => (
-                  <option key={v.id} value={v.id}>{v.nombre}</option>
-                ))}
-              </Selector>
-              <p className="mt-1 text-[11px] text-slate-500">
-                Para armarle el presupuesto a una vendedora y que le figure a ella.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Cliente */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Cliente</h2>
+      <SeccionForm
+        paso={1}
+        titulo="Cliente"
+        descripcion="Con el teléfono y el RUC o la cédula, el presupuesto se puede mandar y cobrar; sin eso queda como borrador."
+        completa={!seraBorrador}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={labelClass}>Cliente existente (opcional)</label>
@@ -904,16 +896,33 @@ export default function NuevoPresupuestoPage() {
               placeholder="Para saber si se entrega y con qué flete"
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className={labelClass}>Dirección</label>
             <input value={clienteDir} onChange={(e) => setClienteDir(e.target.value)} className={inputClass} />
           </div>
         </div>
-      </div>
+      </SeccionForm>
 
-      {/* Productos */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Productos</h2>
+      <SeccionForm
+        paso={2}
+        titulo="Productos"
+        descripcion="Del inventario, o escritos a mano si todavía no están cargados."
+        completa={items.length > 0}
+        /* El tilde vive acá: es con qué precio entra cada ítem que se agrega,
+           no una opción general del presupuesto. Arriba, al lado del título,
+           no se entendía a qué se refería. */
+        acciones={
+          <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={usarMayorista}
+              onChange={(e) => setUsarMayorista(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 accent-[#4FAEB2]"
+            />
+            Usar precios mayoristas por defecto
+          </label>
+        }
+      >
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
             <label className={labelClass}>Agregar desde inventario</label>
@@ -1074,11 +1083,14 @@ export default function NuevoPresupuestoPage() {
             <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-base"><span>Total</span><span className="tabular-nums text-[#4FAEB2]">{fmtGs(totales.total)}</span></div>
           </div>
         )}
-      </div>
+      </SeccionForm>
 
-      {/* Condiciones */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Condiciones comerciales</h2>
+      <SeccionForm
+        paso={3}
+        titulo="Condiciones comerciales"
+        descripcion="Lo que se discute si después hay un reclamo: cómo se paga, en cuánto se entrega y qué se firma."
+        completa={formaPago.trim() !== ""}
+      >
         {/* Dos columnas desde que se sacó "Validez (días)": con tres quedaba un
             hueco a la derecha. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1203,7 +1215,7 @@ export default function NuevoPresupuestoPage() {
             </p>
           </div>
         </div>
-      </div>
+      </SeccionForm>
 
       <AvisoFaltantes lineas={items} existencias={existencias} puedeSinStock={puedeSinStock} />
 
@@ -1219,24 +1231,43 @@ export default function NuevoPresupuestoPage() {
         </div>
       )}
 
-      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-        <Link href="/presupuestos" className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
-          Cancelar
-        </Link>
-        <button
-          onClick={guardar}
-          disabled={!valido || guardando}
-          // Ámbar cuando va a quedar borrador: el color dice qué botón es antes
-          // de leerlo, y es la diferencia entre una cotización cobrable y una
-          // que todavía no.
-          className={`inline-flex items-center justify-center gap-1.5 rounded-md px-5 py-2 text-sm font-medium text-white disabled:opacity-50 ${
-            seraBorrador ? "bg-amber-600 hover:bg-amber-700" : "bg-[#4FAEB2] hover:bg-[#3F8E91]"
-          }`}
-        >
-          {guardando
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</>
-            : seraBorrador ? "Guardar como borrador" : "Guardar presupuesto"}
-        </button>
+      {/*
+        La barra de abajo queda fija.
+
+        Esta pantalla es de scroll largo: el total y el botón de guardar
+        estaban al final, así que para ver cuánto daba el presupuesto había que
+        bajar hasta el fondo, y para corregir un precio había que subir y
+        volver a bajar. Acá el total se ve mientras se cargan los ítems, que es
+        cuando sirve.
+      */}
+      <div className="sticky bottom-0 -mx-4 mt-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-slate-500">
+              Total{items.length > 0 ? ` · ${items.length} ${items.length === 1 ? "ítem" : "ítems"}` : ""}
+            </p>
+            <p className="text-xl font-semibold leading-tight text-slate-900">{fmtGs(totales.total)}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/presupuestos" className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </Link>
+            <button
+              onClick={guardar}
+              disabled={!valido || guardando}
+              // Ámbar cuando va a quedar borrador: el color dice qué botón es
+              // antes de leerlo, y es la diferencia entre una cotización
+              // cobrable y una que todavía no.
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
+                seraBorrador ? "bg-amber-600 hover:bg-amber-700" : "bg-[#4FAEB2] hover:bg-[#3F8E91]"
+              }`}
+            >
+              {guardando
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</>
+                : seraBorrador ? "Guardar como borrador" : "Guardar presupuesto"}
+            </button>
+          </div>
+        </div>
       </div>
     {nuevoClienteOpen && (
         <NuevoClienteRapidoModal
