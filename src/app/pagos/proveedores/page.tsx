@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import { Metrica, FilaDeMetricas } from "@/components/ui/Metrica";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import ReciboProveedor from "@/components/pagos/ReciboProveedor";
 import MarcarFacturaPagadaModal from "@/components/pagos/MarcarFacturaPagadaModal";
 import PagosRealizados from "@/components/pagos/PagosRealizados";
+import OrdenDePago from "@/components/pagos/OrdenDePago";
 import {
   agruparDeuda, textoVencimiento,
   type FacturaClasificada, type FacturaProveedor, type ProveedorDeuda,
 } from "@/lib/pagos/deuda-proveedores";
-import { CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, Printer, Search, Wallet } from "lucide-react";
+import { Banknote, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, Printer, Search, Wallet } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 
 /**
@@ -95,13 +95,22 @@ export default function PagosProveedoresPage() {
    * ?tab=realizados para poder entrar directo (window.location y no
    * useSearchParams, para no tener que envolver la página en Suspense).
    */
-  const [pestana, setPestana] = useState<"por_pagar" | "realizados">("por_pagar");
+  type Pestana = "por_pagar" | "armar" | "realizados";
+  const [pestana, setPestana] = useState<Pestana>("por_pagar");
+  /** Proveedor con el que se abre "Armar pago"; la clave rearma la pestaña. */
+  const [armarCon, setArmarCon] = useState({ proveedor: "", clave: 0 });
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("tab") === "realizados") setPestana("realizados");
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get("tab");
+    if (t === "realizados" || t === "armar") setPestana(t);
+    const prov = sp.get("proveedor");
+    if (prov) setArmarCon({ proveedor: prov, clave: Date.now() });
   }, []);
-  const irA = (t: "por_pagar" | "realizados") => {
+  const irA = (t: Pestana, proveedor?: string) => {
     setPestana(t);
-    window.history.replaceState(null, "", t === "realizados" ? "?tab=realizados" : window.location.pathname);
+    if (proveedor !== undefined) setArmarCon({ proveedor, clave: Date.now() });
+    window.history.replaceState(null, "", t === "por_pagar" ? window.location.pathname : `?tab=${t}`);
+    document.getElementById("neura-main-content")?.scrollTo({ top: 0 });
   };
 
   const cargar = useCallback(async () => {
@@ -157,19 +166,20 @@ export default function PagosProveedoresPage() {
         eyebrow="Pagos"
         title="Pagos a proveedores"
         description="A quién hay que pagarle, y lo que ya se pagó"
-        actions={
-          <Link
-            href="/pagos/orden-pago"
+        actions={pestana === "armar" ? undefined : (
+          <button
+            type="button" onClick={() => irA("armar", "")}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
           >
-            <Wallet className="h-4 w-4" /> Armar orden de pago
-          </Link>
-        }
+            <Wallet className="h-4 w-4" /> Armar pago
+          </button>
+        )}
       />
 
       <div className="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_#e2e8f0]">
         {([
           ["por_pagar", "Por pagar", <Clock key="p" className="h-4 w-4" />],
+          ["armar", "Armar pago", <Banknote key="a" className="h-4 w-4" />],
           ["realizados", "Pagos realizados", <CheckCircle2 key="r" className="h-4 w-4" />],
         ] as const).map(([t, label, icon]) => (
           <button key={t} type="button" onClick={() => irA(t)}
@@ -181,7 +191,9 @@ export default function PagosProveedoresPage() {
         ))}
       </div>
 
-      {pestana === "realizados" ? <PagosRealizados /> : (<>
+      {pestana === "realizados" ? <PagosRealizados /> : pestana === "armar" ? (
+        <OrdenDePago key={armarCon.clave} proveedorInicial={armarCon.proveedor} onPagoArmado={() => void cargar()} />
+      ) : (<>
       {/* ── Los tres números de la ventana ────────────────────────────── */}
       <FilaDeMetricas>
         <Metrica
@@ -275,6 +287,7 @@ export default function PagosProveedoresPage() {
                 recibosDisponibles={recibosDisponibles}
                 onRecargar={() => void cargar()}
                 onPagar={setPagando}
+                onArmar={(id) => irA("armar", id)}
               />
             );
           })}
@@ -283,7 +296,7 @@ export default function PagosProveedoresPage() {
 
       <p className="text-[11px] leading-relaxed text-slate-500">
         Para pagar <strong>varias facturas de un proveedor con un solo cheque</strong>, usá{" "}
-        <strong>Armar orden de pago</strong>: junta las que elijas, imprime la orden que las detalla y
+        <strong>Armar pago</strong>: junta las que elijas, imprime la orden que las detalla y
         después se carga el recibo que firma el proveedor, con su número. Eso es lo que termina la
         discusión cuando un proveedor traspapela un documento y vuelve a reclamar una factura ya pagada.
       </p>
@@ -301,8 +314,9 @@ export default function PagosProveedoresPage() {
 }
 
 function TarjetaProveedor({
-  p, abierto, onToggle, mostrar, onMostrarMas, recibosDisponibles, onRecargar, onPagar,
+  p, abierto, onToggle, mostrar, onMostrarMas, recibosDisponibles, onRecargar, onPagar, onArmar,
 }: {
+  onArmar: (proveedorId: string) => void;
   p: ProveedorDeuda;
   abierto: boolean;
   onToggle: () => void;
@@ -350,12 +364,12 @@ function TarjetaProveedor({
         </div>
 
         {p.proveedor_id && p.cantidad > 0 && (
-          <Link
-            href={`/pagos/orden-pago?proveedor=${encodeURIComponent(p.proveedor_id)}`}
+          <button
+            type="button" onClick={() => onArmar(p.proveedor_id!)}
             className="shrink-0 rounded-lg bg-[#4FAEB2] px-3 py-2 text-xs font-semibold text-white hover:bg-[#3F8E91]"
           >
-            Armar orden de pago
-          </Link>
+            Armar pago
+          </button>
         )}
       </div>
 
