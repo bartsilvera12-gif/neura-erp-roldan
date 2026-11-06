@@ -24,11 +24,15 @@ type Resp = {
     anio: number; mes: number; ventas: number; ventas_netas: number; cmv: number;
     lineas: number; lineas_sin_costo: number;
     gastos: number; gastos_modulo: number; gastos_caja: number; margen_pct: number | null;
+    margen: {
+      vendido: number; costo: number; diferencia: number;
+      iva_debito: number; iva_credito: number; diferencia_iva: number; margen: number; margen_pct: number | null;
+    };
   };
   costo_estimado: boolean;
   supuestos: { margen_pct: number | null; gastos: number; margen_editado: boolean; gastos_editados: boolean };
   resultado: { ventas_necesarias: number | null; motivo?: string; margen_pct: number | null; gastos: number };
-  actual: { ventas: number; ventas_netas: number; cmv: number };
+  actual: { ventas: number; ventas_netas: number; vendido: number; cmv: number };
   avance: { pct: number; faltante: number; cubierto: boolean; dia_estimado: number | null; ritmo_diario: number } | null;
 };
 
@@ -118,7 +122,7 @@ export default function PuntoEquilibrioPage() {
                 </p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">Gs. {gs(objetivo)}</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  sin IVA, con {pct(d.supuestos.margen_pct)} de margen y Gs. {gs(d.supuestos.gastos)} de gastos
+                  facturado (con IVA), con {pct(d.supuestos.margen_pct)} de margen y Gs. {gs(d.supuestos.gastos)} de gastos
                 </p>
 
                 {d.avance && (
@@ -134,11 +138,11 @@ export default function PuntoEquilibrioPage() {
                         <>
                           <strong className="text-emerald-700">Gastos cubiertos.</strong>{" "}
                           Se llegó {d.avance.dia_estimado ? <>alrededor del <strong>día {d.avance.dia_estimado}</strong></> : "este mes"}, y
-                          lo vendido desde ahí —Gs. {gs(d.actual.ventas_netas - objetivo)}— va a ganancia.
+                          lo vendido desde ahí —Gs. {gs(d.actual.vendido - objetivo)}— va a ganancia.
                         </>
                       ) : (
                         <>
-                          Van <strong>Gs. {gs(d.actual.ventas_netas)}</strong> de los Gs. {gs(objetivo)}{" "}
+                          Van <strong>Gs. {gs(d.actual.vendido)}</strong> de los Gs. {gs(objetivo)}{" "}
                           ({d.avance.pct.toFixed(0)}%). Faltan <strong>Gs. {gs(d.avance.faltante)}</strong>.
                           {d.periodo.en_curso && d.avance.dia_estimado && (
                             <> Al ritmo de ahora se llega cerca del <strong>día {d.avance.dia_estimado}</strong>.</>
@@ -160,14 +164,46 @@ export default function PuntoEquilibrioPage() {
             <h2 className="text-sm font-semibold text-slate-800">
               De dónde sale: {MESES[d.base.mes - 1]} {d.base.anio}
             </h2>
-            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-              <Dato t="Ventas netas" v={`Gs. ${gs(d.base.ventas_netas)}`} s={`${d.base.ventas} ventas`} />
-              <Dato t="Costo de lo vendido" v={`Gs. ${gs(d.base.cmv)}`} s="estimado" />
-              <Dato t="Margen bruto" v={pct(d.base.margen_pct)} s="utilidad / venta" />
-              <Dato
-                t="Gastos" v={`Gs. ${gs(d.base.gastos)}`}
-                s={`caja ${gs(d.base.gastos_caja)} · módulo ${gs(d.base.gastos_modulo)}`}
-              />
+            <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_auto]">
+              {/* El margen, renglón por renglón, con la fórmula del cliente:
+                  vendido − costo de venta − diferencia de IVA. */}
+              <table className="w-full max-w-lg text-sm">
+                <tbody className="tabular-nums">
+                  <tr>
+                    <td className="py-1 text-slate-600">Lo vendido <span className="text-[11px] text-slate-400">({d.base.ventas} ventas, con IVA)</span></td>
+                    <td className="py-1 text-right font-medium text-slate-900">Gs. {gs(d.base.margen.vendido)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1 text-slate-600">− Costo de venta <span className="text-[11px] text-slate-400">(con IVA, estimado)</span></td>
+                    <td className="py-1 text-right text-slate-700">− Gs. {gs(d.base.margen.costo)}</td>
+                  </tr>
+                  <tr className="border-t border-slate-200">
+                    <td className="py-1 font-medium text-slate-700">= Diferencia</td>
+                    <td className="py-1 text-right font-medium text-slate-900">Gs. {gs(d.base.margen.diferencia)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1 text-slate-600">
+                      − Diferencia de IVA
+                      <span className="block text-[11px] text-slate-400">
+                        IVA de las ventas {gs(d.base.margen.iva_debito)} − IVA del costo {gs(d.base.margen.iva_credito)}
+                      </span>
+                    </td>
+                    <td className="py-1 text-right align-top text-slate-700">− Gs. {gs(d.base.margen.diferencia_iva)}</td>
+                  </tr>
+                  <tr className="border-t-2 border-slate-800">
+                    <td className="py-1.5 font-semibold text-slate-900">= Margen</td>
+                    <td className="py-1.5 text-right font-bold text-slate-900">
+                      Gs. {gs(d.base.margen.margen)} <span className="ml-1 text-sm font-semibold text-[#3F8E91]">{pct(d.base.margen_pct)}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="grid content-start gap-3 text-sm">
+                <Dato
+                  t="Gastos" v={`Gs. ${gs(d.base.gastos)}`}
+                  s={`caja ${gs(d.base.gastos_caja)} · módulo ${gs(d.base.gastos_modulo)}`}
+                />
+              </div>
             </div>
 
             {/* El margen es el número del que cuelga todo: si baja a la mitad,
@@ -225,14 +261,16 @@ export default function PuntoEquilibrioPage() {
 
           <div className="space-y-1.5 text-[11px] leading-relaxed text-slate-500">
             <p>
-              <strong>La cuenta:</strong> ventas necesarias = gastos ÷ margen. Con 30% de margen y
-              Gs. 30 de gastos hay que vender Gs. 100: de esos 100, 30 son ganancia bruta, que es
-              justo lo que se va en gastos.
+              <strong>El margen:</strong> lo vendido − el costo de venta, y a esa diferencia se le
+              resta la diferencia de IVA (el IVA cobrado en las ventas menos el IVA pagado en la
+              mercadería vendida), que es lo que se va al fisco y no es ganancia. El porcentaje es
+              sobre lo vendido.
             </p>
             <p>
-              Todo va <strong>sin IVA</strong>. El IVA que se le cobra al cliente no es ingreso: se
-              le pasa al fisco. Calcularlo sobre el total con IVA pediría vender menos de lo que
-              hace falta, y el error es del orden del 10%.
+              <strong>La cuenta:</strong> hay que facturar = gastos ÷ margen. Con 20% de margen y
+              Gs. 20 de gastos hay que facturar Gs. 100: de esos 100, 20 quedan de margen, que es
+              justo lo que se va en gastos. El objetivo y lo que se lleva vendido van <strong>con
+              IVA</strong>, como se factura.
             </p>
             <p>
               Los <strong>gastos</strong> son los del módulo de Gastos más los egresos de caja, sin

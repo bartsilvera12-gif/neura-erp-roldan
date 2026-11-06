@@ -56,10 +56,49 @@ export function margenBrutoPct(base: { ventas_netas: unknown; cmv: unknown }): n
   return ((v - n(base.cmv)) / v) * 100;
 }
 
+/**
+ * EL MARGEN, CON LA FÓRMULA DEL CLIENTE
+ *
+ *     margen = (lo vendido − el costo de venta) − (IVA de las ventas − IVA del costo)
+ *
+ * Todo con IVA, como se factura y como se compra: "lo que vendiste, menos el
+ * costo de venta, y a esa diferencia se le resta la diferencia de IVA". La
+ * diferencia de IVA es lo que se le paga al fisco por esa venta (el IVA que
+ * se cobró menos el que ya se pagó al comprar la mercadería): no es ganancia.
+ *
+ * El porcentaje es sobre lo vendido (facturado con IVA), así el punto de
+ * equilibrio sale directamente en "cuánto hay que facturar".
+ */
+export interface MargenDeVenta {
+  vendido: number;
+  costo: number;
+  /** vendido − costo. */
+  diferencia: number;
+  iva_debito: number;
+  iva_credito: number;
+  /** iva_debito − iva_credito: lo que se va al fisco. */
+  diferencia_iva: number;
+  /** diferencia − diferencia_iva. */
+  margen: number;
+  /** margen / vendido × 100. null sin ventas. */
+  margen_pct: number | null;
+}
+
+export function margenDeVenta(b: { vendido: unknown; costo: unknown; iva_debito: unknown; iva_credito: unknown }): MargenDeVenta {
+  const vendido = n(b.vendido), costo = n(b.costo), deb = n(b.iva_debito), cred = n(b.iva_credito);
+  const diferencia = vendido - costo;
+  const diferencia_iva = deb - cred;
+  const margen = diferencia - diferencia_iva;
+  return {
+    vendido, costo, diferencia, iva_debito: deb, iva_credito: cred, diferencia_iva, margen,
+    margen_pct: vendido > 0 ? (margen / vendido) * 100 : null,
+  };
+}
+
 export type MotivoSinPunto = "sin_margen" | "margen_negativo" | "sin_gastos";
 
 export interface Resultado {
-  /** Lo que hay que facturar, sin IVA. `null` si no se puede calcular. */
+  /** Lo que hay que facturar, con IVA. `null` si no se puede calcular. */
   ventas_necesarias: number | null;
   /** Por qué no se pudo, cuando `ventas_necesarias` es null. */
   motivo?: MotivoSinPunto;

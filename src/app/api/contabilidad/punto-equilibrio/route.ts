@@ -6,7 +6,7 @@ import { traerTodas } from "@/lib/supabase/traer-todo";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { divisorIva } from "@/lib/precios/iva";
 import {
-  avanceDelMes, calcularPuntoEquilibrio, diasDelMes, margenBrutoPct, mesAnterior,
+  avanceDelMes, calcularPuntoEquilibrio, diasDelMes, margenDeVenta, mesAnterior,
 } from "@/lib/contabilidad/punto-equilibrio";
 
 /**
@@ -68,8 +68,11 @@ async function ventasYCosto(ctx: Ctx, sucursalId: string, anio: number, mes: num
       .range(d, h)
   );
   const ventasNetas = ventas.reduce((s, v) => s + num(v.subtotal), 0);
+  // Lo vendido es lo facturado, con IVA; el IVA de las ventas es la diferencia.
+  const vendido = ventas.reduce((s, v) => s + num(v.total), 0);
+  const ivaDebito = vendido - ventasNetas;
   if (ventas.length === 0) {
-    return { ventas: 0, ventas_netas: 0, cmv: 0, lineas: 0, lineas_sin_costo: 0 };
+    return { ventas: 0, ventas_netas: 0, vendido: 0, iva_debito: 0, cmv: 0, costo: 0, iva_credito: 0, lineas: 0, lineas_sin_costo: 0 };
   }
 
   // Las líneas, en tandas de ids para no pasarse del largo de la URL.
@@ -112,7 +115,7 @@ async function ventasYCosto(ctx: Ctx, sucursalId: string, anio: number, mes: num
     }
   }
 
-  let cmv = 0, sinCosto = 0;
+  let cmv = 0, costo = 0, sinCosto = 0;
   for (const it of items) {
     const info = costos.get(String(it.producto_id ?? ""));
     if (!info || info.costo <= 0) { sinCosto += 1; continue; }
@@ -120,12 +123,19 @@ async function ventasYCosto(ctx: Ctx, sucursalId: string, anio: number, mes: num
     // sobre importes netos, así que hay que sacárselo a los dos lados.
     const iva = String(it.tipo_iva ?? info.iva ?? "10%");
     cmv += num(it.cantidad) * (info.costo / divisorIva(iva));
+    costo += num(it.cantidad) * info.costo;
   }
 
   return {
     ventas: ventas.length,
     ventas_netas: ventasNetas,
+    vendido,
+    iva_debito: ivaDebito,
     cmv,
+    /** El costo de venta con IVA, como se compró. */
+    costo,
+    /** El IVA que ya se pagó al comprar lo vendido. */
+    iva_credito: costo - cmv,
     lineas: items.length,
     lineas_sin_costo: sinCosto,
   };
@@ -192,7 +202,8 @@ export async function GET(request: NextRequest) {
       ventasYCosto(ctx, sucursalId, anio, mes),
     ]);
 
-    const margenCalculado = margenBrutoPct(mesBase);
+    const margen = margenDeVenta(mesBase);
+    const margenCalculado = margen.margen_pct;
 
     // Los supuestos, que la pantalla puede pisar.
     const margenPedido = sp.get("margen");
@@ -212,7 +223,7 @@ export async function GET(request: NextRequest) {
 
     const avance = avanceDelMes({
       objetivo: resultado.ventas_necesarias,
-      vendidoNeto: mesActual.ventas_netas,
+      vendidoNeto: mesActual.vendido,
       dia: diaHoy,
       diasDelMes: dias,
     });
@@ -226,6 +237,7 @@ export async function GET(request: NextRequest) {
         gastos_modulo: gastosBase.modulo,
         gastos_caja: gastosBase.caja,
         margen_pct: margenCalculado,
+        margen,
       },
       /** true: el CMV se estimó con el costo de hoy, no con el de la venta. */
       costo_estimado: true,
