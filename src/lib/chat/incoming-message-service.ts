@@ -8,6 +8,7 @@ import { ensureCentralChatConversationMirror } from "@/lib/chat/central-chat-con
 import { markFirstHumanOperatorReply } from "@/lib/chat/conversation-sla-markers";
 import { maybeRedistributeInitialAssignment } from "@/lib/chat/initial-assignment-redistribution";
 import { createWhatsappConversationWithActiveFlow } from "@/lib/chat/whatsapp-conversation-bootstrap";
+import { kickPushDispatcher } from "@/lib/cc/kick-dispatcher";
 import { markCampaignReplyFromInbound } from "@/lib/campaigns/campaign-inbound-hook";
 import { executeCampaignButtonActionForMatchedRecipient } from "@/lib/campaigns/campaign-button-action-service";
 import type { SupabaseAdmin } from "@/lib/chat/types";
@@ -390,7 +391,9 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
   const { data: convRow } = await supabase
     .from("chat_conversations")
     .select(
-      "status, unread_count, flow_code, flow_current_node, flow_status, human_taken_over"
+      // `assigned_agent_id` es para el aviso al teléfono: sin él no se sabe a
+      // quién avisarle.
+      "status, unread_count, flow_code, flow_current_node, flow_status, human_taken_over, assigned_agent_id"
     )
     .eq("id", conversationId)
     .eq("empresa_id", empresaId)
@@ -489,6 +492,51 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
         });
       } catch (e) {
         console.warn("[saveIncomingMessage] executeCampaignButtonActionForMatchedRecipient", e);
+      }
+    }
+  }
+
+  // ── El aviso al teléfono del asesor ──────────────────────────────────────
+  //
+  // Acá NO se manda el push: se deja una fila en la cola y listo. Mandarlo es
+  // hablar con Google, y si el webhook de WhatsApp tuviera que esperar a eso,
+  // WhatsApp lo daría por caído y reintentaría el mensaje: el cliente quedaría
+  // duplicado en el chat por un problema ajeno a él.
+  //
+  // Solo para mensajes del CLIENTE (no los nuestros), solo si la conversación
+  // ya tiene dueño, y solo cuando el mensaje se guardó por primera vez: un
+  // reintento de WhatsApp llega como duplicado y no tiene que volver a sonar.
+  if (isContactInbound && persist.ok) {
+    const agenteAsignado =
+      (convRow as { assigned_agent_id?: string | null } | null)?.assigned_agent_id ?? null;
+    const estadoCrudo = String((convRow as { status?: string } | null)?.status ?? "open");
+    // Un mensaje entrante reabre una conversación cerrada: para el aviso vale
+    // como pendiente.
+    const estado = estadoCrudo === "closed" ? "pending" : estadoCrudo;
+    if (agenteAsignado && (estado === "open" || estado === "pending")) {
+      const { error: errAviso } = await supabase.from("agent_notification_events").insert({
+        empresa_id: empresaId,
+        agent_id: agenteAsignado,
+        conversation_id: conversationId,
+        type: "new_message",
+        channel: "fcm",
+        status: "pending",
+        metadata: {
+          message_id: persistedMessageId,
+          wa_message_id: ext,
+          preview: preview.slice(0, 140),
+        },
+      });
+      if (errAviso) {
+        // Sin el script 81 la tabla no existe. Se anota y el mensaje sigue su
+        // camino: perder un aviso es malo, perder el mensaje del cliente es
+        // peor.
+        console.warn("[saveIncomingMessage] aviso al asesor", errAviso.message);
+      } else {
+        // Se le pega al emisor para que salga en segundos. Sin esperar
+        // respuesta: el webhook ya tiene que contestarle a WhatsApp. Si este
+        // empujón se pierde, el cron lo levanta igual.
+        kickPushDispatcher();
       }
     }
   }

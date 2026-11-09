@@ -67,6 +67,7 @@
     "@supabase/supabase-js": "^2.99.0",
     "@xmldom/xmldom": "^0.9.9",
     "exceljs": "^4.4.0",
+    "firebase-admin": "^13.10.0",
     "fontkit": "^2.0.4",
     "framer-motion": "^12.36.0",
     "jszip": "^3.10.1",

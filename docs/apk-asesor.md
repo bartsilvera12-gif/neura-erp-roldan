@@ -29,24 +29,59 @@ asesor se loguea una vez y queda.
 No trae el resto del ERP: no hay ventas, ni inventario, ni informes. Para eso
 está la computadora.
 
-## Lo que NO hace todavía
+## Los avisos al teléfono
 
-**No avisa todavía cuando entra un mensaje**, pero ya falta poco. Lo que está
-hecho:
+**Están armados de punta a punta.** Falta una sola cosa de
+configuración, abajo.
 
-- Firebase configurado (proyecto `neura-erp-roldan`). El
-  `google-services.json` está en `android/app/` y versionado.
-- La app registra el aparato al arrancar y lo manda a
-  `POST /api/cc/agent/device-token`.
-- El horario en que cada uno quiere recibir avisos.
-- Al tocar el aviso, la app abre el chat de esa conversación.
+Cómo funciona:
 
-Lo que falta es **el emisor**: algo del lado del servidor que, cuando entra un
-mensaje, lea `agent_device_tokens` y dispare el push por FCM respetando
-`usuario_horario_notificaciones`. El aviso tiene que llevar
-`data.route = "/m/asesor/chat/<id>"`, que es lo que la app abre al tocarlo.
+1. Entra un mensaje del cliente por el webhook de WhatsApp.
+2. Si la conversación ya tiene asesor asignado, se escribe una fila en
+   `agent_notification_events` con estado `pending`. **Acá no se manda el
+   push**: mandarlo es hablar con Google, y si el webhook tuviera que esperar
+   a eso, WhatsApp lo daría por caído y reintentaría el mensaje — el cliente
+   quedaría duplicado en el chat por un problema ajeno a él.
+3. El mismo proceso le pega a `/api/cron/cc-notifications-dispatch` sin
+   esperar respuesta, para que el aviso salga en segundos.
+4. El emisor lee los `pending`, busca los teléfonos activos de ese asesor,
+   mira si está dentro del horario que configuró, y manda el push por FCM.
+5. Al tocar el aviso, la app abre esa conversación (`data.route`).
 
-Mientras tanto el asesor ve los mensajes nuevos al abrir la app.
+Cada fila queda con en qué terminó: `sent` (Google lo aceptó, con su id),
+`failed` (con el motivo), o `skipped` — que no es un error: es "no tiene la
+app" o "está fuera de su horario". Cuando alguien diga "a mí no me llegó
+nada", ahí está la respuesta.
+
+Detalles que vale conocer:
+
+- **Un teléfono que ya no existe se apaga solo.** Firebase lo dice con
+  `registration-token-not-registered` y el emisor marca el token inactivo.
+- **El cron es la red de contención, no el camino principal.** El empujón
+  directo del paso 3 es lo que hace que el aviso salga rápido; el cron existe
+  porque ese empujón se puede perder (proceso reciclado, timeout).
+
+## Lo único que falta configurar
+
+Una variable de entorno en Coolify, en la aplicación `neura-erp-roldan`:
+
+```
+CRON_SECRET = <una cadena larga al azar, la que quieras>
+```
+
+Protege el endpoint del emisor para que no lo pueda disparar cualquiera desde
+afuera. **Sin ella no sale ningún aviso**: el empujón directo no se hace y el
+endpoint rechaza todo.
+
+Y, como red de contención, un scheduled task en Coolify cada minuto:
+
+```
+curl -s -H "Authorization: Bearer $CRON_SECRET" \
+  http://127.0.0.1:3000/api/cron/cc-notifications-dispatch?limit=100
+```
+
+Para probar sin mandar nada: agregarle `&dryRun=1`, que cuenta los pendientes
+y no envía.
 
 ## Armar la APK
 
@@ -73,16 +108,18 @@ no viene de Play Store.
 
 ## Qué hay que correr en la base
 
-`supabase/roldanerp/80_app_del_asesor.sql`. Crea tres tablas nuevas y no toca
-nada de lo que ya funciona:
+`supabase/roldanerp/80_app_del_asesor.sql` y luego
+`supabase/roldanerp/81_avisos_al_asesor.sql`. Las dos crean tablas nuevas y no
+tocan nada de lo que ya funciona:
 
-| Tabla | Para qué |
-|---|---|
-| `agent_device_tokens` | El teléfono de cada asesor, para poder avisarle. Se llena sola. |
-| `usuario_horario_notificaciones` | En qué horario quiere recibir los avisos. Sin fila, le llegan siempre. |
-| `chat_conversation_attribution` | De qué anuncio salió la conversación. |
+| Tabla | Script | Para qué |
+|---|---|---|
+| `agent_device_tokens` | 80 | El teléfono de cada asesor, para poder avisarle. Se llena sola. |
+| `usuario_horario_notificaciones` | 80 | En qué horario quiere recibir los avisos. Sin fila, le llegan siempre. |
+| `chat_conversation_attribution` | 80 | De qué anuncio salió la conversación. |
+| `agent_notification_events` | 81 | La cola de avisos y en qué terminó cada uno. |
 
-Si no se corre, la app abre y se chatea igual; lo que no anda es el aviso al
+Si no se corren, la app abre y se chatea igual; lo que no anda es el aviso al
 teléfono y la franja del anuncio.
 
 ## Firebase
