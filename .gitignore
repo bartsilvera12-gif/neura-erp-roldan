@@ -46,3 +46,22 @@ next-env.d.ts
 
 # Playwright E2E artefactos locales
 e2e-super-admin*.png
+
+# ── La APK del asesor (Capacitor + Android) ────────────────────────────────
+# El proyecto nativo SÍ va al repo: es lo que permite volver a compilar la APK.
+# Lo que no va es lo que se genera al compilar, lo que apunta a una máquina en
+# particular, y las credenciales de Firebase.
+/android/app/build/
+/android/build/
+/android/.gradle/
+/android/capacitor-cordova-android-plugins/build/
+/android/local.properties
+/android/app/google-services.json
+# Capacitor la regenera en cada `cap sync` a partir de capacitor.config.ts.
+/android/app/src/main/assets/capacitor.config.json
+# Las APK no se versionan: se compilan.
+*.apk
+*.aab
+# El keystore y sus contraseñas NUNCA van al repo.
+*.keystore
+*.jks

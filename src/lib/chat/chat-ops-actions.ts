@@ -1475,3 +1475,32 @@ export async function touchChatAgentInboxHeartbeat(): Promise<{ ok: boolean; rea
   }
   return { ok: true };
 }
+
+/* ── Destinos de una transferencia, para la app del asesor ─────────────────
+ *
+ * La app móvil se portó del otro ERP, donde estas dos funciones tienen su
+ * propia regla de alcance (un agente ve a sus compañeros de cola). Acá se
+ * delegan en lo que ya usa el inbox de escritorio —`fetchSupervisorAgentLoads`
+ * y `listChatQueues`—, que es lo que mira la gente cuando transfiere desde la
+ * computadora.
+ *
+ * Es a propósito: transferir desde el teléfono tiene que ofrecer los mismos
+ * destinos que transferir desde la pantalla grande. Si cada una tuviera su
+ * lista, un chat podría derivarse desde el celular a alguien que en el ERP no
+ * figura como destino válido.
+ *
+ * El `request` se acepta y se ignora por lo mismo que en
+ * `requireEmpresaTenantServiceRole`: la APK es un WebView y entra con cookie.
+ */
+
+export async function fetchTransferTargetAgents(
+  _request?: Request | null
+): Promise<SupervisorAgentLoadRow[]> {
+  return fetchSupervisorAgentLoads();
+}
+
+export async function listTransferQueues(
+  _request?: Request | null
+): Promise<ChatQueueListRow[]> {
+  return listChatQueues();
+}

@@ -1,0 +1,2675 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { getStickerFavoritos, toggleStickerFavorito } from "@/lib/chat/sticker-favorites";
+import { esLidWhatsapp, nombreOTelefonoParaMostrar } from "@/lib/chat/wa-phone";
+import {
+  assignConversationToAgent,
+  changeConversationQueue,
+  fetchTransferTargetAgents,
+  listTransferQueues,
+  type ChatQueueListRow,
+  type SupervisorAgentLoadRow,
+} from "@/lib/chat/chat-ops-actions";
+import {
+  getErpAttachmentCaption,
+  getErpAttachmentFilename,
+  getErpAttachmentPublicUrl,
+  getMetaInboundDocumentFilename,
+  getWhatsAppMediaUrlFromRawPayload,
+  textoDeMensajeDeSistema,
+} from "@/lib/chat/message-erp-display";
+import { friendlyWhatsappFailureReason, extractWhatsappFailureInfo } from "@/lib/chat/whatsapp-failure-reason";
+import { agruparReacciones, EMOJIS_REACCION, wamidDeMensaje, type ReaccionEnUI } from "@/lib/chat/message-reactions";
+import { wamidCitado } from "@/lib/chat/message-quote";
+import ImagenPegada, { imagenDelPortapapeles } from "@/components/chat/ImagenPegada";
+import MessageDeliveryTicks from "@/components/chat/MessageDeliveryTicks";
+import { useAsesorInbox, type AsesorConv } from "@/shared/hooks/useAsesorInbox";
+import { pickRecorderMimeType, extForAudioType } from "@/lib/chat/audio-recording";
+import {
+  extractBodyPlaceholderKeysOrdered,
+  getBodyComponentText,
+  PLACEHOLDER_RE,
+} from "@/lib/campaigns/campaign-placeholders-shared";
+
+type Msg = {
+  id: string;
+  /** ID del mensaje en WhatsApp; se usa para citarlo al responder. */
+  wa_message_id?: string | null;
+  from_me: boolean;
+  sender_type: string | null;
+  content: string;
+  message_type: string;
+  created_at: string | null;
+  raw_payload?: Record<string, unknown> | null;
+  whatsapp_delivery_status?: string | null;
+};
+
+type Pending = {
+  tempId: string;
+  status: "sending" | "error";
+  kind: "text" | "audio" | "file" | "sticker";
+  content: string;
+  file?: File;
+  stickerUrl?: string;
+};
+
+/** Raíz del mensaje dentro del raw_payload (envelope YCloud o Meta directo). */
+function messageRoot(raw: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const wim = raw["whatsappInboundMessage"];
+  if (wim && typeof wim === "object") return wim as Record<string, unknown>;
+  const wm = raw["whatsappMessage"];
+  if (wm && typeof wm === "object") return wm as Record<string, unknown>;
+  return raw as Record<string, unknown>;
+}
+
+/** Contacto(s) compartido(s): nombre + teléfono. */
+function extractContacts(raw: Record<string, unknown> | null | undefined): { name: string; phone: string }[] {
+  const root = messageRoot(raw);
+  const arr = root?.["contacts"];
+  if (!Array.isArray(arr)) return [];
+  return arr.map((c) => {
+    const o = (c ?? {}) as Record<string, unknown>;
+    const nameObj = (o.name ?? {}) as Record<string, unknown>;
+    const name =
+      String(nameObj.formatted_name ?? nameObj.first_name ?? "").trim() || "Contacto";
+    const phones = Array.isArray(o.phones) ? (o.phones as Record<string, unknown>[]) : [];
+    const phone = String(phones[0]?.phone ?? phones[0]?.wa_id ?? "").trim();
+    return { name, phone };
+  });
+}
+
+/** Ubicación compartida: link a mapa + etiqueta. */
+function extractLocation(
+  raw: Record<string, unknown> | null | undefined
+): { lat: number; lng: number; label: string } | null {
+  const root = messageRoot(raw);
+  const loc = root?.["location"];
+  if (!loc || typeof loc !== "object") return null;
+  const o = loc as Record<string, unknown>;
+  const lat = Number(o.latitude);
+  const lng = Number(o.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const label = String(o.name ?? o.address ?? "").trim();
+  return { lat, lng, label };
+}
+
+type Tpl = {
+  id: string;
+  name: string;
+  language: string;
+  category: string | null;
+  components_json: unknown[];
+};
+
+const EMOJIS = [
+  "😀", "😅", "😂", "🙂", "😉", "😊", "😍", "🙌", "👍", "👌",
+  "🙏", "💪", "🔥", "✅", "❤️", "🎉", "🤝", "👋", "📌", "⏰",
+];
+
+/** URL reproducible del adjunto (bucket público chat-media o media de WhatsApp). Mismo criterio que desktop. */
+function mediaUrl(m: Msg): string | null {
+  const raw = (m.raw_payload ?? null) as Parameters<typeof getErpAttachmentPublicUrl>[0];
+  return getErpAttachmentPublicUrl(raw) ?? getWhatsAppMediaUrlFromRawPayload(raw) ?? null;
+}
+
+/**
+ * ¿Corre dentro de la APK de Android (WebView de Capacitor)?
+ *
+ * Ese WebView no muestra PDF/Word/Excel ni tiene manejador de descargas: un link al archivo
+ * no hacía nada. Capacitor sí manda a una app externa (Chrome) todo link cuyo dominio no esté
+ * en `allowNavigation`, así que ahí el archivo se abre con el visor de Google Docs.
+ */
+function esWebViewAndroid(): boolean {
+  if (typeof window === "undefined") return false;
+  const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
+  if (cap?.getPlatform?.() === "android") return true;
+  return /Android/.test(navigator.userAgent) && /; wv\)/.test(navigator.userAgent);
+}
+
+function abrirArchivo(url: string) {
+  if (esWebViewAndroid()) {
+    window.location.href = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}`;
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Copia una imagen al portapapeles para pegarla en otro chat o en otra app. Se pasa a PNG
+ * porque es el único tipo de imagen que Safari/iOS acepta en el portapapeles.
+ */
+async function copiarImagen(url: string): Promise<void> {
+  if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) throw new Error("sin soporte");
+  const png = (async () => {
+    const r = await fetch(url, { mode: "cors" });
+    const blob = await r.blob();
+    if (blob.type === "image/png") return blob;
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas");
+    c.width = bmp.width;
+    c.height = bmp.height;
+    c.getContext("2d")!.drawImage(bmp, 0, 0);
+    return await new Promise<Blob>((ok, mal) => c.toBlob((b) => (b ? ok(b) : mal(new Error("png"))), "image/png"));
+  })();
+  // Safari exige crear el ClipboardItem dentro del gesto del usuario: se le pasa la promesa.
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+}
+
+function fmtSecs(s: number): string {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Hora local del mensaje (HH:mm), como WhatsApp. created_at viene en UTC (timestamptz). */
+function fmtTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Teléfono para mostrar en el header (dígitos → +5959...). */
+function fmtPhone(p: string | null): string {
+  if (!p) return "";
+  const digits = p.replace(/[^\d]/g, "");
+  return digits ? `+${digits}` : p;
+}
+
+/**
+ * Texto que acompaña a una imagen. Misma prioridad que `parseOutgoingImageMessage`
+ * del desktop: adjunto subido desde el ERP → caption del payload de WhatsApp →
+ * líneas del `content` que no sean la URL ni el placeholder. Sin esto la burbuja
+ * mostraba sólo la imagen, aunque la vista previa de la lista sí tuviera el texto.
+ */
+/**
+ * Visor de imagen a pantalla completa con zoom y descarga.
+ *
+ * El zoom del WebView está deshabilitado (Capacitor arranca con zoomingEnabled = NO),
+ * así que el pellizco se implementa acá: dos dedos escalan, un dedo arrastra cuando hay
+ * zoom, doble toque alterna 1x ↔ 2.5x. `touch-action: none` evita que el scroll de la
+ * página pelee con el gesto.
+ *
+ * Descargar: se baja la imagen y se abre la hoja de compartir de iOS, que ofrece
+ * "Guardar imagen". Funciona con los adjuntos del storage propio (CORS permitido para
+ * este origen). Los links de YCloud suelen no permitir CORS: en ese caso se abre la
+ * imagen para que el usuario la guarde manteniéndola presionada.
+ */
+function ImageViewer({ url, onClose }: { url: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const pinch = useRef<{ dist: number; scale: number; mx: number; my: number; tx: number; ty: number } | null>(null);
+  const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const moved = useRef(false);
+  const lastTap = useRef(0);
+
+  const reset = () => {
+    setScale(1);
+    setTx(0);
+    setTy(0);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    moved.current = false;
+    if (e.touches.length === 2) {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      pinch.current = {
+        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        scale,
+        mx: (a.clientX + b.clientX) / 2,
+        my: (a.clientY + b.clientY) / 2,
+        tx,
+        ty,
+      };
+      pan.current = null;
+    } else if (e.touches.length === 1) {
+      pan.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx, ty };
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinch.current) {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const p = pinch.current;
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const next = Math.min(5, Math.max(1, (p.scale * dist) / p.dist));
+      const mx = (a.clientX + b.clientX) / 2;
+      const my = (a.clientY + b.clientY) / 2;
+      setScale(next);
+      setTx(p.tx + (mx - p.mx));
+      setTy(p.ty + (my - p.my));
+      moved.current = true;
+    } else if (e.touches.length === 1 && pan.current && scale > 1) {
+      const pt = pan.current;
+      setTx(pt.tx + (e.touches[0].clientX - pt.x));
+      setTy(pt.ty + (e.touches[0].clientY - pt.y));
+      moved.current = true;
+    }
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) pinch.current = null;
+    if (e.touches.length === 0) {
+      pan.current = null;
+      if (scale < 1.03) reset();
+      if (!moved.current) {
+        const now = Date.now();
+        if (now - lastTap.current < 280) {
+          // Doble toque: alterna zoom.
+          if (scale > 1) reset();
+          else setScale(2.5);
+          lastTap.current = 0;
+        } else {
+          lastTap.current = now;
+        }
+      }
+    }
+  };
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(url, { mode: "cors" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const ext = ((blob.type || "image/jpeg").split("/")[1] || "jpg").split(";")[0];
+      const file = new File([blob], `imagen-${Date.now()}.${ext}`, { type: blob.type || "image/jpeg" });
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (typeof nav.share === "function" && nav.canShare?.({ files: [file] })) {
+        await nav.share({ files: [file] });
+      } else {
+        const obj = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = obj;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(obj), 4000);
+      }
+    } catch (err) {
+      // Cancelar la hoja de compartir no es un error.
+      if ((err as { name?: string } | null)?.name !== "AbortError") {
+        abrirArchivo(url);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/95"
+      style={{ touchAction: "none" }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Imagen ampliada"
+      onClick={() => {
+        // Tocar el fondo cierra sólo si no hay zoom ni se venía de un gesto.
+        if (scale === 1 && !moved.current) onClose();
+      }}
+    >
+      {/* Franja degradada: los botones tienen que leerse sobre cualquier imagen —
+          con un comprobante de fondo blanco, un botón translúcido desaparecía. */}
+      <div
+        className="absolute left-0 right-0 top-0 z-10 flex justify-end gap-2 bg-gradient-to-b from-black/85 via-black/50 to-transparent px-3 pb-8"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      >
+        <button
+          type="button"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            void save();
+          }}
+          disabled={saving}
+          aria-label="Descargar imagen"
+          className="grid h-10 min-w-10 place-items-center rounded-full bg-black/70 px-4 text-sm font-semibold text-white shadow-lg ring-1 ring-white/40 backdrop-blur-md active:bg-black/90 disabled:opacity-60"
+        >
+          {saving ? "…" : "⬇︎ Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            onClose();
+          }}
+          aria-label="Cerrar"
+          className="grid h-10 w-10 place-items-center rounded-full bg-black/70 text-xl text-white shadow-lg ring-1 ring-white/40 backdrop-blur-md active:bg-black/90"
+        >
+          ✕
+        </button>
+      </div>
+      <div
+        className="flex h-full w-full items-center justify-center overflow-hidden"
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top) + 4rem)",
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)",
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="Imagen ampliada"
+          draggable={false}
+          onClick={(ev) => ev.stopPropagation()}
+          className="max-h-full max-w-full object-contain"
+          style={{
+            // Mantener presionado → "Guardar en Fotos" es el menú nativo de iOS, y es la
+            // vía que funciona también con links de YCloud (no le aplica CORS). `select-none`
+            // puede apagarlo en iOS, así que va sin él y con el callout habilitado explícito.
+            WebkitTouchCallout: "default",
+            transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+            transition: pinch.current || pan.current ? "none" : "transform 160ms ease-out",
+          }}
+        />
+      </div>
+      {scale === 1 ? (
+        <p
+          className="pointer-events-none absolute left-0 right-0 flex justify-center"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
+        >
+          <span className="rounded-full bg-black/70 px-3 py-1 text-[11px] text-white/90 ring-1 ring-white/20">
+            Pellizcá para ampliar · doble toque para zoom
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function imageCaption(m: Msg): string | null {
+  const raw = (m.raw_payload ?? null) as Parameters<typeof getErpAttachmentCaption>[0];
+  const erp = getErpAttachmentCaption(raw);
+  if (erp && erp.trim()) return erp.trim();
+  // messageRoot desarma el envelope de YCloud/Meta; el desktop lee `raw.image` directo.
+  const img = (messageRoot(m.raw_payload)?.["image"] ?? m.raw_payload?.["image"]) as
+    | { caption?: unknown }
+    | undefined;
+  if (img && typeof img.caption === "string" && img.caption.trim()) return img.caption.trim();
+  const text = (m.content ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l &&
+        !/^https?:\/\//i.test(l) &&
+        !/^Imagen enviada:?/i.test(l) &&
+        !/^\[(imagen|image)\]$/i.test(l)
+    )
+    .join("\n");
+  return text || null;
+}
+
+function MessageBody({
+  m,
+  onZoom,
+  favStickers,
+  onToggleFav,
+}: {
+  m: Msg;
+  onZoom: (url: string) => void;
+  favStickers: string[];
+  onToggleFav: (url: string) => void;
+}) {
+  if (m.message_type === "text") {
+    return <span className="whitespace-pre-wrap break-words">{m.content}</span>;
+  }
+  // "Eliminar para todos" y demás avisos de WhatsApp: no tienen contenido propio.
+  const sistema = textoDeMensajeDeSistema(m.message_type);
+  if (sistema) return <span className="italic opacity-70">{sistema}</span>;
+  const url = mediaUrl(m);
+  if (m.message_type === "audio") {
+    return url ? (
+      <audio controls src={url} preload="metadata" className="h-9 w-56 max-w-full" />
+    ) : (
+      <span className="italic opacity-80">[audio]</span>
+    );
+  }
+  if (m.message_type === "image") {
+    const caption = imageCaption(m);
+    return (
+      <div className="space-y-1">
+        {url ? (
+          <button
+            type="button"
+            onClick={() => onZoom(url)}
+            className="block border-0 bg-transparent p-0 text-left"
+            aria-label="Ampliar imagen"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt="imagen"
+              className="max-w-[220px] rounded-lg"
+              // Sin esto, el toque largo abre el menú nativo de iOS ("Guardar en Fotos")
+              // encima del de reaccionar. Guardar sigue estando: se toca la imagen, se
+              // abre el visor, y ahí el gesto nativo funciona intacto.
+              style={{ WebkitTouchCallout: "none" }}
+              draggable={false}
+            />
+          </button>
+        ) : (
+          <span className="italic opacity-80">[imagen]</span>
+        )}
+        {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
+      </div>
+    );
+  }
+  if (m.message_type === "sticker") {
+    // Los stickers de WhatsApp son WebP (estáticos o animados), que el WebView de iOS
+    // muestra directo. Usan la misma URL que las imágenes: la copia estable del storage
+    // cuando existe, o el link de YCloud. Si no carga, queda el texto de respaldo.
+    // Sólo los que tienen copia propia se pueden guardar: son los únicos reenviables.
+    // Se usa una estrella y no "mantener presionado", porque ese gesto en iOS abre el
+    // menú nativo de "Guardar en Fotos".
+    const stable = getErpAttachmentPublicUrl(m.raw_payload);
+    const fav = !!stable && favStickers.includes(stable);
+    return url ? (
+      <span className="block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="sticker"
+          loading="lazy"
+          className="block h-32 w-32 object-contain"
+          onError={(ev) => {
+            const img = ev.currentTarget;
+            img.style.display = "none";
+            img.nextElementSibling?.classList.remove("hidden");
+          }}
+        />
+        <span className="hidden italic opacity-80">[sticker]</span>
+        {stable ? (
+          <button
+            type="button"
+            onClick={() => onToggleFav(stable)}
+            aria-label={fav ? "Quitar de favoritos" : "Guardar en favoritos"}
+            className="mt-1 text-[11px] font-semibold opacity-80 active:opacity-100"
+          >
+            {fav ? "★ Favorito" : "☆ Guardar"}
+          </button>
+        ) : null}
+      </span>
+    ) : (
+      <span className="italic opacity-80">[sticker]</span>
+    );
+  }
+  if (m.message_type === "video") {
+    return url ? (
+      <video src={url} controls preload="metadata" className="max-w-[220px] rounded-lg" />
+    ) : (
+      <span className="italic opacity-80">[video]</span>
+    );
+  }
+  if (m.message_type === "contacts") {
+    const cs = extractContacts(m.raw_payload);
+    if (cs.length === 0) return <span className="italic opacity-80">[contacto]</span>;
+    return (
+      <div className="space-y-1">
+        {cs.map((c, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-200 text-sm">👤</span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{c.name}</div>
+              {c.phone ? (
+                <a href={`tel:${c.phone.replace(/\s+/g, "")}`} className="text-[12px] underline break-all">
+                  {c.phone}
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (m.message_type === "location") {
+    const loc = extractLocation(m.raw_payload);
+    if (!loc) return <span className="italic opacity-80">[ubicación]</span>;
+    return (
+      <a
+        href={`https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-2 underline"
+      >
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-200 text-sm">📍</span>
+        <span className="text-sm">{loc.label || "Ver ubicación en el mapa"}</span>
+      </a>
+    );
+  }
+  if (m.message_type === "document" && url) {
+    const raw = (m.raw_payload ?? null) as Parameters<typeof getErpAttachmentPublicUrl>[0];
+    const nombre =
+      getErpAttachmentFilename(raw) ?? getMetaInboundDocumentFilename(raw) ?? decodeURIComponent(url.split("?")[0].split("/").pop() || "Documento");
+    const caption = imageCaption(m);
+    return (
+      <div className="space-y-1">
+        <button
+          type="button"
+          onClick={() => abrirArchivo(url)}
+          className="flex w-60 max-w-full items-center gap-2.5 rounded-xl bg-black/5 p-2.5 text-left active:bg-black/10"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-[10px] font-bold uppercase text-slate-600">
+            {(nombre.split(".").pop() || "doc").slice(0, 4)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-semibold">{nombre}</span>
+            <span className="block text-[11px] opacity-70">Tocá para abrir</span>
+          </span>
+        </button>
+        {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
+      </div>
+    );
+  }
+  return url ? (
+    <button type="button" onClick={() => abrirArchivo(url)} className="break-all text-left underline">
+      [{m.message_type}]
+    </button>
+  ) : (
+    <span className="italic opacity-80">[{m.message_type}]</span>
+  );
+}
+
+const FichaContactoMovil = dynamic(() => import("./FichaContactoMovil"), { ssr: false });
+
+/**
+ * `?s=1`: se abrió desde la lista de supervisión (cuenta sin agente de chat). Esos chats no
+ * están asignados a un agente propio, así que las rutas de asesor responden 403; se usan las
+ * del escritorio, que validan el alcance omnicanal. Se lee al momento de cada pedido para no
+ * depender del render del servidor.
+ */
+function modoSupervision(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("s") === "1";
+}
+
+export default function MAsesorChatPage() {
+  const params = useParams<{ conversationId: string }>();
+  const conversationId = (params?.conversationId as string) ?? "";
+  const router = useRouter();
+
+  const [messages, setMessages] = useState<Msg[]>([]);
+  /**
+   * WAMID → mensaje, para resolver a qué responde un mensaje del cliente: WhatsApp manda
+   * sólo el id del mensaje citado y el texto hay que buscarlo entre los que ya tenemos.
+   */
+  /** Lleva al mensaje citado y lo destaca un segundo, para no perder de vista cuál era. */
+  const irAlMensaje = useCallback((id: string) => {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-[#4FAEB2]", "rounded-xl");
+    window.setTimeout(() => el.classList.remove("ring-2", "ring-[#4FAEB2]", "rounded-xl"), 1200);
+  }, []);
+
+  const mensajePorWamid = useMemo(() => {
+    const idx = new Map<string, Msg>();
+    for (const msg of messages) {
+      const w = wamidDeMensaje(msg);
+      if (w) idx.set(w, msg);
+    }
+    return idx;
+  }, [messages]);
+  const [pending, setPending] = useState<Pending[]>([]);
+  const [title, setTitle] = useState("Chat");
+  const [contactPhone, setContactPhone] = useState<string | null>(null);
+  const [windowOpen, setWindowOpen] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [sendErr, setSendErr] = useState<string | null>(null);
+  /** Mensaje que se está citando (deslizá una burbuja hacia la derecha para elegirlo). */
+  const [replyTo, setReplyTo] = useState<Msg | null>(null);
+  /** Imagen abierta a pantalla completa. */
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+
+  /** El "+" está desplegado y se ven adjuntar, emojis y plantillas. */
+  const [accionesAbiertas, setAccionesAbiertas] = useState(false);
+  /** Anuncio de Meta del que nació esta conversación (Click-to-WhatsApp), si vino de uno. */
+  const [pauta, setPauta] = useState<{
+    source_url: string;
+    headline: string | null;
+    red: "instagram" | "facebook" | "no_identificado";
+  } | null>(null);
+  const [fichaAbierta, setFichaAbierta] = useState(false);
+  // ── Transferir conversación (mismo comportamiento que el panel de escritorio) ──
+  const [transferOpen, setTransferOpen] = useState(false);
+
+  // ── Finalizar con tipificación (mismo cierre que el panel de escritorio) ──
+  const [finOpen, setFinOpen] = useState(false);
+  const [finEstados, setFinEstados] = useState<
+    { id: string; label: string; substates: { id: string; label: string }[] }[]
+  >([]);
+  const [finEstadoId, setFinEstadoId] = useState("");
+  const [finSubId, setFinSubId] = useState("");
+  const [finComentario, setFinComentario] = useState("");
+  const [finCargando, setFinCargando] = useState(false);
+  const [finGuardando, setFinGuardando] = useState(false);
+  const [finError, setFinError] = useState<string | null>(null);
+  const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null);
+  const [opsQueues, setOpsQueues] = useState<ChatQueueListRow[]>([]);
+  const [opsAgents, setOpsAgents] = useState<SupervisorAgentLoadRow[]>([]);
+  const [transferQueue, setTransferQueue] = useState("");
+  const [transferSearch, setTransferSearch] = useState("");
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [opsBusy, setOpsBusy] = useState(false);
+  /** Arrastre en curso: qué burbuja y cuántos px lleva. Sólo visual. */
+  const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null);
+  const swipeStart = useRef<{ x: number; y: number; locked: boolean } | null>(null);
+  const [showEmoji, setShowEmoji] = useState(false);
+  /** Pestaña del panel del botón 😊: emojis o stickers favoritos. */
+  const [emojiTab, setEmojiTab] = useState<"emoji" | "sticker">("emoji");
+  const [favStickers, setFavStickers] = useState<string[]>([]);
+  useEffect(() => {
+    setFavStickers(getStickerFavoritos());
+  }, []);
+  const toggleFavSticker = useCallback((url: string) => {
+    setFavStickers(toggleStickerFavorito(url));
+  }, []);
+  const [micSupported, setMicSupported] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recSecs, setRecSecs] = useState(0);
+  // Recontacto con plantilla aprobada.
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplList, setTplList] = useState<Tpl[]>([]);
+  const [tplLoading, setTplLoading] = useState(false);
+  const [tplSelId, setTplSelId] = useState<string | null>(null);
+  const [tplVars, setTplVars] = useState<Record<string, string>>({});
+  const [tplSending, setTplSending] = useState(false);
+  const [tplErr, setTplErr] = useState<string | null>(null);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true); // ¿el usuario está abajo del todo? (si scrolleó a leer, false)
+  const didInitialScrollRef = useRef(false); // ya hicimos el scroll-al-fondo inicial
+  const lastMsgsSigRef = useRef(""); // firma de los mensajes para no re-render si no cambió nada
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const cancelRecRef = useRef(false);
+  const recTimerRef = useRef<number | null>(null);
+  const nivelTimerRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const huboSonidoRef = useRef(true);
+  /** El micrófono no captó nada todavía: se avisa mientras se graba, no al final. */
+  const [micMudo, setMicMudo] = useState(false);
+
+  const load = useCallback(
+    async (silent?: boolean) => {
+      if (!conversationId) return;
+      if (!silent) setLoading(true);
+      try {
+        const res = await fetchWithSupabaseSession(
+          modoSupervision()
+            ? `/api/mobile/supervision/conversations/${conversationId}`
+            : `/api/mobile/asesor/conversations/${conversationId}`,
+          { cache: "no-store" }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          setErr("No tenés acceso a esta conversación.");
+          return;
+        }
+        if (!res.ok || !data?.ok) throw new Error(data?.error || "No se pudo cargar");
+        // Solo actualizamos si REALMENTE cambió algo (nuevos mensajes). Así el poll cada 12s no
+        // re-renderiza ni dispara el scroll mientras el asesor lee tranquilo.
+        const nuevos = (data.messages ?? []) as Msg[];
+        const sig = `${nuevos.length}:${nuevos[nuevos.length - 1]?.id ?? ""}`;
+        if (sig !== lastMsgsSigRef.current) {
+          lastMsgsSigRef.current = sig;
+          setMessages(nuevos);
+        }
+        setTitle(nombreOTelefonoParaMostrar(data.conversation?.contact_nombre, data.conversation?.contact_telefono, "Chat"));
+        setContactPhone(data.conversation?.contact_telefono ?? null);
+        setAssignedAgentId(data.conversation?.assigned_agent_id ?? null);
+        setWindowOpen(data.conversation?.window_open ?? null);
+        setErr(null);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Error");
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [conversationId]
+  );
+
+  useEffect(() => {
+    void load();
+    const id = window.setInterval(() => void load(true), 12000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void load(true);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [load]);
+
+  // Auto-scroll estilo WhatsApp: al fondo en la primera carga y cuando el usuario YA estaba
+  // abajo del todo (mensaje nuevo / envío propio). Si scrolleó hacia arriba a leer historial,
+  // NO lo movemos — antes el poll cada 12s lo tiraba al fondo y perdía dónde estaba leyendo.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!didInitialScrollRef.current || atBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+      atBottomRef.current = true;
+      if (messages.length > 0) didInitialScrollRef.current = true;
+    }
+  }, [messages, pending]);
+
+  // De qué anuncio vino el contacto. Es lo primero que quiere saber un asesor comercial al
+  // abrir el chat: no es lo mismo atender a alguien que vio una promo que a uno que escribió
+  // por su cuenta. Degradación silenciosa: sin dato, sin chip.
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelado = false;
+    setPauta(null);
+    void (async () => {
+      try {
+        const res = await fetchWithSupabaseSession(
+          `/api/chat/conversation-attribution?conversation_id=${encodeURIComponent(conversationId)}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok || cancelado) return;
+        const json = (await res.json()) as { data?: unknown };
+        const d = json?.data as
+          | { source_url?: string; headline?: string | null; red?: "instagram" | "facebook" | "no_identificado" }
+          | null;
+        if (cancelado || !d?.source_url) return;
+        setPauta({
+          source_url: d.source_url,
+          headline: d.headline ?? null,
+          red: d.red ?? "no_identificado",
+        });
+      } catch {
+        /* sin chip si falla */
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [conversationId]);
+
+  // Autogrow del textarea (multilínea sin romper el layout).
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [text]);
+
+  // Soporte de grabación: gateamos SOLO por la existencia de MediaRecorder (presente en iOS 14.3+
+  // y Android/Chrome). No exigimos `navigator.mediaDevices.getUserMedia` acá porque en iOS puede
+  // venir `undefined` a la carga (Safari en ciertos contextos) y escondía el micrófono en iPhone,
+  // aunque el permiso sí funciona al pedirlo. Si al tocar el micro no hay acceso, startRec muestra
+  // un mensaje claro. (Antes: el botón directamente no aparecía en iOS.)
+  useEffect(() => {
+    setMicSupported(typeof MediaRecorder !== "undefined");
+  }, []);
+
+  // Limpieza: cortar grabación/stream/timer al desmontar.
+  useEffect(() => {
+    return () => {
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {
+        /* noop */
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      if (recTimerRef.current) window.clearInterval(recTimerRef.current);
+    };
+  }, []);
+
+  // ── Envío de texto (optimista, no bloqueante) ──────────────────────────────
+  const deliverText = useCallback(
+    (tempId: string, msg: string, reply?: Msg | null) => {
+      void (async () => {
+        try {
+          const res = await fetchWithSupabaseSession(
+            modoSupervision() ? "/api/chat/send" : `/api/mobile/asesor/conversations/${conversationId}/send`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                ...(modoSupervision() ? { conversation_id: conversationId } : {}),
+                message: msg,
+                // wamid → cita real en WhatsApp; contexto → snapshot para nuestra UI.
+                ...(reply && wamidDeMensaje(reply) ? { reply_to_wamid: wamidDeMensaje(reply) } : {}),
+                ...(reply
+                  ? {
+                      reply_context: {
+                        wa_message_id: reply.wa_message_id ?? null,
+                        from_me: reply.from_me,
+                        preview: previewOf(reply),
+                        message_type: reply.message_type,
+                      },
+                    }
+                  : {}),
+              }),
+            }
+          );
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 409 || data?.code === "whatsapp_window_closed") {
+            setWindowOpen(false);
+            setSendErr(
+              data?.error ||
+                "La ventana de 24 h de WhatsApp está cerrada. Para reabrir hay que enviar una plantilla aprobada."
+            );
+            setPending((p) => p.map((x) => (x.tempId === tempId ? { ...x, status: "error" } : x)));
+            return;
+          }
+          if (!res.ok || !data?.ok) throw new Error(data?.error || "No se pudo enviar");
+          await load(true);
+          setPending((p) => p.filter((x) => x.tempId !== tempId));
+        } catch (e) {
+          setSendErr(e instanceof Error ? e.message : "Error al enviar");
+          setPending((p) => p.map((x) => (x.tempId === tempId ? { ...x, status: "error" } : x)));
+        }
+      })();
+    },
+    [conversationId, load]
+  );
+
+  // ── Envío de audio (optimista, no bloqueante) ──────────────────────────────
+  const deliverAudio = useCallback(
+    (tempId: string, file: File) => {
+      void (async () => {
+        try {
+          const fd = new FormData();
+          fd.set("file", file, file.name || "nota-voz.webm");
+          if (modoSupervision()) fd.set("conversation_id", conversationId);
+          const res = await fetchWithSupabaseSession(
+            (modoSupervision() ? "/api/chat/send-media" : `/api/mobile/asesor/conversations/${conversationId}/send-media`),
+            { method: "POST", body: fd }
+          );
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 409 || data?.code === "whatsapp_window_closed") {
+            setWindowOpen(false);
+            setSendErr(
+              data?.error ||
+                "La ventana de 24 h de WhatsApp está cerrada. Para reabrir hay que enviar una plantilla aprobada."
+            );
+            setPending((p) => p.map((x) => (x.tempId === tempId ? { ...x, status: "error" } : x)));
+            return;
+          }
+          if (!res.ok || !data?.ok) throw new Error(data?.error || "No se pudo enviar el audio");
+          await load(true);
+          setPending((p) => p.filter((x) => x.tempId !== tempId));
+        } catch (e) {
+          setSendErr(e instanceof Error ? e.message : "Error al enviar el audio");
+          setPending((p) => p.map((x) => (x.tempId === tempId ? { ...x, status: "error" } : x)));
+        }
+      })();
+    },
+    [conversationId, load]
+  );
+
+  const deliverSticker = useCallback(
+    (tempId: string, stickerUrl: string) => {
+      void (async () => {
+        try {
+          const res = await fetchWithSupabaseSession(
+            modoSupervision() ? "/api/chat/send-sticker" : `/api/mobile/asesor/conversations/${conversationId}/send-sticker`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                ...(modoSupervision() ? { conversation_id: conversationId } : {}),
+                sticker_url: stickerUrl,
+              }),
+            }
+          );
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 409 || data?.code === "whatsapp_window_closed") {
+            setWindowOpen(false);
+            setSendErr(
+              data?.error ||
+                "La ventana de 24 h de WhatsApp está cerrada. Para reabrir hay que enviar una plantilla aprobada."
+            );
+            setPending((p) => p.map((x) => (x.tempId === tempId ? { ...x, status: "error" } : x)));
+            return;
+          }
+          if (!res.ok || !data?.ok) throw new Error(data?.error || "No se pudo enviar el sticker");
+          await load(true);
+          setPending((p) => p.filter((x) => x.tempId !== tempId));
+        } catch (e) {
+          setSendErr(e instanceof Error ? e.message : "Error al enviar el sticker");
+          setPending((p) => p.map((x) => (x.tempId === tempId ? { ...x, status: "error" } : x)));
+        }
+      })();
+    },
+    [conversationId, load]
+  );
+
+  const sendSticker = useCallback(
+    (stickerUrl: string) => {
+      const tempId = `tmp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      setShowEmoji(false);
+      setSendErr(null);
+      setPending((p) => [...p, { tempId, kind: "sticker", content: "Sticker", stickerUrl, status: "sending" }]);
+      deliverSticker(tempId, stickerUrl);
+    },
+    [deliverSticker]
+  );
+
+  // Se cargan al abrir el modal, no al montar: son dos consultas caras que la mayoría
+  // de las veces no se usan (el asesor entra a leer, no a transferir).
+  //
+  // Se invocan via endpoint HTTP (`/api/mobile/asesor/transfer-options`) y no como server
+  // actions directamente: en producción Next 15 rompía al serializar la respuesta de los
+  // server actions ("An error occurred in the Server Components render" enmascarado), y
+  // la misma función envuelta en una route HTTP + NextResponse.json anda sin problemas.
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const openTransfer = useCallback(() => {
+    setTransferOpen(true);
+    setTransferLoading(true);
+    setTransferError(null);
+    void (async () => {
+      try {
+        const r = await fetchWithSupabaseSession("/api/mobile/asesor/transfer-options", {
+          cache: "no-store",
+        });
+        const j = (await r.json().catch(() => null)) as
+          | { ok: boolean; queues?: ChatQueueListRow[]; agents?: SupervisorAgentLoadRow[]; error?: string }
+          | null;
+        if (!r.ok || !j?.ok) {
+          setTransferError(j?.error ?? `HTTP ${r.status}`);
+          return;
+        }
+        setOpsQueues(j.queues ?? []);
+        setOpsAgents(j.agents ?? []);
+      } catch (e) {
+        setTransferError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setTransferLoading(false);
+      }
+    })();
+  }, []);
+
+  const abrirFinalizar = useCallback(() => {
+    setFinOpen(true);
+    setFinError(null);
+    setFinEstadoId("");
+    setFinSubId("");
+    setFinComentario("");
+    setFinCargando(true);
+    void (async () => {
+      try {
+        const res = await fetchWithSupabaseSession(
+          `/api/mobile/asesor/conversations/${encodeURIComponent(conversationId)}/finalizar`,
+          { cache: "no-store" }
+        );
+        const j = (await res.json().catch(() => null)) as
+          | { ok: true; states: { id: string; label: string; substates: { id: string; label: string }[] }[] }
+          | { ok: false; error?: string }
+          | null;
+        if (!res.ok || !j || j.ok !== true) {
+          setFinError((j && "error" in j && j.error) || "No se pudieron cargar las opciones de cierre");
+          return;
+        }
+        setFinEstados(j.states ?? []);
+      } catch {
+        setFinError("No se pudieron cargar las opciones de cierre");
+      } finally {
+        setFinCargando(false);
+      }
+    })();
+  }, [conversationId]);
+
+  const confirmarFinalizar = useCallback(async () => {
+    const st = finEstados.find((e) => e.id === finEstadoId);
+    if (!st) {
+      setFinError("Elegí un estado.");
+      return;
+    }
+    if (st.substates.length > 0 && !finSubId) {
+      setFinError("Elegí un subestado.");
+      return;
+    }
+    const comentario = finComentario.trim();
+    if (comentario.length < 3) {
+      setFinError("El comentario es obligatorio (al menos 3 caracteres).");
+      return;
+    }
+    setFinGuardando(true);
+    setFinError(null);
+    try {
+      const sub = st.substates.find((x) => x.id === finSubId);
+      const res = await fetchWithSupabaseSession(
+        `/api/mobile/asesor/conversations/${encodeURIComponent(conversationId)}/finalizar`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            closure_state_id: st.id,
+            closure_substate_id: st.substates.length > 0 ? finSubId : null,
+            closure_state_label: st.label,
+            closure_substate_label: sub?.label ?? (st.substates.length > 0 ? "" : "—"),
+            comment: comentario,
+          }),
+        }
+      );
+      const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !j?.ok) {
+        setFinError(j?.error || "No se pudo finalizar la conversación");
+        return;
+      }
+      // Cerrada: ya no está en el inbox, así que quedarse adentro del chat no tiene sentido.
+      // Se navega con `router` y no con `volver`, que se define más abajo: nombrarlo en las
+      // dependencias de este hook lo leería antes de existir y rompería el render.
+      setFinOpen(false);
+      if (window.history.length > 1) router.back();
+      else router.push("/m/asesor");
+    } catch {
+      setFinError("No se pudo finalizar la conversación");
+    } finally {
+      setFinGuardando(false);
+    }
+  }, [conversationId, finEstados, finEstadoId, finSubId, finComentario, router]);
+
+  // Mismo filtrado que el desktop: la cola acota, el texto busca en nombre, email y cola.
+  const filteredAgents = (() => {
+    const q = transferSearch.trim().toLowerCase();
+    const rows = opsAgents.filter((a) => (transferQueue === "" ? true : a.queue_id === transferQueue));
+    if (!q) return rows;
+    return rows.filter(
+      (a) =>
+        a.nombre.toLowerCase().includes(q) ||
+        (a.email && a.email.toLowerCase().includes(q)) ||
+        a.queue_nombre.toLowerCase().includes(q)
+    );
+  })();
+
+  const runOp = useCallback(
+    async (fn: () => Promise<void>) => {
+      if (opsBusy) return;
+      setOpsBusy(true);
+      setSendErr(null);
+      try {
+        await fn();
+        setTransferOpen(false);
+        await load(true);
+      } catch (e) {
+        setSendErr(e instanceof Error ? e.message : "Error en la acción");
+      } finally {
+        setOpsBusy(false);
+      }
+    },
+    [opsBusy, load]
+  );
+
+  // Transfiere via endpoint HTTP (no server action): los server actions no reciben el
+  // Authorization: Bearer que manda la APK y fallan con "Usuario no autenticado".
+  const transferHttp = useCallback(
+    async (body: { queue_id?: string; agent_id?: string }) => {
+      const r = await fetchWithSupabaseSession(
+        `/api/mobile/asesor/conversations/${encodeURIComponent(conversationId)}/transfer`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!r.ok || !j?.ok) {
+        throw new Error(j?.error ?? `HTTP ${r.status}`);
+      }
+    },
+    [conversationId]
+  );
+
+  const previewOf = (m: Msg) =>
+    (m.content?.trim() || textoDeMensajeDeSistema(m.message_type) || `[${m.message_type}]`).slice(0, 160);
+
+  // ── Deslizar una burbuja para citarla ──────────────────────────────────────
+  // Umbral de 56 px, igual que WhatsApp. El eje se decide en el primer movimiento
+  // (`locked`) para no pelear con el scroll vertical de la lista.
+  const SWIPE_THRESHOLD = 56;
+
+  // ── Reaccionar con emoji ────────────────────────────────────────────────────
+  // Mantener presionado abre la barra de emojis. Convive con el deslizar para responder:
+  // el temporizador se cancela apenas el dedo se mueve, así un deslizamiento nunca termina
+  // abriendo la barra.
+  //
+  // Sólo texto y audio: en una imagen el mantener presionado es el gesto de iOS para
+  // "Guardar en Fotos", que los asesores usan, y no se lo pisa.
+  const [reaccionandoA, setReaccionandoA] = useState<Msg | null>(null);
+  const [reaccionError, setReaccionError] = useState<string | null>(null);
+
+  // ── Reenviar ────────────────────────────────────────────────────────────────
+  // Destinos: la misma lista de la bandeja (asesor: sus chats; supervisión: su alcance), y
+  // cada envío va por la ruta que corresponde a ese modo, que vuelve a validar el permiso.
+  const bandeja = useAsesorInbox();
+  const [reenviando, setReenviando] = useState<Msg | null>(null);
+  const [reenvioDestino, setReenvioDestino] = useState<AsesorConv | null>(null);
+  const [reenvioBusqueda, setReenvioBusqueda] = useState("");
+  const [reenvioEnviando, setReenvioEnviando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  const reenviar = useCallback(
+    async (m: Msg, destino: AsesorConv) => {
+      const sup = bandeja.supervision;
+      const base = `/api/mobile/asesor/conversations/${destino.id}`;
+      const extra = sup ? { conversation_id: destino.id } : {};
+      const postJson = (url: string, body: Record<string, unknown>) =>
+        fetchWithSupabaseSession(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...extra, ...body }),
+        });
+
+      let res: Response;
+      const url = mediaUrl(m);
+      if (m.message_type === "text") {
+        res = await postJson(sup ? "/api/chat/send" : `${base}/send`, { message: m.content ?? "" });
+      } else if (m.message_type === "sticker" && getErpAttachmentPublicUrl(m.raw_payload as Parameters<typeof getErpAttachmentPublicUrl>[0])) {
+        const stable = getErpAttachmentPublicUrl(m.raw_payload as Parameters<typeof getErpAttachmentPublicUrl>[0]);
+        res = await postJson(sup ? "/api/chat/send-sticker" : `${base}/send-sticker`, { sticker_url: stable });
+      } else if (url && ["image", "document", "audio", "video"].includes(m.message_type)) {
+        // El archivo se baja y se vuelve a subir: así sale como un envío normal, con la copia
+        // en el storage y el transcodificado de audio/video que ya hace send-media.
+        const r = await fetch(url, { mode: "cors" });
+        if (!r.ok) throw new Error("No se pudo leer el archivo original");
+        const blob = await r.blob();
+        const raw = (m.raw_payload ?? null) as Parameters<typeof getErpAttachmentPublicUrl>[0];
+        const ext = ((blob.type || "").split("/")[1] || "bin").split(";")[0];
+        const nombre =
+          getErpAttachmentFilename(raw) ?? getMetaInboundDocumentFilename(raw) ?? `${m.message_type}-${Date.now()}.${ext}`;
+        const fd = new FormData();
+        fd.set("file", new File([blob], nombre, { type: blob.type || "application/octet-stream" }));
+        const caption = m.message_type === "audio" ? null : imageCaption(m);
+        if (caption) fd.set("caption", caption);
+        if (sup) fd.set("conversation_id", destino.id);
+        res = await fetchWithSupabaseSession(sup ? "/api/chat/send-media" : `${base}/send-media`, {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        throw new Error("Este tipo de mensaje no se puede reenviar");
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || "No se pudo reenviar");
+    },
+    [bandeja.supervision]
+  );
+
+  const confirmarReenvio = useCallback(async () => {
+    if (!reenviando || !reenvioDestino || reenvioEnviando) return;
+    setReenvioEnviando(true);
+    try {
+      await reenviar(reenviando, reenvioDestino);
+      setAviso(`Reenviado a ${nombreOTelefonoParaMostrar(reenvioDestino.contact_nombre, reenvioDestino.contact_telefono, "el chat")}`);
+      setReenviando(null);
+      setReenvioDestino(null);
+      setReenvioBusqueda("");
+      if (reenvioDestino.id === conversationId) void load(true);
+    } catch (e) {
+      setReaccionError(e instanceof Error ? e.message : "No se pudo reenviar");
+    } finally {
+      setReenvioEnviando(false);
+    }
+  }, [reenviando, reenvioDestino, reenvioEnviando, reenviar, conversationId, load]);
+
+  useEffect(() => {
+    if (!aviso) return;
+    const t = window.setTimeout(() => setAviso(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [aviso]);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelarHold = useCallback(() => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  }, []);
+
+  // Se puede reaccionar a todo lo que tenga WAMID real, imágenes y stickers incluidos.
+  // El conflicto con el "Guardar en Fotos" de iOS se resuelve en la miniatura, no acá:
+  // ahí se desactiva el menú nativo, y el gesto sigue funcionando dentro del visor a
+  // pantalla completa, que es donde se usa de verdad.
+  const puedeReaccionar = useCallback(
+    (m: Msg) => Boolean(wamidDeMensaje(m)) && m.message_type !== "reaction",
+    []
+  );
+
+  /** Reacciones puestas en este dispositivo que todavía no volvieron del servidor. */
+  const [reaccionesLocales, setReaccionesLocales] = useState<Record<string, string>>({});
+
+  const reaccionar = useCallback(
+    async (m: Msg, emoji: string) => {
+      setReaccionandoA(null);
+      setReaccionError(null);
+      const wamid = wamidDeMensaje(m);
+      if (!wamid) return;
+      // Se pinta ANTES de salir a la red: el viaje completo (enviar + recargar toda la
+      // conversación) tardaba segundos y parecía que el toque no había hecho nada.
+      setReaccionesLocales((prev) => ({ ...prev, [wamid]: emoji }));
+      try {
+        const res = await fetchWithSupabaseSession(
+          modoSupervision() ? "/api/chat/react" : `/api/mobile/asesor/conversations/${conversationId}/react`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...(modoSupervision() ? { conversation_id: conversationId } : {}),
+              target_wa_message_id: wamid,
+              emoji,
+            }),
+          }
+        );
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j.ok) throw new Error(j.error || "No se pudo reaccionar");
+        await load(true);
+      } catch (e) {
+        // Falló: se saca la optimista para no mostrar una reacción que no existe.
+        setReaccionesLocales((prev) => {
+          const { [wamid]: _, ...resto } = prev;
+          return resto;
+        });
+        setReaccionError(e instanceof Error ? e.message : "No se pudo reaccionar");
+      }
+    },
+    [conversationId, load]
+  );
+
+  /** Reacciones ya agrupadas sobre el WAMID al que apuntan. */
+  const reacciones = useMemo(() => {
+    const base = agruparReacciones(messages);
+    // Lo local pisa a lo del servidor mientras viaja; cuando la recarga trae la fila real,
+    // coinciden y no se nota el cambio.
+    for (const [wamid, emoji] of Object.entries(reaccionesLocales)) {
+      const otras = (base.get(wamid) ?? []).filter((r) => !r.from_me);
+      base.set(wamid, emoji ? [...otras, { emoji, from_me: true }] : otras);
+    }
+    return base;
+  }, [messages, reaccionesLocales]);
+
+  // ── Deslizar desde el borde izquierdo para volver ──────────────────────────
+  // El botón físico de Android lo maneja Capacitor y sin el plugin nativo JavaScript ni se
+  // entera de que lo apretaron. Este gesto no depende de nada nativo: es el mismo que hace
+  // iOS de fábrica, y en Android da una salida que no obliga a apuntarle al botón chiquito
+  // del encabezado.
+  const BORDE = 28; // zona de arranque, en píxeles desde el borde
+  const BORDE_UMBRAL = 80; // cuánto hay que arrastrar para que vuelva
+  const bordeInicio = useRef<{ x: number; y: number } | null>(null);
+  const [bordeDx, setBordeDx] = useState(0);
+
+  const onBordeStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (t.clientX > BORDE) return;
+    bordeInicio.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const onBordeMove = useCallback((e: React.TouchEvent) => {
+    const ini = bordeInicio.current;
+    if (!ini) return;
+    const t = e.touches[0];
+    const dx = t.clientX - ini.x;
+    const dy = t.clientY - ini.y;
+    // Si el movimiento es más vertical que horizontal es scroll: se suelta.
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+      bordeInicio.current = null;
+      setBordeDx(0);
+      return;
+    }
+    setBordeDx(Math.max(0, Math.min(dx, BORDE_UMBRAL + 40)));
+  }, []);
+
+  const onBordeEnd = useCallback(() => {
+    const dx = bordeDx;
+    bordeInicio.current = null;
+    setBordeDx(0);
+    if (dx >= BORDE_UMBRAL) volver();
+  }, [bordeDx]);
+
+  /**
+   * Volver a la bandeja.
+   *
+   * `router.back()` y NO `push`: con push, cada ida y vuelta a un chat sumaba DOS entradas
+   * al historial, así que el botón atrás de Android terminaba recorriendo todos los chats
+   * visitados uno por uno antes de salir. Yendo hacia atrás el historial no crece.
+   *
+   * El `push` queda de respaldo para cuando no hay a dónde volver: entrar desde una
+   * notificación abre el chat sin bandeja detrás.
+   */
+  const volver = useCallback(() => {
+    if (window.history.length > 1) router.back();
+    else router.push("/m/asesor");
+  }, [router]);
+
+  const onBubbleTouchStart = useCallback((e: React.TouchEvent, m: Msg) => {
+    // Arrancando pegado al borde manda el gesto de volver, no el de citar ni el de reaccionar.
+    if (e.touches[0].clientX <= BORDE) return;
+    // El toque largo abre la hoja para reaccionar, copiar o reenviar. Reaccionar pide WAMID;
+    // reenviar no, así que la hoja se abre para cualquier mensaje.
+    if (m.message_type !== "reaction") {
+      cancelarHold();
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        // Un toque largo que abre algo pide confirmación táctil; el teléfono la da si puede.
+        navigator.vibrate?.(8);
+        setReaccionandoA(m);
+        setSwipe(null);
+        swipeStart.current = null;
+      }, 420);
+    }
+    if (!m.wa_message_id) return; // sin wamid no hay nada que citar
+    const t = e.touches[0];
+    swipeStart.current = { x: t.clientX, y: t.clientY, locked: false };
+    setSwipe({ id: m.id, dx: 0 });
+  }, [puedeReaccionar, cancelarHold]);
+
+  const onBubbleTouchMove = useCallback((e: React.TouchEvent, m: Msg) => {
+    cancelarHold(); // cualquier movimiento descarta el toque largo
+    const st = swipeStart.current;
+    if (!st) return;
+    const t = e.touches[0];
+    const dx = t.clientX - st.x;
+    const dy = t.clientY - st.y;
+    if (!st.locked) {
+      // Primer movimiento: si es más vertical que horizontal, es scroll → soltar.
+      if (Math.abs(dy) > Math.abs(dx)) {
+        swipeStart.current = null;
+        setSwipe(null);
+        return;
+      }
+      st.locked = true;
+    }
+    // Sólo hacia la derecha, con tope para que no se despegue de la pantalla.
+    setSwipe({ id: m.id, dx: Math.max(0, Math.min(dx, SWIPE_THRESHOLD + 16)) });
+  }, []);
+
+  const onBubbleTouchEnd = useCallback(
+    (m: Msg) => {
+      cancelarHold();
+      const dx = swipe?.id === m.id ? swipe.dx : 0;
+      swipeStart.current = null;
+      setSwipe(null);
+      if (dx >= SWIPE_THRESHOLD && m.wa_message_id) {
+        setReplyTo(m);
+        taRef.current?.focus();
+      }
+    },
+    [swipe, cancelarHold]
+  );
+
+  const send = useCallback(() => {
+    const msg = text.trim();
+    if (!msg) return;
+    const tempId = `tmp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    // Se captura antes de limpiar el estado: el envío es asíncrono y para entonces
+    // replyTo ya volvió a null.
+    const reply = replyTo;
+    setText("");
+    setShowEmoji(false);
+    setSendErr(null);
+    setReplyTo(null);
+    setPending((p) => [...p, { tempId, kind: "text", content: msg, status: "sending" }]);
+    deliverText(tempId, msg, reply);
+  }, [text, replyTo, deliverText]);
+
+  const sendAudio = useCallback(
+    (file: File) => {
+      const tempId = `tmp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      setSendErr(null);
+      setPending((p) => [...p, { tempId, kind: "audio", content: "Nota de voz", file, status: "sending" }]);
+      deliverAudio(tempId, file);
+    },
+    [deliverAudio]
+  );
+
+  // Imagen / video: mismo endpoint de media (detecta el tipo por el archivo). Optimista.
+  /** Imagen pegada del portapapeles, esperando confirmación antes de enviarse. */
+  const [imagenPegada, setImagenPegada] = useState<File | null>(null);
+
+  const sendFile = useCallback(
+    (file: File) => {
+      if (!file || file.size < 1) return;
+      const tempId = `tmp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      setSendErr(null);
+      const label = file.type.startsWith("video/") ? "📹 Video" : file.type.startsWith("image/") ? "🖼️ Imagen" : "📎 Archivo";
+      setPending((p) => [...p, { tempId, kind: "file", content: label, file, status: "sending" }]);
+      deliverAudio(tempId, file);
+    },
+    [deliverAudio]
+  );
+
+  const retry = useCallback(
+    (item: Pending) => {
+      setSendErr(null);
+      setPending((p) => p.map((x) => (x.tempId === item.tempId ? { ...x, status: "sending" } : x)));
+      // Un archivo se vuelve a SUBIR. Antes sólo se contemplaba el audio y el sticker, y todo
+      // lo demás caía en `deliverText`: al reintentar un video, el cliente recibía un mensaje
+      // de texto que decía "📹 Video" —la etiqueta de la burbuja— en vez del video. Pasó en
+      // vivo y el asesor no tenía forma de notarlo, porque de su lado se veía enviado.
+      if ((item.kind === "audio" || item.kind === "file") && item.file) {
+        deliverAudio(item.tempId, item.file);
+      } else if (item.kind === "sticker" && item.stickerUrl) {
+        deliverSticker(item.tempId, item.stickerUrl);
+      } else if (item.kind === "text") {
+        deliverText(item.tempId, item.content);
+      } else {
+        // Sin el archivo original no hay nada que reenviar: mandar la etiqueta sería mentirle
+        // al cliente y al asesor.
+        setSendErr("Se perdió el archivo. Volvé a adjuntarlo.");
+        setPending((p) => p.filter((x) => x.tempId !== item.tempId));
+      }
+    },
+    [deliverAudio, deliverSticker, deliverText]
+  );
+
+  // ── Grabación de nota de voz ────────────────────────────────────────────────
+  const startRec = useCallback(async () => {
+    setSendErr(null);
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setSendErr(
+        "Este navegador no permite grabar audio. En iPhone: actualizá iOS y abrí la app desde Safari (no desde un navegador dentro de otra app)."
+      );
+      return;
+    }
+    try {
+      // `autoGainControl` sube el nivel cuando se habla lejos del micrófono: llegaron notas
+      // de voz casi mudas que el cliente no podía escuchar.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      cancelRecRef.current = false;
+      const mime = pickRecorderMimeType();
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = rec;
+      rec.ondataavailable = (ev) => {
+        if (ev.data.size > 0) chunksRef.current.push(ev.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (nivelTimerRef.current) {
+          window.clearInterval(nivelTimerRef.current);
+          nivelTimerRef.current = null;
+        }
+        void audioCtxRef.current?.close().catch(() => {});
+        audioCtxRef.current = null;
+        mediaRecorderRef.current = null;
+        streamRef.current = null;
+        if (recTimerRef.current) {
+          window.clearInterval(recTimerRef.current);
+          recTimerRef.current = null;
+        }
+        setRecording(false);
+        setMicMudo(false);
+        setRecSecs(0);
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+        chunksRef.current = [];
+        if (cancelRecRef.current || blob.size < 300) return;
+        if (!huboSonidoRef.current) {
+          setSendErr(
+            "La grabación salió sin sonido: el micrófono no captó tu voz. Fijate que ninguna otra app lo esté usando (llamada, WhatsApp) y volvé a grabar."
+          );
+          return;
+        }
+        const ext = extForAudioType(blob.type);
+        const file = new File([blob], `nota-voz.${ext}`, { type: blob.type || "audio/webm" });
+        sendAudio(file);
+      };
+      // Medidor de nivel: si el micrófono no capta NADA en toda la grabación, no se manda.
+      // Es lo que pasaba cuando otra app se quedaba con el micrófono: salía silencio y el
+      // cliente contestaba "no se escucha".
+      try {
+        const Ctx =
+          window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (Ctx) {
+          const ctx = new Ctx();
+          audioCtxRef.current = ctx;
+          // En Android el AudioContext nace SUSPENDIDO. Suspendido, el analizador devuelve
+          // silencio aunque el micrófono esté grabando bien, y el medidor bloqueaba notas de
+          // voz perfectas diciendo "no se escucha nada".
+          if (ctx.state === "suspended") {
+            try {
+              await ctx.resume();
+            } catch {
+              // Si no se puede reactivar, no se mide: mejor dejar pasar que bloquear de más.
+            }
+          }
+          if (ctx.state !== "running") {
+            huboSonidoRef.current = true;
+            throw new Error("medidor no disponible");
+          }
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 512;
+          ctx.createMediaStreamSource(stream).connect(analyser);
+          const datos = new Uint8Array(analyser.frequencyBinCount);
+          huboSonidoRef.current = false;
+          const arranque = Date.now();
+          nivelTimerRef.current = window.setInterval(() => {
+            analyser.getByteTimeDomainData(datos);
+            let pico = 0;
+            for (const v of datos) pico = Math.max(pico, Math.abs(v - 128));
+            if (pico > 6) huboSonidoRef.current = true; // ~ -25 dB
+            // Avisar EN EL MOMENTO: enterarse al soltar significa haber hablado para nada.
+            // Se dan 1,5 s de gracia para no parpadear en el silencio inicial.
+            if (Date.now() - arranque > 1500) setMicMudo(!huboSonidoRef.current);
+          }, 120);
+        } else {
+          huboSonidoRef.current = true; // sin medidor no se bloquea nada
+        }
+      } catch {
+        huboSonidoRef.current = true;
+      }
+
+      setRecording(true);
+      setMicMudo(false);
+      setRecSecs(0);
+      recTimerRef.current = window.setInterval(() => setRecSecs((s) => s + 1), 1000);
+      // SIN timeslice: MediaRecorder acumula todo y emite UN solo blob completo al stop().
+      // Con timeslice (start(400)) el WebView de Android arma un webm con header roto / cluster
+      // final truncado → ffmpeg falla ("EBML header parsing failed") o el audio sale cortado.
+      rec.start();
+    } catch {
+      setSendErr("No se pudo acceder al micrófono");
+      setRecording(false);
+    }
+  }, [sendAudio]);
+
+  const stopAndSend = useCallback(() => {
+    cancelRecRef.current = false;
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const cancelRec = useCallback(() => {
+    cancelRecRef.current = true;
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  // ---- Recontacto con plantilla ----
+  async function openTpl() {
+    setTplOpen(true);
+    setTplErr(null);
+    setTplSelId(null);
+    setTplVars({});
+    setTplLoading(true);
+    try {
+      const res = await fetchWithSupabaseSession(
+        `/api/chat/templates?conversation_id=${encodeURIComponent(conversationId)}`,
+        { cache: "no-store" }
+      );
+      const json = (await res.json().catch(() => ({}))) as { data?: Tpl[] };
+      setTplList(Array.isArray(json.data) ? json.data : []);
+    } catch {
+      setTplList([]);
+      setTplErr("No se pudieron cargar las plantillas.");
+    } finally {
+      setTplLoading(false);
+    }
+  }
+
+  function pickTpl(t: Tpl) {
+    setTplSelId(t.id);
+    setTplErr(null);
+    const slots = extractBodyPlaceholderKeysOrdered(t.components_json ?? []);
+    const nombre = /\p{L}/u.test(title) && title !== "Chat" ? title.trim() : "";
+    const init: Record<string, string> = {};
+    for (const s of slots) {
+      const low = s.toLowerCase();
+      init[s] = low === "nombre" || low === "1" || low.includes("nombre") ? nombre : "";
+    }
+    setTplVars(init);
+  }
+
+  async function sendTpl() {
+    const t = tplList.find((x) => x.id === tplSelId);
+    if (!t || tplSending) return;
+    const slots = extractBodyPlaceholderKeysOrdered(t.components_json ?? []);
+    const missing = slots.filter((s) => !(tplVars[s] ?? "").trim());
+    if (missing.length > 0) {
+      setTplErr(`Completá: ${missing.join(", ")}`);
+      return;
+    }
+    setTplSending(true);
+    setTplErr(null);
+    try {
+      const res = await fetchWithSupabaseSession("/api/chat/send-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, template_id: t.id, variables: tplVars }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok === false) throw new Error(json.error || `Error ${res.status}`);
+      setTplOpen(false);
+      setTplSelId(null);
+      setTplVars({});
+      await load(true);
+    } catch (e) {
+      setTplErr(e instanceof Error ? e.message : "No se pudo enviar la plantilla");
+    } finally {
+      setTplSending(false);
+    }
+  }
+
+  const tplSel = tplList.find((t) => t.id === tplSelId) ?? null;
+  const tplSlots = tplSel ? extractBodyPlaceholderKeysOrdered(tplSel.components_json ?? []) : [];
+  const tplPreview = tplSel
+    ? getBodyComponentText(tplSel.components_json ?? []).replace(PLACEHOLDER_RE, (_m, rawKey: string) => {
+        const k = String(rawKey).trim();
+        const v = (tplVars[k] ?? "").trim();
+        return v || `{{${k}}}`;
+      })
+    : "";
+
+  // Header estilo WhatsApp: nombre (o número si no hay nombre) arriba, y debajo el número.
+  const phoneDisplay = fmtPhone(contactPhone);
+  const titleIsPhone =
+    Boolean(contactPhone) && title.replace(/[^\d]/g, "") === (contactPhone ?? "").replace(/[^\d]/g, "");
+  const headerTitle = titleIsPhone ? phoneDisplay : title;
+  const headerSub =
+    [
+      !titleIsPhone && phoneDisplay ? phoneDisplay : null,
+      windowOpen === false ? "Ventana 24 h cerrada" : windowOpen === true ? "Ventana 24 h abierta" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "WhatsApp";
+
+  return (
+    <div className="min-h-svh max-h-svh bg-slate-50 flex flex-col"
+      onTouchStart={onBordeStart}
+      onTouchMove={onBordeMove}
+      onTouchEnd={onBordeEnd}
+      onTouchCancel={onBordeEnd}
+      style={{
+        transform: bordeDx ? `translateX(${bordeDx}px)` : undefined,
+        transition: bordeDx ? undefined : "transform 160ms ease-out",
+      }}>
+      <header
+        className="sticky top-0 z-10 bg-[#3F8E91] text-white px-2 pb-2.5 shadow-sm flex items-center gap-2"
+        // iOS: respetar la barra de estado (notch). env(safe-area-inset-top)=0 en Android/web.
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
+      >
+        <button onClick={volver} aria-label="Volver" className="h-9 w-9 grid place-items-center rounded-full active:bg-white/15 text-lg">
+          ‹
+        </button>
+        <button
+          type="button"
+          onClick={() => setFichaAbierta(true)}
+          aria-label="Ver la ficha del contacto"
+          className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left active:bg-white/15"
+        >
+          <h1 className="truncate text-sm font-semibold leading-tight">{headerTitle}</h1>
+          <p className="text-[11px] text-white/80 leading-tight truncate">{headerSub}</p>
+        </button>
+        <button
+          type="button"
+          onClick={openTransfer}
+          aria-label="Transferir conversación"
+          className="shrink-0 flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-[12px] font-semibold active:bg-white/25"
+        >
+          ⇄ Transferir
+        </button>
+        {/* Sólo ícono: el encabezado ya tiene Transferir, y en un teléfono una
+            segunda pastilla con texto le come el nombre del contacto. */}
+        <button
+          type="button"
+          onClick={abrirFinalizar}
+          aria-label="Finalizar conversación"
+          title="Finalizar conversación"
+          className="shrink-0 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-[15px] font-semibold active:bg-white/25"
+        >
+          ✓
+        </button>
+      </header>
+
+      {/* Franja bajo el encabezado: el chip abre la pauta en Facebook o Instagram. Va acá y no
+          dentro del encabezado porque ahí ya está Transferir, y el titular del
+          anuncio necesita el ancho de una línea entera para leerse. */}
+      {pauta ? (
+        <a
+          href={pauta.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex shrink-0 items-center gap-2 border-b px-3 py-1.5 text-[11px] font-semibold ${
+            pauta.red === "instagram"
+              ? "border-pink-100 bg-pink-50 text-pink-700"
+              : pauta.red === "facebook"
+                ? "border-blue-100 bg-blue-50 text-blue-700"
+                : "border-slate-200 bg-slate-50 text-slate-600"
+          }`}
+        >
+          <span className="shrink-0">
+            {pauta.red === "instagram"
+              ? "Pauta IG"
+              : pauta.red === "facebook"
+                ? "Pauta FB"
+                : "Pauta"}
+          </span>
+          {pauta.headline ? (
+            <span className="min-w-0 truncate font-normal opacity-80">{pauta.headline}</span>
+          ) : null}
+          <span aria-hidden className="ml-auto shrink-0">
+            ↗
+          </span>
+        </a>
+      ) : null}
+
+      {fichaAbierta ? (
+        <FichaContactoMovil
+          conversationId={conversationId}
+          alCerrar={() => setFichaAbierta(false)}
+        />
+      ) : null}
+      <div
+        ref={scrollRef}
+        onScroll={() => {
+          const el = scrollRef.current;
+          if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-2"
+      >
+        {loading ? (
+          <div className="text-center text-slate-400 text-sm animate-pulse py-6">Cargando…</div>
+        ) : err ? (
+          <div className="m-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">{err}</div>
+        ) : messages.length === 0 && pending.length === 0 ? (
+          <div className="text-center text-slate-400 text-sm py-6">Sin mensajes.</div>
+        ) : (
+          <>
+            {messages
+              // Las reacciones llegan como mensajes propios, pero no son burbujas:
+              // se dibujan colgadas del mensaje al que apuntan.
+              .filter((m) => m.message_type !== "reaction")
+              .map((m) => (
+              <div
+                key={m.id}
+                id={`msg-${m.id}`}
+                className={`relative flex ${m.from_me ? "justify-end" : "justify-start"}`}
+                onTouchStart={(e) => onBubbleTouchStart(e, m)}
+                onTouchMove={(e) => onBubbleTouchMove(e, m)}
+                onTouchEnd={() => onBubbleTouchEnd(m)}
+                onTouchCancel={() => onBubbleTouchEnd(m)}
+              >
+                {swipe?.id === m.id && swipe.dx > 8 ? (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none"
+                    style={{ opacity: Math.min(1, swipe.dx / SWIPE_THRESHOLD) }}
+                  >
+                    ↩
+                  </span>
+                ) : null}
+                <div
+                  style={{
+                    // Sin `WebkitTouchCallout: none` el toque largo abre el menú nativo de
+                    // iOS encima de la hoja de emojis.
+                    WebkitTouchCallout: "none",
+                    ...(swipe?.id === m.id
+                      ? { transform: `translateX(${swipe.dx}px)` }
+                      : { transform: "translateX(0)", transition: "transform 140ms ease-out" }),
+                  }}
+                  // `select-none` porque el toque largo es "reaccionar", no "seleccionar
+                  // texto": sin esto aparecían las manijas de selección encima de la hoja
+                  // de emojis. Para no perder la capacidad, la hoja trae "Copiar texto".
+                  className={`max-w-[78%] select-none rounded-2xl px-3 py-2 text-[14px] leading-snug shadow-sm ${
+                    m.from_me ? "bg-[#4FAEB2] text-white rounded-br-md" : "bg-white text-slate-800 border border-slate-100 rounded-bl-md"
+                  }`}
+                >
+                  {(() => {
+                    // `reply_context` es el resumen que dejamos al responder nosotros; los
+                    // mensajes del cliente sólo traen el WAMID citado y hay que buscar el
+                    // mensaje entre los cargados.
+                    let rc = m.raw_payload?.reply_context as
+                      | { preview?: string; from_me?: boolean; wa_message_id?: string | null }
+                      | undefined;
+                    let original: Msg | undefined;
+                    if (!rc || typeof rc !== "object") {
+                      const citado = wamidCitado(m.raw_payload);
+                      if (!citado) return null;
+                      original = mensajePorWamid.get(citado);
+                      rc = original
+                        ? { preview: previewOf(original), from_me: original.from_me }
+                        : { preview: "Mensaje anterior", from_me: undefined };
+                    } else if (rc.wa_message_id) {
+                      original = mensajePorWamid.get(rc.wa_message_id);
+                    }
+
+                    const clases = `mb-1.5 w-full rounded-lg border-l-[3px] px-2 py-1 text-left text-[12px] ${
+                      m.from_me
+                        ? "border-white/60 bg-white/15 text-white/90"
+                        : "border-[#4FAEB2] bg-slate-50 text-slate-600"
+                    }`;
+                    const interior = (
+                      <>
+                        {rc.from_me === undefined ? null : (
+                          <span className="block text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                            {rc.from_me ? "Vos" : "Cliente"}
+                          </span>
+                        )}
+                        <span className="line-clamp-2 break-words">{rc.preview ?? "Mensaje"}</span>
+                      </>
+                    );
+
+                    // Sin el original cargado no hay a dónde ir.
+                    if (!original) return <div className={clases}>{interior}</div>;
+
+                    return (
+                      <button
+                        type="button"
+                        aria-label="Ir al mensaje citado"
+                        onClick={() => irAlMensaje(original!.id)}
+                        className={clases}
+                      >
+                        {interior}
+                      </button>
+                    );
+                  })()}
+                  <MessageBody m={m} onZoom={setZoomUrl} favStickers={favStickers} onToggleFav={toggleFavSticker} />
+                  {m.from_me && m.whatsapp_delivery_status === "failed" ? (
+                    <div className="mt-1 rounded-md bg-red-50 border border-red-200 px-2 py-1 text-[11px] text-red-700 flex items-start gap-1">
+                      <span aria-hidden>⚠</span>
+                      <span>
+                        <span className="font-semibold">No entregado.</span>{" "}
+                        {friendlyWhatsappFailureReason(extractWhatsappFailureInfo(m.raw_payload))}
+                      </span>
+                    </div>
+                  ) : null}
+                  {m.created_at ? (
+                    <div
+                      className={`mt-0.5 text-right text-[10px] leading-none ${
+                        m.from_me ? "text-white/70" : "text-slate-400"
+                      }`}
+                    >
+                      {fmtTime(m.created_at)}
+                      {m.from_me ? (
+                        <MessageDeliveryTicks status={m.whatsapp_delivery_status} />
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {/* Cuelgan del borde inferior, medio salidas de la burbuja, como en
+                      WhatsApp: así no empujan el texto ni se confunden con contenido. */}
+                  {(() => {
+                    // Por el WAMID real: en los salientes puede no ser `wa_message_id`.
+                    const clave = wamidDeMensaje(m) ?? m.wa_message_id;
+                    const rs: ReaccionEnUI[] = clave ? reacciones.get(clave) ?? [] : [];
+                    if (rs.length === 0) return null;
+                    return (
+                      <div className="-mb-3 mt-0.5 flex justify-end gap-1">
+                        {rs.map((r, i) => (
+                          <button
+                            key={`${r.emoji}-${i}`}
+                            type="button"
+                            // Tocar la propia reacción la quita, que es lo que se espera.
+                            onClick={() => r.from_me && void reaccionar(m, "")}
+                            className="rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[13px] leading-none shadow-sm"
+                            title={r.from_me ? "Tocá para quitar tu reacción" : "Reacción del cliente"}
+                          >
+                            {r.emoji}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+              ))}
+            {pending.map((p) => (
+              <div key={p.tempId} className="flex justify-end">
+                <div className="max-w-[78%] rounded-2xl rounded-br-md bg-[#4FAEB2]/70 text-white px-3 py-2 text-[14px] leading-snug shadow-sm">
+                  <span className="whitespace-pre-wrap break-words">
+                    {p.kind === "audio" ? "🎤 Nota de voz" : p.content}
+                  </span>
+                  <div className="mt-0.5 text-[10px] text-white/85">
+                    {p.status === "sending" ? (
+                      "enviando…"
+                    ) : (
+                      <button type="button" onClick={() => retry(p)} className="underline">
+                        error · reintentar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {windowOpen === false ? (
+        <button
+          type="button"
+          onClick={() => void openTpl()}
+          className="w-full text-left px-3 py-2 bg-amber-50 border-t border-amber-200 text-amber-800 text-[12px] active:bg-amber-100"
+        >
+          Ventana de 24 h cerrada: tocá acá para <b>recontactar con una plantilla</b> aprobada.
+        </button>
+      ) : null}
+      {sendErr ? <div className="px-3 py-1.5 bg-red-50 text-red-700 text-[12px]">{sendErr}</div> : null}
+
+      <div
+        className="sticky bottom-0 bg-white border-t border-slate-200 px-2 pt-2"
+        // Android con barra de gestos / iPhone sin botón home: la barra del sistema se
+        // dibuja sobre el borde inferior del WebView. Sin esto, el composer queda tapado
+        // y no se puede escribir.
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+      >
+        {recording ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cancelRec}
+              className="shrink-0 h-10 px-3 rounded-2xl border border-slate-200 text-slate-600 text-sm font-semibold active:scale-95"
+            >
+              Cancelar
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-red-600 text-sm font-medium">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+                Grabando {fmtSecs(recSecs)}
+              </div>
+              {micMudo ? (
+                <p className="mt-0.5 text-[11px] leading-snug text-amber-700">
+                  No se escucha nada. Revisá que otra app no esté usando el micrófono.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={stopAndSend}
+              className="shrink-0 h-10 px-4 rounded-2xl bg-[#3F8E91] text-white text-sm font-semibold active:scale-95"
+            >
+              Enviar
+            </button>
+          </div>
+        ) : (
+          <>
+            {showEmoji ? (
+              <div className="mb-2">
+                <div className="mb-1 flex gap-1 px-1">
+                  {(["emoji", "sticker"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setEmojiTab(tab)}
+                      className={`rounded-full px-3 py-1 text-[12px] font-semibold ${
+                        emojiTab === tab ? "bg-[#3F8E91] text-white" : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {tab === "emoji" ? "Emojis" : "Stickers"}
+                    </button>
+                  ))}
+                </div>
+                {emojiTab === "emoji" ? (
+                  <div className="flex flex-wrap gap-1 px-1">
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => setText((t) => t + e)}
+                        className="p-1 text-xl leading-none active:scale-90"
+                        aria-label={`Emoji ${e}`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                ) : favStickers.length === 0 ? (
+                  <p className="px-2 py-3 text-center text-[12px] text-slate-500">
+                    Todavía no tenés stickers favoritos. Tocá ☆ Guardar debajo de un sticker del chat.
+                  </p>
+                ) : (
+                  <div className="grid max-h-48 grid-cols-4 gap-2 overflow-y-auto px-1">
+                    {favStickers.map((u) => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => sendSticker(u)}
+                        aria-label="Enviar sticker"
+                        className="grid place-items-center rounded-lg p-1 active:bg-slate-100"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="sticker" loading="lazy" className="h-16 w-16 object-contain" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {replyTo ? (
+              <div className="mb-2 flex items-start gap-2 rounded-xl border-l-4 border-[#4FAEB2] bg-slate-50 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold text-[#3F8E91]">
+                    {replyTo.from_me ? "Vos" : title}
+                  </div>
+                  <div className="truncate text-[12px] text-slate-600">
+                    {replyTo.content?.trim() || `[${replyTo.message_type}]`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  aria-label="Cancelar respuesta"
+                  className="shrink-0 h-6 w-6 grid place-items-center rounded-full text-slate-400 active:bg-slate-200"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : null}
+            {imagenPegada ? (
+              <div className="mb-2">
+                <ImagenPegada
+                  archivo={imagenPegada}
+                  alCancelar={() => setImagenPegada(null)}
+                  alEnviar={() => {
+                    sendFile(imagenPegada);
+                    setImagenPegada(null);
+                  }}
+                />
+              </div>
+            ) : null}
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) sendFile(f);
+                  e.target.value = "";
+                }}
+              />
+              {/* El "+" está siempre: el ancho de los tres botones es el que le falta al
+                  mensaje mientras se escribe, y quien adjunta algo lo hace de a ratos. */}
+              <button
+                type="button"
+                onClick={() => setAccionesAbiertas((v) => !v)}
+                aria-label={accionesAbiertas ? "Ocultar acciones" : "Adjuntar, emojis y plantillas"}
+                aria-expanded={accionesAbiertas}
+                className={`shrink-0 h-10 w-10 grid place-items-center rounded-full text-2xl leading-none transition-transform active:bg-slate-100 ${
+                  accionesAbiertas ? "rotate-45 text-slate-600" : "text-slate-500"
+                }`}
+              >
+                +
+              </button>
+              {accionesAbiertas ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Adjuntar imagen o video"
+                    className="shrink-0 h-10 w-10 grid place-items-center rounded-full text-xl text-slate-500 active:bg-slate-100"
+                  >
+                    📎
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmoji((v) => !v)}
+                    aria-label="Emojis"
+                    className="shrink-0 h-10 w-10 grid place-items-center rounded-full text-xl active:bg-slate-100"
+                  >
+                    😊
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void openTpl()}
+                    aria-label="Enviar plantilla / recontactar"
+                    className={`shrink-0 h-10 w-10 grid place-items-center rounded-full text-lg active:scale-95 ${
+                      windowOpen === false ? "bg-amber-100 text-amber-700" : "text-slate-500 active:bg-slate-100"
+                    }`}
+                  >
+                    📄
+                  </button>
+                </>
+              ) : null}
+              <textarea
+                ref={taRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onPaste={(e) => {
+                  const img = imagenDelPortapapeles(e);
+                  if (!img) return; // texto: pegado normal
+                  e.preventDefault();
+                  setImagenPegada(img);
+                }}
+                rows={1}
+                placeholder="Escribí un mensaje…"
+                className="flex-1 resize-none rounded-2xl border border-slate-200 px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40 max-h-32"
+              />
+              {text.trim() ? (
+                <button
+                  onClick={send}
+                  className="shrink-0 h-10 px-4 rounded-2xl bg-[#3F8E91] text-white text-sm font-semibold active:scale-95 transition"
+                >
+                  Enviar
+                </button>
+              ) : micSupported ? (
+                <button
+                  type="button"
+                  onClick={() => void startRec()}
+                  aria-label="Grabar nota de voz"
+                  className="shrink-0 h-10 w-10 grid place-items-center rounded-full bg-[#3F8E91] text-white text-lg active:scale-95 transition"
+                >
+                  🎤
+                </button>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+
+      {finOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
+          role="presentation"
+          onClick={() => {
+            if (!finGuardando) setFinOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Finalizar conversación"
+            className="max-h-[88vh] overflow-y-auto rounded-t-2xl bg-white"
+            onClick={(ev) => ev.stopPropagation()}
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">Finalizar conversación</h2>
+              <button
+                type="button"
+                onClick={() => setFinOpen(false)}
+                disabled={finGuardando}
+                className="text-sm text-slate-500 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3 px-4 py-3">
+              {finCargando ? (
+                <p className="py-4 text-center text-sm text-slate-400">Cargando opciones…</p>
+              ) : (
+                <>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Estado
+                    </span>
+                    <select
+                      value={finEstadoId}
+                      onChange={(e) => {
+                        setFinEstadoId(e.target.value);
+                        setFinSubId("");
+                      }}
+                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40"
+                    >
+                      <option value="">Elegí un estado…</option>
+                      {finEstados.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {(() => {
+                    const st = finEstados.find((e) => e.id === finEstadoId);
+                    if (!st || st.substates.length === 0) return null;
+                    return (
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                          Subestado
+                        </span>
+                        <select
+                          value={finSubId}
+                          onChange={(e) => setFinSubId(e.target.value)}
+                          className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40"
+                        >
+                          <option value="">Elegí un subestado…</option>
+                          {st.substates.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  })()}
+
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Comentario
+                    </span>
+                    <textarea
+                      value={finComentario}
+                      onChange={(e) => setFinComentario(e.target.value)}
+                      rows={3}
+                      placeholder="Qué pasó con este chat…"
+                      className="resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40"
+                    />
+                  </label>
+                </>
+              )}
+
+              {finError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+                  {finError}
+                </p>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => void confirmarFinalizar()}
+                disabled={finGuardando || finCargando || finEstados.length === 0}
+                className="mt-1 rounded-xl bg-[#3F8E91] px-4 py-2.5 text-sm font-semibold text-white active:scale-[0.99] disabled:opacity-50"
+              >
+                {finGuardando ? "Guardando…" : "Confirmar finalización"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {transferOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
+          role="presentation"
+          onClick={() => setTransferOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[85vh] overflow-hidden rounded-t-2xl bg-white flex flex-col"
+            onClick={(ev) => ev.stopPropagation()}
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 shrink-0">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-slate-900">Transferir conversación</h2>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Elegí cola y/o agente. Los números reflejan chats abiertos asignados al agente.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTransferOpen(false)}
+                aria-label="Cerrar"
+                className="shrink-0 h-8 w-8 grid place-items-center rounded-full text-slate-500 active:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
+              <div>
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  Colas
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    disabled={opsBusy}
+                    value={transferQueue}
+                    onChange={(e) => setTransferQueue(e.target.value)}
+                    aria-label="Cola destino y filtro de agentes"
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px]"
+                  >
+                    <option value="">Todas las colas (tu alcance)</option>
+                    {opsQueues.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={opsBusy || !transferQueue}
+                    onClick={() =>
+                      void runOp(() => transferHttp({ queue_id: transferQueue }))
+                    }
+                    className="shrink-0 rounded-xl bg-[#4FAEB2] px-4 py-2.5 text-[14px] font-semibold text-white active:bg-[#3F8E91] disabled:opacity-50"
+                  >
+                    Transferir
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    Agentes
+                  </label>
+                  <input
+                    type="search"
+                    value={transferSearch}
+                    onChange={(e) => setTransferSearch(e.target.value)}
+                    placeholder="Buscar"
+                    aria-label="Buscar agente"
+                    className="w-40 rounded-xl border border-slate-200 px-3 py-2 text-[14px] outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
+                  />
+                </div>
+                {transferLoading ? (
+                  <p className="py-6 text-center text-[13px] text-slate-500">Cargando agentes…</p>
+                ) : transferError ? (
+                  <p className="py-6 text-center text-[12px] text-red-600 break-words px-2">
+                    Error cargando datos: {transferError}
+                  </p>
+                ) : filteredAgents.length === 0 ? (
+                  <p className="py-6 text-center text-[13px] text-slate-500">
+                    No hay agentes para mostrar con estos filtros.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+                    {filteredAgents.map((a) => {
+                      const isCurrent = a.id === assignedAgentId;
+                      return (
+                        <div key={a.id} className={`px-3 py-3 ${isCurrent ? "bg-emerald-50/80" : ""}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-[14px] font-semibold leading-snug text-slate-900">
+                                {a.nombre}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-slate-700">
+                                  {a.queue_nombre}
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  {a.operational_status === "offline" ? "En pausa" : "Disponible"}
+                                  {!a.is_online ? " · sin sesión" : ""}
+                                  {" · "}
+                                  {a.active_conversations} activos
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={opsBusy || isCurrent}
+                              onClick={() =>
+                                void runOp(() => transferHttp({ agent_id: a.id }))
+                              }
+                              className="shrink-0 rounded-xl bg-[#4FAEB2] px-3 py-2 text-[13px] font-semibold text-white active:bg-[#3F8E91] disabled:bg-slate-200 disabled:text-slate-500"
+                            >
+                              {isCurrent ? "Asignado" : "Transferir"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Barra de emojis del toque largo. Hoja abajo, que es donde llega el pulgar. */}
+      {reaccionandoA ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/30"
+          onClick={() => setReaccionandoA(null)}
+        >
+          <div
+            className="w-full rounded-t-3xl bg-white px-4 pt-3 shadow-2xl"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
+            <p className="mb-2 line-clamp-2 text-[12px] text-slate-500">
+              {reaccionandoA.content?.trim() || `[${reaccionandoA.message_type}]`}
+            </p>
+            {puedeReaccionar(reaccionandoA) ? (
+            <div className="flex justify-between gap-1 pb-1">
+              {EMOJIS_REACCION.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => void reaccionar(reaccionandoA, e)}
+                  className="grid h-12 w-12 place-items-center rounded-full text-[26px] active:bg-slate-100"
+                  aria-label={`Reaccionar con ${e}`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            ) : null}
+
+            {reaccionandoA.message_type === "image" && mediaUrl(reaccionandoA) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const u = mediaUrl(reaccionandoA)!;
+                  setReaccionandoA(null);
+                  void copiarImagen(u)
+                    .then(() => setAviso("Imagen copiada"))
+                    .catch(() => setReaccionError("Este dispositivo no deja copiar imágenes. Usá Reenviar."));
+                }}
+                className="mt-1 w-full rounded-xl py-2.5 text-[14px] font-medium text-slate-600 active:bg-slate-100"
+              >
+                Copiar imagen
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => {
+                setReenviando(reaccionandoA);
+                setReaccionandoA(null);
+              }}
+              className="mt-1 w-full rounded-xl py-2.5 text-[14px] font-medium text-slate-600 active:bg-slate-100"
+            >
+              Reenviar
+            </button>
+
+            {reaccionandoA.content?.trim() ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(reaccionandoA.content ?? "");
+                  setReaccionandoA(null);
+                }}
+                className="mt-1 w-full rounded-xl py-2.5 text-[14px] font-medium text-slate-600 active:bg-slate-100"
+              >
+                Copiar texto
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {reenviando ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/30"
+          onClick={() => !reenvioEnviando && (setReenviando(null), setReenvioDestino(null))}
+        >
+          <div
+            className="flex max-h-[80svh] w-full flex-col rounded-t-3xl bg-white pt-3 shadow-2xl"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="px-4">
+              <h2 className="text-[15px] font-semibold text-slate-900">Reenviar a…</h2>
+              <p className="mt-0.5 line-clamp-1 text-[12px] text-slate-500">
+                {reenviando.content?.trim() || `[${reenviando.message_type}]`}
+              </p>
+              <input
+                type="search"
+                value={reenvioBusqueda}
+                onChange={(e) => setReenvioBusqueda(e.target.value)}
+                placeholder="Buscar chat o número…"
+                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-[#4FAEB2]"
+              />
+            </div>
+            <ul className="mt-2 min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
+              {bandeja.conversations
+                .filter((c) => {
+                  const t = reenvioBusqueda.trim().toLowerCase();
+                  if (!t) return true;
+                  return (c.contact_nombre ?? "").toLowerCase().includes(t) || (c.contact_telefono ?? "").includes(t);
+                })
+                .map((c) => {
+                  const nombre = nombreOTelefonoParaMostrar(c.contact_nombre, c.contact_telefono, "Contacto");
+                  const elegido = reenvioDestino?.id === c.id;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => setReenvioDestino(elegido ? null : c)}
+                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${elegido ? "bg-[#4FAEB2]/10" : "active:bg-slate-50"}`}
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#4FAEB2]/15 font-semibold text-[#3F8E91]">
+                          {nombre.slice(0, 1).toUpperCase()}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-medium text-slate-800">{nombre}</span>
+                          {c.contact_nombre && c.contact_telefono ? (
+                            <span className="block text-[12px] text-slate-500">
+                              {esLidWhatsapp(c.contact_telefono) ? "ID de WhatsApp" : c.contact_telefono}
+                            </span>
+                          ) : null}
+                        </span>
+                        {elegido ? <span className="text-[#3F8E91]">✓</span> : null}
+                      </button>
+                    </li>
+                  );
+                })}
+            </ul>
+            <div className="px-4 pt-2">
+              <button
+                type="button"
+                disabled={!reenvioDestino || reenvioEnviando}
+                onClick={() => void confirmarReenvio()}
+                className="w-full rounded-xl bg-[#3F8E91] py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+              >
+                {reenvioEnviando
+                  ? "Reenviando…"
+                  : reenvioDestino
+                    ? `Reenviar a ${nombreOTelefonoParaMostrar(reenvioDestino.contact_nombre, reenvioDestino.contact_telefono, "este chat")}`
+                    : "Elegí un chat"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {aviso ? (
+        <div className="fixed inset-x-3 bottom-24 z-50 rounded-xl bg-slate-900/90 px-3 py-2 text-center text-[13px] text-white shadow-lg">
+          {aviso}
+        </div>
+      ) : null}
+
+      {reaccionError ? (
+        <div
+          className="fixed inset-x-3 bottom-24 z-50 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 shadow-lg"
+          onClick={() => setReaccionError(null)}
+        >
+          {reaccionError}
+        </div>
+      ) : null}
+
+      {zoomUrl ? <ImageViewer url={zoomUrl} onClose={() => setZoomUrl(null)} /> : null}
+
+      {tplOpen ? (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40" onClick={() => setTplOpen(false)}>
+          <div
+            className="max-h-[80svh] rounded-t-2xl bg-white flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <span className="text-sm font-semibold text-slate-800">Recontactar con plantilla</span>
+              <button type="button" onClick={() => setTplOpen(false)} className="text-slate-400 text-lg" aria-label="Cerrar">
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {tplLoading ? (
+                <p className="py-6 text-center text-sm text-slate-400">Cargando plantillas…</p>
+              ) : tplList.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">No hay plantillas aprobadas para este canal.</p>
+              ) : !tplSel ? (
+                <ul className="space-y-1">
+                  {tplList.map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => pickTpl(t)}
+                        className="w-full rounded-xl border border-slate-100 px-3 py-2.5 text-left active:bg-slate-50"
+                      >
+                        <span className="block text-sm font-semibold text-slate-900">{t.name}</span>
+                        <span className="mt-0.5 line-clamp-2 text-[12px] text-slate-500">
+                          {getBodyComponentText(t.components_json ?? [])}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTplSelId(null);
+                      setTplVars({});
+                      setTplErr(null);
+                    }}
+                    className="text-[12px] text-[#3F8E91]"
+                  >
+                    ← Elegir otra
+                  </button>
+                  <p className="text-sm font-semibold text-slate-800">{tplSel.name}</p>
+                  {tplSlots.map((s) => (
+                    <label key={s} className="block">
+                      <span className="mb-1 block text-[12px] font-medium text-slate-600">{s}</span>
+                      <input
+                        type="text"
+                        value={tplVars[s] ?? ""}
+                        onChange={(e) => setTplVars((prev) => ({ ...prev, [s]: e.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/40"
+                        placeholder={`Valor para ${s}`}
+                      />
+                    </label>
+                  ))}
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Vista previa
+                    </span>
+                    <p className="whitespace-pre-wrap break-words text-[13px] text-slate-700">{tplPreview}</p>
+                  </div>
+                  {tplErr ? <p className="text-[12px] text-red-600">{tplErr}</p> : null}
+                  <button
+                    type="button"
+                    onClick={() => void sendTpl()}
+                    disabled={tplSending}
+                    className="w-full rounded-2xl bg-[#3F8E91] px-4 py-3 text-sm font-semibold text-white active:scale-95 disabled:bg-slate-200 disabled:text-slate-400"
+                  >
+                    {tplSending ? "Enviando…" : "Enviar plantilla"}
+                  </button>
+                </div>
+              )}
+              {tplErr && !tplSel ? <p className="mt-2 text-center text-[12px] text-red-600">{tplErr}</p> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

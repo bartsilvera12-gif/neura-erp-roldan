@@ -56,3 +56,20 @@ export function nombreParaMostrar(
   if (t) return t;
   return fallback;
 }
+
+/**
+ * Lo mismo que `nombreParaMostrar`, con la firma que usa la app del asesor.
+ *
+ * La app móvil se portó del otro ERP, donde esta función lleva el nombre, el
+ * teléfono y el texto de reserva, sin el teléfono real. Se delega en
+ * `nombreParaMostrar` en vez de copiar la cuenta: esa es la que sabe que un
+ * LID de quince dígitos no es el nombre del cliente, y no hay motivo para que
+ * el teléfono se vea distinto en el ERP y en la app.
+ */
+export function nombreOTelefonoParaMostrar(
+  nombre: string | null | undefined,
+  telefono: string | null | undefined,
+  fallback = "Cliente de WhatsApp"
+): string {
+  return nombreParaMostrar(nombre, telefono, null, fallback);
+}

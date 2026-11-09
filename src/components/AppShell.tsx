@@ -6,8 +6,15 @@ import Header from "./layout/Header";
 import MobileBottomNav from "./layout/MobileBottomNav";
 
 const STANDALONE_ROUTES = ["/login"];
-/** El kiosco de fichaje (/fichar/<token>) va a pantalla completa, sin menú. */
-const STANDALONE_PREFIXES = ["/fichar/"];
+/**
+ * Rutas a pantalla completa, sin la barra lateral ni el encabezado del ERP.
+ *
+ *   · /fichar/<token> — el kiosco de fichaje.
+ *   · /m/asesor       — la app del asesor (la APK). Es un teléfono entero: el
+ *                       menú del ERP le comería media pantalla al chat, y el
+ *                       asesor no navega por el ERP desde ahí.
+ */
+const STANDALONE_PREFIXES = ["/fichar/", "/m/asesor"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -72,3 +72,40 @@ export function isImageMimeHint(raw: RawPayload, messageType: string): boolean {
   }
   return false;
 }
+
+export function attachmentCaptionForDisplay(text: string | null | undefined): string {
+  if (!text) return "";
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .filter((l) => !/\/storage\/v1\/object\/(public|sign)\//i.test(l))
+    .filter((l) => !/^(imagen|audio|video)\s+enviad[oa]$/i.test(l))
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Texto amable para los mensajes que WhatsApp manda sin contenido propio.
+ *
+ * `revoke` es "Eliminar para todos": WhatsApp NO borra nada acá, avisa que el mensaje se
+ * eliminó y el ERP lo guarda como una fila más. Sin esto, en el chat aparecía "[revoke]"
+ * crudo, que no le dice nada a nadie.
+ */
+export function textoDeMensajeDeSistema(messageType: string | null | undefined): string | null {
+  switch ((messageType ?? "").toLowerCase()) {
+    case "revoke":
+      return "Se eliminó un mensaje";
+    case "reaction":
+      return "Reaccionó a un mensaje";
+    default:
+      return null;
+  }
+}
+
+/** Lo mismo, partiendo de la vista previa que guarda el ERP ("[revoke]", "[reaction]"). */
+export function textoDeVistaPrevia(preview: string | null | undefined): string | null {
+  const p = (preview ?? "").trim();
+  if (!p.startsWith("[") || !p.endsWith("]")) return null;
+  return textoDeMensajeDeSistema(p.slice(1, -1));
+}

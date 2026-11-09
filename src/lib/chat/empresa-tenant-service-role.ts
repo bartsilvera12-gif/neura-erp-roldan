@@ -17,7 +17,19 @@ export type EmpresaTenantSrContext = {
  * Sesión para mutaciones/consultas de tablas tenant (`chat_*`, etc.) sin depender de RLS del JWT.
  * Siempre filtrar por `empresa_id` en las queries.
  */
-export async function requireEmpresaTenantServiceRole(): Promise<EmpresaTenantSrContext> {
+/**
+ * El `request` es opcional y hoy no se usa: la sesión sale de las cookies.
+ *
+ * Lo reciben las rutas de la app del asesor, que vinieron del otro ERP, donde
+ * la app nativa manda un Bearer porque no tiene cookies. La APK de acá no es
+ * nativa en ese sentido: es un WebView que abre el ERP deployado, así que
+ * entra con la misma cookie de sesión que el navegador. El parámetro queda en
+ * la firma para no tocar esas rutas, y el día que haga falta Bearer se resuelve
+ * acá adentro sin cambiar a quien llame.
+ */
+export async function requireEmpresaTenantServiceRole(
+  _request?: Request | null
+): Promise<EmpresaTenantSrContext> {
   const u = await getUsuarioCatalogFromServerCookies();
   if (!u) throw new Error("Usuario no autenticado o sin empresa");
 

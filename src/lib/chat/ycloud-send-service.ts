@@ -88,7 +88,7 @@ export async function sendMessageViaYCloud(params: {
   });
 }
 
-export type YCloudOutboundMediaKind = "image" | "document" | "audio" | "video";
+export type YCloudOutboundMediaKind = "image" | "document" | "audio" | "video" | "sticker";
 
 /**
  * Envía imagen / documento / audio / video con URL https pública (p. ej. Supabase Storage),
@@ -126,6 +126,10 @@ export async function sendYCloudWhatsappMediaViaLink(params: {
     if (cap) mediaPayload.caption = cap;
   } else if (kind === "video") {
     if (cap) mediaPayload = { link, caption: cap };
+  } else if (kind === "sticker") {
+    // WhatsApp exige WebP 512x512 (≤100 KB estático, ≤500 KB animado) y no
+    // admite texto al pie.
+    mediaPayload = { link };
   }
   /* audio: solo link (WhatsApp Cloud API) */
 
@@ -168,4 +172,34 @@ export async function sendYCloudWhatsappTemplateMessage(params: {
   }
 
   return postYCloudWhatsappMessage(params.apiKey, body);
+}
+
+export async function sendYCloudWhatsappReaction(params: {
+  apiKey: string;
+  fromE164: string;
+  toDigits: string;
+  /** WAMID del mensaje al que se reacciona. */
+  targetWamid: string;
+  /** Emoji, o cadena vacía para quitar la reacción. */
+  emoji: string;
+}): Promise<SendWhatsAppTextResult> {
+  const toE164 = digitsToE164(params.toDigits);
+  if (!toE164) {
+    return { ok: false, error: "Teléfono de destino inválido para YCloud" };
+  }
+  const wamid = params.targetWamid.trim();
+  if (!wamid.startsWith("wamid.")) {
+    return {
+      ok: false,
+      error: "No se puede reaccionar a este mensaje: WhatsApp necesita su identificador real.",
+      code: "sin_wamid",
+    };
+  }
+
+  return postYCloudWhatsappMessage(params.apiKey, {
+    from: params.fromE164,
+    to: toE164,
+    type: "reaction",
+    reaction: { message_id: wamid, emoji: params.emoji },
+  });
 }
