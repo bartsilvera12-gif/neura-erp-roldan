@@ -500,6 +500,17 @@ export default function InventarioPage() {
                       </td>
                       <td className="hidden px-3 py-3.5 font-mono text-xs text-slate-600 lg:table-cell">
                         {p.sku}
+                        {/* El código de antes. Se muestra porque alguien va a
+                            buscar por él y tiene que entender por qué le
+                            apareció este producto con otro código. */}
+                        {p.codigos_anteriores?.length ? (
+                          <span
+                            className="mt-0.5 block text-[10px] font-normal text-slate-400"
+                            title="Código anterior: se puede buscar por él"
+                          >
+                            antes {p.codigos_anteriores.join(" · ")}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="hidden px-3 py-3.5 text-xs text-slate-600 md:table-cell">
                         {catNombre === "—" ? (

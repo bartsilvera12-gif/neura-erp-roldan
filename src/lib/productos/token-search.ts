@@ -66,7 +66,13 @@ export function escapeIlikeToken(t: string): string {
 export function applyTokenSearch<Q extends { or: (f: string) => Q }>(
   query: Q,
   q: string,
-  columnas: string[]
+  columnas: string[],
+  /**
+   * Ids que ese token trae por otro lado: hoy, los productos cuyo CÓDIGO
+   * VIEJO es ese token. Entran en el mismo `or` que las columnas, así que el
+   * token se da por encontrado y el resto de los tokens se siguen exigiendo.
+   */
+  idsPorToken?: Map<string, string[]>
 ): Q {
   const tokens = splitTokens(q);
   let out = query;
@@ -74,7 +80,10 @@ export function applyTokenSearch<Q extends { or: (f: string) => Q }>(
     const tok = escapeIlikeToken(tokRaw);
     if (!tok) continue;
     const pat = `%${tok}%`;
-    out = out.or(columnas.map((c) => `${c}.ilike.${pat}`).join(","));
+    const partes = columnas.map((c) => `${c}.ilike.${pat}`);
+    const ids = idsPorToken?.get(tokRaw) ?? [];
+    if (ids.length > 0) partes.push(`id.in.(${ids.join(",")})`);
+    out = out.or(partes.join(","));
   }
   return out;
 }

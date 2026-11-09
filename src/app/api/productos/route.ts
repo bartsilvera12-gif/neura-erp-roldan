@@ -5,6 +5,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText, normalizeUpperCodigoBarras } from "@/lib/text/normalize";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { idsPorCodigoAnterior, codigosAnterioresDe } from "@/lib/productos/codigos-anteriores";
 import { preciosDeDeposito, stockDeDeposito, aplicarDeposito } from "@/lib/precios/server/precio-deposito";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { cotizacionVentaUsd } from "@/lib/precios/server/precio-para-cliente";
@@ -116,6 +117,28 @@ async function existsId(
  * hacía: todos los productos salían sin miniatura aunque tuvieran la imagen
  * subida.
  */
+/**
+ * Le cuelga a cada producto los códigos que tuvo antes.
+ *
+ * Va acá y no en el `select` porque viven en otra tabla, y porque si esa tabla
+ * todavía no existe —falta el script 82— la pantalla tiene que salir igual.
+ */
+async function conCodigosViejos(
+  supabase: AppSupabaseClient,
+  empresaId: string,
+  rows: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+  const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
+  const mapa = await codigosAnterioresDe(supabase, empresaId, ids);
+  if (mapa.size === 0) return rows;
+  return rows.map((r) => {
+    const viejos = mapa.get(String(r.id ?? ""));
+    return viejos && viejos.length > 0
+      ? { ...r, codigos_anteriores: viejos.map((v) => v.codigo) }
+      : r;
+  });
+}
+
 async function conImagenesFirmadas(
   supabase: Parameters<typeof firmarProductoImagenes>[0],
   rows: Record<string, unknown>[]
@@ -159,6 +182,17 @@ export async function GET(request: NextRequest) {
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(0, limitRaw), 500) : 0;
     const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
 
+    /**
+     * Los productos cuyo CÓDIGO VIEJO es lo que se escribió en el buscador.
+     *
+     * La gente sigue pidiendo las cosas por el código de antes —en Carapeguá
+     * el arco de sierra fue FASP durante años y hoy es FARSP—. Se resuelve una
+     * sola vez acá y se pasa al armado del query, que se rehace por cada lote.
+     */
+    const idsCodigoViejo = q
+      ? await idsPorCodigoAnterior(ctx.supabase, ctx.auth.empresa_id, q)
+      : undefined;
+
     /** Se re-arma por cada chunk: los builders de supabase-js no se reutilizan
      *  una vez ejecutados. El filtro de sucursal va siempre. */
     const buildBase = (cols: string = PRODUCTO_COLS) => {
@@ -174,7 +208,7 @@ export async function GET(request: NextRequest) {
           .eq("activo", true),
         exigirSucursal(ctx.auth.sucursal_id)
       );
-      if (q) base = applyTokenSearch(base, q, ["nombre", "sku"]);
+      if (q) base = applyTokenSearch(base, q, ["nombre", "sku"], idsCodigoViejo);
       if (categoria === "__sin__") base = base.is("categoria_principal_id", null);
       else if (categoria) base = base.eq("categoria_principal_id", categoria);
       return base.order("nombre");
@@ -199,9 +233,13 @@ export async function GET(request: NextRequest) {
         ({ data, error, count } = await buildBase(PRODUCTO_COLS_BASE).range(offset, offset + limit - 1));
       }
       if (error) throw new Error(error.message);
-      const rows = await conImagenesFirmadas(
+      const rows = await conCodigosViejos(
         ctx.supabase,
-        await conDeposito(((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi))
+        ctx.auth.empresa_id,
+        await conImagenesFirmadas(
+          ctx.supabase,
+          await conDeposito(((data ?? []) as unknown as Record<string, unknown>[]).map(rowToApi))
+        )
       );
       return NextResponse.json(
         successResponse({ productos: rows, total: count ?? 0, limit, offset })

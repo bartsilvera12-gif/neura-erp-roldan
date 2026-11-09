@@ -16,6 +16,11 @@ export interface Producto {
   id: string;
   nombre: string;
   sku: string;
+  /**
+   * Códigos que el producto tuvo antes y por los que la gente lo sigue
+   * pidiendo. Se buscan enteros y se muestran al lado del código actual.
+   */
+  codigos_anteriores?: string[];
   costo_promedio: number;
   precio_venta: number;            // precio minorista
   /** Precio mayorista (opcional, informativo — no se aplica automáticamente en ventas). */
