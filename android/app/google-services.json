@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1059078748387",
+    "project_id": "neura-erp-roldan",
+    "storage_bucket": "neura-erp-roldan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059078748387:android:a16ef418f8cd958caa6dd6",
+        "android_client_info": {
+          "package_name": "py.com.neura.erp.roldan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHqMI8chwuT9CheYuix9In9CRO1gUz7Z4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

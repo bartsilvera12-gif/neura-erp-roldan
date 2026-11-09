@@ -31,14 +31,22 @@ está la computadora.
 
 ## Lo que NO hace todavía
 
-**No avisa cuando entra un mensaje.** El cableado de las notificaciones está
-hecho de punta a punta —el registro del aparato, el horario en que cada uno
-quiere que le lleguen, la ruta que abre el chat al tocar el aviso—, pero
-Firebase no está configurado. Mientras tanto el asesor ve los mensajes nuevos
-al abrir la app.
+**No avisa todavía cuando entra un mensaje**, pero ya falta poco. Lo que está
+hecho:
 
-Para encenderlas (ver abajo) hacen falta un proyecto de Firebase y su
-`google-services.json`.
+- Firebase configurado (proyecto `neura-erp-roldan`). El
+  `google-services.json` está en `android/app/` y versionado.
+- La app registra el aparato al arrancar y lo manda a
+  `POST /api/cc/agent/device-token`.
+- El horario en que cada uno quiere recibir avisos.
+- Al tocar el aviso, la app abre el chat de esa conversación.
+
+Lo que falta es **el emisor**: algo del lado del servidor que, cuando entra un
+mensaje, lea `agent_device_tokens` y dispare el push por FCM respetando
+`usuario_horario_notificaciones`. El aviso tiene que llevar
+`data.route = "/m/asesor/chat/<id>"`, que es lo que la app abre al tocarlo.
+
+Mientras tanto el asesor ve los mensajes nuevos al abrir la app.
 
 ## Armar la APK
 
@@ -77,19 +85,21 @@ nada de lo que ya funciona:
 Si no se corre, la app abre y se chatea igual; lo que no anda es el aviso al
 teléfono y la franja del anuncio.
 
-## Encender las notificaciones
+## Firebase
 
-1. Crear un proyecto en Firebase y, adentro, una app Android con el package
-   **`py.com.neura.erp.roldan`** (tiene que ser exactamente ese: es la
-   identidad de la app para Android).
-2. Bajar el `google-services.json` y dejarlo en `android/app/`.
-3. Volver a compilar. El `build.gradle` ya está preparado: aplica el plugin de
-   Google solo si el archivo está, así que hoy compila sin él y mañana lo toma
-   sin tocar nada.
-4. Falta todavía el emisor: algo que, cuando entra un mensaje, lea
-   `agent_device_tokens` y mande el push por FCM respetando
-   `usuario_horario_notificaciones`. El aviso tiene que llevar
-   `data.route = "/m/asesor/chat/<id>"`, que es lo que la app abre al tocarlo.
+Proyecto **`neura-erp-roldan`**, app Android con el package
+**`py.com.neura.erp.roldan`**.
+
+El `google-services.json` está en `android/app/` y **va versionado a
+propósito**: no es una contraseña, viaja adentro de la APK y lo tiene cualquiera
+que instale la app. Versionarlo es lo que permite recompilar en cualquier
+momento sin volver a bajarlo de la consola.
+
+El `build.gradle` aplica el plugin de Google solo si el archivo está, así que
+el proyecto compila con o sin él.
+
+El SHA-1 del certificado no hace falta: eso es para iniciar sesión con Google y
+Dynamic Links, no para las notificaciones.
 
 ## Cosas que conviene saber
 

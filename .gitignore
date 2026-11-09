@@ -56,7 +56,9 @@ e2e-super-admin*.png
 /android/.gradle/
 /android/capacitor-cordova-android-plugins/build/
 /android/local.properties
-/android/app/google-services.json
+# `google-services.json` SÍ va al repo: no es una contraseña. Viaja adentro de
+# la APK, así que lo tiene cualquiera que instale la app. Versionarlo es lo que
+# permite recompilar en cualquier momento sin volver a bajarlo de Firebase.
 # Capacitor la regenera en cada `cap sync` a partir de capacitor.config.ts.
 /android/app/src/main/assets/capacitor.config.json
 # Las APK no se versionan: se compilan.
