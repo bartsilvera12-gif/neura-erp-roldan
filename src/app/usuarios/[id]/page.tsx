@@ -76,6 +76,7 @@ function labelTipoContrato(t: string | null | undefined): string {
 function labelArea(a: string | null | undefined): string {
   const m: Record<string, string> = {
     ventas: "Ventas",
+    cajero: "Cajero",
     soporte: "Soporte",
     finanzas: "Finanzas",
     operaciones: "Operaciones",
@@ -107,7 +108,7 @@ function usuarioToForm(u: Usuario): UsuarioFormValues {
   ) as TipoContrato;
   const areaRaw = (u.area ?? "ventas").trim().toLowerCase();
   const area = (
-    ["ventas", "soporte", "finanzas", "operaciones", "administracion"].includes(areaRaw)
+    ["ventas", "cajero", "soporte", "finanzas", "operaciones", "administracion"].includes(areaRaw)
       ? areaRaw
       : "ventas"
   ) as AreaUsuario;

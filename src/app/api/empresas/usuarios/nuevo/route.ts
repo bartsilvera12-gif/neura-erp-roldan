@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     const porcentaje_comision = parsePct(body.porcentaje_comision);
     const ips = Boolean(body.ips);
     const areaRaw = body.area ? String(body.area).trim().toLowerCase() : null;
-    const areasOk = ["ventas", "soporte", "finanzas", "operaciones", "administracion"];
+    const areasOk = ["ventas", "cajero", "soporte", "finanzas", "operaciones", "administracion"];
     const area = areaRaw && areasOk.includes(areaRaw) ? areaRaw : null;
     const rol = String(body.rol ?? "usuario");
 

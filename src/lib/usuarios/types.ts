@@ -1,5 +1,5 @@
 export type NivelUsuario    = "usuario" | "supervisor" | "administrador";
-export type AreaUsuario     = "ventas" | "soporte" | "finanzas" | "operaciones" | "administracion";
+export type AreaUsuario     = "ventas" | "soporte" | "finanzas" | "operaciones" | "administracion" | "cajero";
 export type TipoContrato    = "salario" | "comision" | "mixto" | "prestador_servicio";
 export type EstadoUsuario   = "activo" | "inactivo";
 

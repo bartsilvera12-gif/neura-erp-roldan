@@ -115,7 +115,7 @@ function patchNullableArea(v: unknown): string | null | undefined {
   if (v === undefined) return undefined;
   if (v === null || v === "") return null;
   const s = String(v).trim().toLowerCase();
-  const ok = ["ventas", "soporte", "finanzas", "operaciones", "administracion"].includes(s);
+  const ok = ["ventas", "cajero", "soporte", "finanzas", "operaciones", "administracion"].includes(s);
   return ok ? s : null;
 }
 

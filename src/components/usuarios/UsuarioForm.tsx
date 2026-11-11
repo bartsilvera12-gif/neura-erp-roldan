@@ -273,6 +273,9 @@ export function UsuarioFormFields({
             <label className={fLabel}>Área</label>
             <Selector name="area" value={form.area} onChange={onChange} className={fSelect}>
               <option value="ventas">Ventas</option>
+              {/* Caja va arriba, pegada a Ventas: en una ferretería el que
+                  cobra y el que vende son el mismo mostrador. */}
+              <option value="cajero">Cajero</option>
               <option value="soporte">Soporte</option>
               <option value="finanzas">Finanzas</option>
               <option value="operaciones">Operaciones</option>

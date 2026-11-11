@@ -11,6 +11,7 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { margenSobreVenta, remarcacionSobreCosto, colorMargen, pct } from "@/lib/precios/margen";
+import { aDolares, formatearMoneda } from "@/lib/moneda";
 import Selector from "@/components/ui/Selector";
 import {
   Search,
@@ -33,6 +34,25 @@ const metodoBadge: Record<MetodoValuacion, string> = {
   FIFO: "bg-green-100 text-green-700",
   LIFO: "bg-purple-100 text-purple-700",
 };
+
+/**
+ * El mismo importe en dólares, abajo y en chico.
+ *
+ * Abajo y en gris a propósito: el precio que se cobra es el guaraní y tiene
+ * que seguir siendo el que salta a la vista. El dólar es para el que compara
+ * contra una lista del proveedor, que viene en dólares.
+ *
+ * Sin cotización cargada no se muestra nada. Inventar un número acá sería
+ * peor que no mostrarlo: alguien lo usaría para cotizar.
+ */
+function EnDolares({ monto, tipoCambio }: { monto: number; tipoCambio: number | null }) {
+  if (!tipoCambio || !Number.isFinite(monto) || monto <= 0) return null;
+  return (
+    <span className="mt-0.5 block text-[10px] font-normal text-slate-400">
+      {formatearMoneda(aDolares(monto, tipoCambio), "USD")}
+    </span>
+  );
+}
 
 function formatGs(valor: number) {
   // Sin decimales: el costo promedio ponderado los arrastra y el guaraní no tiene.
@@ -186,15 +206,28 @@ export default function InventarioPage() {
     };
   }, []);
 
+  /**
+   * La cotización de venta del dólar que rige hoy, la misma para toda la
+   * lista. Los precios en dólares salen de convertir el guaraní con ella, y
+   * NO del campo `precio_usd` del producto: ese quedó de la migración con
+   * cotizaciones distintas por artículo —se midieron desde 6.200 hasta
+   * 7.700— y dos productos con el mismo margen mostraban dólares que no se
+   * podían comparar entre sí.
+   *
+   * El precio real es el guaraní: es el que se cobra. El dólar es referencia.
+   */
+  const [tipoCambio, setTipoCambio] = useState<number | null>(null);
+
   // Cargar productos paginados cuando cambia algun parametro
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     getProductosPaginated({ page, pageSize, q: search, categoria: categoriaId })
-      .then(({ productos, total }) => {
+      .then(({ productos, total, tipoCambioUsd }) => {
         if (cancel) return;
         setProductos(productos);
         setTotal(total);
+        setTipoCambio(tipoCambioUsd ?? null);
       })
       .finally(() => {
         if (!cancel) setLoading(false);
@@ -324,6 +357,15 @@ export default function InventarioPage() {
                     ? "Sin resultados"
                     : `Mostrando ${fromIdx.toLocaleString("es-PY")}-${toIdx.toLocaleString("es-PY")} de ${total.toLocaleString("es-PY")}`}
                 </p>
+                {/* De dónde salen los dólares. Va escrito porque el dólar de
+                    la lista es una CONVERSIÓN de hoy, no un precio cargado:
+                    mañana el mismo producto va a mostrar otro número sin que
+                    nadie le haya tocado el precio. */}
+                {tipoCambio ? (
+                  <p className="text-[11px] text-slate-400">
+                    Dólares a {tipoCambio.toLocaleString("es-PY")} Gs.
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="ml-auto">
@@ -539,10 +581,12 @@ export default function InventarioPage() {
                       {verCostos && (
                         <td className="px-3 py-3.5 text-right tabular-nums text-slate-700">
                           {formatGs(p.costo_promedio)}
+                          <EnDolares monto={p.costo_promedio} tipoCambio={tipoCambio} />
                         </td>
                       )}
                       <td className="px-3 py-3.5 text-right tabular-nums font-semibold text-slate-900">
                         {formatGs(p.precio_venta)}
+                        <EnDolares monto={p.precio_venta} tipoCambio={tipoCambio} />
                       </td>
                       <td className="px-3 py-3.5 text-center">
                         {sinControl ? (

@@ -242,7 +242,18 @@ export async function GET(request: NextRequest) {
         )
       );
       return NextResponse.json(
-        successResponse({ productos: rows, total: count ?? 0, limit, offset })
+        successResponse({
+          productos: rows,
+          total: count ?? 0,
+          limit,
+          offset,
+          // La cotización de HOY, una sola para toda la lista. Los precios en
+          // dólares se calculan con ella y no con `productos.precio_usd`: ese
+          // campo quedó de la migración con cotizaciones distintas por
+          // producto —se midieron desde 6.200 hasta 7.700— y dos artículos con
+          // el mismo margen mostraban dólares que no se podían comparar.
+          tipo_cambio_usd: await cotizacionVentaUsd(ctx.supabase, ctx.auth.empresa_id),
+        })
       );
     }
 

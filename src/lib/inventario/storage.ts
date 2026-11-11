@@ -180,6 +180,12 @@ export interface ProductosPaginadosOpts {
 export interface ProductosPaginadosResult {
   productos: Producto[];
   total: number;
+  /**
+   * La cotización de venta del dólar que rige hoy, para mostrar los precios
+   * también en dólares. `null` cuando no hay ninguna cargada: ahí no se
+   * inventa un número, simplemente no se muestra la segunda moneda.
+   */
+  tipoCambioUsd?: number | null;
 }
 
 /**
@@ -207,9 +213,14 @@ export async function getProductosPaginated(
       console.error("[inventario] getProductosPaginated:", (j as { error?: string })?.error ?? r.status);
       return { productos: [], total: 0 };
     }
-    const data = j.data as { productos?: ProductoRow[]; total?: number };
+    const data = j.data as { productos?: ProductoRow[]; total?: number; tipo_cambio_usd?: number | null };
     const list = (data.productos ?? []) as ProductoRow[];
-    return { productos: list.map(rowToProducto), total: Number(data.total) || 0 };
+    const tc = Number(data.tipo_cambio_usd);
+    return {
+      productos: list.map(rowToProducto),
+      total: Number(data.total) || 0,
+      tipoCambioUsd: Number.isFinite(tc) && tc > 0 ? tc : null,
+    };
   } catch (err) {
     console.error("[inventario] getProductosPaginated:", err instanceof Error ? err.message : err);
     return { productos: [], total: 0 };
