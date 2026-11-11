@@ -333,7 +333,23 @@ export default function Selector({
             minWidth: caja2.width,
             ...(caja2.top != null ? { top: caja2.top } : { bottom: caja2.bottom }),
           }}
-          className="z-[100] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          /*
+            Z-INDEX 2000: la lista va ARRIBA DE TODO lo que la pueda abrir.
+
+            Cuelga de `body`, así que compite en el stacking context raíz con
+            las demás capas flotantes, que también cuelgan de ahí. Con z-[100]
+            quedaba por debajo de dos de ellas, y en las dos el combo se abría
+            PERO NO SE VEÍA:
+              · el panel del calendario (zIndex 1000), que es el que tiene
+                adentro los combos de mes y año: tocar "Noviembre" no mostraba
+                nada, la lista salía atrás de la grilla de días;
+              · los modales (hasta z-[120]).
+
+            Una lista desplegada es siempre la capa más nueva y la más
+            transitoria: no hay nada que deba taparla mientras está abierta,
+            salvo la pantalla de carga (z-[9999]), que corta todo a propósito.
+          */
+          className="z-[2000] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
         >
           {conBuscador && (
             <div className="relative border-b border-slate-100 p-2">

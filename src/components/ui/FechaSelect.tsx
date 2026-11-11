@@ -209,6 +209,10 @@ export function FechaSelect({
       const t = e.target as Node;
       if (wrapRef.current?.contains(t)) return;
       if ((t as HTMLElement).closest?.("[data-fecha-panel]")) return;
+      // La lista de los combos de mes y año también cuelga de `body`, no del
+      // panel: sin esto, elegir un mes se cuenta como "clic afuera" y el
+      // calendario se cierra en el mismo gesto con el que lo estabas usando.
+      if ((t as HTMLElement).closest?.("[data-selector-lista]")) return;
       setAbierto(false);
     };
     const alTeclear = (e: KeyboardEvent) => {
