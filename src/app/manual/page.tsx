@@ -24,13 +24,20 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Check, ChevronRight, Expand, Lightbulb,
+  ArrowDown, ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Expand, Lightbulb,
   Package, Rocket, Search, ShoppingCart, Truck, FileText, X, AlertTriangle,
+  Users, Wallet, BarChart3, UserCog, Settings,
 } from "lucide-react";
 import { GRUPOS, GUIAS, LLEGAR, type Guia } from "@/lib/manual/contenido";
 import marcasJson from "@/lib/manual/marcas.json";
 
-type Punto = { x: number; y: number };
+/**
+ * Dónde cae el objetivo y CUÁNTO MIDE, en porcentajes de la captura.
+ *
+ * `w`/`h` pueden faltar en marcas viejas; sin ellas se asume un objetivo
+ * chico y la flecha se planta igual, solo que más pegada.
+ */
+type Punto = { x: number; y: number; w?: number; h?: number };
 const MARCAS = marcasJson as unknown as Record<string, Record<string, Punto | null>>;
 
 const TEMAS: { grupo: string; titulo: string; detalle: string; Icono: React.ComponentType<{ className?: string }> }[] = [
@@ -39,6 +46,11 @@ const TEMAS: { grupo: string; titulo: string; detalle: string; Icono: React.Comp
   { grupo: "Inventario", titulo: "Mis productos", detalle: "Cargar productos y controlar el stock", Icono: Package },
   { grupo: "Compras y pagos", titulo: "Comprar y pagar", detalle: "Facturas, proveedores y cobranzas", Icono: Truck },
   { grupo: "Presupuestos", titulo: "Presupuestos", detalle: "Cotizar y mandar a cobrar", Icono: FileText },
+  { grupo: "Clientes", titulo: "Mis clientes", detalle: "Altas, cuenta corriente y WhatsApp", Icono: Users },
+  { grupo: "Gastos y bancos", titulo: "Gastos y bancos", detalle: "Lo que se paga y de dónde sale", Icono: Wallet },
+  { grupo: "Informes", titulo: "Informes", detalle: "Ganancias, comisiones y lo del contador", Icono: BarChart3 },
+  { grupo: "Personal", titulo: "El personal", detalle: "Horarios, vacaciones, sueldos y aguinaldo", Icono: UserCog },
+  { grupo: "Administración", titulo: "Administración", detalle: "Usuarios, sucursales y facturación", Icono: Settings },
 ];
 
 type Nota = { tipo: "consejo" | "ojo"; texto: string };
@@ -50,18 +62,43 @@ function diapositivas(g: Guia): Diapositiva[] {
   const llegar = LLEGAR[g.id];
   if (llegar) {
     const [seccion, item] = llegar;
+    /*
+      Este paso lleva la captura `menu`, que es la pantalla con la ventana
+      alta para que entre el menú entero, y la flecha sobre el ítem de ESTA
+      guía.
+
+      Antes usaba `inicio` sin marca, y como el paso es el mismo en las 21
+      guías, las 21 empezaban mostrando el Dashboard igualito. Daba la
+      sensación de que el manual estaba roto, y encima el paso decía "abrí el
+      menú" mientras mostraba una pantalla donde el menú es una franja
+      chiquita del costado que no se lee.
+
+      La marca es el ítem de primer nivel: de "Inventario → Productos" se
+      señala "Inventario", que es lo que hay que tocar primero.
+    */
+    const item1 = (item ?? seccion).split("→")[0].trim();
     out.push({
       frase: `En el menú de la izquierda, abrí ${seccion}${item ? ` y entrá a ${item}` : ""}.`,
       aclara: "En el celular, el menú se abre con el botón de las tres rayitas.",
-      img: "inicio",
+      img: "menu",
+      alt: "El menú del sistema",
+      marca: item1,
       notas: [],
     });
   }
   for (const b of g.bloques) {
     const pasos = b.pasos ?? [];
     if (b.texto && pasos.length === 0) out.push({ frase: b.texto, img: b.img, alt: b.alt, notas: [] });
+    // `p.img` gana sobre `b.img`. Casi siempre un bloque son varios pasos
+    // SOBRE LA MISMA PANTALLA, y ahí repetir la captura es lo correcto. Pero
+    // en las guías que resumen un recorrido —"Un día de trabajo"— cada paso
+    // ocurre en otra pantalla, y mostrar seis veces el Dashboard enseña mal:
+    // el que lee cree que ahí se cobra.
     pasos.forEach((p, i) =>
-      out.push({ frase: p.t, aclara: p.d, img: b.img, alt: b.alt, marca: p.marca, intro: i === 0 ? b.texto : undefined, notas: [] })
+      out.push({
+        frase: p.t, aclara: p.d, img: p.img ?? b.img, alt: p.alt ?? b.alt,
+        marca: p.marca, intro: i === 0 ? b.texto : undefined, notas: [],
+      })
     );
     const nota: Nota | null = b.consejo
       ? { tipo: "consejo", texto: b.consejo }
@@ -132,34 +169,63 @@ function Visor({ d, onAmpliar }: { d: Diapositiva; onAmpliar: () => void }) {
           }% ${py}%, transparent 72%, rgba(15,23,42,.5) 100%)`,
         }}
       />
-      {/* La flecha baja desde ARRIBA, no entra de costado.
-          `marcas.json` guarda el centro del botón, no su ancho. Viniendo de la
-          izquierda, el círculo rojo caía encima de la primera letra —"Nuevo
-          producto" se leía "uevo producto"— y el ancho de cada botón es
-          distinto, así que no hay un corrimiento que sirva para todos. Un botón
-          siempre es más ancho que alto: dejando el círculo arriba del centro,
-          nunca tapa el texto, mida lo que mida.
-          Si el punto queda muy pegado al borde de arriba, la flecha sube desde
-          abajo, que es lo mismo pero al revés. */}
+      {/*
+        LA FLECHA SE PLANTA AL BORDE DEL OBJETIVO, NO ENCIMA NI A OJO.
+
+        Hubo dos intentos antes, y cada uno arreglaba un caso rompiendo el
+        otro:
+          · entrando de costado a una distancia fija, el círculo rojo se comía
+            la primera letra de los botones anchos ("Nuevo producto" se leía
+            "uevo producto");
+          · bajando desde arriba a una distancia fija, en el menú caía sobre la
+            opción de más arriba, así que el manual señalaba otra cosa.
+
+        Como ahora cada marca guarda su ancho y su alto, se calculan los bordes
+        reales y la flecha se pone pegada al borde, con un respiro:
+          · si el objetivo tiene lugar a su izquierda, la flecha viene de la
+            izquierda apuntando a la derecha (el caso normal: botones y campos);
+          · si está pegado al borde izquierdo —las filas del menú—, viene de la
+            derecha apuntando a la izquierda;
+          · y si es tan ancho que no entra de ningún costado, baja desde arriba,
+            pegada al borde de arriba y no a media altura.
+      */}
       {(() => {
-        const desdeAbajo = py < 14;
+        const RESPIRO = 1.5;          // separación entre la punta y el borde
+        const RADIO = 3.2;            // lo que ocupa el círculo, en % del visor
+        const medioAncho = ((p.w ?? 0) / 2) * ZOOM;
+        const medioAlto = ((p.h ?? 0) / 2) * altoImg;
+        const bordeIzq = px - medioAncho;
+        const bordeDer = px + medioAncho;
+        const bordeArriba = py - medioAlto;
+
+        const cabeIzquierda = bordeIzq - RESPIRO - RADIO * 2 > 1;
+        const cabeDerecha = bordeDer + RESPIRO + RADIO * 2 < 99;
+
+        let left: number, top: number, direccion: "derecha" | "izquierda" | "abajo";
+        if (cabeIzquierda) {
+          direccion = "derecha";
+          left = bordeIzq - RESPIRO - RADIO;
+          top = py;
+        } else if (cabeDerecha) {
+          direccion = "izquierda";
+          left = bordeDer + RESPIRO + RADIO;
+          top = py;
+        } else {
+          direccion = "abajo";
+          left = px;
+          top = Math.max(bordeArriba - RESPIRO - RADIO, RADIO + 1);
+        }
+        const Icono = direccion === "derecha" ? ArrowRight : direccion === "izquierda" ? ArrowLeft : ArrowDown;
+
         return (
           <span
-            className="pointer-events-none absolute -translate-x-1/2"
-            style={{
-              left: `${px}%`,
-              top: `${desdeAbajo ? py + 7 : py - 7}%`,
-              transform: "translate(-50%, -50%)",
-            }}
+            className="pointer-events-none absolute"
+            style={{ left: `${left}%`, top: `${top}%`, transform: "translate(-50%, -50%)" }}
           >
             <span className="relative grid h-9 w-9 place-items-center sm:h-11 sm:w-11">
               <span className="absolute inset-0 animate-ping rounded-full bg-rose-500/50" />
               <span className="relative grid h-full w-full place-items-center rounded-full bg-rose-600 text-white ring-2 ring-white">
-                {desdeAbajo ? (
-                  <ArrowUp className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
-                ) : (
-                  <ArrowDown className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
-                )}
+                <Icono className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
               </span>
             </span>
           </span>
