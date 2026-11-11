@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronDown, LogOut, Menu } from "lucide-react";
+import { Bell, BookOpen, ChevronDown, LogOut, Menu } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { signOut } from "@/lib/auth";
 import { useBoot } from "@/components/BootContext";
@@ -265,6 +265,23 @@ export default function Header() {
       <div className="hidden lg:block lg:flex-1" />
 
       <div className="flex items-center gap-2">
+        {/* El manual, a un toque desde cualquier pantalla. Va acá y no en el
+            menú porque se busca cuando uno está trabado en algo, y en ese
+            momento no se tiene ganas de salir a buscarlo. */}
+        <Link
+          href="/manual"
+          className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-[#3F8E91] sm:inline-flex"
+        >
+          <BookOpen className="h-4 w-4" aria-hidden /> Manual
+        </Link>
+        <Link
+          href="/manual"
+          aria-label="Manual"
+          className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-[#3F8E91] sm:hidden"
+        >
+          <BookOpen className="h-5 w-5" aria-hidden />
+        </Link>
+
         {/* Switcher de sucursal. Si el usuario tiene 1 sola sucursal, se ve
             como badge estático. Si tiene N, dropdown para cambiar. Se autoresuelve
             desde /api/sucursales/mias — ya no depende del prop `sucursal` del

@@ -1,0 +1,133 @@
+{
+ "inventario-productos": {
+  "Nuevo producto": {
+   "x": 91.85,
+   "y": 25.22
+  },
+  "Buscar por nombre o SKU": {
+   "x": 47.64,
+   "y": 31.72
+  },
+  "Todos los rubros": {
+   "x": 79.46,
+   "y": 31.72
+  },
+  "Importar Excel": {
+   "x": 93.32,
+   "y": 12
+  },
+  "Exportar Excel": {
+   "x": 64.26,
+   "y": 12
+  },
+  "Stock con precios": {
+   "x": 81.86,
+   "y": 12
+  }
+ },
+ "producto-nuevo": {
+  "Nombre": {
+   "x": 55.28,
+   "y": 23
+  },
+  "SKU": {
+   "x": 51.01,
+   "y": 50
+  },
+  "Precio de venta": {
+   "x": 78.38,
+   "y": 96
+  },
+  "Guardar": null
+ },
+ "inventario-ajustes": {
+  "Nuevo ajuste": null,
+  "Registrar ajuste": null
+ },
+ "inventario-movimientos": {
+  "Desde": {
+   "x": 75.49,
+   "y": 21.97
+  },
+  "Hasta": {
+   "x": 87.15,
+   "y": 21.97
+  }
+ },
+ "inventario-bajo-minimo": {
+  "Generar orden de compra": null
+ },
+ "inventario-rubros": {
+  "Nuevo rubro": {
+   "x": 46.39,
+   "y": 37.44
+  }
+ },
+ "caja": {
+  "Nueva venta": {
+   "x": 92.25,
+   "y": 58.15
+  },
+  "Abrir caja": null,
+  "Cerrar caja": null
+ },
+ "venta-nueva": {
+  "Buscar producto": {
+   "x": 50.97,
+   "y": 72.72
+  },
+  "Cobrar": {
+   "x": 94,
+   "y": 27.11
+  },
+  "Cliente": {
+   "x": 91.7,
+   "y": 55.17
+  }
+ },
+ "compras": {
+  "Nueva compra": {
+   "x": 92.51,
+   "y": 26.06
+  }
+ },
+ "compra-nueva": {
+  "Proveedor": {
+   "x": 59.13,
+   "y": 39.78
+  },
+  "Guardar": null
+ },
+ "pagos-proveedores": {
+  "Armar pago": {
+   "x": 92.33,
+   "y": 14.44
+  },
+  "Buscar proveedor": null
+ },
+ "presupuestos": {
+  "Nuevo presupuesto": {
+   "x": 91.89,
+   "y": 12
+  }
+ },
+ "presupuesto-nuevo": {
+  "Buscar producto": null,
+  "Guardar": {
+   "x": 91.38,
+   "y": 93.69
+  }
+ },
+ "clientes": {
+  "Nuevo cliente": {
+   "x": 93.99,
+   "y": 11.89
+  }
+ },
+ "proveedores": {
+  "Nuevo proveedor": {
+   "x": 58.83,
+   "y": 19.44
+  }
+ }
+}
