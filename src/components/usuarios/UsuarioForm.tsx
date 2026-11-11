@@ -5,6 +5,7 @@ import type { AreaUsuario, NivelUsuario, TipoContrato } from "@/lib/usuarios/typ
 
 import { Briefcase, KeyRound, ShieldCheck, User } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import FechaSelect from "@/components/ui/FechaSelect";
 
 export const usuarioFormLabel =
   "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
@@ -146,9 +147,15 @@ export function UsuarioFormFields({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={fLabel}>Email *</label>
+              {/* `autoComplete="off"`: acá se carga el correo de OTRA persona,
+                  no el propio. Chrome autocompletaba el del que estaba
+                  logueado —el suyo, el que tiene guardado para entrar— y así
+                  se perdió el administrador de Roldán: nadie miró el campo y
+                  el alta terminó escribiéndole encima a la cuenta del admin. */}
               <input
                 type="email"
                 name="email"
+                autoComplete="off"
                 value={form.email}
                 onChange={onChange}
                 placeholder="usuario@empresa.com"
@@ -171,7 +178,12 @@ export function UsuarioFormFields({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={fLabel}>Fecha de nacimiento</label>
-              <input type="date" name="fecha_nacimiento" value={form.fecha_nacimiento} onChange={onChange} className={fInput} />
+              {/* `FechaSelect` y no `type="date"`: el campo nativo se dibuja
+                  en el formato del navegador, y en una máquina en inglés
+                  muestra mm/dd/aaaa. Una fecha de ingreso leída al revés es
+                  un problema de verdad. Acá siempre es dd/mm/aaaa, y además
+                  se puede tipear de corrido. */}
+              <FechaSelect name="fecha_nacimiento" value={form.fecha_nacimiento} onChange={onChange} className={fInput} />
             </div>
           </div>
         </div>
@@ -182,7 +194,7 @@ export function UsuarioFormFields({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={fLabel}>Fecha de ingreso</label>
-              <input type="date" name="fecha_ingreso" value={form.fecha_ingreso} onChange={onChange} className={fInput} />
+              <FechaSelect name="fecha_ingreso" value={form.fecha_ingreso} onChange={onChange} className={fInput} />
             </div>
             <div>
               <label className={fLabel}>Tipo de contrato</label>
@@ -309,6 +321,7 @@ export function UsuarioFormFields({
                 <input
                   type={showPwd ? "text" : "password"}
                   name="password"
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={onChange}
                   placeholder="Mínimo 6 caracteres"
@@ -331,6 +344,7 @@ export function UsuarioFormFields({
                 <input
                   type={showPwd2 ? "text" : "password"}
                   name="password2"
+                  autoComplete="new-password"
                   value={form.password2}
                   onChange={onChange}
                   placeholder="Repetir contraseña"

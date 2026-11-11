@@ -102,6 +102,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "La comisión debe estar entre 0 y 100." }, { status: 400 });
     }
 
+    let vinculado = false;
+
     const empresaId = admin.empresa_id;
     if (!empresaId) {
       return NextResponse.json({ error: "Solo un administrador de empresa puede crear usuarios." }, { status: 403 });
@@ -126,8 +128,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "La sucursal seleccionada no existe." }, { status: 400 });
     }
 
+    /**
+     * ── ESTA PANTALLA CREA. NO PISA A NADIE. ──────────────────────────────
+     *
+     * Antes, si el correo ya existía, esta ruta "vinculaba": le cambiaba la
+     * contraseña a ese usuario y le escribía encima el nombre, el rol y el
+     * área del formulario.
+     *
+     * El 11/11/2026 eso dejó a Roldán sin administrador. El navegador
+     * autocompletó `admin@roldanehijos.com` en el campo de correo del alta
+     * —es el que la persona tiene guardado para entrar—, nadie lo miró, y al
+     * guardar el administrador pasó a llamarse DEYSI ALMADA, con rol
+     * "usuario" y con la contraseña que se había tipeado para la nueva
+     * empleada. Nadie pudo entrar más.
+     *
+     * Un alta no puede terminar en "le cambié la clave a otro". Si el correo
+     * ya está tomado, se corta acá y se dice de quién es.
+     */
+    const { data: existente } = await supabase
+      .from("usuarios")
+      .select("id, nombre, estado")
+      .eq("empresa_id", empresaId)
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existente?.id) {
+      const quien = (existente as { nombre?: string | null }).nombre?.trim();
+      return NextResponse.json(
+        {
+          error:
+            `Ese correo ya es de ${quien || "otro usuario"}. ` +
+            "Para cambiarle los datos o la contraseña, entrá a su ficha desde la lista de usuarios.",
+        },
+        { status: 409 }
+      );
+    }
+
     let authUserId: string | null = null;
-    let vinculado = false;
 
     const { data: created, error: createErr } = await supabase.auth.admin.createUser({
       email,
@@ -137,30 +174,26 @@ export async function POST(req: Request) {
 
     if (createErr) {
       if (emailExistsInAuthError(createErr.message)) {
+        // El correo existe en Auth pero no es de esta empresa: puede ser de
+        // otra, o haber quedado de una prueba. Se lo vincula SIN tocarle la
+        // contraseña: cambiársela sería dejar afuera a quien lo esté usando.
         authUserId = await findAuthUserIdByEmail(supabase, email);
         if (!authUserId) {
           return NextResponse.json(
             {
               error:
-                "El correo figura como ocupado en Auth pero no se pudo localizar el usuario. Revisá en Supabase → Authentication → Users o esperá unos minutos y reintentá.",
+                "El correo figura como ocupado pero no se pudo localizar la cuenta. Probá con otro correo o avisá a soporte.",
             },
             { status: 400 }
           );
         }
         vinculado = true;
-        await supabase.auth.admin.updateUserById(authUserId, { password });
       } else {
         return NextResponse.json({ error: createErr.message }, { status: 400 });
       }
     } else {
       authUserId = created.user?.id ?? null;
     }
-
-    const { data: existente } = await supabase
-      .from("usuarios")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
 
     const payload = {
       empresa_id: empresaId,
@@ -180,24 +213,18 @@ export async function POST(req: Request) {
       estado: "activo" as const,
     };
 
-    let targetId: string;
-
-    if (existente?.id) {
-      const { error: upErr } = await supabase.from("usuarios").update(payload).eq("id", existente.id);
-      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
-      targetId = existente.id;
-    } else {
-      const { data: inserted, error: insErr } = await supabase
-        .from("usuarios")
-        .insert([payload])
-        .select("id")
-        .single();
-      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 });
-      if (!inserted?.id) {
-        return NextResponse.json({ error: "No se pudo obtener el id del usuario creado." }, { status: 500 });
-      }
-      targetId = inserted.id as string;
+    // Siempre INSERT: llegar hasta acá significa que el correo no es de
+    // ningún usuario de esta empresa.
+    const { data: inserted, error: insErr } = await supabase
+      .from("usuarios")
+      .insert([payload])
+      .select("id")
+      .single();
+    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 });
+    if (!inserted?.id) {
+      return NextResponse.json({ error: "No se pudo obtener el id del usuario creado." }, { status: 500 });
     }
+    const targetId = inserted.id as string;
 
     await supabase.from("usuario_modulos").delete().eq("usuario_id", targetId);
     if (!esRolAdminEmpresa(rol)) {
@@ -225,7 +252,7 @@ export async function POST(req: Request) {
       success: true,
       vinculado,
       message: vinculado
-        ? "Ese correo ya existía en el sistema. Se actualizó la contraseña y se asignó a tu empresa."
+        ? "Usuario creado. El correo ya tenía una cuenta en el sistema, así que entra con la contraseña que ya usaba, no con la que acabás de poner."
         : "Usuario creado correctamente.",
     });
   } catch (err: unknown) {
