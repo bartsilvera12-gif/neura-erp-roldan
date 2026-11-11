@@ -24,7 +24,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Expand, Lightbulb,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Check, ChevronRight, Expand, Lightbulb,
   Package, Rocket, Search, ShoppingCart, Truck, FileText, X, AlertTriangle,
 } from "lucide-react";
 import { GRUPOS, GUIAS, LLEGAR, type Guia } from "@/lib/manual/contenido";
@@ -132,20 +132,39 @@ function Visor({ d, onAmpliar }: { d: Diapositiva; onAmpliar: () => void }) {
           }% ${py}%, transparent 72%, rgba(15,23,42,.5) 100%)`,
         }}
       />
-      {/* La flecha termina un poco ANTES del punto, no encima: si la punta cae
-          en el centro del botón, el círculo rojo tapa justo lo que se quiere
-          mostrar y no se lee qué dice. */}
-      <span
-        className="pointer-events-none absolute -translate-y-1/2 -translate-x-full"
-        style={{ left: `${Math.max(px - 5, 9)}%`, top: `${py}%` }}
-      >
-        <span className="relative grid h-9 w-9 place-items-center sm:h-11 sm:w-11">
-          <span className="absolute inset-0 animate-ping rounded-full bg-rose-500/50" />
-          <span className="relative grid h-full w-full place-items-center rounded-full bg-rose-600 text-white ring-2 ring-white">
-            <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+      {/* La flecha baja desde ARRIBA, no entra de costado.
+          `marcas.json` guarda el centro del botón, no su ancho. Viniendo de la
+          izquierda, el círculo rojo caía encima de la primera letra —"Nuevo
+          producto" se leía "uevo producto"— y el ancho de cada botón es
+          distinto, así que no hay un corrimiento que sirva para todos. Un botón
+          siempre es más ancho que alto: dejando el círculo arriba del centro,
+          nunca tapa el texto, mida lo que mida.
+          Si el punto queda muy pegado al borde de arriba, la flecha sube desde
+          abajo, que es lo mismo pero al revés. */}
+      {(() => {
+        const desdeAbajo = py < 14;
+        return (
+          <span
+            className="pointer-events-none absolute -translate-x-1/2"
+            style={{
+              left: `${px}%`,
+              top: `${desdeAbajo ? py + 7 : py - 7}%`,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <span className="relative grid h-9 w-9 place-items-center sm:h-11 sm:w-11">
+              <span className="absolute inset-0 animate-ping rounded-full bg-rose-500/50" />
+              <span className="relative grid h-full w-full place-items-center rounded-full bg-rose-600 text-white ring-2 ring-white">
+                {desdeAbajo ? (
+                  <ArrowUp className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+                ) : (
+                  <ArrowDown className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+                )}
+              </span>
+            </span>
           </span>
-        </span>
-      </span>
+        );
+      })()}
       <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-900/70 px-2.5 py-1 text-xs font-medium text-white">
         <Expand className="h-3.5 w-3.5" aria-hidden /> Ver toda la pantalla
       </span>
