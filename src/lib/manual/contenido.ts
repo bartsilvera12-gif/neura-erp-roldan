@@ -60,6 +60,7 @@ export const GRUPOS = [
   "Informes",
   "Personal",
   "Administración",
+  "Omnicanal",
 ] as const;
 
 /**
@@ -91,7 +92,6 @@ export const LLEGAR: Record<string, [string, string?]> = {
   clientes: ["Comercial", "Clientes"],
   "cliente-nuevo": ["Comercial", "Clientes → Nuevo cliente"],
   crm: ["Comercial", "CRM Funnel"],
-  conversaciones: ["Omnicanal", "Conversaciones"],
   "gasto-nuevo": ["Finanzas", "Gastos"],
   "flujo-caja": ["Finanzas", "Pagos → Flujo de caja"],
   bancos: ["Finanzas", "Pagos → Bancos y cajas"],
@@ -114,6 +114,12 @@ export const LLEGAR: Record<string, [string, string?]> = {
   sucursales: ["Administración", "Sucursales"],
   facturacion: ["Administración", "Configuración → Facturación"],
   transferencias: ["Operaciones", "Transferencias entre sucursales"],
+  "omni-bandeja": ["Omnicanal", "Conversaciones"],
+  "omni-canales": ["Omnicanal", "Conversaciones → Config · Canales"],
+  "omni-colas": ["Omnicanal", "Conversaciones → Config · Colas"],
+  "omni-equipos": ["Omnicanal", "Conversaciones → Config · Equipos y supervisión"],
+  "omni-horarios": ["Omnicanal", "Conversaciones → Config · Horarios"],
+  "omni-flujos": ["Omnicanal", "Conversaciones → Flujos"],
 };
 
 export const GUIAS: Guia[] = [
@@ -677,27 +683,6 @@ export const GUIAS: Guia[] = [
       },
     ],
   },
-  {
-    id: "conversaciones",
-    grupo: "Clientes",
-    titulo: "Los WhatsApp del negocio",
-    resumen: "La bandeja: quién escribió, qué falta contestar.",
-    bloques: [
-      {
-        img: "conversaciones",
-        alt: "Bandeja de conversaciones",
-        pasos: [
-          { t: "La lista de la izquierda son los chats; tocá uno para abrirlo." },
-          { t: "«Sin responder» te deja solo los que esperan contestación.", d: "Es el filtro con el que conviene arrancar el día.", marca: "Sin responder" },
-          { t: "Para escribirle vos primero a alguien, tocá «Nuevo chat».", marca: "Nuevo chat" },
-        ],
-      },
-      {
-        consejo:
-          "Los asesores tienen esta misma bandeja en el celular, en la aplicación del corporativo, y les llega aviso cuando entra un mensaje.",
-      },
-    ],
-  },
 
   // ── Gastos y bancos ────────────────────────────────────────────────────
   {
@@ -1195,6 +1180,190 @@ export const GUIAS: Guia[] = [
       {
         consejo:
           "El stock se mueve de verdad recién cuando la sucursal que recibe la marca como recibida. Mientras tanto la mercadería figura en viaje, que es lo que pasa en la realidad.",
+      },
+    ],
+  },
+
+  // ── Omnicanal ──────────────────────────────────────────────────────────
+  {
+    id: "omni-que-es",
+    grupo: "Omnicanal",
+    titulo: "Qué es Omnicanal",
+    resumen: "Todos los WhatsApp del negocio en una sola bandeja.",
+    bloques: [
+      {
+        texto:
+          "Hoy la empresa tiene seis números de WhatsApp. Sin esto, cada uno vive en el celular de alguien: el que no está ese día se lleva los mensajes puestos, y nadie sabe qué quedó sin contestar.",
+      },
+      {
+        img: "conversaciones",
+        alt: "Bandeja de conversaciones",
+        pasos: [
+          { t: "Los seis números entran a la misma bandeja.", d: "Desde la computadora o desde la aplicación del celular corporativo." },
+          { t: "Cada chat dice por qué número entró.", d: "El cliente le sigue escribiendo al número de siempre; cambia dónde se contesta." },
+          { t: "Se ve cuáles quedaron sin responder.", d: "Eso es lo que no se puede ver cuando cada número está en un celular aparte." },
+        ],
+      },
+      {
+        consejo:
+          "La configuración va en orden: primero el canal (el número), después la cola (a quién le toca), después los agentes de esa cola, y recién ahí los supervisores. Cada paso tiene su guía acá abajo.",
+      },
+    ],
+  },
+  {
+    id: "omni-bandeja",
+    grupo: "Omnicanal",
+    titulo: "Atender la bandeja",
+    resumen: "Ver lo que falta contestar y responder.",
+    bloques: [
+      {
+        img: "conversaciones",
+        alt: "Bandeja de conversaciones",
+        pasos: [
+          { t: "Arrancá por «Sin responder».", d: "Son los chats donde el último que habló fue el cliente.", marca: "Sin responder" },
+          { t: "Tocá un chat de la lista y la conversación se abre a la derecha." },
+          { t: "Escribí abajo y mandá. Le llega por WhatsApp, al número por el que escribió." },
+          { t: "Si querés escribirle vos primero a alguien, «Nuevo chat».", marca: "Nuevo chat" },
+          { t: "Con «Todos los canales» filtrás por número.", d: "Útil si un número es de ventas y otro de cobranzas.", marca: "Todos los canales" },
+        ],
+      },
+      {
+        ojo:
+          "Abrir un chat lo marca como leído para todos. Si lo abrís para mirar y no lo vas a contestar, para el resto ya figura visto.",
+      },
+    ],
+  },
+  {
+    id: "omni-canales",
+    grupo: "Omnicanal",
+    titulo: "Los números conectados",
+    resumen: "Qué WhatsApp entra a la bandeja y cómo agregar otro.",
+    bloques: [
+      {
+        img: "omni-canales",
+        alt: "Canales y comunicación",
+        texto: "Cada número es una fila. Hoy hay seis WhatsApp conectados; Facebook, Instagram, LinkedIn y correo están disponibles pero sin configurar.",
+        pasos: [
+          { t: "Abajo, en la lista de WhatsApp, está cada número con su estado." },
+          { t: "La tilde «Operativo» es la que decide si ese número entra a la bandeja o no." },
+          { t: "Para sumar otro número, «Agregar WhatsApp».", marca: "Agregar WhatsApp" },
+          { t: "Para conectar otro tipo de canal, «Conectar canal».", marca: "Conectar canal" },
+        ],
+      },
+      {
+        consejo:
+          "Cuando un número deja de usarse, destildá «Operativo» en vez de borrarlo. Borrándolo se pierden las conversaciones que entraron por ahí.",
+      },
+    ],
+  },
+  {
+    id: "omni-colas",
+    grupo: "Omnicanal",
+    titulo: "Las colas",
+    resumen: "A quién le toca cada chat.",
+    bloques: [
+      {
+        img: "omni-colas",
+        alt: "Colas y enrutamiento",
+        texto:
+          "Una cola es un grupo de gente que atiende lo mismo —ventas, cobranzas, posventa— y los números que le corresponden.",
+        pasos: [
+          { t: "Tocá «Nueva cola» y ponele nombre.", marca: "Nueva cola" },
+          { t: "Elegí qué números entran a esa cola." },
+          { t: "Agregá los agentes que la atienden." },
+          { t: "Elegí cómo se reparten los chats entre ellos." },
+        ],
+      },
+      {
+        ojo:
+          "Hoy no hay ninguna cola creada: por eso en la bandeja todos los chats figuran «Sin cola». Funciona igual —se ven y se contestan todos—, pero no hay reparto: nadie tiene asignado lo suyo, y entonces todos miran todo o nadie mira nada. Es lo primero que conviene armar.",
+      },
+    ],
+  },
+  {
+    id: "omni-equipos",
+    grupo: "Omnicanal",
+    titulo: "Supervisores",
+    resumen: "Quién puede ver el trabajo de quién.",
+    bloques: [
+      {
+        img: "omni-equipos",
+        alt: "Equipos y supervisión",
+        pasos: [
+          { t: "Elegí el supervisor.", marca: "Supervisor" },
+          { t: "Elegí el agente que va a tener a cargo.", marca: "Agente a cargo" },
+          { t: "Tocá «Asignar agente al supervisor».", marca: "Asignar agente al supervisor" },
+        ],
+      },
+      {
+        ojo:
+          "Esta pantalla solo ofrece gente que cumple dos condiciones: el supervisor tiene que tener nivel de acceso Supervisor en Usuarios, y el agente tiene que tener nivel Usuario Y estar en alguna cola. Si la lista aparece vacía, falta una de las dos cosas: no es un error de la pantalla.",
+      },
+    ],
+  },
+  {
+    id: "omni-horarios",
+    grupo: "Omnicanal",
+    titulo: "Horarios de atención",
+    resumen: "En qué franja atiende cada asesor.",
+    bloques: [
+      {
+        img: "omni-horarios",
+        alt: "Horarios de trabajo omnicanal",
+        pasos: [
+          { t: "Ponele nombre a la franja.", d: "«Mañana», «Tarde», «Sábado».", marca: "Nombre" },
+          { t: "Marcá los días y poné la hora de inicio y de fin.", marca: "Inicio" },
+          { t: "Tocá «Crear horario».", marca: "Crear horario" },
+          { t: "Después, en Usuarios, le asignás el horario a cada asesor." },
+        ],
+      },
+      {
+        consejo:
+          "Sirve para dos cosas: saber quién está en turno cuando entra un mensaje, y medir los tiempos de respuesta contra el horario real y no contra las 24 horas del día.",
+      },
+    ],
+  },
+  {
+    id: "omni-flujos",
+    grupo: "Omnicanal",
+    titulo: "El bot que contesta primero",
+    resumen: "El menú automático antes de que atienda una persona.",
+    bloques: [
+      {
+        img: "omni-flujos",
+        alt: "Flujos conversacionales",
+        pasos: [
+          { t: "Tocá «Crear flujo» y ponele nombre.", marca: "Crear flujo" },
+          { t: "Armá el menú: la pregunta y las opciones que va a ver el cliente." },
+          { t: "Decidí a qué cola va a parar según lo que elija." },
+        ],
+      },
+      {
+        consejo:
+          "Conviene que sea corto: dos o tres opciones y que pase a una persona. Un menú largo hace que el cliente escriba «quiero hablar con alguien» y se perdió el tiempo de los dos.",
+      },
+    ],
+  },
+  {
+    id: "omni-celular",
+    grupo: "Omnicanal",
+    titulo: "La aplicación del asesor",
+    resumen: "La misma bandeja en el celular corporativo.",
+    bloques: [
+      {
+        img: "conversaciones",
+        alt: "Bandeja de conversaciones",
+        texto:
+          "Los asesores tienen la bandeja en una aplicación instalada en el corporativo. Es la misma información: lo que contestan desde el celular se ve en la computadora y al revés.",
+        pasos: [
+          { t: "Entran con el mismo usuario y la misma contraseña del sistema." },
+          { t: "Les llega un aviso al celular cuando entra un mensaje.", d: "No hace falta tener la aplicación abierta." },
+          { t: "Ven los chats que les corresponden según su cola." },
+        ],
+      },
+      {
+        ojo:
+          "Mientras no haya colas armadas, cada asesor ve todas las conversaciones de la empresa. Es otra razón para armarlas.",
       },
     ],
   },

@@ -26,7 +26,7 @@ import Link from "next/link";
 import {
   ArrowDown, ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Expand, Lightbulb,
   Package, Rocket, Search, ShoppingCart, Truck, FileText, X, AlertTriangle,
-  Users, Wallet, BarChart3, UserCog, Settings,
+  Users, Wallet, BarChart3, UserCog, Settings, MessageCircle,
 } from "lucide-react";
 import { GRUPOS, GUIAS, LLEGAR, type Guia } from "@/lib/manual/contenido";
 import marcasJson from "@/lib/manual/marcas.json";
@@ -51,6 +51,7 @@ const TEMAS: { grupo: string; titulo: string; detalle: string; Icono: React.Comp
   { grupo: "Informes", titulo: "Informes", detalle: "Ganancias, comisiones y lo del contador", Icono: BarChart3 },
   { grupo: "Personal", titulo: "El personal", detalle: "Horarios, vacaciones, sueldos y aguinaldo", Icono: UserCog },
   { grupo: "Administración", titulo: "Administración", detalle: "Usuarios, sucursales y facturación", Icono: Settings },
+  { grupo: "Omnicanal", titulo: "Omnicanal", detalle: "Los WhatsApp del negocio en una bandeja", Icono: MessageCircle },
 ];
 
 type Nota = { tipo: "consejo" | "ojo"; texto: string };
