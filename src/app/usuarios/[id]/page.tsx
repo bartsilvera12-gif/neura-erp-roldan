@@ -250,7 +250,9 @@ function UsuarioDetailContent() {
       const body: Record<string, unknown> = {
         nombre: form.nombre.trim(),
         email: form.email.trim().toLowerCase(),
-        telefono: form.telefono.trim() || undefined,
+        // Vacío va como "" (el servidor lo guarda como null); con undefined
+        // el campo no viajaba y el teléfono viejo quedaba guardado.
+        telefono: form.telefono.trim(),
         fecha_nacimiento: form.fecha_nacimiento || undefined,
         fecha_ingreso: form.fecha_ingreso || undefined,
         tipo_contrato: form.tipo_contrato,
