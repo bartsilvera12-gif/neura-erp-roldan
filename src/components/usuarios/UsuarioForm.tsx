@@ -211,14 +211,20 @@ export function UsuarioFormFields({
             {showComision && (
               <div>
                 <label className={fLabel}>Comisión (%)</label>
+                {/* Texto y no `type="number"`.
+                    Con número el navegador exigía que el valor cayera justo en
+                    un múltiplo de medio punto: al escribir 2,3 soltaba "Please
+                    enter a valid value. The two nearest valid values are 2 and
+                    2.5" —en inglés, y sin forma de resolverlo—. Y tampoco
+                    aceptaba la coma, que es como se escriben los decimales acá.
+                    El rango 0–100 se valida al guardar, con un mensaje que se
+                    entiende. */}
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   name="porcentaje_comision"
                   value={form.porcentaje_comision}
                   onChange={onChange}
-                  min={0}
-                  max={100}
-                  step="0.5"
                   placeholder="0"
                   className={fInput}
                 />

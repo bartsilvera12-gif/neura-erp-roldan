@@ -11,6 +11,7 @@ import {
   UsuarioFormFields,
   type UsuarioFormValues,
 } from "@/components/usuarios/UsuarioForm";
+import { numeroDecimal } from "@/lib/numeros/decimal";
 
 export default function NuevoUsuarioPage() {
   const router = useRouter();
@@ -89,8 +90,10 @@ export default function NuevoUsuarioPage() {
     }
 
     const pct = form.porcentaje_comision.trim();
-    const pctNum = pct === "" ? null : Number(pct);
-    if (pctNum !== null && (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100)) {
+    // `numeroDecimal` porque acá la coma es el separador decimal: el que pone
+    // una comisión del dos y medio escribe "2,5", y `Number("2,5")` es NaN.
+    const pctNum = numeroDecimal(pct);
+    if (pct !== "" && (pctNum === null || pctNum < 0 || pctNum > 100)) {
       setError("La comisión debe estar entre 0 y 100.");
       return;
     }
@@ -110,7 +113,9 @@ export default function NuevoUsuarioPage() {
           fecha_ingreso: form.fecha_ingreso || undefined,
           tipo_contrato: form.tipo_contrato,
           salario_base: form.salario_base.trim() || undefined,
-          porcentaje_comision: pct.trim() || undefined,
+          // Va el NÚMERO ya convertido, no el texto: si se mandara "2,5"
+          // tal cual, el servidor lo leería como un valor inválido.
+          porcentaje_comision: pctNum ?? undefined,
           ips: form.ips,
           area: form.area,
           rol: rolFromNivelForm(form.nivel),

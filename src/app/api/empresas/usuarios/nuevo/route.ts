@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getServiceAuthUsuario } from "@/lib/auth/get-service-auth-usuario";
 import { esRolAdminEmpresa } from "@/lib/modulos/resolve-effective-modules";
+import { numeroDecimal } from "@/lib/numeros/decimal";
 
 function emailExistsInAuthError(msg: string): boolean {
   const m = msg.toLowerCase();
@@ -77,8 +78,10 @@ export async function POST(req: Request) {
     };
     const parsePct = (v: unknown): number | null => {
       if (v === undefined || v === null || v === "") return null;
-      const n = typeof v === "number" ? v : Number(String(v));
-      return Number.isFinite(n) ? n : null;
+      // La pantalla ya manda el número, pero acá también se acepta "2,5": si
+      // mañana otro cliente de esta ruta manda el texto como lo escribió la
+      // persona, no se pierde la comisión en silencio.
+      return typeof v === "number" ? (Number.isFinite(v) ? v : null) : numeroDecimal(v);
     };
     const salario_base = parseGs(body.salario_base);
     const porcentaje_comision = parsePct(body.porcentaje_comision);

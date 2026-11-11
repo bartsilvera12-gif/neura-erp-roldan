@@ -91,7 +91,7 @@ export default function ConfiguracionMetricasPage() {
                   onChange={handleChange}
                   min={0}
                   max={100}
-                  step={0.5}
+                  step="any"
                   className={F_INPUT}
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">

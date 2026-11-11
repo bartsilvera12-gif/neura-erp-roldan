@@ -16,6 +16,7 @@ import {
   type UsuarioFormValues,
 } from "@/components/usuarios/UsuarioForm";
 import type { AreaUsuario, TipoContrato } from "@/lib/usuarios/types";
+import { numeroDecimal } from "@/lib/numeros/decimal";
 
 import { BarChart3, Briefcase, KeyRound, MessageSquare, Package, ShieldCheck, User } from "lucide-react";
 import Selector from "@/components/ui/Selector";
@@ -235,8 +236,10 @@ function UsuarioDetailContent() {
     }
 
     const pct = form.porcentaje_comision.trim();
-    const pctNum = pct === "" ? null : Number(pct);
-    if (pctNum !== null && (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100)) {
+    // `numeroDecimal` porque acá la coma es el separador decimal: el que pone
+    // una comisión del dos y medio escribe "2,5", y `Number("2,5")` es NaN.
+    const pctNum = numeroDecimal(pct);
+    if (pct !== "" && (pctNum === null || pctNum < 0 || pctNum > 100)) {
       setFormError("La comisión debe estar entre 0 y 100.");
       return;
     }
@@ -252,7 +255,9 @@ function UsuarioDetailContent() {
         fecha_ingreso: form.fecha_ingreso || undefined,
         tipo_contrato: form.tipo_contrato,
         salario_base: form.salario_base.trim() || undefined,
-        porcentaje_comision: pct.trim() || undefined,
+        // Va el NÚMERO ya convertido, no el texto: si se mandara "2,5"
+        // tal cual, el servidor lo leería como un valor inválido.
+        porcentaje_comision: pctNum ?? undefined,
         ips: form.ips,
         area: form.area,
         estado: form.estado,
