@@ -8,6 +8,7 @@ import { FancySelect } from "@/components/ui/FancySelect";
 import MobileFab from "@/components/ui/MobileFab";
 import { getVentas } from "@/lib/ventas/storage";
 import PedidosPendientesCaja from "./PedidosPendientesCaja";
+import PresupuestosEnCola from "./PresupuestosEnCola";
 import CajaControlPanel from "@/components/caja/CajaControlPanel";
 import DevolucionWizard from "@/components/devoluciones/DevolucionWizard";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
@@ -201,6 +202,8 @@ export default function VentasPage() {
       </div>
 
       <CajaControlPanel />
+
+      <PresupuestosEnCola />
 
       <PedidosPendientesCaja />
 
