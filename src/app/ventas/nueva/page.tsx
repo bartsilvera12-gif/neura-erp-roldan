@@ -303,6 +303,13 @@ export default function NuevaVentaPage() {
 
   // ── Cobro (solo CONTADO, no se persiste — solo ayuda al cajero) ───────────
   const [montoRecibido, setMontoRecibido] = useState("");
+  /**
+   * SOBRANTE / FALTANTE DE LA VENTA. Si el cliente paga en efectivo de más y no
+   * se le da el vuelto (o paga de menos y se acepta), esa diferencia queda
+   * registrada como un ajuste de caja: suma o resta al efectivo esperado y se
+   * ve en Caja → "Sobrantes y faltantes".
+   */
+  const [registrarDiferencia, setRegistrarDiferencia] = useState(false);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("efectivo");
 
   // ── Pago mixto (contado con varios metodos) ───────────────────────────────
@@ -1639,6 +1646,24 @@ export default function NuevaVentaPage() {
         setErrorVenta(resultado.error);
         return;
       }
+      // El sobrante o faltante de esta venta, como ajuste de la caja.
+      if (registrarDiferencia && !pagoMixto && metodoPago === "efectivo" && montoRecibidoNum > 0 && Math.round(vuelto) !== 0 && cajaActivaFinal) {
+        const dif = Math.round(vuelto); // + sobra (no se dio vuelto) / − falta (se aceptó de menos)
+        const nro = resultado.venta?.numero_control ?? resultado.venta?.id ?? "";
+        try {
+          await fetchWithSupabaseSession("/api/caja/movimiento", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tipo: "ajuste",
+              concepto: `${dif > 0 ? "Sobrante" : "Faltante"} venta ${nro}`.slice(0, 200),
+              monto: dif,
+              caja_id: cajaActivaFinal,
+              observacion: `Cobrado ${Math.round(aPagar)}, recibido ${Math.round(montoRecibidoNum)}`,
+            }),
+          });
+        } catch { /* la venta ya quedó; el ajuste se puede cargar a mano */ }
+      }
       // Puente venta→factura (SIFEN): si el cajero eligió "Factura" y el backend
       // creó la factura ERP, saltamos directo al panel /facturas/[id]?auto=1 que
       // arranca el pipeline SIFEN (borrador → firma → envío → KUDE). Si el puente
@@ -2637,6 +2662,21 @@ export default function NuevaVentaPage() {
                                 {formatGs(Math.abs(vuelto))}
                               </span>
                             </div>
+                          )}
+                          {montoRecibidoNum > 0 && Math.round(vuelto) !== 0 && (
+                            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-900">
+                              <input
+                                type="checkbox"
+                                checked={registrarDiferencia}
+                                onChange={(e) => setRegistrarDiferencia(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 accent-[#4FAEB2]"
+                              />
+                              <span>
+                                {vuelto > 0
+                                  ? <>No se da el vuelto: registrar <strong>{formatGs(vuelto)}</strong> como <strong>sobrante</strong> de caja.</>
+                                  : <>Se acepta lo recibido: registrar <strong>{formatGs(-vuelto)}</strong> como <strong>faltante</strong> de caja.</>}
+                              </span>
+                            </label>
                           )}
                         </div>
                       )}

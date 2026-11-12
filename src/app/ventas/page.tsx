@@ -9,6 +9,7 @@ import MobileFab from "@/components/ui/MobileFab";
 import { getVentas } from "@/lib/ventas/storage";
 import PedidosPendientesCaja from "./PedidosPendientesCaja";
 import PresupuestosEnCola from "./PresupuestosEnCola";
+import SobrantesFaltantes from "./SobrantesFaltantes";
 import CajaControlPanel from "@/components/caja/CajaControlPanel";
 import DevolucionWizard from "@/components/devoluciones/DevolucionWizard";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
@@ -204,6 +205,8 @@ export default function VentasPage() {
       <CajaControlPanel />
 
       <PresupuestosEnCola />
+
+      <SobrantesFaltantes />
 
       <PedidosPendientesCaja />
 
