@@ -236,20 +236,49 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * ── BUSCAR POR EL MISMO NOMBRE QUE SE MUESTRA ──────────────────────────────
+ *
+ * Esto miraba `empresa` y `nombre_contacto`, y NO el nombre con el que cada
+ * cliente aparece en la lista. Con los 21.348 clientes que vinieron del
+ * sistema anterior —que traen el nombre en `nombre_facturacion` y tienen
+ * `empresa` en null— la pantalla quedaba así: con el campo vacío la lista
+ * mostraba "13 DE MAYO", y al escribir "13 DE MAYO" contestaba "Sin
+ * resultados". Buscaba en campos distintos de los que mostraba.
+ *
+ * Ahora se arma el mismo texto que se ve —`clienteNombre`, que ya resuelve
+ * esa cadena de campos— y se busca ahí, junto con los documentos y los
+ * contactos.
+ *
+ * ── VARIAS PALABRAS ────────────────────────────────────────────────────────
+ *
+ * Cada palabra se busca por separado y tienen que estar TODAS, no
+ * necesariamente juntas ni en orden. Nadie se acuerda de si el cliente está
+ * cargado como "ROLDAN E HIJOS" o "E HIJOS ROLDAN", y escribir "roldan hijos"
+ * tiene que encontrarlo igual. Antes se comparaba la frase entera, así que un
+ * espacio de más o una palabra del medio dejaban al cliente afuera.
+ */
 function matchesClienteBusqueda(c: Cliente, raw: string) {
-  const q = raw.trim().toLowerCase();
-  if (!q) return true;
-  return (
-    (c.empresa ?? "").toLowerCase().includes(q) ||
-    c.nombre_contacto.toLowerCase().includes(q) ||
-    (c.telefono ?? "").toLowerCase().includes(q) ||
-    (c.telefono_secundario ?? "").toLowerCase().includes(q) ||
-    (c.ruc ?? "").toLowerCase().includes(q) ||
-    (c.documento ?? "").toLowerCase().includes(q) ||
-    (c.email ?? "").toLowerCase().includes(q) ||
-    (c.email_secundario ?? "").toLowerCase().includes(q) ||
-    (c.codigo_cliente ?? "").toLowerCase().includes(q)
-  );
+  const palabras = raw.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (palabras.length === 0) return true;
+  const heno = [
+    clienteNombre(c),
+    c.empresa,
+    c.nombre_facturacion,
+    c.nombre_comercial,
+    c.nombre_contacto,
+    c.telefono,
+    c.telefono_secundario,
+    c.ruc,
+    c.documento,
+    c.email,
+    c.email_secundario,
+    c.codigo_cliente,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return palabras.every((p) => heno.includes(p));
 }
 
 // ── Modal Estado de Facturación ─────────────────────────────────────────────
