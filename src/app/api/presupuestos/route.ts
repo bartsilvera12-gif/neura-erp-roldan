@@ -66,7 +66,10 @@ export async function GET(request: NextRequest) {
           .limit(500);
         if (estado) q = q.eq("estado", estado);
         if (vendedorFiltro) q = q.eq("vendedor_usuario_id", vendedorFiltro);
-        else if (!esAdminLista && propioId) {
+        // La cola de la caja NO se filtra por dueño: la cajera cobra
+        // presupuestos que hicieron otros. Con el filtro de "cada vendedor ve
+        // los suyos", a la caja no le llegaba ninguno.
+        else if (!esAdminLista && propioId && !soloCola) {
           // `or` y no `eq`: los presupuestos viejos no tienen vendedor cargado
           // y son de quien los hizo. Sin esto, el vendedor dejaría de ver todo
           // lo que cargó antes del script 41.
