@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getProspectos, moveProspecto } from "@/lib/crm/storage";
 import { getEtapas, getEtapaClasses, normalizeEtapaCodigo, type EtapaCrm } from "@/lib/crm/etapas";
@@ -10,6 +9,7 @@ import { FancySelect } from "@/app/dashboard/proyectos/components/FancySelect";
 import type { Prospecto } from "@/lib/crm/types";
 import ProspectoNuevoModal from "@/app/crm/components/ProspectoNuevoModal";
 import ProspectoDetalleModal from "@/app/crm/components/ProspectoDetalleModal";
+import ModalTransformarEnCliente from "@/components/crm/ModalTransformarEnCliente";
 
 import { X } from "lucide-react";
 import Selector from "@/components/ui/Selector";
@@ -1077,19 +1077,23 @@ export default function CrmPage() {
   const { isAdmin: esAdmin } = useIsAdmin();
   const [importando, setImportando] = useState(false);
   /** Lead que se está transformando a cliente (abre el modal de Nuevo cliente precargado). */
-  const router = useRouter();
 
   /**
-   * Transformar lead → cliente.
+   * Transformar lead → cliente, en un modal sobre el funnel.
    *
-   * La pantalla de referencia abría un modal con el formulario de clientes de
-   * aquella instancia, que trabaja con otro modelo (razón social,
-   * suscripciones). Acá se navega al alta de clientes propia con el lead
-   * precargado, que es el flujo que esta instancia ya tenía y funciona.
+   * Antes navegaba al alta de clientes con el lead precargado. El formulario
+   * estaba bien; el problema era irse: quien trabaja el pipeline convierte uno
+   * y, al volver, había perdido el scroll, el filtro y la columna donde
+   * estaba. Convertir es un paso del funnel, no un viaje a otra pantalla.
+   *
+   * El modal pide lo mínimo para que el cliente exista y se le pueda vender, y
+   * deja el enlace al alta completa para los casos que necesitan SIFEN,
+   * crédito o direcciones.
    */
+  const [transformando, setTransformando] = useState<Prospecto | null>(null);
   const setTransformProspecto = useCallback((p: Prospecto | null) => {
-    if (p) router.push(`/clientes/nuevo?from_crm=${encodeURIComponent(p.id)}`);
-  }, [router]);
+    setTransformando(p);
+  }, []);
   /** Vista del pipeline: "kanban" (cards por etapa) | "lista" (tabla de filas). Persiste por navegador. */
   const [vista, setVista] = useState<"kanban" | "lista">(() => {
     if (typeof window === "undefined") return "kanban";
@@ -1434,6 +1438,16 @@ ${r.errores} no se pudieron: ${r.error ?? ""}` : ""}`
         onClose={() => setEditandoId(null)}
         onUpdated={() => recargar()}
       />
+
+      {transformando ? (
+        <ModalTransformarEnCliente
+          prospecto={transformando}
+          onCerrar={() => setTransformando(null)}
+          /* Se refresca con el modal abierto: al cerrarlo, la tarjeta ya
+             figura convertida sin que haya que recargar la pantalla. */
+          onCreado={() => recargar()}
+        />
+      ) : null}
 
     </div>
   );
