@@ -73,7 +73,12 @@ export async function GET(request: NextRequest) {
           // `or` y no `eq`: los presupuestos viejos no tienen vendedor cargado
           // y son de quien los hizo. Sin esto, el vendedor dejaría de ver todo
           // lo que cargó antes del script 41.
-          q = q.or(`vendedor_usuario_id.eq.${propioId},usuario_id.eq.${propioId}`);
+          // Los dos identificadores de la persona: al crear se guarda en
+          // `usuario_id` el de la sesión (auth) y en `vendedor_usuario_id` el de
+          // la ficha. Filtrando solo por uno, el usuario normal no veía los
+          // presupuestos que él mismo había hecho.
+          const ids = [...new Set([propioId, ctx.auth.user?.id, ctx.auth.usuarioCatalogId].filter(Boolean))] as string[];
+          q = q.or(ids.flatMap((id) => [`vendedor_usuario_id.eq.${id}`, `usuario_id.eq.${id}`]).join(","));
         }
         if (soloCola) {
           q = q.eq("estado", "aprobado").not("enviado_a_caja_at", "is", null).is("convertido_venta_id", null);
