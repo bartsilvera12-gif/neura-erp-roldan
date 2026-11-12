@@ -86,8 +86,11 @@ export async function emitirFacturaAutoimpresor(params: {
     if ((ini && hoy < ini) || (fin && hoy > fin)) {
       throw new AutoimpresorError(409, `El timbrado ${cfg.timbrado_numero} no está vigente hoy (${ini ?? "?"} a ${fin ?? "?"}).`);
     }
-    const actual = cfg.numero_actual == null ? n(cfg.numero_inicial || 1) - 1 : n(cfg.numero_actual);
-    const siguiente = Math.max(actual + 1, n(cfg.numero_inicial || 1));
+    // "N° actual" de la configuración es el PRÓXIMO número a emitir (así lo
+    // valida la pantalla: no puede ser menor al inicial). Se usa ese y se
+    // deja guardado el siguiente.
+    const inicial = n(cfg.numero_inicial || 1);
+    const siguiente = cfg.numero_actual == null ? inicial : Math.max(n(cfg.numero_actual), inicial);
     if (cfg.numero_final != null && siguiente > n(cfg.numero_final)) {
       throw new AutoimpresorError(409, `Se terminó el rango del timbrado (último número ${cfg.numero_final}). Hay que pedir uno nuevo.`);
     }
@@ -141,7 +144,7 @@ export async function emitirFacturaAutoimpresor(params: {
     }
 
     await client.query(`UPDATE ${tV} SET factura_id = $1::uuid WHERE id = $2::uuid AND empresa_id = $3::uuid`, [facturaId, params.ventaId, params.empresaId]);
-    await client.query(`UPDATE ${tCfg} SET numero_actual = $1, updated_at = now() WHERE empresa_id = $2::uuid`, [siguiente, params.empresaId]);
+    await client.query(`UPDATE ${tCfg} SET numero_actual = $1, updated_at = now() WHERE empresa_id = $2::uuid`, [siguiente + 1, params.empresaId]);
 
     await client.query("COMMIT");
     return { factura_id: facturaId, numero_factura: numeroFactura, ya_existia: false };
