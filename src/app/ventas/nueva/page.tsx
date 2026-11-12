@@ -278,6 +278,13 @@ export default function NuevaVentaPage() {
   // La empresa emite factura electrónica (modo 'sifen'). Se resuelve al montar;
   // si es false, el selector de documento ni se muestra (flujo actual intacto).
   const [modoSifen, setModoSifen] = useState(false);
+  /**
+   * AUTOIMPRESOR: factura impresa desde el sistema con timbrado de la SET.
+   * Se ofrece "Factura" en Caja cuando el modo de facturación es autoimpresor
+   * o el autoimpresor está activo. Al confirmar se toma el próximo número del
+   * timbrado y se imprime la factura (original y duplicado).
+   */
+  const [modoAutoimpresor, setModoAutoimpresor] = useState(false);
 
   // Cliente (opcional). Si se selecciona, se envía cliente_id al crear la venta.
   type ClienteLite = { id: string; label: string; ruc: string | null; telefono: string | null; usa_nota_remision: boolean };
@@ -493,6 +500,18 @@ export default function NuevaVentaPage() {
         const esSifen = res.ok && json.success === true && json.data?.facturacion_modo?.modo === "sifen";
         if (!cancelled && esSifen) {
           setModoSifen(true);
+          setTipoDocumento("factura");
+          return;
+        }
+        const modoAuto = res.ok && json.success === true && json.data?.facturacion_modo?.modo === "autoimpresor";
+        let activo = modoAuto;
+        if (!activo) {
+          const ra = await fetchWithSupabaseSession("/api/configuracion/autoimpresor", { cache: "no-store" });
+          const ja = (await ra.json().catch(() => null)) as { data?: { autoimpresor?: { activo?: boolean } } } | null;
+          activo = ja?.data?.autoimpresor?.activo === true;
+        }
+        if (!cancelled && activo) {
+          setModoAutoimpresor(true);
           setTipoDocumento("factura");
         }
       } catch {
@@ -1676,6 +1695,21 @@ export default function NuevaVentaPage() {
       // Documentos de la venta. La nota de remisión se abre además del ticket
       // SOLO si la venta la genera (cliente con usa_nota_remision o toggle activo).
       const v = resultado.venta;
+      // Factura autoimpresor: se numera con el timbrado y se abre para imprimir.
+      if (modoAutoimpresor && tipoDocumento === "factura") {
+        try {
+          const rf = await fetchWithSupabaseSession(`/api/ventas/${v.id}/factura-autoimpresor`, { method: "POST" });
+          const jf = await rf.json().catch(() => null);
+          if (rf.ok && jf?.success) {
+            try { window.open(`/api/ventas/${v.id}/factura-autoimpresor?auto=1`, "_blank", "noopener"); } catch {}
+            router.push("/ventas");
+            return;
+          }
+          window.alert(`La venta quedó registrada, pero la factura no se emitió: ${jf?.error ?? `error ${rf.status}`}. Se imprime el ticket.`);
+        } catch {
+          window.alert("La venta quedó registrada, pero la factura no se emitió (sin conexión). Se imprime el ticket.");
+        }
+      }
       const generaNota = v.genera_nota_remision === true || !!v.nota_remision_numero;
       const ticketUrl = `/api/ventas/${v.id}/comprobante-a4`;
       const remisionUrl = `/api/ventas/${v.id}/ticket?tipo=remision&auto=1`;
@@ -2020,6 +2054,24 @@ export default function NuevaVentaPage() {
 
             {/* Documento a emitir (solo cuando la empresa está en modo SIFEN):
                 Factura electrónica (puente a SIFEN) vs Solo ticket. */}
+            {modoAutoimpresor && !modoSifen && (
+              <div>
+                <label className={labelClass}>Documento</label>
+                <SegmentedControl<"factura" | "ticket">
+                  value={tipoDocumento}
+                  options={[
+                    { value: "factura", label: "Factura" },
+                    { value: "ticket", label: "Solo ticket" },
+                  ]}
+                  onChange={(v) => setTipoDocumento(v)}
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {tipoDocumento === "factura"
+                    ? "Al confirmar se toma el próximo número del timbrado (autoimpresor) y se imprime la factura, original y duplicado. Sin cliente sale a nombre de SIN NOMBRE."
+                    : "Solo se registra la venta y se imprime el ticket."}
+                </p>
+              </div>
+            )}
             {modoSifen && (
               <div>
                 <label className={labelClass}>Documento</label>
