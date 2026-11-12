@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Search, X } from "lucide-react";
 
 export interface SearchableOption {
@@ -41,7 +42,32 @@ export default function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /**
+   * La lista se dibuja en el <body>, flotando, y no adentro del selector.
+   * Adentro quedaba recortada por cualquier tarjeta con `overflow-hidden`
+   * (en Nuevo presupuesto no se podía elegir el producto: la lista se escondía).
+   */
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; arriba: boolean } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const ubicar = () => {
+      const r = wrapperRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const alto = 300;
+      const arriba = window.innerHeight - r.bottom < alto && r.top > window.innerHeight - r.bottom;
+      setPos({ top: arriba ? r.top - 4 : r.bottom + 4, left: r.left, width: r.width, arriba });
+    };
+    ubicar();
+    window.addEventListener("resize", ubicar);
+    window.addEventListener("scroll", ubicar, true);
+    return () => {
+      window.removeEventListener("resize", ubicar);
+      window.removeEventListener("scroll", ubicar, true);
+    };
+  }, [open]);
 
   const selected = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
 
@@ -58,7 +84,8 @@ export default function SearchableSelect({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) {
+      const t = e.target as Node;
+      if (!wrapperRef.current?.contains(t) && !popupRef.current?.contains(t)) {
         setOpen(false);
         setQ("");
       }
@@ -98,8 +125,18 @@ export default function SearchableSelect({
         <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
       </button>
 
-      {open && (
-        <div className="absolute left-0 right-0 z-40 mt-1 max-h-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popupRef}
+          style={{
+            position: "fixed",
+            left: pos.left,
+            width: Math.max(pos.width, 240),
+            ...(pos.arriba ? { bottom: window.innerHeight - pos.top } : { top: pos.top }),
+            zIndex: 1000,
+          }}
+          className="max-h-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
           <div className="relative border-b border-slate-100 p-2">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -141,7 +178,8 @@ export default function SearchableSelect({
               ))
             )}
           </ul>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

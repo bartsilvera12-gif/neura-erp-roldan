@@ -89,7 +89,9 @@ export default function EditarPresupuestoPage() {
   const id = params.id;
 
   // Las condiciones comerciales las cambia solo un administrador.
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin, descuentoMaximo } = useIsAdmin();
+  /** El descuento lo ve quien puede darlo (igual que en Nuevo presupuesto). */
+  const puedeDescontar = isAdmin || (descuentoMaximo ?? 0) > 0;
   // Cotizar por más de lo que hay: facultad, no nivel.
   const { tiene: tieneFacultad } = useFacultades();
   const puedeSinStock = tieneFacultad("cotizar_sin_stock");
@@ -566,7 +568,7 @@ export default function EditarPresupuestoPage() {
                   <th className="py-2 px-2 w-32">Cant.</th>
                   <th className="py-2 px-2 w-32">Precio unit.</th>
                   <th className="py-2 px-2 w-24">IVA</th>
-                  <th className="py-2 px-2 w-36">Descuento</th>
+                  {puedeDescontar && <th className="py-2 px-2 w-36">Descuento</th>}
                   <th className="py-2 px-2 w-32 text-right">Total</th>
                   <th className="py-2 pl-2 w-10"></th>
                 </tr>
@@ -603,7 +605,7 @@ export default function EditarPresupuestoPage() {
                           {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
                         </Selector>
                       </td>
-                      <td className="py-2 px-2">
+                      {puedeDescontar && <td className="py-2 px-2">
                         <div className="flex items-center gap-1">
                           <input
                             type="number" min="0" max="100" step="0.01"
@@ -623,7 +625,7 @@ export default function EditarPresupuestoPage() {
                           placeholder="Gs."
                           aria-label="Descuento en guaraníes"
                         />
-                      </td>
+                      </td>}
                       <td className="py-2 px-2 text-right tabular-nums font-medium">
                         {fmtGs(t.total)}
                         {(() => {
