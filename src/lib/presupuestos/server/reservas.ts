@@ -30,7 +30,11 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
 /** Estados que comprometen mercadería. */
 const ESTADOS_QUE_RESERVAN = ["aprobado"] as const;
 
-const CHUNK = 500;
+/**
+ * De a 80: los ids van en la URL de PostgREST (`in.(…)`) y con 500 la
+ * dirección pasaba los 8 KB y el servidor la rechazaba (414).
+ */
+const CHUNK = 80;
 
 export type ReservaProducto = {
   producto_id: string;
@@ -79,7 +83,7 @@ export async function reservasPorProducto(
   if (pres.error) throw new Error(pres.error.message);
 
   const hoy = hoyPy();
-  const ids = ((pres.data ?? []) as Array<Record<string, unknown>>)
+  const idsAprobados = ((pres.data ?? []) as Array<Record<string, unknown>>)
     // Un presupuesto ya convertido en venta no reserva: el stock se descontó
     // de verdad al facturar, contarlo de nuevo lo restaría dos veces.
     .filter((p) => p.convertido_venta_id == null)
@@ -87,7 +91,32 @@ export async function reservasPorProducto(
       const v = p.fecha_vencimiento == null ? null : String(p.fecha_vencimiento).slice(0, 10);
       return v == null || v >= hoy;
     })
-    .map((p) => String(p.id))
+    .map((p) => String(p.id));
+
+  /**
+   * Y los marcados como RESERVADOS a mano (script 86): esos no vencen. Siguen
+   * reservando hasta que un administrador quite la marca, o hasta que se
+   * cobren (el stock ya se descontó) o se rechacen.
+   */
+  let idsReservados: string[] = [];
+  {
+    let qr = sb
+      .from("presupuestos")
+      .select("id, estado, convertido_venta_id")
+      .eq("empresa_id", empresaId)
+      .eq("reservado", true);
+    if (sucursalId) qr = qr.eq("sucursal_id", sucursalId);
+    const r = await qr.limit(1000);
+    // Sin el script 86 la columna no existe: solo cuentan los aprobados.
+    if (!r.error) {
+      idsReservados = ((r.data ?? []) as Array<Record<string, unknown>>)
+        .filter((p) => p.convertido_venta_id == null)
+        .filter((p) => !["rechazado", "convertido", "anulado"].includes(String(p.estado ?? "")))
+        .map((p) => String(p.id));
+    }
+  }
+
+  const ids = [...new Set([...idsAprobados, ...idsReservados])]
     .filter((pid) => !excluirPresupuestoId || pid !== String(excluirPresupuestoId));
 
   if (ids.length === 0) return out;
