@@ -789,33 +789,24 @@ export async function fetchChatConversationsFromTenantPg(
   ];
   let byId: Record<string, Record<string, unknown>> = {};
   if (contactIds.length > 0) {
+    /**
+     * `SELECT *` a propósito. Antes se pedían columnas fijas (telefono_real,
+     * cliente_id, crm_prospecto_id) y, si alguna no existía en esta base, la
+     * consulta fallaba ENTERA: el inbox se quedaba sin contactos y todos los
+     * chats salían "Sin nombre · Número no visible", aunque el nombre y el
+     * teléfono estuvieran guardados. Así trae lo que haya.
+     */
     try {
       const cq = quoteSchemaTable(sch, "chat_contacts");
       const cr = await pool.query(
-        `SELECT id::text, name::text, phone_number::text, telefono_real::text,
-                cliente_id::uuid, crm_prospecto_id::uuid
-         FROM ${cq}
-         WHERE empresa_id = $1::uuid AND id = ANY($2::uuid[])`,
+        `SELECT * FROM ${cq} WHERE empresa_id = $1::uuid AND id = ANY($2::uuid[])`,
         [empresa_id, contactIds]
       );
-      byId = Object.fromEntries((cr.rows ?? []).map((c) => [String(c.id), c as Record<string, unknown>]));
+      byId = Object.fromEntries(
+        (cr.rows ?? []).map((c: Record<string, unknown>) => [String(c.id), { ...c, id: String(c.id) }])
+      );
     } catch (e) {
-      // Sin el script 40 no existe telefono_real y la consulta entera falla.
-      // Se reintenta sin esa columna: el inbox prefiere no mostrar el teléfono
-      // real antes que quedarse sin ningún contacto.
-      try {
-        const cq = quoteSchemaTable(sch, "chat_contacts");
-        const cr = await pool.query(
-          `SELECT id::text, name::text, phone_number::text,
-                  cliente_id::uuid, crm_prospecto_id::uuid
-           FROM ${cq}
-           WHERE empresa_id = $1::uuid AND id = ANY($2::uuid[])`,
-          [empresa_id, contactIds]
-        );
-        byId = Object.fromEntries((cr.rows ?? []).map((c) => [String(c.id), c as Record<string, unknown>]));
-      } catch {
-        console.warn("[fetchChatConversations] chat_contacts pg batch falló:", e instanceof Error ? e.message : e);
-      }
+      console.warn("[fetchChatConversations] chat_contacts pg batch falló:", e instanceof Error ? e.message : e);
     }
   }
 
