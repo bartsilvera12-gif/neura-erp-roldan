@@ -813,6 +813,18 @@ function ModalDetalle({
                 Remisión {cab.numero_remision}
               </span>
             )}
+            {/* La nota de remisión para que viaje con la mercadería. Antes de
+                despachar sale como borrador, con lo aprobado. */}
+            {estado !== "cancelada" && estado !== "rechazada" && (
+              <a
+                href={`/api/transferencias/${cab.id}/remision`}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#3F8E91]"
+              >
+                Imprimir remisión
+              </a>
+            )}
           </div>
 
           {cab.observacion_solicitud && (
