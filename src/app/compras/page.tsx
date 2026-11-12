@@ -147,6 +147,8 @@ function VistaNutricion() {
   const [todas, setTodas] = useState<Compra[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipoPago, setFiltroTipoPago] = useState<TipoPago | "">("");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [anularTarget, setAnularTarget] = useState<{ numero: string; proveedor: string } | null>(null);
   const [ncTarget, setNcTarget] = useState<GrupoCompra | null>(null);
@@ -204,11 +206,18 @@ function VistaNutricion() {
         g.numero_control.toLowerCase().includes(texto) ||
         g.items.some((i) => i.producto_nombre.toLowerCase().includes(texto));
       const coincideTipoPago = filtroTipoPago === "" || g.tipo_pago === filtroTipoPago;
-      return coincideTexto && coincideTipoPago;
+      let coincideFecha = true;
+      if (desde || hasta) {
+        const d = new Date(g.fecha);
+        const dia = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        if (desde && dia < desde) coincideFecha = false;
+        if (hasta && dia > hasta) coincideFecha = false;
+      }
+      return coincideTexto && coincideTipoPago && coincideFecha;
     });
-  }, [grupos, busqueda, filtroTipoPago]);
+  }, [grupos, busqueda, filtroTipoPago, desde, hasta]);
 
-  const hayFiltros = busqueda || filtroTipoPago;
+  const hayFiltros = busqueda || filtroTipoPago || desde || hasta;
 
   function toggle(numero: string) {
     setExpandidos((prev) => {
@@ -281,9 +290,27 @@ function VistaNutricion() {
               { value: "credito", label: "Crédito" },
             ]}
           />
+          <label className="text-xs font-semibold text-slate-500">
+            Desde
+            <input
+              type="date"
+              value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+              className="ml-2 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-500">
+            Hasta
+            <input
+              type="date"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+              className="ml-2 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+            />
+          </label>
           {hayFiltros && (
             <button
-              onClick={() => { setBusqueda(""); setFiltroTipoPago(""); }}
+              onClick={() => { setBusqueda(""); setFiltroTipoPago(""); setDesde(""); setHasta(""); }}
               className="text-sm text-gray-400 hover:text-gray-600 transition-colors px-2"
             >
               Limpiar filtros
