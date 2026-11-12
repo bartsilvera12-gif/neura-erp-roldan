@@ -13,6 +13,7 @@ import {
   getProspectoForEmpresaPg,
   logCrmFunnelProspectStageMatch,
 } from "@/lib/crm/crm-prospectos-pg";
+import { filtrarProspectos, prospectosVisibles } from "@/lib/crm/alcance-prospectos";
 
 /**
  * GET /api/crm/prospectos
@@ -27,8 +28,15 @@ export async function GET(request: NextRequest) {
     const dataSchema = await fetchDataSchemaForEmpresaId(ctx.auth.empresa_id);
     const pool = getChatPostgresPool();
     if (pool && isLikelyUnexposedTenantChatSchema(dataSchema)) {
-      const pgList = await listProspectosForEmpresaPg(pool, dataSchema, ctx.auth.empresa_id);
-      if (pgList !== null) {
+      const pgListTodos = await listProspectosForEmpresaPg(pool, dataSchema, ctx.auth.empresa_id);
+      if (pgListTodos !== null) {
+        // Cada asesor ve los clientes de su número; administración, todos.
+        const auth = ctx.auth as { usuarioCatalogId?: string | null; nombre?: string | null; user?: { email?: string | null } | null };
+        const alcance = await prospectosVisibles({
+          pool, dataSchema, supabase: ctx.supabase, empresaId: ctx.auth.empresa_id,
+          usuarioId: auth.usuarioCatalogId ?? null, nombre: auth.nombre ?? null, email: auth.user?.email ?? null,
+        });
+        const pgList = filtrarProspectos(pgListTodos as Array<{ id?: unknown; responsable?: unknown; creado_por?: unknown }>, alcance) as typeof pgListTodos;
         await logCrmFunnelProspectStageMatch(
           pool,
           dataSchema,
