@@ -482,8 +482,9 @@ export default function ReposicionPage() {
           modo={crearAbierto}
           onClose={() => setCrearAbierto(false)}
           onCreada={() => {
+            // Un envío lo despacha uno mismo: queda en la solapa donde se despacha.
+            setTab(crearAbierto === "enviar" ? "recibidas" : "realizadas");
             setCrearAbierto(false);
-            setTab("realizadas");
             cargar();
           }}
         />
