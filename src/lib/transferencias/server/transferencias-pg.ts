@@ -160,6 +160,8 @@ export async function crearTransferencia(params: {
    * ficha en cero, igual que cuando lo pide ella.
    */
   envio?: boolean;
+  /** Nace aprobada aunque la pida la sucursal destino: no hay paso de aprobar. */
+  sinAprobacion?: boolean;
 }): Promise<{ id: string; numero: string }> {
   const schema = assertAllowedChatDataSchema(params.schemaRaw);
   const { empresaId, sucursalDestinoId, sucursalOrigenId } = params;
@@ -338,7 +340,9 @@ export async function crearTransferencia(params: {
       );
     }
 
-    if (params.envio) {
+    // Sin paso de aprobación (pedido del cliente): toda transferencia nace
+    // aprobada con lo pedido, y la sucursal que manda pasa directo a despachar.
+    if (params.envio || params.sinAprobacion) {
       await client.query(
         `UPDATE ${tI} SET cantidad_aprobada = cantidad_solicitada, updated_at = now()
           WHERE transferencia_id = $1::uuid`,

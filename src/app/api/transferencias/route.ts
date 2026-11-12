@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
       observacion,
       usuarioId: r.ctx.usuarioId,
       envio,
+      sinAprobacion: true,
     });
     return NextResponse.json(successResponse({ id: out.id, numero: out.numero }));
   } catch (err) {

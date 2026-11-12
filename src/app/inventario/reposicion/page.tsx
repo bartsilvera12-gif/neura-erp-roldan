@@ -321,8 +321,8 @@ export default function ReposicionPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg bg-slate-100 p-1 w-fit">
         {([
-          ["realizadas", "Solicitudes realizadas"],
-          ["recibidas", "Solicitudes recibidas"],
+          ["realizadas", "Remisiones realizadas"],
+          ["recibidas", "Remisiones recibidas"],
         ] as const).map(([k, label]) => (
           <button
             key={k}
