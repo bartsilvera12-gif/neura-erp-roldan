@@ -16,13 +16,11 @@ export async function cargarPlantillaPresupuesto(): Promise<{ condiciones: strin
       const j = await r.json().catch(() => null);
       const pl = j?.data?.plantilla;
       if (r.ok && j?.success && pl) {
-        const pct = Number(pl.anticipo_pct);
         return {
           condiciones: typeof pl.observaciones === "string" ? pl.observaciones : "",
-          formaPago:
-            typeof pl.forma_pago === "string"
-              ? pl.forma_pago.replace(/\{anticipo\}/g, Number.isFinite(pct) ? String(pct) : "0")
-              : "",
+          // Tal cual, con el marcador {anticipo}: así coincide con la opción del
+          // desplegable (FORMAS_PAGO) y el porcentaje se pone al imprimir.
+          formaPago: typeof pl.forma_pago === "string" ? pl.forma_pago : "",
         };
       }
     } catch { /* se reintenta */ }

@@ -402,7 +402,6 @@ export default function NuevoPresupuestoPage() {
       .catch((e) => {
         if (vivo) setErrorProductos(e instanceof Error ? e.message : "No se pudo traer el inventario.");
       });
-    return () => { vivo = false; };
     /**
      * Las condiciones de la casa, precargadas.
      *
@@ -415,12 +414,17 @@ export default function NuevoPresupuestoPage() {
      *   vendedor lo cambia, para ESE presupuesto manda lo que escribió; la
      *   plantilla sigue siendo el texto por defecto de todos los demás.
      */
-    // El {anticipo} de la plantilla ya viene resuelto con el porcentaje.
+    // La forma de pago viene con el marcador {anticipo}, igual que las opciones.
     void cargarPlantillaPresupuesto().then((pl) => {
       if (!pl) return; // sin plantilla, el PDF igual imprime la suya
       if (pl.condiciones.trim()) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
       if (pl.formaPago.trim()) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
     });
+
+    // El `return` va AL FINAL. Estaba arriba, justo después del inventario, y
+    // todo lo de abajo —la precarga de las condiciones y la forma de pago—
+    // nunca se ejecutaba: el formulario salía con esos campos vacíos.
+    return () => { vivo = false; };
 
     // Los clientes ya no se traen todos (son más de 21 mil: 36 MB y medio
     // minuto, y mientras tanto el buscador decía "Sin coincidencias"). Se
