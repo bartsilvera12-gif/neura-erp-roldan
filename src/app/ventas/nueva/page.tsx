@@ -1564,12 +1564,9 @@ export default function NuevaVentaPage() {
       setErrorVenta("Hay varias cajas abiertas: seleccioná la caja activa antes de confirmar.");
       return;
     }
-    // Con varios depósitos hay que decir de cuál sale: el stock se descuenta
-    // de ahí. Adivinar uno descontaría de un depósito que quizá no tiene nada.
-    if (depositos.length > 1 && !depositoId) {
-      setErrorVenta("Elegí el depósito del que sale la mercadería antes de confirmar.");
-      return;
-    }
+    // Ya no se pide el depósito: el selector se sacó de la pantalla y la
+    // venta descuenta del stock general del producto (ubicacion_id null, que
+    // el servidor acepta). Exigirlo dejaba la venta trabada sin forma de elegirlo.
     // Guard duro contra doble submit: si ya hay una confirmación en vuelo, cortar
     // inmediatamente. El ref se evalúa de forma síncrona (no espera al re-render de React),
     // así que un segundo click/Enter casi simultáneo no puede disparar otra venta.
