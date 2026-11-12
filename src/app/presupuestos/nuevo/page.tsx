@@ -150,9 +150,10 @@ export default function NuevoPresupuestoPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [selProd, setSelProd] = useState("");
 
-  // Toggle mayorista: por defecto usa el precio de venta minorista.
-  // Cuando está ON, al agregar un producto se toma `precio_mayorista` si > 0.
-  const [usarMayorista, setUsarMayorista] = useState(false);
+  // El tilde "Usar precios mayoristas por defecto" se sacó de la pantalla a
+  // pedido del cliente: cada ítem entra con el precio de venta (minorista).
+  // El precio por rubro del cliente sigue aplicándose aparte.
+  const usarMayorista = false;
 
   // Condiciones
   const [formaPago, setFormaPago] = useState("");
@@ -264,7 +265,6 @@ export default function NuevoPresupuestoPage() {
           setClienteCiudad(txt("clienteCiudad"));
           setClienteProfesion(txt("clienteProfesion"));
           if (Array.isArray(b.items)) setItems(b.items as Item[]);
-          setUsarMayorista(b.usarMayorista === true);
           if (txt("formaPago")) setFormaPago(txt("formaPago"));
           setPlazoEntrega(txt("plazoEntrega"));
           setObservaciones(txt("observaciones"));
@@ -978,20 +978,6 @@ export default function NuevoPresupuestoPage() {
         titulo="Productos"
         descripcion="Del inventario, o escritos a mano si todavía no están cargados."
         completa={items.length > 0}
-        /* El tilde vive acá: es con qué precio entra cada ítem que se agrega,
-           no una opción general del presupuesto. Arriba, al lado del título,
-           no se entendía a qué se refería. */
-        acciones={
-          <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600">
-            <input
-              type="checkbox"
-              checked={usarMayorista}
-              onChange={(e) => setUsarMayorista(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 accent-[#4FAEB2]"
-            />
-            Usar precios mayoristas por defecto
-          </label>
-        }
       >
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
