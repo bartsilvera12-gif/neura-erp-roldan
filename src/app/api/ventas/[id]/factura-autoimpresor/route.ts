@@ -6,6 +6,8 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { getAutoimpresor } from "@/lib/facturacion/server/facturacion-modo-pg";
 import { AutoimpresorError, emitirFacturaAutoimpresor } from "@/lib/facturacion/server/autoimpresor-emitir";
 import { numeroALetras } from "@/lib/documentos/numero-a-letras";
+import { htmlRellenoPreimpresa } from "@/lib/facturacion/preimpresa";
+import { leerPreimpresa } from "@/lib/facturacion/server/preimpresa-config";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,46 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 
   const schema = await fetchDataSchemaForEmpresaId(empresaId);
   const cfg = await getAutoimpresor(schema, empresaId);
+
+  /**
+   * TALONARIO PREIMPRESO (lo que usa el cliente): se escriben solo los datos
+   * variables, cada uno en su recuadro. El número ya viene impreso en la hoja:
+   * se avisa cuál poner en la impresora para que coincida con el registrado.
+   */
+  const papel = await leerPreimpresa(schema, empresaId);
+  if (papel.tipo_papel === "preimpresa") {
+    let direccion = "";
+    const vc = await sb.from("ventas").select("cliente_id").eq("empresa_id", empresaId).eq("id", id).maybeSingle();
+    const cid = (vc.data as { cliente_id?: string | null } | null)?.cliente_id;
+    if (cid) {
+      const cq = await sb.from("clientes").select("*").eq("empresa_id", empresaId).eq("id", cid).maybeSingle();
+      direccion = String((cq.data as { direccion?: string | null } | null)?.direccion ?? "");
+    }
+    const totalRelleno = items.reduce((acc, it) => acc + (Number(it.total) || 0), 0);
+    const html = htmlRellenoPreimpresa(papel.formato, {
+      fecha: fecha(f.fecha),
+      credito: String(f.tipo ?? "").toLowerCase() === "credito",
+      razon_social: String(f.cliente_razon_social ?? ""),
+      ruc: String(f.cliente_ruc ?? ""),
+      direccion,
+      items: items.map((it) => {
+        const tasa = String(it.tipo_iva ?? "10%").toUpperCase();
+        return {
+          cantidad: Number(it.cantidad) || 0,
+          descripcion: String(it.descripcion ?? ""),
+          precio: Number(it.precio_unitario) || 0,
+          tasa: tasa.startsWith("EX") ? "EX" as const : tasa.startsWith("5") ? "5" as const : "10" as const,
+          total: Number(it.total) || 0,
+        };
+      }),
+      total_letras: numeroALetras(totalRelleno),
+    }, {
+      titulo: `Factura ${f.numero_factura}`,
+      aviso: `Poné en la impresora la factura N° ${f.numero_factura} del talonario (timbrado ${cfg.timbrado_numero ?? ""}).`,
+      auto: new URL(request.url).searchParams.get("auto") === "1",
+    });
+    return new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  }
 
   // Columnas de la SET: exentas, 5% y 10%, con el IVA incluido en el precio.
   let ex = 0, g5 = 0, g10 = 0;

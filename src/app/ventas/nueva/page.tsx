@@ -2067,7 +2067,7 @@ export default function NuevaVentaPage() {
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
                   {tipoDocumento === "factura"
-                    ? "Al confirmar se toma el próximo número del timbrado (autoimpresor) y se imprime la factura, original y duplicado. Sin cliente sale a nombre de SIN NOMBRE."
+                    ? "Al confirmar se registra la factura con el próximo número del talonario y se imprimen los datos sobre la hoja preimpresa (te dice qué número poner en la impresora). Sin cliente sale a nombre de SIN NOMBRE."
                     : "Solo se registra la venta y se imprime el ticket."}
                 </p>
               </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import FormatoPreimpresoEditor from "@/components/config/FormatoPreimpresoEditor";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAutoClearFlag } from "@/hooks/useAutoClearFlag";
@@ -241,6 +242,9 @@ export default function FacturacionModoSection() {
           {errAuto && <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2 mb-3">{errAuto}</p>}
 
           <AutoimpresorForm value={auto} onSave={guardarAuto} saving={savingAuto} />
+          <div className="mt-4">
+            <FormatoPreimpresoEditor />
+          </div>
         </div>
       )}
     </div>
