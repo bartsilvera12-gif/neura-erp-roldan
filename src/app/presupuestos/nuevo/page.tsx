@@ -1079,9 +1079,22 @@ export default function NuevoPresupuestoPage() {
                         )}
                       </td>
                       <td className="py-2 px-2">
-                        <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
-                          {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
-                        </Selector>
+                        {/* El IVA es un dato fiscal del artículo, no algo que
+                            se negocie: solo lo cambia un administrador. El
+                            servidor lo fuerza igual al del producto, así que
+                            esto es para que se vea, no la defensa. */}
+                        {isAdmin ? (
+                          <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
+                            {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
+                          </Selector>
+                        ) : (
+                          <div
+                            className={`${inputClass} bg-slate-50 text-slate-700 cursor-not-allowed`}
+                            title="El IVA sale del producto. Para cambiarlo, pedíselo a un administrador."
+                          >
+                            {it.iva_tipo}
+                          </div>
+                        )}
                       </td>
                       {puedeDescontar && <td className="py-2 px-2">
                         {/* Dos maneras de escribir lo mismo: el % y los
