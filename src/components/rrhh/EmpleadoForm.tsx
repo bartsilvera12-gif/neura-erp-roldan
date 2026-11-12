@@ -2,9 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import { BadgeCheck, Briefcase, Clock, HeartPulse, IdCard, Phone, StickyNote, UserRound, Wallet } from "lucide-react";
+import { BadgeCheck, Briefcase, Clock, HeartPulse, IdCard, Phone, StickyNote, UserRound, Wallet, X } from "lucide-react";
 import CiudadBarrio from "@/components/geo/CiudadBarrio";
-import { DIAS_SEMANA, HORARIO_SUGERIDO, horasSemanales, normalizarHorario, resumenHorario, type HorarioSemanal } from "@/lib/rrhh/horario";
+import {
+  DIAS_SEMANA, HORARIO_CORRIDO, HORARIO_SUGERIDO, MAX_TURNOS_POR_DIA,
+  horasSemanales, normalizarHorario, resumenHorario,
+  type DiaClave, type HorarioSemanal,
+} from "@/lib/rrhh/horario";
 import type { UsuarioParaVincular } from "@/lib/rrhh/empleado-vinculo";
 import Selector from "@/components/ui/Selector";
 
@@ -400,19 +404,42 @@ function EditorHorario({ valor, onChange, tolerancia, onTolerancia }: {
 }) {
   const horario: HorarioSemanal = normalizarHorario(valor) ?? {};
   const guardar = (h: HorarioSemanal) => onChange(Object.keys(h).length ? JSON.stringify(h) : "");
-  const cambiar = (clave: keyof HorarioSemanal, campo: "entrada" | "salida", v: string) =>
-    guardar({ ...horario, [clave]: { entrada: horario[clave]?.entrada ?? null, salida: horario[clave]?.salida ?? null, [campo]: v || null } });
-  const alternar = (clave: keyof HorarioSemanal) => {
+  /* Se guarda SIN normalizar: normalizar acá reordena las franjas mientras se
+     está tipeando y el campo salta solo bajo el dedo. El orden lo pone
+     `normalizarHorario` al leer, que es cuando importa. */
+  const cambiarTurno = (clave: DiaClave, i: number, campo: "entrada" | "salida", v: string) => {
+    const turnos = [...(horario[clave] ?? [])];
+    turnos[i] = { ...turnos[i], [campo]: v || null };
+    guardar({ ...horario, [clave]: turnos });
+  };
+  const agregarTurno = (clave: DiaClave) => {
+    const turnos = [...(horario[clave] ?? [])];
+    if (turnos.length >= MAX_TURNOS_POR_DIA) return;
+    // La franja nueva arranca donde termina la anterior, que es el caso real:
+    // se corta al mediodía y se vuelve una hora después.
+    const fin = turnos[turnos.length - 1]?.salida;
+    const desde = fin ? `${String(Math.min(23, Number(fin.slice(0, 2)) + 1)).padStart(2, "0")}:${fin.slice(3)}` : "13:00";
+    turnos.push({ entrada: desde, salida: null });
+    guardar({ ...horario, [clave]: turnos });
+  };
+  const quitarTurno = (clave: DiaClave, i: number) => {
+    const turnos = (horario[clave] ?? []).filter((_, j) => j !== i);
+    const h = { ...horario };
+    if (turnos.length === 0) delete h[clave];
+    else h[clave] = turnos;
+    guardar(h);
+  };
+  const alternar = (clave: DiaClave) => {
     const h = { ...horario };
     if (h[clave]) delete h[clave];
     else {
       // Al prender un día, copia el horario del primer día que ya trabaja.
-      const base = DIAS_SEMANA.map((d) => horario[d.clave]).find(Boolean) ?? { entrada: "07:00", salida: "17:00" };
-      h[clave] = { ...base };
+      const base = DIAS_SEMANA.map((d) => horario[d.clave]).find((t) => t && t.length > 0);
+      h[clave] = base ? base.map((t) => ({ ...t })) : [{ entrada: "07:00", salida: "12:00" }, { entrada: "13:00", salida: "17:00" }];
     }
     guardar(h);
   };
-  const activos = DIAS_SEMANA.filter((d) => horario[d.clave]);
+  const activos = DIAS_SEMANA.filter((d) => (horario[d.clave] ?? []).length > 0);
   const primero = activos[0] ? horario[activos[0].clave] : undefined;
   const vacio = activos.length === 0;
   const horas = horasSemanales(horario);
@@ -438,12 +465,18 @@ function EditorHorario({ valor, onChange, tolerancia, onTolerancia }: {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button type="button" onClick={() => guardar(HORARIO_SUGERIDO)}
+            title="De 7 a 12 y de 13 a 17, con el sábado corto"
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
-            L a V 07–17 · Sáb 07–11
+            Cortado · 07–12 y 13–17
+          </button>
+          <button type="button" onClick={() => guardar(HORARIO_CORRIDO)}
+            title="De corrido, sin cortar al mediodía"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
+            Corrido · 07–17
           </button>
           {primero && activos.length > 1 && (
             <button type="button"
-              onClick={() => guardar(Object.fromEntries(activos.map((d) => [d.clave, { ...primero }])) as HorarioSemanal)}
+              onClick={() => guardar(Object.fromEntries(activos.map((d) => [d.clave, primero!.map((t) => ({ ...t }))])) as HorarioSemanal)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-[#4FAEB2] hover:text-[#3F8E91]">
               Igualar todos al {activos[0].largo.toLowerCase()}
             </button>
@@ -463,18 +496,38 @@ function EditorHorario({ valor, onChange, tolerancia, onTolerancia }: {
       ) : (
         <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
           {activos.map(({ clave, largo }) => {
-            const t = horario[clave]!;
+            const turnos = horario[clave] ?? [];
             return (
-              <div key={clave} className="grid grid-cols-[92px_auto_1fr] items-center gap-4 px-4 py-2.5 max-md:grid-cols-[92px_1fr]">
-                <span className="text-sm font-medium text-slate-800">{largo}</span>
-                <div className="flex items-center gap-2">
-                  <input type="time" value={t.entrada ?? ""} onChange={(e) => cambiar(clave, "entrada", e.target.value)} aria-label={`Entrada ${largo}`}
-                    className="w-[104px] rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
-                  <span className="text-slate-300">→</span>
-                  <input type="time" value={t.salida ?? ""} onChange={(e) => cambiar(clave, "salida", e.target.value)} aria-label={`Salida ${largo}`}
-                    className="w-[104px] rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
-                </div>
-                <BarraTurno entrada={t.entrada} salida={t.salida} />
+              <div key={clave} className="px-4 py-2.5">
+                {turnos.map((t, i) => (
+                  <div key={i} className="grid grid-cols-[92px_auto_1fr] items-center gap-4 max-md:grid-cols-[92px_1fr]">
+                    {/* El nombre del día va UNA vez: en la segunda franja iría
+                        repetido y parecerían dos días distintos. */}
+                    <span className="text-sm font-medium text-slate-800">{i === 0 ? largo : ""}</span>
+                    <div className="flex items-center gap-2">
+                      <input type="time" value={t.entrada ?? ""} onChange={(e) => cambiarTurno(clave, i, "entrada", e.target.value)}
+                        aria-label={`Entrada ${largo}${turnos.length > 1 ? ` franja ${i + 1}` : ""}`}
+                        className="w-[104px] rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
+                      <span className="text-slate-300">→</span>
+                      <input type="time" value={t.salida ?? ""} onChange={(e) => cambiarTurno(clave, i, "salida", e.target.value)}
+                        aria-label={`Salida ${largo}${turnos.length > 1 ? ` franja ${i + 1}` : ""}`}
+                        className="w-[104px] rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20" />
+                      {turnos.length > 1 && (
+                        <button type="button" onClick={() => quitarTurno(clave, i)} aria-label={`Quitar la franja ${i + 1} del ${largo.toLowerCase()}`}
+                          className="rounded-lg px-1.5 py-1 text-slate-300 transition-colors hover:text-rose-600">
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <BarraTurno entrada={t.entrada} salida={t.salida} />
+                  </div>
+                ))}
+                {turnos.length < MAX_TURNOS_POR_DIA && (
+                  <button type="button" onClick={() => agregarTurno(clave)}
+                    className="ml-[92px] mt-1 text-xs font-medium text-[#2F6E71] transition-colors hover:text-[#4FAEB2] max-md:ml-0">
+                    + Cortar al mediodía
+                  </button>
+                )}
               </div>
             );
           })}
