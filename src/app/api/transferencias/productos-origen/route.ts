@@ -35,7 +35,9 @@ export async function GET(request: NextRequest) {
     const empresaId = ctx.auth.empresa_id;
     const sp = new URL(request.url).searchParams;
 
-    const sucursalId = (sp.get("sucursal") ?? "").trim();
+    // "propia" = la sucursal de quien mira: es la que despacha en un ENVÍO.
+    const pedida = (sp.get("sucursal") ?? "").trim();
+    const sucursalId = pedida === "propia" ? (ctx.auth.sucursal_id ?? "") : pedida;
     if (!sucursalId) {
       return NextResponse.json(errorResponse("Falta la sucursal de origen."), { status: 400 });
     }
