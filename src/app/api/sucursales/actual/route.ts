@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2) Si NO es admin, verificar que la tenga en usuario_sucursales.
-    if (rol !== "admin" && rol !== "super_admin") {
+    if (rol !== "admin" && rol !== "administrador" && rol !== "super_admin") {
       const { data: rel, error: rErr } = await sr
         .from("usuario_sucursales")
         .select("id")

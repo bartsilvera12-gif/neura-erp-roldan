@@ -37,7 +37,7 @@ const esMedio = (v: unknown): v is Medio =>
 
 function esAdmin(rol: string | null | undefined): boolean {
   const r = (rol ?? "").toLowerCase();
-  return r === "admin" || r === "super_admin";
+  return r === "admin" || r === "administrador" || r === "super_admin";
 }
 
 export async function POST(

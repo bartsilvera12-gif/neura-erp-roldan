@@ -44,9 +44,14 @@ export default function ConfiguracionSucursalesPage() {
       const jSuc = await rSuc.json();
       const jUsr = await rUsr.json();
       const jAsig = await rAsig.json();
+      const fallos: string[] = [];
       if (rSuc.ok && jSuc.success) setSucursales(jSuc.data.sucursales ?? []);
+      else fallos.push(jSuc?.error ?? `No se pudieron cargar las sucursales (${rSuc.status}).`);
       if (rUsr.ok && jUsr.success) setUsuarios(jUsr.data.usuarios ?? []);
+      else fallos.push(jUsr?.error ?? `No se pudieron cargar los usuarios (${rUsr.status}).`);
       if (rAsig.ok && jAsig.success) setAsignaciones(jAsig.data.asignaciones ?? []);
+      else fallos.push(jAsig?.error ?? `No se pudieron cargar las asignaciones (${rAsig.status}).`);
+      if (fallos.length > 0) setError(Array.from(new Set(fallos)).join(" "));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red.");
     } finally {

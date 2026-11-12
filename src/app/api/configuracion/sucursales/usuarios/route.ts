@@ -6,7 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-admin";
 
 function esAdmin(rol: string | null | undefined): boolean {
   const r = (rol ?? "").toLowerCase();
-  return r === "admin" || r === "super_admin";
+  return r === "admin" || r === "administrador" || r === "super_admin";
 }
 
 /** GET /api/configuracion/sucursales/usuarios — usuarios activos de la empresa (para la matriz). */

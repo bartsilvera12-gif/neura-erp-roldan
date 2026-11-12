@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const sr = createServiceRoleClient();
 
     let sucursales: unknown[] = [];
-    if (rol === "admin" || rol === "super_admin") {
+    if (rol === "admin" || rol === "administrador" || rol === "super_admin") {
       const { data, error } = await sr
         .from("sucursales")
         .select("id, codigo, nombre, es_principal")
