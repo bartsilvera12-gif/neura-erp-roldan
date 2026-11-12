@@ -165,8 +165,9 @@ export async function shouldBypassOmnicanalConversationScope(
   if (!uid) return false;
   const { data, error } = await catalogSr.from("usuarios").select("rol").eq("id", uid).maybeSingle();
   if (error) {
-    console.warn("[shouldBypassOmnicanalConversationScope] no se pudo leer rol; sin filtrar inbox:", error.message);
-    return true;
+    // Si no se puede leer el rol, se filtra: un permiso que falla, falla cerrado.
+    console.warn("[shouldBypassOmnicanalConversationScope] no se pudo leer rol; se aplica el alcance:", error.message);
+    return false;
   }
   if (!data) return false;
   const r = String((data as { rol?: string | null }).rol ?? "")
@@ -441,15 +442,23 @@ export async function appendOmnicanalConversationScopeToQuery(
   const agentFkIds = await resolveChatAgentIdsForUsuarios(supabase, empresaId, scope.agentUsuarioIds, ds);
   const queueIds = scope.queueIds ?? [];
 
-  if (queueIds.length === 0 && agentFkIds.length === 0) {
-    const hadIntent =
-      (scope.agentUsuarioIds?.length ?? 0) > 0 || (scope.queueIds?.length ?? 0) > 0;
-    if (hadIntent) {
-      console.warn(
-        "[appendOmnicanalConversationScopeToQuery] alcance con colas/agentes declarados pero sin ids resueltos; se omite filtro (evita inbox vacío)."
-      );
-      return wrap(q);
+  // Agente: sus asignados + los sin asignar de los canales de sus colas.
+  // Nunca "sin filtro": ver la versión SQL en omnicanal-scope-pg.ts.
+  if (queueIds.length === 0) {
+    const misColas = await resolveQueueIdsForUsuarios(supabase, empresaId, scope.agentUsuarioIds, ds);
+    const misCanales = await resolveChannelIdsForQueueIds(supabase, empresaId, misColas, ds);
+    const ors: string[] = [];
+    if (agentFkIds.length > 0) {
+      ors.push(`assigned_agent_id.in.(${agentFkIds.map((id) => `"${normalizeId(id)}"`).join(",")})`);
     }
+    if (misCanales.length > 0) {
+      ors.push(`and(assigned_agent_id.is.null,channel_id.in.(${misCanales.map((id) => `"${normalizeId(id)}"`).join(",")}))`);
+    }
+    if (ors.length === 0) return wrap(q.eq("id", NO_CONVERSATION_MATCH));
+    return wrap(q.or(ors.join(",")));
+  }
+
+  if (queueIds.length === 0 && agentFkIds.length === 0) {
     return wrap(q.eq("id", NO_CONVERSATION_MATCH));
   }
   if (queueIds.length > 0 && agentFkIds.length > 0) {
@@ -504,10 +513,10 @@ export async function filterConversationIdsByOmnicanalScopePg(
     return new Set((r.rows ?? []).map((row: { id?: string }) => String(row.id ?? "").trim()).filter(Boolean));
   } catch (e) {
     console.warn(
-      "[filterConversationIdsByOmnicanalScopePg] error; fail-open:",
+      "[filterConversationIdsByOmnicanalScopePg] error; se niega el acceso:",
       e instanceof Error ? e.message : e
     );
-    return new Set(ids);
+    return new Set();
   }
 }
 

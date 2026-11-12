@@ -227,6 +227,11 @@ export async function POST(request: NextRequest) {
             fromMe,
             timestamp: body?.timestamp ?? null,
             quoted_wamid: quotedWaMessageId || null,
+            // Qué trae el puente de cada contacto. Se guarda para poder ver
+            // por qué un chat queda "Sin nombre": si el puente no lo manda,
+            // el arreglo es del lado del puente.
+            pushName: pushName ?? null,
+            fromPhone: fromPhone || null,
           },
         },
         from_me: fromMe,

@@ -28,9 +28,11 @@ import { logChatListClassificationInvariant } from "@/lib/chat/chat-list-classif
 import { debugChatList } from "@/lib/chat/debug-log";
 import {
   appendOmnicanalConversationScopeToQuery,
+  filterConversationIdsByOmnicanalScope,
   getOmnicanalScope,
   isOmnicanalAdminScope,
   OMNICANAL_IMPOSSIBLE_CONVERSATION_ID,
+  resolveChannelIdsForQueueIds,
   resolveQueueIdsForUsuarios,
   shouldBypassOmnicanalConversationScope,
 } from "@/lib/chat/omnicanal-scope";
@@ -1102,6 +1104,47 @@ export async function releaseConversationToBot(conversationId: string): Promise<
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Ponerle nombre al cliente desde el chat.
+ *
+ * WhatsApp por QR muchas veces no manda el nombre ni el teléfono del cliente
+ * (los que no están agendados en el celular), y el inbox queda lleno de
+ * "Sin nombre". El asesor que habla con él sabe quién es: lo escribe acá y
+ * queda en el contacto. Solo puede hacerlo sobre un chat que puede ver.
+ */
+export async function renameChatContact(conversationId: string, nombre: string): Promise<{ ok: boolean; error?: string }> {
+  const cid = conversationId.trim();
+  const name = nombre.trim().slice(0, 120);
+  if (!cid) return { ok: false, error: "Falta la conversación." };
+  if (!name) return { ok: false, error: "Escribí el nombre." };
+  const { supabase, catalogSr, empresa_id, usuario_id, dataSchema } = await requireEmpresaTenantServiceRole();
+  const permitidas = await filterConversationIdsByOmnicanalScope(supabase, catalogSr, empresa_id, usuario_id, [cid]);
+  if (!permitidas.has(cid)) return { ok: false, error: "No tenés acceso a ese chat." };
+
+  const pool = getChatPostgresPool();
+  if (pool && isLikelyUnexposedTenantChatSchema(dataSchema)) {
+    const contactos = quoteSchemaTable(dataSchema, "chat_contacts");
+    const convs = quoteSchemaTable(dataSchema, "chat_conversations");
+    const r = await pool.query(
+      `UPDATE ${contactos} SET name = $1, updated_at = now()
+        WHERE empresa_id = $2::uuid
+          AND id = (SELECT contact_id FROM ${convs} WHERE id = $3::uuid AND empresa_id = $2::uuid)`,
+      [name, empresa_id, cid]
+    );
+    return (r.rowCount ?? 0) > 0 ? { ok: true } : { ok: false, error: "No se encontró el contacto." };
+  }
+
+  const { data: conv, error: cErr } = await supabase
+    .from("chat_conversations").select("contact_id").eq("id", cid).eq("empresa_id", empresa_id).maybeSingle();
+  if (cErr) return { ok: false, error: cErr.message };
+  const contactId = (conv as { contact_id?: string } | null)?.contact_id;
+  if (!contactId) return { ok: false, error: "No se encontró el contacto." };
+  const { error } = await supabase
+    .from("chat_contacts").update({ name, updated_at: new Date().toISOString() })
+    .eq("id", contactId).eq("empresa_id", empresa_id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 export async function markConversationRead(conversationId: string): Promise<void> {
   const { supabase, empresa_id, dataSchema } = await requireEmpresaTenantServiceRole();
   const pool = getChatPostgresPool();
@@ -1464,6 +1507,28 @@ export async function fetchChatChannels(): Promise<ChatChannelRow[]> {
     chatChannelsInflight.delete(ck);
   });
   return promise;
+}
+
+/**
+ * Los canales que la persona puede usar en el inbox (filtro y "Nuevo chat").
+ *
+ * Administradores y quien ve todo: todos. Un agente: solo los números de las
+ * colas en las que está. Antes el agente veía "Todos los canales" y podía
+ * escribir desde cualquier número de la empresa.
+ */
+export async function fetchInboxChatChannels(): Promise<ChatChannelRow[]> {
+  const todos = await fetchChatChannels();
+  const { supabase, catalogSr, empresa_id, usuario_id, dataSchema } = await requireEmpresaTenantServiceRole();
+  const scope = await getOmnicanalScope(supabase, empresa_id, usuario_id, { tenantDataSchema: dataSchema });
+  if (await shouldBypassOmnicanalConversationScope(catalogSr, usuario_id, scope)) return todos;
+  const colas = [
+    ...new Set([
+      ...(scope.queueIds ?? []),
+      ...(await resolveQueueIdsForUsuarios(supabase, empresa_id, scope.agentUsuarioIds, dataSchema)),
+    ]),
+  ];
+  const canales = new Set(await resolveChannelIdsForQueueIds(supabase, empresa_id, colas, dataSchema));
+  return todos.filter((c) => canales.has(String(c.id)));
 }
 
 export async function fetchChatChannelById(channelId: string): Promise<ChatChannelRow | null> {

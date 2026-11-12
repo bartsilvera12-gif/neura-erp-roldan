@@ -133,7 +133,18 @@ export async function assignConversation(
   }
 
   if (!queue) {
-    queue = pickQueueForChannel(allQueues, channelType);
+    /**
+     * El canal no está en ninguna cola. Se cae a las colas "de todos los
+     * canales" (legado), pero SOLO a las que no tienen números propios: antes
+     * entraba cualquiera, y los chats de Corporativo 5 —sin cola— terminaban
+     * en C1, que es la cola de Corporativo 1, con la persona equivocada.
+     */
+    const { data: todosLosVinculos } = await supabase
+      .from("chat_queue_channels")
+      .select("queue_id")
+      .eq("empresa_id", empresaId);
+    const conNumero = new Set((todosLosVinculos ?? []).map((r) => String((r as { queue_id?: string }).queue_id ?? "")));
+    queue = pickQueueForChannel(allQueues.filter((q) => !conNumero.has(q.id)), channelType);
   }
 
   if (!queue) {

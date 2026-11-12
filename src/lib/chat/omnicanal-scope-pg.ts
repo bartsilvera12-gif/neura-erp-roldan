@@ -13,6 +13,29 @@ function normalizeId(v: string | null | undefined): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+/** Colas en las que están los usuarios como agentes (activos). */
+export async function pgSelectQueueIdsForAgentUsuarios(
+  pool: Pool,
+  schema: string,
+  empresaId: string,
+  usuarioIds: string[]
+): Promise<string[]> {
+  const ids = [...new Set(usuarioIds.map((x) => normalizeId(x)).filter(Boolean))];
+  if (ids.length === 0) return [];
+  const qt = quoteSchemaTable(schema, "chat_agents");
+  try {
+    const r = await pool.query(
+      `SELECT DISTINCT queue_id::text AS id FROM ${qt}
+        WHERE empresa_id = $1::uuid AND usuario_id = ANY($2::uuid[])
+          AND queue_id IS NOT NULL AND COALESCE(is_active, true) = true`,
+      [empresaId, ids]
+    );
+    return (r.rows ?? []).map((x: { id?: string }) => String(x.id ?? "").trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export async function pgSelectChatAgentIdsForUsuarios(
   pool: Pool,
   schema: string,
@@ -226,12 +249,42 @@ export async function buildPgOmnicanalConversationScopeAndClause(
   );
   const queueIds = scope.queueIds ?? [];
 
-  if (queueIds.length === 0 && agentFkIds.length === 0) {
-    const hadIntent =
-      (scope.agentUsuarioIds?.length ?? 0) > 0 || (scope.queueIds?.length ?? 0) > 0;
-    if (hadIntent) {
-      return { sql: "TRUE", params: [], nextOffset: paramOffset };
+  /**
+   * AGENTE: sus chats asignados y los SIN ASIGNAR de los números (canales) de
+   * sus colas, para poder tomarlos. Nada más: ni los de otro agente ni los de
+   * otros números.
+   *
+   * Antes, si no se encontraba su ficha de agente, el filtro se SALTEABA
+   * ("TRUE") y la persona veía todas las conversaciones de la empresa. Un
+   * filtro de permisos que falla tiene que fallar cerrado.
+   */
+  if (queueIds.length === 0) {
+    const misColas = await pgSelectQueueIdsForAgentUsuarios(pool, schema, empresaId, scope.agentUsuarioIds);
+    const misCanales = misColas.length ? await pgResolveChannelIdsForQueueIds(pool, schema, empresaId, misColas) : [];
+    const parts: string[] = [];
+    const params: unknown[] = [];
+    let off = paramOffset;
+    if (agentFkIds.length > 0) {
+      parts.push(`assigned_agent_id = ANY($${off}::uuid[])`);
+      params.push(agentFkIds);
+      off++;
     }
+    if (misCanales.length > 0) {
+      parts.push(`(assigned_agent_id IS NULL AND channel_id = ANY($${off}::uuid[]))`);
+      params.push(misCanales);
+      off++;
+    }
+    if (parts.length === 0) {
+      return {
+        sql: `id = $${paramOffset}::uuid`,
+        params: [normalizeId(IMPOSSIBLE_CONVERSATION_ID)],
+        nextOffset: paramOffset + 1,
+      };
+    }
+    return { sql: `(${parts.join(" OR ")})`, params, nextOffset: off };
+  }
+
+  if (queueIds.length === 0 && agentFkIds.length === 0) {
     const impossible = normalizeId(IMPOSSIBLE_CONVERSATION_ID);
     return {
       sql: `id = $${paramOffset}::uuid`,

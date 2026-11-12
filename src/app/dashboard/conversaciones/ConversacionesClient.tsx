@@ -7,8 +7,9 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import type { ComprobanteValidacionListRow } from "@/lib/chat/comprobante-validation-types";
 import {
   approveComprobanteValidacion,
-  fetchChatChannels,
   fetchChatConversations,
+  fetchInboxChatChannels,
+  renameChatContact,
   fetchComprobanteValidacionesForConversation,
   hasEmpresaActiveChatFlows,
   markConversationRead,
@@ -645,7 +646,8 @@ export function ConversacionesClient({
   useEffect(() => {
     // Mismo patron: cancelled flag para evitar setState tras unmount.
     let cancelled = false;
-    fetchChatChannels()
+    // Solo los números de las colas de quien mira (todos, si es administrador).
+    fetchInboxChatChannels()
       .then((ch) => {
         if (cancelled) return;
         setHasActiveChannel(ch.some((c) => c.activo));
@@ -2438,9 +2440,25 @@ export function ConversacionesClient({
                           </svg>
                         </button>
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 min-w-0">
-                          <span className="font-semibold text-slate-900 text-sm leading-tight truncate max-w-[min(100%,14rem)]">
+                          {/* Tocando el nombre se le pone uno: WhatsApp por QR muchas veces no lo manda. */}
+                          <button
+                            type="button"
+                            title="Ponerle nombre al cliente"
+                            onClick={async () => {
+                              const actual = (selected.contact.name ?? "").trim();
+                              const nuevo = window.prompt("Nombre del cliente", actual)?.trim();
+                              if (!nuevo || nuevo === actual) return;
+                              const r = await renameChatContact(selected.id, nuevo);
+                              if (!r.ok) { window.alert(r.error ?? "No se pudo guardar el nombre."); return; }
+                              const contactId = selected.contact.id;
+                              setConversations((prev) => prev.map((c) =>
+                                c.contact.id === contactId ? { ...c, contact: { ...c.contact, name: nuevo } } : c));
+                            }}
+                            className="font-semibold text-slate-900 text-sm leading-tight truncate max-w-[min(100%,14rem)] rounded hover:bg-slate-100 hover:underline decoration-dotted underline-offset-2 text-left"
+                          >
                             {nombreParaMostrar(selected.contact.name, selected.contact.phone_number, selected.contact.telefono_real)}
-                          </span>
+                            {!(selected.contact.name ?? "").trim() && <span className="ml-1 text-[10px] font-medium text-[#3F8E91]">· poner nombre</span>}
+                          </button>
                           <span className="text-[10px] text-slate-500 font-mono tabular-nums shrink-0">
                             {selected.contact.telefono_real || telefonoLegibleOVacio(selected.contact.phone_number) || "Número no visible"}
                           </span>

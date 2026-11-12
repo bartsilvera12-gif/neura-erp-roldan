@@ -255,9 +255,9 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
   // Mejor dejarlo vacío: la pantalla ya sabe decir "Sin nombre".
   const nombreDado = contact_data.display_name?.trim() || "";
   const displayName = nombreDado || (esLidWhatsapp(address) ? "" : address);
-  // El nombre solo se escribe cuando tenemos uno. Mandarlo vacío en el upsert
-  // le borraría el nombre al contacto cada vez que llega un mensaje sin
-  // pushName, que es la mayoría.
+  // El nombre NO va en el upsert: lo pisaría cada vez. Se completa abajo solo
+  // si el contacto todavía no tiene uno, así el nombre que el asesor le pone a
+  // mano desde el chat no se reemplaza con el apodo de WhatsApp.
   const empresaId = channel.empresa_id;
   const channelId = channel.id;
 
@@ -268,7 +268,6 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
         empresa_id: empresaId,
         phone_number: address,
         phone_normalized: address,
-        ...(displayName ? { name: displayName } : {}),
       },
       { onConflict: "empresa_id,phone_number" }
     )
@@ -280,7 +279,7 @@ export async function saveIncomingMessage(params: SaveIncomingMessageParams): Pr
   }
 
   const contactId = contact.id as string;
-  if (displayName && displayName !== contact.name) {
+  if (displayName && !String(contact.name ?? "").trim()) {
     await supabase
       .from("chat_contacts")
       .update({ name: displayName, updated_at: new Date().toISOString() })
