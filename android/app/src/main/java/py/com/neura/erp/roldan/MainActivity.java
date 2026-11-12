@@ -1,6 +1,9 @@
 package py.com.neura.erp.roldan;
 
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
@@ -14,6 +17,10 @@ import com.getcapacitor.WebViewListener;
  * carga, inyecta un script que mira la ruta —también en la navegación interna
  * de Next, que no recarga la página— y, si no es el login ni /m/asesor,
  * vuelve a la lista de conversaciones.
+ *
+ * Y por si ese script no llega a inyectarse (Capacitor solo avisa "cargó" si
+ * la carga llegó al 100%), Android mismo mira la dirección del WebView cada
+ * segundo —getUrl() incluye la navegación interna— y hace lo mismo.
  */
 public class MainActivity extends BridgeActivity {
 
@@ -35,6 +42,45 @@ public class MainActivity extends BridgeActivity {
         "  setInterval(check, 400);" +
         "  check();" +
         "})();";
+
+    private static final String INICIO = "https://roldanehijos.neura.com.py/m/asesor";
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable vigilar = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                WebView wv = bridge != null ? bridge.getWebView() : null;
+                String url = wv != null ? wv.getUrl() : null;
+                if (url != null && fueraDeConversaciones(url)) {
+                    wv.loadUrl(INICIO);
+                }
+            } catch (Exception ignored) {
+                // nunca tirar la app por esto
+            }
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    static boolean fueraDeConversaciones(String url) {
+        Uri u = Uri.parse(url);
+        String host = u.getHost();
+        if (host == null || !(host.equals("neura.com.py") || host.endsWith(".neura.com.py"))) return false;
+        String path = u.getPath() == null ? "/" : u.getPath();
+        return !(path.equals("/login") || path.equals("/m/asesor") || path.startsWith("/m/asesor/"));
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        handler.removeCallbacks(vigilar);
+        handler.post(vigilar);
+    }
+
+    @Override
+    public void onPause() {
+        handler.removeCallbacks(vigilar);
+        super.onPause();
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
