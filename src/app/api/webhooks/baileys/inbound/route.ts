@@ -28,6 +28,9 @@ import {
 import { getChatServiceClientForEmpresa } from "@/lib/supabase/chat-service-role-empresa";
 import { normalizeWaPhone } from "@/lib/chat/wa-phone";
 import type { SupabaseAdmin } from "@/lib/chat/types";
+import { ensureWhatsappInboundCrmLeadPg } from "@/lib/crm/whatsapp-inbound-lead-pg";
+import { getChatPostgresPool } from "@/lib/supabase/chat-pg-pool";
+import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -262,6 +265,33 @@ export async function POST(request: NextRequest) {
       // Sin el script 40 la columna no existe: se anota y se sigue, que el
       // mensaje ya quedó guardado y es lo que importa.
       if (up.error) console.warn(LOG, "telefono_real", up.error.message);
+    }
+
+    /**
+     * El cliente nuevo cae en el CRM como prospecto (etapa Lead), igual que con
+     * los otros proveedores de WhatsApp. Para los números por QR esto nunca se
+     * había conectado, y el embudo quedaba vacío aunque entraran cientos de
+     * chats. Es idempotente: si el contacto ya tiene prospecto, no hace nada.
+     * Si falla, el mensaje igual quedó guardado.
+     */
+    if (!fromMe && result.contact_id) {
+      try {
+        const pool = getChatPostgresPool();
+        if (pool) {
+          const crm = await ensureWhatsappInboundCrmLeadPg({
+            pool,
+            data_schema: await fetchDataSchemaForEmpresaId(empresaId),
+            empresa_id: empresaId,
+            contact_id: result.contact_id,
+            conversation_id: conversationId,
+            channel_id: channelId,
+            first_message_preview: content || null,
+          });
+          if (!crm.ok) console.warn(LOG, "crm_lead", crm.error);
+        }
+      } catch (e) {
+        console.warn(LOG, "crm_lead", e instanceof Error ? e.message : e);
+      }
     }
 
     // El sistema propio guarda acá el JID original y fusiona los chats que

@@ -49,6 +49,7 @@ import {
   quoteSchemaTable,
 } from "@/lib/supabase/chat-pg-pool";
 import { isLikelyUnexposedTenantChatSchema } from "@/lib/supabase/chat-data-schema";
+import { resolveCrmProspectosSchemaForTenant } from "@/lib/crm/crm-prospectos-pg";
 import {
   pgDeleteChatChannel,
   pgInsertChatChannelMetaWhatsapp,
@@ -1128,10 +1129,28 @@ export async function renameChatContact(conversationId: string, nombre: string):
     const r = await pool.query(
       `UPDATE ${contactos} SET name = $1, updated_at = now()
         WHERE empresa_id = $2::uuid
-          AND id = (SELECT contact_id FROM ${convs} WHERE id = $3::uuid AND empresa_id = $2::uuid)`,
+          AND id = (SELECT contact_id FROM ${convs} WHERE id = $3::uuid AND empresa_id = $2::uuid)
+        RETURNING crm_prospecto_id::text AS prospecto`,
       [name, empresa_id, cid]
     );
-    return (r.rowCount ?? 0) > 0 ? { ok: true } : { ok: false, error: "No se encontró el contacto." };
+    if ((r.rowCount ?? 0) === 0) return { ok: false, error: "No se encontró el contacto." };
+    // El prospecto del CRM que nació "Cliente de WhatsApp" toma el mismo nombre.
+    const prospecto = (r.rows[0] as { prospecto?: string | null } | undefined)?.prospecto;
+    if (prospecto) {
+      try {
+        const res = await resolveCrmProspectosSchemaForTenant(pool, dataSchema);
+        if (res) {
+          await pool.query(
+            `UPDATE ${quoteSchemaTable(res.crmSchema, "crm_prospectos")} SET contacto = $1, updated_at = now()
+              WHERE id = $2::uuid AND empresa_id = $3::uuid`,
+            [name, prospecto, empresa_id]
+          );
+        }
+      } catch (e) {
+        console.warn("[renameChatContact] prospecto CRM:", e instanceof Error ? e.message : e);
+      }
+    }
+    return { ok: true };
   }
 
   const { data: conv, error: cErr } = await supabase

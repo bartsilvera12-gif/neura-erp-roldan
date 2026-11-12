@@ -15,6 +15,7 @@ import {
 } from "@/lib/crm/crm-prospectos-pg";
 import { normalizeEtapaCodigo } from "@/lib/crm/etapas";
 import { nextNumeroControlFromLast } from "@/lib/crm/numero-control";
+import { esLidWhatsapp } from "@/lib/chat/wa-phone";
 
 const LOG = "[crm][whatsapp-inbound-lead-pg]";
 
@@ -160,8 +161,13 @@ export async function ensureWhatsappInboundCrmLeadPg(input: {
     const responsable =
       (adv?.full_name?.trim() || adv?.email?.trim() || null) as string | null;
 
-    const phone = String(row0.phone_number ?? "").trim();
-    const displayName = String(row0.name ?? "").trim() || phone || "Contacto WhatsApp";
+    // Un @lid (código interno de WhatsApp) no es un teléfono ni un nombre: no
+    // se guarda como tal en el prospecto. El nombre se completa cuando el
+    // asesor se lo pone al chat.
+    const crudo = String(row0.phone_number ?? "").trim();
+    const phone = esLidWhatsapp(crudo) ? "" : crudo;
+    const nombreContacto = String(row0.name ?? "").trim();
+    const displayName = (nombreContacto && !esLidWhatsapp(nombreContacto) ? nombreContacto : "") || phone || "Cliente de WhatsApp";
 
     const lastNum = await client.query(
       `SELECT numero_control::text AS numero_control
