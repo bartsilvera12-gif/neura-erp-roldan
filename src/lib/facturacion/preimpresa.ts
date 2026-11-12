@@ -55,7 +55,7 @@ export const FORMATO_POR_DEFECTO: FormatoPreimpreso = {
   contado: { x: 171, y: 50 },
   credito: { x: 202.5, y: 50 },
   razon_social: { x: 56, y: 59.5 },
-  ruc: { x: 30, y: 54.5 },
+  ruc: { x: 33, y: 54.5 },
   direccion: { x: 37, y: 66.5 },
   items: { y: 82, alto_fila: 4.23, max_filas: 15 },
   col: { cantidad: 44, descripcion: 61, ancho_descripcion: 52, precio: 143, exentas: 168.5, iva5: 192.5, iva10: 218 },
