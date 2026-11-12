@@ -278,6 +278,13 @@ export default function NuevaVentaPage() {
   // La empresa emite factura electrónica (modo 'sifen'). Se resuelve al montar;
   // si es false, el selector de documento ni se muestra (flujo actual intacto).
   const [modoSifen, setModoSifen] = useState(false);
+  /**
+   * AUTOIMPRESOR: factura impresa desde el sistema con timbrado de la SET.
+   * Se ofrece "Factura" en Caja cuando el modo de facturación es autoimpresor
+   * o el autoimpresor está activo. Al confirmar se toma el próximo número del
+   * timbrado y se imprime la factura (original y duplicado).
+   */
+  const [modoAutoimpresor, setModoAutoimpresor] = useState(false);
 
   // Cliente (opcional). Si se selecciona, se envía cliente_id al crear la venta.
   type ClienteLite = { id: string; label: string; ruc: string | null; telefono: string | null; usa_nota_remision: boolean };
@@ -303,6 +310,13 @@ export default function NuevaVentaPage() {
 
   // ── Cobro (solo CONTADO, no se persiste — solo ayuda al cajero) ───────────
   const [montoRecibido, setMontoRecibido] = useState("");
+  /**
+   * SOBRANTE / FALTANTE DE LA VENTA. Si el cliente paga en efectivo de más y no
+   * se le da el vuelto (o paga de menos y se acepta), esa diferencia queda
+   * registrada como un ajuste de caja: suma o resta al efectivo esperado y se
+   * ve en Caja → "Sobrantes y faltantes".
+   */
+  const [registrarDiferencia, setRegistrarDiferencia] = useState(false);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("efectivo");
 
   // ── Pago mixto (contado con varios metodos) ───────────────────────────────
@@ -486,6 +500,18 @@ export default function NuevaVentaPage() {
         const esSifen = res.ok && json.success === true && json.data?.facturacion_modo?.modo === "sifen";
         if (!cancelled && esSifen) {
           setModoSifen(true);
+          setTipoDocumento("factura");
+          return;
+        }
+        const modoAuto = res.ok && json.success === true && json.data?.facturacion_modo?.modo === "autoimpresor";
+        let activo = modoAuto;
+        if (!activo) {
+          const ra = await fetchWithSupabaseSession("/api/configuracion/autoimpresor", { cache: "no-store" });
+          const ja = (await ra.json().catch(() => null)) as { data?: { autoimpresor?: { activo?: boolean } } } | null;
+          activo = ja?.data?.autoimpresor?.activo === true;
+        }
+        if (!cancelled && activo) {
+          setModoAutoimpresor(true);
           setTipoDocumento("factura");
         }
       } catch {
@@ -1201,7 +1227,7 @@ export default function NuevaVentaPage() {
     motivo?: string | null;
   }>>({});
 
-  const { descuentoMaximo } = useIsAdmin();
+  const { descuentoMaximo, isAdmin: esAdminCaja } = useIsAdmin();
   /**
    * Costos, utilidad, margen y dólares: facultad `ver_costos`.
    *
@@ -1209,7 +1235,10 @@ export default function NuevaVentaPage() {
    * puede dar a un encargado sin convertirlo en administrador del sistema.
    */
   const { tiene: tieneFacultad } = useFacultades();
-  const verMargenes = tieneFacultad("ver_costos");
+  // Costos, remarcación y margen: solo administración (pedido del cliente: un
+  // usuario normal no los ve en Caja, aunque su perfil tenga "ver costos").
+  void tieneFacultad;
+  const verMargenes = esAdminCaja;
 
   /**
    * Rentabilidad de la venta, SIN IVA.
@@ -1561,12 +1590,9 @@ export default function NuevaVentaPage() {
       setErrorVenta("Hay varias cajas abiertas: seleccioná la caja activa antes de confirmar.");
       return;
     }
-    // Con varios depósitos hay que decir de cuál sale: el stock se descuenta
-    // de ahí. Adivinar uno descontaría de un depósito que quizá no tiene nada.
-    if (depositos.length > 1 && !depositoId) {
-      setErrorVenta("Elegí el depósito del que sale la mercadería antes de confirmar.");
-      return;
-    }
+    // Ya no se pide el depósito: el selector se sacó de la pantalla y la
+    // venta descuenta del stock general del producto (ubicacion_id null, que
+    // el servidor acepta). Exigirlo dejaba la venta trabada sin forma de elegirlo.
     // Guard duro contra doble submit: si ya hay una confirmación en vuelo, cortar
     // inmediatamente. El ref se evalúa de forma síncrona (no espera al re-render de React),
     // así que un segundo click/Enter casi simultáneo no puede disparar otra venta.
@@ -1639,6 +1665,24 @@ export default function NuevaVentaPage() {
         setErrorVenta(resultado.error);
         return;
       }
+      // El sobrante o faltante de esta venta, como ajuste de la caja.
+      if (registrarDiferencia && !pagoMixto && metodoPago === "efectivo" && montoRecibidoNum > 0 && Math.round(vuelto) !== 0 && cajaActivaFinal) {
+        const dif = Math.round(vuelto); // + sobra (no se dio vuelto) / − falta (se aceptó de menos)
+        const nro = resultado.venta?.numero_control ?? resultado.venta?.id ?? "";
+        try {
+          await fetchWithSupabaseSession("/api/caja/movimiento", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tipo: "ajuste",
+              concepto: `${dif > 0 ? "Sobrante" : "Faltante"} venta ${nro}`.slice(0, 200),
+              monto: dif,
+              caja_id: cajaActivaFinal,
+              observacion: `Cobrado ${Math.round(aPagar)}, recibido ${Math.round(montoRecibidoNum)}`,
+            }),
+          });
+        } catch { /* la venta ya quedó; el ajuste se puede cargar a mano */ }
+      }
       // Puente venta→factura (SIFEN): si el cajero eligió "Factura" y el backend
       // creó la factura ERP, saltamos directo al panel /facturas/[id]?auto=1 que
       // arranca el pipeline SIFEN (borrador → firma → envío → KUDE). Si el puente
@@ -1651,6 +1695,21 @@ export default function NuevaVentaPage() {
       // Documentos de la venta. La nota de remisión se abre además del ticket
       // SOLO si la venta la genera (cliente con usa_nota_remision o toggle activo).
       const v = resultado.venta;
+      // Factura autoimpresor: se numera con el timbrado y se abre para imprimir.
+      if (modoAutoimpresor && tipoDocumento === "factura") {
+        try {
+          const rf = await fetchWithSupabaseSession(`/api/ventas/${v.id}/factura-autoimpresor`, { method: "POST" });
+          const jf = await rf.json().catch(() => null);
+          if (rf.ok && jf?.success) {
+            try { window.open(`/api/ventas/${v.id}/factura-autoimpresor?auto=1`, "_blank", "noopener"); } catch {}
+            router.push("/ventas");
+            return;
+          }
+          window.alert(`La venta quedó registrada, pero la factura no se emitió: ${jf?.error ?? `error ${rf.status}`}. Se imprime el ticket.`);
+        } catch {
+          window.alert("La venta quedó registrada, pero la factura no se emitió (sin conexión). Se imprime el ticket.");
+        }
+      }
       const generaNota = v.genera_nota_remision === true || !!v.nota_remision_numero;
       const ticketUrl = `/api/ventas/${v.id}/comprobante-a4`;
       const remisionUrl = `/api/ventas/${v.id}/ticket?tipo=remision&auto=1`;
@@ -1704,7 +1763,9 @@ export default function NuevaVentaPage() {
         <div className="flex flex-wrap items-center gap-2">
         {/* Depósito del que sale la mercadería: de acá salen el precio y el
             stock, así que va al lado de la caja y no escondido abajo. */}
-        {depositos.length > 0 && (
+        {/* Se sacó de la pantalla a pedido del cliente: se usan los precios y
+            el stock generales del producto. */}
+        {false && depositos.length > 0 && (
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
             <span className="text-xs font-semibold text-slate-500">Depósito</span>
             {depositos.length === 1 ? (
@@ -1757,7 +1818,7 @@ export default function NuevaVentaPage() {
       {/* Con varios depósitos y ninguno elegido, se dice qué falta y por qué
           importa: los precios que se están viendo pueden no ser los que
           corresponden. */}
-      {depositos.length > 1 && !depositoId && (
+      {false && depositos.length > 1 && !depositoId && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <span className="font-semibold">Elegí el depósito del que sale la mercadería.</span>{" "}
           De ahí salen el precio y el stock que se descuenta. Hasta que lo elijas se muestran los
@@ -1993,6 +2054,24 @@ export default function NuevaVentaPage() {
 
             {/* Documento a emitir (solo cuando la empresa está en modo SIFEN):
                 Factura electrónica (puente a SIFEN) vs Solo ticket. */}
+            {modoAutoimpresor && !modoSifen && (
+              <div>
+                <label className={labelClass}>Documento</label>
+                <SegmentedControl<"factura" | "ticket">
+                  value={tipoDocumento}
+                  options={[
+                    { value: "factura", label: "Factura" },
+                    { value: "ticket", label: "Solo ticket" },
+                  ]}
+                  onChange={(v) => setTipoDocumento(v)}
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {tipoDocumento === "factura"
+                    ? "Al confirmar se registra la factura con el próximo número del talonario y se imprimen los datos sobre la hoja preimpresa (te dice qué número poner en la impresora). Sin cliente sale a nombre de SIN NOMBRE."
+                    : "Solo se registra la venta y se imprime el ticket."}
+                </p>
+              </div>
+            )}
             {modoSifen && (
               <div>
                 <label className={labelClass}>Documento</label>
@@ -2635,6 +2714,21 @@ export default function NuevaVentaPage() {
                                 {formatGs(Math.abs(vuelto))}
                               </span>
                             </div>
+                          )}
+                          {montoRecibidoNum > 0 && Math.round(vuelto) !== 0 && (
+                            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-900">
+                              <input
+                                type="checkbox"
+                                checked={registrarDiferencia}
+                                onChange={(e) => setRegistrarDiferencia(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 accent-[#4FAEB2]"
+                              />
+                              <span>
+                                {vuelto > 0
+                                  ? <>No se da el vuelto: registrar <strong>{formatGs(vuelto)}</strong> como <strong>sobrante</strong> de caja.</>
+                                  : <>Se acepta lo recibido: registrar <strong>{formatGs(-vuelto)}</strong> como <strong>faltante</strong> de caja.</>}
+                              </span>
+                            </label>
                           )}
                         </div>
                       )}

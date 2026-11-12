@@ -46,12 +46,30 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       sucursal_origen_id?: unknown;
+      sucursal_destino_id?: unknown;
+      modo?: unknown;
       items?: unknown;
       observacion?: unknown;
     };
-    const sucursalOrigenId = typeof body.sucursal_origen_id === "string" ? body.sucursal_origen_id : "";
-    if (!sucursalOrigenId) {
-      return NextResponse.json(errorResponse("Elegí la sucursal de origen."), { status: 400 });
+    /**
+     * Dos modos:
+     *   pedir  (por defecto) — la sucursal del usuario es el DESTINO y elige
+     *          de quién pide.
+     *   enviar — la sucursal del usuario es el ORIGEN, elige a quién manda y
+     *          los productos de su propio catálogo. Nace aprobada.
+     */
+    const envio = body.modo === "enviar";
+    const sucursalOrigenId = envio
+      ? r.ctx.sucursalId
+      : typeof body.sucursal_origen_id === "string" ? body.sucursal_origen_id : "";
+    const sucursalDestinoId = envio
+      ? (typeof body.sucursal_destino_id === "string" ? body.sucursal_destino_id : "")
+      : r.ctx.sucursalId;
+    if (!sucursalOrigenId || !sucursalDestinoId) {
+      return NextResponse.json(
+        errorResponse(envio ? "Elegí a qué sucursal mandás." : "Elegí la sucursal de origen."),
+        { status: 400 }
+      );
     }
     const itemsRaw = Array.isArray(body.items) ? body.items : [];
     const items = itemsRaw
@@ -75,15 +93,19 @@ export async function POST(request: NextRequest) {
     const observacion =
       typeof body.observacion === "string" ? body.observacion.trim().slice(0, 500) || null : null;
 
-    // La sucursal del usuario ES el destino (quien solicita/recibe la mercadería).
+    // En un envío se eligen productos del catálogo PROPIO (el origen).
     const out = await crearTransferencia({
       schemaRaw: r.ctx.schema,
       empresaId: r.ctx.empresaId,
-      sucursalDestinoId: r.ctx.sucursalId,
+      sucursalDestinoId,
       sucursalOrigenId,
-      items,
+      items: envio
+        ? items.map((it) => ({ producto_origen_id: it.producto_origen_id || it.producto_destino_id, cantidad_solicitada: it.cantidad_solicitada }))
+        : items,
       observacion,
       usuarioId: r.ctx.usuarioId,
+      envio,
+      sinAprobacion: true,
     });
     return NextResponse.json(successResponse({ id: out.id, numero: out.numero }));
   } catch (err) {

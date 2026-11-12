@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Check, Download, FileCheck2, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Download, FileCheck2, FileText, Loader2, Lock, Pencil, Trash2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
@@ -156,6 +156,41 @@ export default function PresupuestoDetallePage() {
   }
 
   const [enviando, setEnviando] = useState(false);
+
+  /**
+   * RESERVA (script 86). Reservado, su mercadería no se puede cotizar en otro
+   * presupuesto. Reservar puede cualquiera; quitar la reserva, solo un admin.
+   */
+  const [reserva, setReserva] = useState<{
+    disponible: boolean; reservado: boolean; reservado_por?: string | null; reservado_at?: string | null; puede_quitar: boolean;
+  } | null>(null);
+  const [reservando, setReservando] = useState(false);
+  const cargarReserva = useCallback(async () => {
+    try {
+      const r = await fetchWithSupabaseSession(`/api/presupuestos/${id}/reserva`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (j?.success) setReserva(j.data);
+    } catch { /* sin dato: no se muestra el botón */ }
+  }, [id]);
+  useEffect(() => { void cargarReserva(); }, [cargarReserva]);
+
+  async function cambiarReserva(reservar: boolean) {
+    if (!reservar && !confirm("¿Quitar la reserva? La mercadería vuelve a quedar libre para otros presupuestos.")) return;
+    setReservando(true);
+    setError(null);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/presupuestos/${id}/reserva`, { method: reservar ? "POST" : "DELETE" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.success) { setError(j?.error ?? "No se pudo cambiar la reserva."); return; }
+      setOk(reservar ? "Mercadería reservada: no se puede cotizar en otro presupuesto." : "Se quitó la reserva.");
+      setTimeout(() => setOk(null), 3500);
+      await cargarReserva();
+    } catch {
+      setError("Error de red.");
+    } finally {
+      setReservando(false);
+    }
+  }
 
   /** Pone (o saca) el presupuesto en la cola de cobro del cajero. */
   async function mandarACaja(mandar: boolean) {
@@ -330,6 +365,32 @@ export default function PresupuestoDetallePage() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {enviando ? "Mandando…" : "Mandar a cobrar"}
+              </button>
+            )
+          )}
+          {reserva?.disponible && presu.estado !== "convertido" && presu.estado !== "rechazado" && !presu.convertido_venta_id && (
+            reserva.reservado ? (
+              <button
+                type="button"
+                onClick={() => reserva.puede_quitar && void cambiarReserva(false)}
+                disabled={reservando || !reserva.puede_quitar}
+                title={
+                  (reserva.reservado_por ? `Reservado por ${reserva.reservado_por}. ` : "") +
+                  (reserva.puede_quitar ? "Tocá para quitar la reserva." : "Solo un administrador puede quitar la reserva.")
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-default disabled:opacity-90"
+              >
+                <Lock className="h-4 w-4" /> Reservado{reserva.puede_quitar ? " — quitar" : ""}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void cambiarReserva(true)}
+                disabled={reservando}
+                title="Aparta la mercadería: no se va a poder cotizar en otro presupuesto"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
+              >
+                <Lock className="h-4 w-4" /> {reservando ? "Reservando…" : "Reservar mercadería"}
               </button>
             )
           )}

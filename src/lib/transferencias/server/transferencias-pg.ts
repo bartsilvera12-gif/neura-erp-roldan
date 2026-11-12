@@ -153,6 +153,15 @@ export async function crearTransferencia(params: {
   items: TransferenciaItemInput[];
   observacion: string | null;
   usuarioId: string | null;
+  /**
+   * ENVÍO: la arma la sucursal que MANDA (no la que pide), eligiendo de su
+   * propio catálogo. Nace aprobada con lo que se manda, lista para despachar.
+   * Sirve para mandar algo que la otra sucursal nunca tuvo: se le crea la
+   * ficha en cero, igual que cuando lo pide ella.
+   */
+  envio?: boolean;
+  /** Nace aprobada aunque la pida la sucursal destino: no hay paso de aprobar. */
+  sinAprobacion?: boolean;
 }): Promise<{ id: string; numero: string }> {
   const schema = assertAllowedChatDataSchema(params.schemaRaw);
   const { empresaId, sucursalDestinoId, sucursalOrigenId } = params;
@@ -328,6 +337,21 @@ export async function crearTransferencia(params: {
           p.unidad_medida,
           cant,
         ]
+      );
+    }
+
+    // Sin paso de aprobación (pedido del cliente): toda transferencia nace
+    // aprobada con lo pedido, y la sucursal que manda pasa directo a despachar.
+    if (params.envio || params.sinAprobacion) {
+      await client.query(
+        `UPDATE ${tI} SET cantidad_aprobada = cantidad_solicitada, updated_at = now()
+          WHERE transferencia_id = $1::uuid`,
+        [transferenciaId]
+      );
+      await client.query(
+        `UPDATE ${tT} SET estado = 'aprobada', aprobada_por = $1::uuid, aprobada_at = now(), updated_at = now()
+          WHERE id = $2::uuid`,
+        [params.usuarioId, transferenciaId]
       );
     }
 

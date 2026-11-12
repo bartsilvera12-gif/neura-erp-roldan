@@ -122,7 +122,7 @@ export default function ReposicionPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
-  const [crearAbierto, setCrearAbierto] = useState(false);
+  const [crearAbierto, setCrearAbierto] = useState<false | "pedir" | "enviar">(false);
 
   // Filtros del punto 8.1. Los aplica el servidor, no el navegador: la lista
   // viene cortada en 500 filas, así que filtrar acá dejaría afuera lo viejo.
@@ -252,8 +252,16 @@ export default function ReposicionPage() {
               t.estado,
             ])}
           />
+          {/* Mandar a otra sucursal sin que la pidan, incluso algo que nunca
+              tuvieron (se les crea la ficha). Nace aprobada. */}
           <button
-            onClick={() => setCrearAbierto(true)}
+            onClick={() => setCrearAbierto("enviar")}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#4FAEB2] bg-white px-4 py-2.5 text-sm font-semibold text-[#3F8E91] shadow-sm transition-colors hover:bg-[#4FAEB2]/10"
+          >
+            <ArrowLeftRight className="h-4 w-4" /> Enviar a otra sucursal
+          </button>
+          <button
+            onClick={() => setCrearAbierto("pedir")}
             className="inline-flex items-center gap-2 rounded-lg bg-[#4FAEB2] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3F8E91]"
           >
             <Plus className="h-4 w-4" /> Solicitar reposición
@@ -313,8 +321,8 @@ export default function ReposicionPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg bg-slate-100 p-1 w-fit">
         {([
-          ["realizadas", "Solicitudes realizadas"],
-          ["recibidas", "Solicitudes recibidas"],
+          ["realizadas", "Remisiones realizadas"],
+          ["recibidas", "Remisiones recibidas"],
         ] as const).map(([k, label]) => (
           <button
             key={k}
@@ -471,10 +479,12 @@ export default function ReposicionPage() {
 
       {crearAbierto && (
         <ModalCrear
+          modo={crearAbierto}
           onClose={() => setCrearAbierto(false)}
           onCreada={() => {
+            // Un envío lo despacha uno mismo: queda en la solapa donde se despacha.
+            setTab(crearAbierto === "enviar" ? "recibidas" : "realizadas");
             setCrearAbierto(false);
-            setTab("realizadas");
             cargar();
           }}
         />
@@ -494,8 +504,10 @@ export default function ReposicionPage() {
 }
 
 // ── Modal: crear solicitud ───────────────────────────────────────────────────
-function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () => void }) {
+function ModalCrear({ modo, onClose, onCreada }: { modo: "pedir" | "enviar"; onClose: () => void; onCreada: () => void }) {
+  const envio = modo === "enviar";
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  /** Pedir: de quién se pide. Enviar: a quién se manda. */
   const [origenId, setOrigenId] = useState("");
   const [obs, setObs] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -514,7 +526,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
         setSucursales(list);
         // Opción inicial: la sucursal principal (es_principal).
         const principal = list.find((s) => s.es_principal);
-        if (principal) setOrigenId(principal.id);
+        if (principal && !envio) setOrigenId(principal.id);
       }
     })();
   }, []);
@@ -526,13 +538,14 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
   //
   // Sin origen elegido no hay dónde buscar, y se dice en vez de quedarse mudo.
   useEffect(() => {
-    if (!origenId) { setResultados([]); return; }
+    if (!envio && !origenId) { setResultados([]); return; }
     const q = busqueda.trim();
     let vivo = true;
     const t = setTimeout(async () => {
       setBuscandoProd(true);
       try {
-        const sp = new URLSearchParams({ sucursal: origenId, limit: "20" });
+        // En un envío, los productos son los de la sucursal propia.
+        const sp = new URLSearchParams({ sucursal: envio ? "propia" : origenId, limit: "20" });
         if (q) sp.set("q", q);
         const res = await fetchWithSupabaseSession(`/api/transferencias/productos-origen?${sp}`);
         const json = await res.json();
@@ -550,7 +563,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
       vivo = false;
       clearTimeout(t);
     };
-  }, [busqueda, origenId]);
+  }, [busqueda, origenId, envio]);
 
   function agregar(p: ProductoBusq) {
     if (lineas.some((l) => l.producto_destino_id === p.id)) return;
@@ -564,7 +577,7 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
 
   async function guardar() {
     setErr(null);
-    if (!origenId) return setErr("Elegí la sucursal de origen.");
+    if (!origenId) return setErr(envio ? "Elegí a qué sucursal mandás." : "Elegí la sucursal de origen.");
     const items = lineas
       .map((l) => ({ producto_origen_id: l.producto_destino_id, cantidad_solicitada: Number(l.cantidad) || 0 }))
       .filter((i) => i.cantidad_solicitada > 0);
@@ -574,7 +587,11 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
       const res = await fetchWithSupabaseSession("/api/transferencias", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sucursal_origen_id: origenId, observacion: obs.trim() || undefined, items }),
+        body: JSON.stringify(
+          envio
+            ? { modo: "enviar", sucursal_destino_id: origenId, observacion: obs.trim() || undefined, items }
+            : { sucursal_origen_id: origenId, observacion: obs.trim() || undefined, items }
+        ),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "No se pudo crear.");
@@ -586,10 +603,16 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
   }
 
   return (
-    <Overlay onClose={onClose} titulo="Solicitar reposición">
+    <Overlay onClose={onClose} titulo={envio ? "Enviar a otra sucursal" : "Solicitar reposición"}>
       <div className="space-y-4">
+        {envio && (
+          <p className="rounded-lg bg-[#4FAEB2]/10 px-3 py-2 text-xs text-slate-600">
+            Mandás mercadería de tu sucursal sin que te la pidan. Si la otra sucursal no tiene ese
+            producto, se le crea al recibirlo. Queda lista para despachar e imprimir la remisión.
+          </p>
+        )}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Sucursal de origen</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">{envio ? "Sucursal a la que mandás" : "Sucursal de origen"}</label>
           <Selector
             value={origenId}
             onChange={(e) => setOrigenId(e.target.value)}
@@ -615,8 +638,8 @@ function ModalCrear({ onClose, onCreada }: { onClose: () => void; onCreada: () =
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder={origenId ? "Buscar por nombre o SKU…" : "Primero elegí la sucursal de origen"}
-              disabled={!origenId}
+              placeholder={envio || origenId ? "Buscar por nombre o SKU…" : "Primero elegí la sucursal de origen"}
+              disabled={!envio && !origenId}
               className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
             />
             {origenId && resultados.length === 0 && !buscandoProd && (
@@ -812,6 +835,18 @@ function ModalDetalle({
               <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
                 Remisión {cab.numero_remision}
               </span>
+            )}
+            {/* La nota de remisión para que viaje con la mercadería. Antes de
+                despachar sale como borrador, con lo aprobado. */}
+            {estado !== "cancelada" && estado !== "rechazada" && (
+              <a
+                href={`/api/transferencias/${cab.id}/remision`}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#3F8E91]"
+              >
+                Imprimir remisión
+              </a>
             )}
           </div>
 

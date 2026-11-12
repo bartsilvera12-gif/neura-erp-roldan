@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FORMA_PAGO_CONTADO, clienteTieneCredito } from "@/lib/presupuestos/formas-pago";
 import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -73,7 +74,12 @@ export async function GET(request: NextRequest) {
           // `or` y no `eq`: los presupuestos viejos no tienen vendedor cargado
           // y son de quien los hizo. Sin esto, el vendedor dejaría de ver todo
           // lo que cargó antes del script 41.
-          q = q.or(`vendedor_usuario_id.eq.${propioId},usuario_id.eq.${propioId}`);
+          // Los dos identificadores de la persona: al crear se guarda en
+          // `usuario_id` el de la sesión (auth) y en `vendedor_usuario_id` el de
+          // la ficha. Filtrando solo por uno, el usuario normal no veía los
+          // presupuestos que él mismo había hecho.
+          const ids = [...new Set([propioId, ctx.auth.user?.id, ctx.auth.usuarioCatalogId].filter(Boolean))] as string[];
+          q = q.or(ids.flatMap((id) => [`vendedor_usuario_id.eq.${id}`, `usuario_id.eq.${id}`]).join(","));
         }
         if (soloCola) {
           q = q.eq("estado", "aprobado").not("enviado_a_caja_at", "is", null).is("convertido_venta_id", null);
@@ -100,6 +106,26 @@ export async function GET(request: NextRequest) {
 }
 
 /** POST /api/presupuestos — crear. NO descuenta stock. */
+/**
+ * Contado para el usuario normal: solo administración, o un cliente con
+ * crédito en su ficha, permiten otra forma de pago. Devuelve el error, o null.
+ */
+async function formaPagoNoPermitida(
+  sb: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  empresaId: string,
+  esAdmin: boolean,
+  formaPago: unknown,
+  clienteId: unknown
+): Promise<string | null> {
+  const fp = typeof formaPago === "string" ? formaPago.trim() : "";
+  if (esAdmin || !fp || fp === FORMA_PAGO_CONTADO) return null;
+  if (typeof clienteId === "string" && clienteId.trim()) {
+    const r = await sb.from("clientes").select("*").eq("empresa_id", empresaId).eq("id", clienteId.trim()).maybeSingle();
+    if (!r.error && clienteTieneCredito(r.data as Record<string, unknown> | null)) return null;
+  }
+  return "Este cliente no tiene crédito: el presupuesto solo puede ser al contado. Para darle crédito, se marca en su ficha.";
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Con el rol: hace falta para saber si puede poner el presupuesto a
@@ -199,7 +225,15 @@ export async function POST(request: NextRequest) {
      */
     const autoguardado = body.autoguardado === true;
 
-    if (!autoguardado && !(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
+    if (!autoguardado) {
+      const errFp = await formaPagoNoPermitida(ctx.supabase, ctx.auth.empresa_id, isAdmin(ctx.auth), body.forma_pago, body.cliente_id);
+      if (errFp) return NextResponse.json(errorResponse(errFp), { status: 400 });
+    }
+
+    // Cotizar por encima del stock: SOLO administración (antes alcanzaba la
+    // facultad del perfil y un usuario normal podía).
+    void tieneFacultad;
+    if (!autoguardado && !isAdmin(ctx.auth)) {
       const faltantes = await faltantesDeStock(
         ctx.supabase,
         ctx.auth.empresa_id,

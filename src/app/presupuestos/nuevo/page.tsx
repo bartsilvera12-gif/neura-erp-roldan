@@ -10,7 +10,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
-import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
+import { FORMA_PAGO_CONTADO, clienteTieneCredito, esFormaPagoConocida, formasPagoPermitidas } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
@@ -35,6 +35,9 @@ type ClienteLite = {
   ruc: string | null;
   telefono: string | null;
   direccion: string | null;
+  /** Ficha del cliente: si tiene crédito, se le puede cotizar a crédito. */
+  condicion_pago?: string | null;
+  limite_credito?: number | null;
 };
 type Item = {
   producto_id: string | null;
@@ -150,9 +153,10 @@ export default function NuevoPresupuestoPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [selProd, setSelProd] = useState("");
 
-  // Toggle mayorista: por defecto usa el precio de venta minorista.
-  // Cuando está ON, al agregar un producto se toma `precio_mayorista` si > 0.
-  const [usarMayorista, setUsarMayorista] = useState(false);
+  // El tilde "Usar precios mayoristas por defecto" se sacó de la pantalla a
+  // pedido del cliente: cada ítem entra con el precio de venta (minorista).
+  // El precio por rubro del cliente sigue aplicándose aparte.
+  const usarMayorista = false;
 
   // Condiciones
   const [formaPago, setFormaPago] = useState("");
@@ -182,7 +186,22 @@ export default function NuevoPresupuestoPage() {
    * center la tienen —venden con entrega a plazo— sin ser administradores.
    */
   const { tiene: tieneFacultad } = useFacultades();
-  const puedeSinStock = tieneFacultad("cotizar_sin_stock");
+  // Cotizar sin stock: SOLO administración (pedido del cliente). Antes
+  // alcanzaba con la facultad del perfil y un usuario normal podía.
+  void tieneFacultad;
+  const puedeSinStock = isAdmin;
+
+  /**
+   * FORMA DE PAGO. El usuario normal solo cotiza al contado, salvo que el
+   * cliente elegido tenga crédito en su ficha. Administración, todas.
+   */
+  const clienteElegido = clientes.find((c) => c.id === clienteId) ?? null;
+  const formasPermitidas = formasPagoPermitidas(isAdmin, clienteTieneCredito(clienteElegido));
+  useEffect(() => {
+    if (!rolCargado || isAdmin) return;
+    if (formaPago && !formasPermitidas.some((f) => f.valor === formaPago)) setFormaPago(FORMA_PAGO_CONTADO);
+    if (!formaPago) setFormaPago(FORMA_PAGO_CONTADO);
+  }, [rolCargado, isAdmin, formaPago, formasPermitidas]);
 
   /** La sucursal del usuario, para que se vea de dónde salen los precios. */
   const [sucursalNombre, setSucursalNombre] = useState<string | null>(null);
@@ -264,7 +283,6 @@ export default function NuevoPresupuestoPage() {
           setClienteCiudad(txt("clienteCiudad"));
           setClienteProfesion(txt("clienteProfesion"));
           if (Array.isArray(b.items)) setItems(b.items as Item[]);
-          setUsarMayorista(b.usarMayorista === true);
           if (txt("formaPago")) setFormaPago(txt("formaPago"));
           setPlazoEntrega(txt("plazoEntrega"));
           setObservaciones(txt("observaciones"));
@@ -448,6 +466,8 @@ export default function NuevoPresupuestoPage() {
         ruc: s(c.ruc) || null,
         telefono: s(c.telefono) || null,
         direccion: s(c.direccion) || null,
+        condicion_pago: s(c.condicion_pago) || null,
+        limite_credito: c.limite_credito == null ? null : Number(c.limite_credito),
       }));
       // El elegido se conserva aunque no esté en esta búsqueda, para que se
       // siga viendo su nombre en el selector.
@@ -978,20 +998,6 @@ export default function NuevoPresupuestoPage() {
         titulo="Productos"
         descripcion="Del inventario, o escritos a mano si todavía no están cargados."
         completa={items.length > 0}
-        /* El tilde vive acá: es con qué precio entra cada ítem que se agrega,
-           no una opción general del presupuesto. Arriba, al lado del título,
-           no se entendía a qué se refería. */
-        acciones={
-          <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600">
-            <input
-              type="checkbox"
-              checked={usarMayorista}
-              onChange={(e) => setUsarMayorista(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 accent-[#4FAEB2]"
-            />
-            Usar precios mayoristas por defecto
-          </label>
-        }
       >
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
@@ -1206,7 +1212,7 @@ export default function NuevoPresupuestoPage() {
               className={`${inputClass} bg-white`}
             >
               <option value="">— Elegir —</option>
-              {FORMAS_PAGO.map((f) => (
+              {formasPermitidas.map((f) => (
                 <option key={f.valor} value={f.valor}>{f.etiqueta}</option>
               ))}
               {/* Un presupuesto viejo puede tener una forma escrita a mano: se
@@ -1286,16 +1292,19 @@ export default function NuevoPresupuestoPage() {
           <div className={`sm:col-span-2 rounded-xl border-2 p-4 transition-colors ${
             faltaMaterial ? "border-amber-400 bg-amber-50" : "border-amber-200 bg-amber-50/50"
           }`}>
-            <label className="flex items-center gap-3 text-base font-bold text-amber-900 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={faltaMaterial}
-                onChange={(e) => setFaltaMaterial(e.target.checked)}
-                className="h-5 w-5 rounded border-amber-400"
-              />
-              Falta material para cumplir este presupuesto
-            </label>
-            <label className={`${labelClass} mt-3`}>Nota interna</label>
+            {/* Cotizar con material faltante es de administración. */}
+            {isAdmin && (
+              <label className="flex items-center gap-3 text-base font-bold text-amber-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={faltaMaterial}
+                  onChange={(e) => setFaltaMaterial(e.target.checked)}
+                  className="h-5 w-5 rounded border-amber-400"
+                />
+                Falta material para cumplir este presupuesto
+              </label>
+            )}
+            <label className={`${labelClass} ${isAdmin ? "mt-3" : ""}`}>Nota interna</label>
             <textarea
               value={notaInterna}
               onChange={(e) => setNotaInterna(e.target.value)}
