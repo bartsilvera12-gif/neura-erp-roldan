@@ -928,26 +928,58 @@ async function fetchChatConversationsUnsafe(
   ];
   let byId: Record<string, Record<string, unknown>> = {};
   if (contactIds.length > 0) {
-    const traer = (cols: string) =>
-      supabase.from("chat_contacts").select(cols).eq("empresa_id", empresa_id).in("id", contactIds);
+    /**
+     * ── LOS CONTACTOS SE PIDEN DE A LOTES, NO TODOS JUNTOS ─────────────────
+     *
+     * PostgREST manda los filtros en la URL: `id=in.(uuid,uuid,…)`. Un UUID
+     * son 37 caracteres, así que pedir doscientos y pico contactos arma una
+     * dirección de más de 8 KB, y el servidor la rechaza entera con
+     * "URI too long" (414).
+     *
+     * Eso fue exactamente lo que pasó: con 232 conversaciones y 218 contactos
+     * distintos la consulta entraba en 8.241 caracteres, el servidor la
+     * cortaba, y como el error se registraba sin interrumpir nada, el inbox
+     * se dibujaba con TODOS los chats diciendo "Sin nombre" y "Número no
+     * visible". Los nombres estaban en la base; nunca llegaban a la pantalla.
+     *
+     * Y empeoraba solo: cuantos más chats, más larga la URL. Por eso se parte
+     * en lotes de 80 —unos 3 KB por pedido, bien lejos del límite— en vez de
+     * subir el tope del servidor, que volvería a quedar corto más adelante.
+     */
+    const POR_LOTE = 80;
+    const COLUMNAS = "id, name, phone_number, telefono_real, cliente_id, crm_prospecto_id";
+    // Sin el script 40 no existe `telefono_real` y PostgREST rechaza TODA la
+    // consulta: se reintenta el lote sin esa columna.
+    const COLUMNAS_SIN_TELEFONO_REAL = "id, name, phone_number, cliente_id, crm_prospecto_id";
 
-    let { data: contacts, error: e2 } = await traer(
-      "id, name, phone_number, telefono_real, cliente_id, crm_prospecto_id"
-    );
-    // Sin el script 40 la columna no existe y PostgREST rechaza TODA la
-    // consulta, no devuelve null: sin este reintento el inbox se quedaría sin
-    // un solo contacto.
-    if (e2 && /telefono_real/.test(e2.message ?? "")) {
-      ({ data: contacts, error: e2 } = await traer(
-        "id, name, phone_number, cliente_id, crm_prospecto_id"
-      ));
+    const filas: Record<string, unknown>[] = [];
+    let falló = false;
+    for (let i = 0; i < contactIds.length; i += POR_LOTE) {
+      const lote = contactIds.slice(i, i + POR_LOTE);
+      const traer = (cols: string) =>
+        supabase.from("chat_contacts").select(cols).eq("empresa_id", empresa_id).in("id", lote);
+
+      let { data: contacts, error: e2 } = await traer(COLUMNAS);
+      if (e2 && /telefono_real/.test(e2.message ?? "")) {
+        ({ data: contacts, error: e2 } = await traer(COLUMNAS_SIN_TELEFONO_REAL));
+      }
+      if (e2) {
+        falló = true;
+        console.warn("[fetchChatConversations] chat_contacts (lote):", e2.message);
+        continue;
+      }
+      filas.push(...((contacts ?? []) as unknown as Record<string, unknown>[]));
     }
 
-    if (e2) {
-      console.warn("[fetchChatConversations] chat_contacts:", e2.message);
-    } else {
-      byId = Object.fromEntries(
-        ((contacts ?? []) as unknown as Record<string, unknown>[]).map((c) => [String(c.id), c])
+    byId = Object.fromEntries(filas.map((c) => [String(c.id), c]));
+
+    // Si faltan contactos, la pantalla va a mostrar "Sin nombre" en esos
+    // chats. Se deja dicho en el registro con los números, porque desde la
+    // pantalla ese síntoma no distingue entre "no hay nombre cargado" y "no
+    // se pudieron traer".
+    if (falló || filas.length < contactIds.length) {
+      console.warn(
+        `[fetchChatConversations] contactos incompletos: se pidieron ${contactIds.length}, llegaron ${filas.length}`
       );
     }
   }
