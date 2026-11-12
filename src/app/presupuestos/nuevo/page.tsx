@@ -349,10 +349,17 @@ export default function NuevoPresupuestoPage() {
         const j = await r.json().catch(() => null);
         if (!vivo) return;
         if (!r.ok || !j?.success) {
+          /* 401 es el caso frecuente y tiene arreglo de un clic: la sesión se
+             venció con la pestaña abierta. El ayudante intenta renovarla solo,
+             pero si tampoco puede manda la llamada sin credenciales y el
+             servidor contesta "No autenticado". Decir eso no ayuda a nadie;
+             decir "recargá" sí. */
           setErrorProductos(
-            j?.error?.message ||
-              j?.error ||
-              `No se pudo traer el inventario (${r.status}).`
+            r.status === 401
+              ? "Tu sesión venció. Recargá la página (F5) y, si sigue igual, volvé a entrar."
+              : j?.error?.message ||
+                  j?.error ||
+                  `No se pudo traer el inventario (${r.status}).`
           );
           return;
         }
