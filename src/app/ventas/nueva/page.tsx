@@ -1201,7 +1201,7 @@ export default function NuevaVentaPage() {
     motivo?: string | null;
   }>>({});
 
-  const { descuentoMaximo } = useIsAdmin();
+  const { descuentoMaximo, isAdmin: esAdminCaja } = useIsAdmin();
   /**
    * Costos, utilidad, margen y dólares: facultad `ver_costos`.
    *
@@ -1209,7 +1209,10 @@ export default function NuevaVentaPage() {
    * puede dar a un encargado sin convertirlo en administrador del sistema.
    */
   const { tiene: tieneFacultad } = useFacultades();
-  const verMargenes = tieneFacultad("ver_costos");
+  // Costos, remarcación y margen: solo administración (pedido del cliente: un
+  // usuario normal no los ve en Caja, aunque su perfil tenga "ver costos").
+  void tieneFacultad;
+  const verMargenes = esAdminCaja;
 
   /**
    * Rentabilidad de la venta, SIN IVA.
@@ -1704,7 +1707,9 @@ export default function NuevaVentaPage() {
         <div className="flex flex-wrap items-center gap-2">
         {/* Depósito del que sale la mercadería: de acá salen el precio y el
             stock, así que va al lado de la caja y no escondido abajo. */}
-        {depositos.length > 0 && (
+        {/* Se sacó de la pantalla a pedido del cliente: se usan los precios y
+            el stock generales del producto. */}
+        {false && depositos.length > 0 && (
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
             <span className="text-xs font-semibold text-slate-500">Depósito</span>
             {depositos.length === 1 ? (
@@ -1757,7 +1762,7 @@ export default function NuevaVentaPage() {
       {/* Con varios depósitos y ninguno elegido, se dice qué falta y por qué
           importa: los precios que se están viendo pueden no ser los que
           corresponden. */}
-      {depositos.length > 1 && !depositoId && (
+      {false && depositos.length > 1 && !depositoId && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <span className="font-semibold">Elegí el depósito del que sale la mercadería.</span>{" "}
           De ahí salen el precio y el stock que se descuenta. Hasta que lo elijas se muestran los
