@@ -13,6 +13,9 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Lo que se ve detrás de la barra de estado: el mismo verde del encabezado del inbox. -->
+        <item name="android:windowBackground">@color/barraAsesor</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
 

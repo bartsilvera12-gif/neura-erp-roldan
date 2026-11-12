@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Verde del encabezado de /m/asesor (bg-[#3F8E91]). -->
+    <color name="barraAsesor">#3F8E91</color>
+</resources>

@@ -10,12 +10,20 @@
  */
 export function esAppNativa(): boolean {
   if (typeof window === "undefined") return false;
+  if (esUserAgentDeLaApp(navigator.userAgent)) return true;
   const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
   try {
     return !!cap?.isNativePlatform?.();
   } catch {
     return false;
   }
+}
+
+/** Marca que la APK agrega al user-agent (`appendUserAgent` en capacitor.config.ts). */
+export const MARCA_USER_AGENT_APP = "NeuraAsesorApp";
+
+export function esUserAgentDeLaApp(userAgent: string | null | undefined): boolean {
+  return !!userAgent && userAgent.includes(MARCA_USER_AGENT_APP);
 }
 
 /** La pantalla de inicio de la app: la lista de conversaciones. */

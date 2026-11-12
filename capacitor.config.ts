@@ -25,6 +25,16 @@
  *   `py.com.neura.erp.roldan`. No se cambia después de repartir la app: el
  *   appId es la identidad de la aplicación para Android. Cambiarlo instala una
  *   segunda app al lado en vez de actualizar la que está.
+ *
+ * ── appendUserAgent ────────────────────────────────────────────────────────
+ *   La app se presenta con "NeuraAsesorApp" en el user-agent. El middleware lo
+ *   lee y no deja abrir nada fuera de /m/asesor (y el login): la app es solo
+ *   conversaciones, aunque quien entre sea admin. Si se cambia acá, cambiarlo
+ *   también en src/lib/app-asesor/es-app-nativa.ts.
+ *
+ * ── adjustMarginsForEdgeToEdge ─────────────────────────────────────────────
+ *   Android 15 dibuja la página debajo de la barra de estado (hora, batería) y
+ *   la tapaba. "force" corre el WebView para que empiece debajo de la barra.
  */
 const config = {
   appId: "py.com.neura.erp.roldan",
@@ -32,6 +42,10 @@ const config = {
   // Capacitor lo exige. Con `server.url` remoto casi no se usa: solo se mira
   // si el WebView no puede llegar al servidor.
   webDir: "public",
+  appendUserAgent: "NeuraAsesorApp",
+  android: {
+    adjustMarginsForEdgeToEdge: "force",
+  },
   server: {
     url: "https://roldanehijos.neura.com.py/m/asesor",
     cleartext: false,
