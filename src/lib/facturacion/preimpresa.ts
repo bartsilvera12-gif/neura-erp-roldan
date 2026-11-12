@@ -38,24 +38,33 @@ export type FormatoPreimpreso = {
   liq_total: Punto;
 };
 
+/**
+ * Medido sobre el talonario de Aceros Metal Roldán (ImpreGraf, timbrado
+ * 18975026, formulario continuo de 9½" de ancho con original, duplicado y
+ * triplicado, para impresora matricial). Las medidas salen del escaneo del
+ * 12/11/2026; el alto de la hoja (8½") hay que confirmarlo midiendo de
+ * perforación a perforación.
+ *
+ * Renglones a 4,23 mm (6 líneas por pulgada, el paso de una matricial).
+ */
 export const FORMATO_POR_DEFECTO: FormatoPreimpreso = {
-  hoja: { ancho: 210, alto: 297 },
+  hoja: { ancho: 241.3, alto: 215.9 },
   ajuste: { x: 0, y: 0 },
   letra: 9,
-  fecha: { x: 35, y: 55 },
-  contado: { x: 152, y: 55 },
-  credito: { x: 182, y: 55 },
-  razon_social: { x: 50, y: 62 },
-  ruc: { x: 152, y: 62 },
-  direccion: { x: 30, y: 69 },
-  items: { y: 84, alto_fila: 6, max_filas: 14 },
-  col: { cantidad: 12, descripcion: 30, ancho_descripcion: 82, precio: 135, exentas: 155, iva5: 176, iva10: 198 },
-  subtotales_y: 172,
-  total_letras: { x: 40, y: 180 },
-  total_numero: { x: 198, y: 180 },
-  liq_iva5: { x: 55, y: 188 },
-  liq_iva10: { x: 100, y: 188 },
-  liq_total: { x: 160, y: 188 },
+  fecha: { x: 50, y: 50 },
+  contado: { x: 171, y: 50 },
+  credito: { x: 202.5, y: 50 },
+  razon_social: { x: 56, y: 59.5 },
+  ruc: { x: 30, y: 54.5 },
+  direccion: { x: 37, y: 66.5 },
+  items: { y: 82, alto_fila: 4.23, max_filas: 15 },
+  col: { cantidad: 44, descripcion: 61, ancho_descripcion: 52, precio: 143, exentas: 168.5, iva5: 192.5, iva10: 218 },
+  subtotales_y: 168,
+  total_letras: { x: 50, y: 177 },
+  total_numero: { x: 218, y: 177 },
+  liq_iva5: { x: 67, y: 185 },
+  liq_iva10: { x: 110, y: 185 },
+  liq_total: { x: 160, y: 185 },
 };
 
 /** El formato guardado, completado con los valores por defecto. */
