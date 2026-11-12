@@ -933,17 +933,10 @@ async function fetchChatConversationsUnsafe(
     const traer = (cols: string) =>
       supabase.from("chat_contacts").select(cols).eq("empresa_id", empresa_id).in("id", contactIds);
 
-    let { data: contacts, error: e2 } = await traer(
-      "id, name, phone_number, telefono_real, cliente_id, crm_prospecto_id"
-    );
-    // Sin el script 40 la columna no existe y PostgREST rechaza TODA la
-    // consulta, no devuelve null: sin este reintento el inbox se quedaría sin
-    // un solo contacto.
-    if (e2 && /telefono_real/.test(e2.message ?? "")) {
-      ({ data: contacts, error: e2 } = await traer(
-        "id, name, phone_number, cliente_id, crm_prospecto_id"
-      ));
-    }
+    // "*" a propósito: con columnas fijas, si una no existe en esta base
+    // PostgREST rechaza TODA la consulta y el inbox se queda sin contactos
+    // ("Sin nombre · Número no visible" en todos los chats).
+    const { data: contacts, error: e2 } = await traer("*");
 
     if (e2) {
       console.warn("[fetchChatConversations] chat_contacts:", e2.message);
