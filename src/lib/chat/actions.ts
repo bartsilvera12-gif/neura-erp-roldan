@@ -49,6 +49,8 @@ import {
   quoteSchemaTable,
 } from "@/lib/supabase/chat-pg-pool";
 import { isLikelyUnexposedTenantChatSchema } from "@/lib/supabase/chat-data-schema";
+import { resolveCrmProspectosSchemaForTenant } from "@/lib/crm/crm-prospectos-pg";
+import { ensureWhatsappInboundCrmLeadPg } from "@/lib/crm/whatsapp-inbound-lead-pg";
 import {
   pgDeleteChatChannel,
   pgInsertChatChannelMetaWhatsapp,
@@ -926,29 +928,33 @@ async function fetchChatConversationsUnsafe(
         .filter((x): x is string => Boolean(x && x.length > 0))
     ),
   ];
-  let byId: Record<string, Record<string, unknown>> = {};
+  const byId: Record<string, Record<string, unknown>> = {};
   if (contactIds.length > 0) {
-    const traer = (cols: string) =>
-      supabase.from("chat_contacts").select(cols).eq("empresa_id", empresa_id).in("id", contactIds);
-
-    let { data: contacts, error: e2 } = await traer(
-      "id, name, phone_number, telefono_real, cliente_id, crm_prospecto_id"
-    );
-    // Sin el script 40 la columna no existe y PostgREST rechaza TODA la
-    // consulta, no devuelve null: sin este reintento el inbox se quedaría sin
-    // un solo contacto.
-    if (e2 && /telefono_real/.test(e2.message ?? "")) {
-      ({ data: contacts, error: e2 } = await traer(
-        "id, name, phone_number, cliente_id, crm_prospecto_id"
-      ));
+    /**
+     * DE A LOTES. PostgREST manda el filtro en la URL (`id=in.(uuid,…)`): con
+     * más de ~200 contactos la dirección pasa los 8 KB y el servidor contesta
+     * 414 "URI too long". El error se anotaba y el inbox seguía con la lista
+     * vacía: TODOS los chats salían "Sin nombre · Número no visible", aunque
+     * los nombres y teléfonos estaban guardados. De a 80 son ~3 KB por pedido.
+     *
+     * Y "*" en vez de columnas fijas: si una columna no existe en esta base,
+     * PostgREST rechaza la consulta entera.
+     */
+    const LOTE = 80;
+    for (let i = 0; i < contactIds.length; i += LOTE) {
+      const { data: contacts, error: e2 } = await supabase
+        .from("chat_contacts")
+        .select("*")
+        .eq("empresa_id", empresa_id)
+        .in("id", contactIds.slice(i, i + LOTE));
+      if (e2) {
+        console.warn("[fetchChatConversations] chat_contacts lote", i / LOTE, e2.message);
+        continue;
+      }
+      for (const c of (contacts ?? []) as unknown as Record<string, unknown>[]) byId[String(c.id)] = c;
     }
-
-    if (e2) {
-      console.warn("[fetchChatConversations] chat_contacts:", e2.message);
-    } else {
-      byId = Object.fromEntries(
-        ((contacts ?? []) as unknown as Record<string, unknown>[]).map((c) => [String(c.id), c])
-      );
+    if (Object.keys(byId).length < contactIds.length) {
+      console.warn("[fetchChatConversations] contactos pedidos", contactIds.length, "recibidos", Object.keys(byId).length);
     }
   }
 
@@ -1128,10 +1134,28 @@ export async function renameChatContact(conversationId: string, nombre: string):
     const r = await pool.query(
       `UPDATE ${contactos} SET name = $1, updated_at = now()
         WHERE empresa_id = $2::uuid
-          AND id = (SELECT contact_id FROM ${convs} WHERE id = $3::uuid AND empresa_id = $2::uuid)`,
+          AND id = (SELECT contact_id FROM ${convs} WHERE id = $3::uuid AND empresa_id = $2::uuid)
+        RETURNING crm_prospecto_id::text AS prospecto`,
       [name, empresa_id, cid]
     );
-    return (r.rowCount ?? 0) > 0 ? { ok: true } : { ok: false, error: "No se encontró el contacto." };
+    if ((r.rowCount ?? 0) === 0) return { ok: false, error: "No se encontró el contacto." };
+    // El prospecto del CRM que nació "Cliente de WhatsApp" toma el mismo nombre.
+    const prospecto = (r.rows[0] as { prospecto?: string | null } | undefined)?.prospecto;
+    if (prospecto) {
+      try {
+        const res = await resolveCrmProspectosSchemaForTenant(pool, dataSchema);
+        if (res) {
+          await pool.query(
+            `UPDATE ${quoteSchemaTable(res.crmSchema, "crm_prospectos")} SET contacto = $1, updated_at = now()
+              WHERE id = $2::uuid AND empresa_id = $3::uuid`,
+            [name, prospecto, empresa_id]
+          );
+        }
+      } catch (e) {
+        console.warn("[renameChatContact] prospecto CRM:", e instanceof Error ? e.message : e);
+      }
+    }
+    return { ok: true };
   }
 
   const { data: conv, error: cErr } = await supabase
@@ -1143,6 +1167,52 @@ export async function renameChatContact(conversationId: string, nombre: string):
     .from("chat_contacts").update({ name, updated_at: new Date().toISOString() })
     .eq("id", contactId).eq("empresa_id", empresa_id);
   return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/**
+ * Trae al CRM los chats que ya existían: a cada contacto con chat abierto y
+ * sin prospecto le crea uno (etapa Lead), con la misma lógica que usa la
+ * entrada de mensajes. Los chats anteriores al arreglo nunca habían creado
+ * prospecto. Solo para quien ve todo (administración).
+ */
+export async function importarChatsAlCrm(): Promise<{ ok: boolean; creados: number; errores: number; error?: string }> {
+  const { supabase, catalogSr, empresa_id, usuario_id, dataSchema } = await requireEmpresaTenantServiceRole();
+  const scope = await getOmnicanalScope(supabase, empresa_id, usuario_id, { tenantDataSchema: dataSchema });
+  if (!(await shouldBypassOmnicanalConversationScope(catalogSr, usuario_id, scope))) {
+    return { ok: false, creados: 0, errores: 0, error: "Solo un administrador puede hacer esto." };
+  }
+  const pool = getChatPostgresPool();
+  if (!pool) return { ok: false, creados: 0, errores: 0, error: "Sin conexión a la base de chats." };
+
+  const convs = quoteSchemaTable(dataSchema, "chat_conversations");
+  const contactos = quoteSchemaTable(dataSchema, "chat_contacts");
+  const r = await pool.query(
+    `SELECT DISTINCT ON (c.contact_id) c.id::text AS id, c.contact_id::text AS contact_id,
+            c.channel_id::text AS channel_id, c.last_message_preview::text AS preview
+       FROM ${convs} c
+       JOIN ${contactos} ct ON ct.id = c.contact_id AND ct.empresa_id = c.empresa_id
+      WHERE c.empresa_id = $1::uuid AND ct.crm_prospecto_id IS NULL
+        AND c.status IN ('open', 'pending')
+      ORDER BY c.contact_id, c.last_message_at DESC NULLS LAST
+      LIMIT 1000`,
+    [empresa_id]
+  );
+  let creados = 0, errores = 0;
+  let primerError: string | undefined;
+  for (const row of r.rows as Array<{ id: string; contact_id: string; channel_id: string; preview: string | null }>) {
+    const res = await ensureWhatsappInboundCrmLeadPg({
+      pool,
+      data_schema: dataSchema,
+      empresa_id,
+      contact_id: row.contact_id,
+      conversation_id: row.id,
+      channel_id: row.channel_id,
+      first_message_preview: row.preview,
+    });
+    if (res.ok) creados++;
+    else { errores++; primerError ??= res.error; }
+  }
+  return { ok: errores === 0, creados, errores, error: primerError };
 }
 
 export async function markConversationRead(conversationId: string): Promise<void> {

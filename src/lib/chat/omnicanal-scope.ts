@@ -15,6 +15,7 @@ import {
   pgSelectQueueIdsForUsuarios,
 } from "@/lib/chat/omnicanal-scope-pg";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
+import { createServiceRoleClient } from "@/lib/supabase/service-admin";
 import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-pool";
 import { isLikelyUnexposedTenantChatSchema } from "@/lib/supabase/chat-data-schema";
 import { isInvalidPostgrestSchemaError } from "@/lib/chat/postgrest-schema-error";
@@ -106,7 +107,22 @@ export async function getOmnicanalScope(
     const role = await fetchOmnicanalOperatorRole(supabase, emp, uid, tenantDataSchema);
 
     if (role === "admin") {
-      return { role: "admin", queueIds: [], agentUsuarioIds: [] };
+      /**
+       * Un usuario con perfil "Usuario" en el ERP es un agente, aunque haya
+       * quedado con el rol omnicanal de administrador: si no, ve las
+       * conversaciones, los números y las colas de toda la empresa. El acceso
+       * total lo da el perfil del ERP (administrador, supervisor…), no esta fila.
+       */
+      let rolErp = "";
+      try {
+        const { data } = await createServiceRoleClient()
+          .from("usuarios").select("rol").eq("id", uid).maybeSingle();
+        rolErp = String((data as { rol?: string | null } | null)?.rol ?? "").trim().toLowerCase();
+      } catch { /* sin dato: se respeta la fila */ }
+      if (rolErp !== "usuario") {
+        return { role: "admin", queueIds: [], agentUsuarioIds: [] };
+      }
+      return { role: "agente", queueIds: [], agentUsuarioIds: [uid] };
     }
 
     if (role === "supervisor") {

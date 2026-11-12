@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Trash2, Loader2, History } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import SeccionForm from "@/components/ui/SeccionForm";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import SearchableSelect from "@/components/ui/SearchableSelect";
+import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
@@ -20,6 +20,7 @@ import { useFacultades } from "@/lib/perfiles/use-facultades";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
 import Selector from "@/components/ui/Selector";
 import { getSession } from "@/lib/auth";
+import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -103,10 +104,24 @@ const inputClass =
 export default function NuevoPresupuestoPage() {
   const router = useRouter();
   const [productos, setProductos] = useState<ProductoLite[]>([]);
+  /**
+   * El botón «Agregar», para encadenar el teclado.
+   *
+   * La carga de un presupuesto es repetitiva: diez, veinte líneas. Elegido el
+   * producto, el foco salta acá, así que la secuencia completa es escribir,
+   * bajar con la flecha, Enter para elegir y Enter para agregar — sin tocar
+   * el mouse en ningún momento.
+   */
+  const btnAgregarRef = useRef<HTMLButtonElement>(null);
+  const buscadorProductoRef = useRef<SearchableSelectHandle>(null);
+  /** Por qué no hay inventario para elegir. `null` = llegó bien. */
+  const [errorProductos, setErrorProductos] = useState<string | null>(null);
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
 
   // Cliente
   const [clienteId, setClienteId] = useState("");
+  const clienteIdRef = useRef("");
+  clienteIdRef.current = clienteId;
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteRuc, setClienteRuc] = useState("");
   const [clienteTel, setClienteTel] = useState("");
@@ -154,7 +169,12 @@ export default function NuevoPresupuestoPage() {
    * presupuesto con los precios de su sucursal y, si hace falta otro número,
    * lo pide.
    */
-  const { isAdmin, loaded: rolCargado } = useIsAdmin();
+  const { isAdmin, loaded: rolCargado, descuentoMaximo } = useIsAdmin();
+  /**
+   * El descuento lo ve quien puede darlo: administración o un perfil con
+   * descuento máximo cargado. Al usuario normal no se le muestra la columna.
+   */
+  const puedeDescontar = isAdmin || (descuentoMaximo ?? 0) > 0;
   /**
    * Cotizar por más de lo que hay: facultad `cotizar_sin_stock`.
    *
@@ -323,27 +343,65 @@ export default function NuevoPresupuestoPage() {
     window.location.reload();
   }
 
+  /**
+   * ── SI EL INVENTARIO NO LLEGA, HAY QUE DECIRLO ─────────────────────────
+   *
+   * Esto antes hacía `if (j?.success)` y `.catch(() => {})`: ante cualquier
+   * problema —sesión vencida, usuario sin sucursal asignada, error del
+   * servidor— dejaba la lista vacía y no decía nada.
+   *
+   * El resultado en la pantalla era un buscador de productos que no encuentra
+   * NINGUNO, sin un solo mensaje. Quien lo usa no tiene forma de distinguir
+   * "no hay productos cargados" de "no se pudieron traer", y quien tiene que
+   * arreglarlo tampoco: el síntoma es el mismo y no deja rastro.
+   *
+   * Ahora se guarda el motivo y se muestra arriba del buscador. El servidor
+   * ya manda mensajes accionables —por ejemplo, que el usuario no tiene
+   * sucursal asignada y que un administrador se la ponga desde Usuarios—, y
+   * eso es justamente lo que hay que leer.
+   */
   useEffect(() => {
+    let vivo = true;
     fetchWithSupabaseSession("/api/productos", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j?.success) {
-          const list = (j.data?.productos ?? []) as Record<string, unknown>[];
-          setProductos(
-            list
-              .filter((p) => p.es_vendible !== false)
-              .map((p) => ({
-                id: String(p.id),
-                nombre: String(p.nombre),
-                sku: String(p.sku ?? ""),
-                precio_venta: Number(p.precio_venta) || 0,
-                precio_mayorista: Number(p.precio_mayorista) || 0,
-                unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
-              }))
+      .then(async (r) => {
+        const j = await r.json().catch(() => null);
+        if (!vivo) return;
+        if (!r.ok || !j?.success) {
+          /* 401 es el caso frecuente y tiene arreglo de un clic: la sesión se
+             venció con la pestaña abierta. El ayudante intenta renovarla solo,
+             pero si tampoco puede manda la llamada sin credenciales y el
+             servidor contesta "No autenticado". Decir eso no ayuda a nadie;
+             decir "recargá" sí. */
+          setErrorProductos(
+            r.status === 401
+              ? "Tu sesión venció. Recargá la página (F5) y, si sigue igual, volvé a entrar."
+              : j?.error?.message ||
+                  j?.error ||
+                  `No se pudo traer el inventario (${r.status}).`
           );
+          return;
         }
+        const list = (j.data?.productos ?? []) as Record<string, unknown>[];
+        const vendibles = list.filter((p) => p.es_vendible !== false);
+        setErrorProductos(
+          vendibles.length === 0
+            ? "No hay productos disponibles para tu sucursal."
+            : null
+        );
+        setProductos(
+          vendibles.map((p) => ({
+            id: String(p.id),
+            nombre: String(p.nombre),
+            sku: String(p.sku ?? ""),
+            precio_venta: Number(p.precio_venta) || 0,
+            precio_mayorista: Number(p.precio_mayorista) || 0,
+            unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
+          }))
+        );
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (vivo) setErrorProductos(e instanceof Error ? e.message : "No se pudo traer el inventario.");
+      });
     /**
      * Las condiciones de la casa, precargadas.
      *
@@ -356,45 +414,50 @@ export default function NuevoPresupuestoPage() {
      *   vendedor lo cambia, para ESE presupuesto manda lo que escribió; la
      *   plantilla sigue siendo el texto por defecto de todos los demás.
      */
-    fetchWithSupabaseSession("/api/configuracion/presupuesto-plantilla", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        const pl = j?.data?.plantilla;
-        if (!j?.success || !pl) return;
-        if (typeof pl.observaciones === "string" && pl.observaciones.trim()) {
-          setCondiciones((prev) => (prev.trim() ? prev : pl.observaciones));
-        }
-        if (typeof pl.forma_pago === "string" && pl.forma_pago.trim()) {
-          // El {anticipo} de la plantilla se resuelve con el porcentaje
-          // configurado: en el campo tiene que verse el texto final, no la
-          // marca.
-          const pct = Number(pl.anticipo_pct);
-          const texto = pl.forma_pago.replace(
-            /\{anticipo\}/g,
-            Number.isFinite(pct) ? String(pct) : "0"
-          );
-          setFormaPago((prev) => (prev.trim() ? prev : texto));
-        }
-      })
-      .catch(() => { /* sin plantilla, el PDF igual imprime la suya */ });
+    // La forma de pago viene con el marcador {anticipo}, igual que las opciones.
+    void cargarPlantillaPresupuesto().then((pl) => {
+      if (!pl) return; // sin plantilla, el PDF igual imprime la suya
+      if (pl.condiciones.trim()) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
+      if (pl.formaPago.trim()) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
+    });
 
-    fetchWithSupabaseSession("/api/clientes", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j?.success && Array.isArray(j.data)) {
-          const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-          setClientes(
-            (j.data as Record<string, unknown>[]).map((r) => ({
-              id: String(r.id),
-              nombre: s(r.empresa) || s(r.nombre_contacto) || s(r.nombre) || "Cliente",
-              ruc: s(r.ruc) || null,
-              telefono: s(r.telefono) || null,
-              direccion: s(r.direccion) || null,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
+    // El `return` va AL FINAL. Estaba arriba, justo después del inventario, y
+    // todo lo de abajo —la precarga de las condiciones y la forma de pago—
+    // nunca se ejecutaba: el formulario salía con esos campos vacíos.
+    return () => { vivo = false; };
+
+    // Los clientes ya no se traen todos (son más de 21 mil: 36 MB y medio
+    // minuto, y mientras tanto el buscador decía "Sin coincidencias"). Se
+    // buscan en el servidor a medida que se escribe: ver `buscarClientes`.
+  }, []);
+
+  const [buscandoClientes, setBuscandoClientes] = useState(false);
+  const pedidoClientes = useRef(0);
+  const buscarClientes = useCallback(async (texto: string) => {
+    const nro = ++pedidoClientes.current;
+    if (texto.length < 2) { setBuscandoClientes(false); return; }
+    setBuscandoClientes(true);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/clientes?q=${encodeURIComponent(texto)}&limite=30`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (nro !== pedidoClientes.current) return; // llegó tarde: ya se escribió otra cosa
+      const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+      const encontrados = (Array.isArray(j?.data) ? (j.data as Record<string, unknown>[]) : []).map((c) => ({
+        id: String(c.id),
+        nombre: s(c.empresa) || s(c.nombre_contacto) || s(c.nombre) || "Cliente",
+        ruc: s(c.ruc) || null,
+        telefono: s(c.telefono) || null,
+        direccion: s(c.direccion) || null,
+      }));
+      // El elegido se conserva aunque no esté en esta búsqueda, para que se
+      // siga viendo su nombre en el selector.
+      setClientes((prev) => {
+        const elegido = prev.find((c) => c.id === clienteIdRef.current);
+        return elegido && !encontrados.some((c) => c.id === elegido.id) ? [elegido, ...encontrados] : encontrados;
+      });
+    } finally {
+      if (nro === pedidoClientes.current) setBuscandoClientes(false);
+    }
   }, []);
 
   function seleccionarCliente(id: string | null) {
@@ -472,6 +535,10 @@ export default function NuevoPresupuestoPage() {
       },
     ]);
     setSelProd("");
+    /* Agregada la línea, el foco vuelve al buscador para escribir la que
+       sigue. Sin esto el foco queda en un botón ya deshabilitado —`selProd`
+       se limpió— y el teclado se pierde justo cuando más se usa. */
+    setTimeout(() => buscadorProductoRef.current?.abrir(), 0);
   }
 
   function agregarManual() {
@@ -823,6 +890,9 @@ export default function NuevoPresupuestoPage() {
               value={clienteId || null}
               onChange={(v) => seleccionarCliente(v)}
               placeholder="— Seleccioná un cliente —"
+              onSearch={buscarClientes}
+              loading={buscandoClientes}
+              emptyText="No hay clientes con ese nombre, RUC o teléfono"
               options={clientes.map((c) => ({
                 id: c.id,
                 label: c.nombre,
@@ -926,16 +996,33 @@ export default function NuevoPresupuestoPage() {
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
             <label className={labelClass}>Agregar desde inventario</label>
+            {errorProductos ? (
+              <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {errorProductos} Igual podés cargar ítems a mano con «Ítem manual».
+              </p>
+            ) : null}
             <SearchableSelect
+              ref={buscadorProductoRef}
               value={selProd || null}
-              onChange={(v) => setSelProd(v)}
+              onChange={(v) => {
+                setSelProd(v);
+                /* Después del render, si no el botón todavía está deshabilitado
+                   —depende de `selProd`— y no puede recibir el foco. */
+                setTimeout(() => btnAgregarRef.current?.focus(), 0);
+              }}
               placeholder="— Buscá un producto por nombre o SKU —"
               options={productos
                 .filter((p) => !items.some((it) => it.producto_id === p.id))
                 .map((p) => ({ id: p.id, label: p.nombre, hint: p.sku || undefined }))}
             />
           </div>
-          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+          <button
+            ref={btnAgregarRef}
+            type="button"
+            onClick={agregarProducto}
+            disabled={!selProd}
+            className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
+          >
             <Plus className="h-4 w-4" /> Agregar
           </button>
           <button type="button" onClick={agregarManual} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
@@ -954,7 +1041,7 @@ export default function NuevoPresupuestoPage() {
                   <th className="py-2 px-2 w-32">Cant.</th>
                   <th className="py-2 px-2 w-32">Precio unit.</th>
                   <th className="py-2 px-2 w-24">IVA</th>
-                  <th className="py-2 px-2 w-36">Descuento</th>
+                  {puedeDescontar && <th className="py-2 px-2 w-36">Descuento</th>}
                   <th className="py-2 px-2 w-32 text-right">Total</th>
                   <th className="py-2 pl-2 w-10"></th>
                 </tr>
@@ -1008,11 +1095,24 @@ export default function NuevoPresupuestoPage() {
                         )}
                       </td>
                       <td className="py-2 px-2">
-                        <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
-                          {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
-                        </Selector>
+                        {/* El IVA es un dato fiscal del artículo, no algo que
+                            se negocie: solo lo cambia un administrador. El
+                            servidor lo fuerza igual al del producto, así que
+                            esto es para que se vea, no la defensa. */}
+                        {isAdmin ? (
+                          <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
+                            {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
+                          </Selector>
+                        ) : (
+                          <div
+                            className={`${inputClass} bg-slate-50 text-slate-700 cursor-not-allowed`}
+                            title="El IVA sale del producto. Para cambiarlo, pedíselo a un administrador."
+                          >
+                            {it.iva_tipo}
+                          </div>
+                        )}
                       </td>
-                      <td className="py-2 px-2">
+                      {puedeDescontar && <td className="py-2 px-2">
                         {/* Dos maneras de escribir lo mismo: el % y los
                             guaraníes. Se escribe en cualquiera de las dos y la
                             otra se actualiza sola. */}
@@ -1035,7 +1135,7 @@ export default function NuevoPresupuestoPage() {
                           placeholder="Gs."
                           aria-label="Descuento en guaraníes"
                         />
-                      </td>
+                      </td>}
                       <td className="py-2 px-2 text-right tabular-nums font-medium">
                         {fmtGs(t.total)}
                         {(() => {

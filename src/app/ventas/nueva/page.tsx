@@ -884,7 +884,9 @@ export default function NuevaVentaPage() {
     // Si ya se está facturando algo, el aviso estorba más de lo que ayuda.
     if (items.length > 0) return;
     let cancel = false;
-    fetchWithSupabaseSession("/api/presupuestos?cola_caja=1", { cache: "no-store" })
+    // Se vuelve a pedir cada 15 segundos: antes se pedía una sola vez al abrir
+    // la caja y lo que el vendedor mandaba después no aparecía hasta recargar.
+    const pedir = () => fetchWithSupabaseSession("/api/presupuestos?cola_caja=1", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
         if (cancel || !j?.success) return;
@@ -900,7 +902,9 @@ export default function NuevaVentaPage() {
         );
       })
       .catch(() => { /* el aviso es de cortesía: si falla, no molesta */ });
-    return () => { cancel = true; };
+    void pedir();
+    const intervalo = window.setInterval(() => { void pedir(); }, 15_000);
+    return () => { cancel = true; window.clearInterval(intervalo); };
   }, [items.length]);
 
   /**

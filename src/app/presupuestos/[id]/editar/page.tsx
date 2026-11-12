@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -89,7 +90,9 @@ export default function EditarPresupuestoPage() {
   const id = params.id;
 
   // Las condiciones comerciales las cambia solo un administrador.
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin, descuentoMaximo } = useIsAdmin();
+  /** El descuento lo ve quien puede darlo (igual que en Nuevo presupuesto). */
+  const puedeDescontar = isAdmin || (descuentoMaximo ?? 0) > 0;
   // Cotizar por más de lo que hay: facultad, no nivel.
   const { tiene: tieneFacultad } = useFacultades();
   const puedeSinStock = tieneFacultad("cotizar_sin_stock");
@@ -167,23 +170,37 @@ export default function EditarPresupuestoPage() {
         }
       })
       .catch(() => {});
-    fetchWithSupabaseSession("/api/clientes", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j?.success && Array.isArray(j.data)) {
-          const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-          setClientes(
-            (j.data as Record<string, unknown>[]).map((r) => ({
-              id: String(r.id),
-              nombre: s(r.empresa) || s(r.nombre_contacto) || s(r.nombre) || "Cliente",
-              ruc: s(r.ruc) || null,
-              telefono: s(r.telefono) || null,
-              direccion: s(r.direccion) || null,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
+    // Los clientes se buscan en el servidor al escribir (ver `buscarClientes`):
+    // traer los 21 mil era medio minuto y el buscador no encontraba nada.
+  }, []);
+
+  const [buscandoClientes, setBuscandoClientes] = useState(false);
+  const pedidoClientes = useRef(0);
+  const clienteIdRef = useRef("");
+  clienteIdRef.current = clienteId;
+  const buscarClientes = useCallback(async (texto: string) => {
+    const nro = ++pedidoClientes.current;
+    if (texto.length < 2) { setBuscandoClientes(false); return; }
+    setBuscandoClientes(true);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/clientes?q=${encodeURIComponent(texto)}&limite=30`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (nro !== pedidoClientes.current) return;
+      const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+      const encontrados = (Array.isArray(j?.data) ? (j.data as Record<string, unknown>[]) : []).map((c) => ({
+        id: String(c.id),
+        nombre: s(c.empresa) || s(c.nombre_contacto) || s(c.nombre) || "Cliente",
+        ruc: s(c.ruc) || null,
+        telefono: s(c.telefono) || null,
+        direccion: s(c.direccion) || null,
+      }));
+      setClientes((prev) => {
+        const elegido = prev.find((c) => c.id === clienteIdRef.current);
+        return elegido && !encontrados.some((c) => c.id === elegido.id) ? [elegido, ...encontrados] : encontrados;
+      });
+    } finally {
+      if (nro === pedidoClientes.current) setBuscandoClientes(false);
+    }
   }, []);
 
   // Presupuesto existente
@@ -207,6 +224,16 @@ export default function EditarPresupuestoPage() {
         }
         setNumero(String(p.numero_control ?? ""));
         setClienteId(p.cliente_id ? String(p.cliente_id) : "");
+        // El cliente del presupuesto, para que el selector muestre su nombre.
+        if (p.cliente_id) {
+          setClientes([{
+            id: String(p.cliente_id),
+            nombre: String(p.cliente_nombre ?? "Cliente"),
+            ruc: p.cliente_ruc ? String(p.cliente_ruc) : null,
+            telefono: p.cliente_telefono ? String(p.cliente_telefono) : null,
+            direccion: p.cliente_direccion ? String(p.cliente_direccion) : null,
+          }]);
+        }
         setClienteNombre(String(p.cliente_nombre ?? ""));
         setClienteRuc(p.cliente_ruc ? String(p.cliente_ruc) : "");
         // Si este presupuesto venía con RUC, no se puede dejar vacío. Si nunca
@@ -226,6 +253,15 @@ export default function EditarPresupuestoPage() {
         setNotaInterna(p.nota_interna ? String(p.nota_interna) : "");
         setFaltaMaterial(p.falta_material === true);
         setCondiciones(p.condiciones_comerciales ? String(p.condiciones_comerciales) : "");
+        // Si este presupuesto no tiene condiciones propias, se imprimen las de
+        // la casa: se muestran esas, en vez de un campo vacío.
+        if (!p.condiciones_comerciales || !p.forma_pago) {
+          void cargarPlantillaPresupuesto().then((pl) => {
+            if (!pl) return;
+            if (!p.condiciones_comerciales) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
+            if (!p.forma_pago) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
+          });
+        }
         const its = (body.data.items ?? []) as Record<string, unknown>[];
         setItems(
           its.map((it) => ({
@@ -472,6 +508,9 @@ export default function EditarPresupuestoPage() {
               value={clienteId || null}
               onChange={(v) => seleccionarCliente(v)}
               placeholder="— Seleccioná un cliente —"
+              onSearch={buscarClientes}
+              loading={buscandoClientes}
+              emptyText="No hay clientes con ese nombre, RUC o teléfono"
               options={clientes.map((c) => ({ id: c.id, label: c.nombre, hint: c.ruc ?? undefined }))}
             />
           </div>
@@ -566,7 +605,7 @@ export default function EditarPresupuestoPage() {
                   <th className="py-2 px-2 w-32">Cant.</th>
                   <th className="py-2 px-2 w-32">Precio unit.</th>
                   <th className="py-2 px-2 w-24">IVA</th>
-                  <th className="py-2 px-2 w-36">Descuento</th>
+                  {puedeDescontar && <th className="py-2 px-2 w-36">Descuento</th>}
                   <th className="py-2 px-2 w-32 text-right">Total</th>
                   <th className="py-2 pl-2 w-10"></th>
                 </tr>
@@ -603,7 +642,7 @@ export default function EditarPresupuestoPage() {
                           {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
                         </Selector>
                       </td>
-                      <td className="py-2 px-2">
+                      {puedeDescontar && <td className="py-2 px-2">
                         <div className="flex items-center gap-1">
                           <input
                             type="number" min="0" max="100" step="0.01"
@@ -623,7 +662,7 @@ export default function EditarPresupuestoPage() {
                           placeholder="Gs."
                           aria-label="Descuento en guaraníes"
                         />
-                      </td>
+                      </td>}
                       <td className="py-2 px-2 text-right tabular-nums font-medium">
                         {fmtGs(t.total)}
                         {(() => {

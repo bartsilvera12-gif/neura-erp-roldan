@@ -66,7 +66,10 @@ export async function GET(request: NextRequest) {
           .limit(500);
         if (estado) q = q.eq("estado", estado);
         if (vendedorFiltro) q = q.eq("vendedor_usuario_id", vendedorFiltro);
-        else if (!esAdminLista && propioId) {
+        // La cola de la caja NO se filtra por dueño: la cajera cobra
+        // presupuestos que hicieron otros. Con el filtro de "cada vendedor ve
+        // los suyos", a la caja no le llegaba ninguno.
+        else if (!esAdminLista && propioId && !soloCola) {
           // `or` y no `eq`: los presupuestos viejos no tienen vendedor cargado
           // y son de quien los hizo. Sin esto, el vendedor dejaría de ver todo
           // lo que cargó antes del script 41.
@@ -114,6 +117,46 @@ export async function POST(request: NextRequest) {
     const items = parseItems(body.items);
     if (!items) {
       return NextResponse.json(errorResponse("El presupuesto debe tener al menos un ítem válido."), { status: 400 });
+    }
+
+    /**
+     * ── EL IVA LO FIJA EL PRODUCTO, NO EL VENDEDOR ─────────────────────────
+     *
+     * El tipo de IVA es un dato fiscal del artículo, no una condición que se
+     * negocie en una cotización. Pasar una chapa de 10% a exenta baja el
+     * total y hace la oferta más atractiva, pero después la factura sale al
+     * 10% igual: queda una diferencia que descubre el cliente al pagar, o el
+     * contador al cerrar el mes.
+     *
+     * Por eso, para quien no es administrador, el `iva_tipo` que llega en el
+     * pedido SE IGNORA y se usa el del producto. Esconder el campo en la
+     * pantalla no alcanza: sin este guard, el mismo pedido se puede mandar
+     * a mano con cualquier valor.
+     *
+     * Los ítems escritos a mano no tienen producto detrás, así que quedan en
+     * 10%, que es el caso normal de la casa.
+     */
+    if (!isAdmin(ctx.auth)) {
+      const idsProducto = [...new Set(items.map((it) => it.producto_id).filter((x): x is string => Boolean(x)))];
+      const ivaDelProducto = new Map<string, string>();
+      if (idsProducto.length > 0) {
+        const { data: filas, error: eIva } = await ctx.supabase
+          .from("productos")
+          .select("id, tipo_iva")
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .in("id", idsProducto);
+        /* Si la consulta falla no se deja pasar lo que mandó el cliente: se
+           cae a 10%, que es lo que el producto tiene en la práctica. Preferir
+           el dato del pedido sería justamente el agujero que esto tapa. */
+        if (eIva) console.warn("[presupuestos] no se pudo leer el IVA de los productos:", eIva.message);
+        for (const f of filas ?? []) {
+          const t = String((f as { tipo_iva?: string | null }).tipo_iva ?? "");
+          ivaDelProducto.set(String((f as { id: string }).id), t);
+        }
+      }
+      for (const it of items) {
+        it.iva_tipo = asIva(it.producto_id ? ivaDelProducto.get(it.producto_id) : undefined);
+      }
     }
     const clienteNombre = String(body.cliente_nombre ?? "").trim();
     if (!clienteNombre) {
