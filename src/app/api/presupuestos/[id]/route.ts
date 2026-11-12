@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FORMA_PAGO_CONTADO, clienteTieneCredito } from "@/lib/presupuestos/formas-pago";
 import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto } from "@/lib/presupuestos/faltantes";
@@ -156,6 +157,26 @@ function vencimientoDesde(fechaEmision: string | null | undefined, validez: numb
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Contado para el usuario normal: solo administración, o un cliente con
+ * crédito en su ficha, permiten otra forma de pago. Devuelve el error, o null.
+ */
+async function formaPagoNoPermitida(
+  sb: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  empresaId: string,
+  esAdmin: boolean,
+  formaPago: unknown,
+  clienteId: unknown
+): Promise<string | null> {
+  const fp = typeof formaPago === "string" ? formaPago.trim() : "";
+  if (esAdmin || !fp || fp === FORMA_PAGO_CONTADO) return null;
+  if (typeof clienteId === "string" && clienteId.trim()) {
+    const r = await sb.from("clientes").select("*").eq("empresa_id", empresaId).eq("id", clienteId.trim()).maybeSingle();
+    if (!r.error && clienteTieneCredito(r.data as Record<string, unknown> | null)) return null;
+  }
+  return "Este cliente no tiene crédito: el presupuesto solo puede ser al contado. Para darle crédito, se marca en su ficha.";
+}
+
 export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctxParams.params;
@@ -221,6 +242,10 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
 
     // ═══════ MODO 2: edicion completa (body incluye items) ═══════
     if (Array.isArray(body.items)) {
+      if (!autoguardado) {
+        const errFp = await formaPagoNoPermitida(ctx.supabase, ctx.auth.empresa_id, isAdmin(ctx.auth), body.forma_pago, body.cliente_id);
+        if (errFp) return NextResponse.json(errorResponse(errFp), { status: 400 });
+      }
       const rawItems = body.items as Record<string, unknown>[];
       if (rawItems.length === 0) {
         return NextResponse.json(errorResponse("El presupuesto debe tener al menos un item."), { status: 400 });
@@ -271,7 +296,9 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       // administrador. Sin esto, se guarda un presupuesto con stock y después
       // se le suben las cantidades desde la edición. El autoguardado no
       // frena: es lo que se está escribiendo; el control va al apretar Guardar.
-      if (!autoguardado && !(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
+      // Por encima del stock: solo administración.
+      void tieneFacultad;
+      if (!autoguardado && !isAdmin(ctx.auth)) {
         const faltantes = await faltantesDeStock(
           ctx.supabase,
           ctx.auth.empresa_id,

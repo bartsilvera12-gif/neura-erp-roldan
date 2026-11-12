@@ -95,7 +95,9 @@ export default function EditarPresupuestoPage() {
   const puedeDescontar = isAdmin || (descuentoMaximo ?? 0) > 0;
   // Cotizar por más de lo que hay: facultad, no nivel.
   const { tiene: tieneFacultad } = useFacultades();
-  const puedeSinStock = tieneFacultad("cotizar_sin_stock");
+  // Cotizar sin stock: solo administración.
+  void tieneFacultad;
+  const puedeSinStock = isAdmin;
 
   const [productos, setProductos] = useState<ProductoLite[]>([]);
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
@@ -776,10 +778,11 @@ export default function EditarPresupuestoPage() {
               <input
                 type="checkbox"
                 checked={faltaMaterial}
+                disabled={!isAdmin}
                 onChange={(e) => setFaltaMaterial(e.target.checked)}
                 className="h-4 w-4 rounded border-amber-300"
               />
-              Falta material para cumplir este presupuesto
+              Falta material para cumplir este presupuesto{!isAdmin && " (lo marca administración)"}
             </label>
             <label className={`${labelClass} mt-3`}>Nota interna</label>
             <textarea

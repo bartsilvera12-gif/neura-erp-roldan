@@ -58,3 +58,24 @@ export function etiquetaFormaPago(valor: string | null | undefined): string {
   if (v === "") return "";
   return FORMAS_PAGO.find((f) => f.valor === v)?.etiqueta ?? v;
 }
+
+/**
+ * ── CONTADO PARA EL USUARIO NORMAL ────────────────────────────────────────
+ * Un usuario que no es administrador solo puede cotizar al contado, salvo que
+ * el cliente tenga crédito en su ficha (condición de pago Crédito o un límite
+ * de crédito mayor a cero). Darle crédito a un cliente es una decisión de la
+ * casa, no del que atiende.
+ */
+export const FORMA_PAGO_CONTADO = "Contado";
+
+export function clienteTieneCredito(c: { condicion_pago?: unknown; limite_credito?: unknown } | null | undefined): boolean {
+  if (!c) return false;
+  const cond = String(c.condicion_pago ?? "").trim().toUpperCase();
+  const limite = Number(c.limite_credito);
+  return cond.includes("CREDITO") || cond.includes("CRÉDITO") || (Number.isFinite(limite) && limite > 0);
+}
+
+/** Las formas de pago que puede elegir quien cotiza para ese cliente. */
+export function formasPagoPermitidas(puedeTodo: boolean, conCredito: boolean): readonly FormaPagoOpcion[] {
+  return puedeTodo || conCredito ? FORMAS_PAGO : FORMAS_PAGO.filter((f) => f.valor === FORMA_PAGO_CONTADO);
+}

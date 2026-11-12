@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FORMA_PAGO_CONTADO, clienteTieneCredito } from "@/lib/presupuestos/formas-pago";
 import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -105,6 +106,26 @@ export async function GET(request: NextRequest) {
 }
 
 /** POST /api/presupuestos — crear. NO descuenta stock. */
+/**
+ * Contado para el usuario normal: solo administración, o un cliente con
+ * crédito en su ficha, permiten otra forma de pago. Devuelve el error, o null.
+ */
+async function formaPagoNoPermitida(
+  sb: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  empresaId: string,
+  esAdmin: boolean,
+  formaPago: unknown,
+  clienteId: unknown
+): Promise<string | null> {
+  const fp = typeof formaPago === "string" ? formaPago.trim() : "";
+  if (esAdmin || !fp || fp === FORMA_PAGO_CONTADO) return null;
+  if (typeof clienteId === "string" && clienteId.trim()) {
+    const r = await sb.from("clientes").select("*").eq("empresa_id", empresaId).eq("id", clienteId.trim()).maybeSingle();
+    if (!r.error && clienteTieneCredito(r.data as Record<string, unknown> | null)) return null;
+  }
+  return "Este cliente no tiene crédito: el presupuesto solo puede ser al contado. Para darle crédito, se marca en su ficha.";
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Con el rol: hace falta para saber si puede poner el presupuesto a
@@ -204,7 +225,15 @@ export async function POST(request: NextRequest) {
      */
     const autoguardado = body.autoguardado === true;
 
-    if (!autoguardado && !(await tieneFacultad(ctx.supabase, ctx.auth, "cotizar_sin_stock"))) {
+    if (!autoguardado) {
+      const errFp = await formaPagoNoPermitida(ctx.supabase, ctx.auth.empresa_id, isAdmin(ctx.auth), body.forma_pago, body.cliente_id);
+      if (errFp) return NextResponse.json(errorResponse(errFp), { status: 400 });
+    }
+
+    // Cotizar por encima del stock: SOLO administración (antes alcanzaba la
+    // facultad del perfil y un usuario normal podía).
+    void tieneFacultad;
+    if (!autoguardado && !isAdmin(ctx.auth)) {
       const faltantes = await faltantesDeStock(
         ctx.supabase,
         ctx.auth.empresa_id,
