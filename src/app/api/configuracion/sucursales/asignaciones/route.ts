@@ -73,6 +73,14 @@ export async function POST(request: NextRequest) {
         { onConflict: "usuario_id,sucursal_id", ignoreDuplicates: true }
       );
     if (error) throw new Error(error.message);
+    // Si el usuario no tenía ninguna sucursal, esta pasa a ser la suya. Antes
+    // quedaba solo en la tabla de asignaciones y el sistema le seguía diciendo
+    // que no tenía sucursal (sin inventario ni clientes).
+    await sr
+      .from("usuarios")
+      .update({ sucursal_predeterminada_id: sucursalId })
+      .eq("id", usuarioId)
+      .is("sucursal_predeterminada_id", null);
     return NextResponse.json(successResponse({ ok: true }));
   } catch (err) {
     console.error("[/api/configuracion/sucursales/asignaciones POST]", err instanceof Error ? err.message : err);

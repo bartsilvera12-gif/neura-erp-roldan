@@ -252,9 +252,37 @@ async function resolveApiAuthContextUncached(
   // Sucursal activa: prioridad a `sucursal_activa_id` (la que el switcher del
   // header cambia). Si no hay activa seteada, cae a `sucursal_predeterminada_id`
   // (compat con usuarios cargados antes del switcher).
-  const sucursal_id =
+  let sucursal_id =
     (typeof row.sucursal_activa_id === "string" && row.sucursal_activa_id) ||
     (typeof row.sucursal_predeterminada_id === "string" ? row.sucursal_predeterminada_id : null);
+
+  /**
+   * Sin activa ni predeterminada, la que tenga ASIGNADA. Configuración →
+   * Sucursales guarda la asignación en `usuario_sucursales` y nunca completaba
+   * los campos de arriba: al usuario normal se le asignaba la sucursal y
+   * seguía sin ninguna, sin poder ver el inventario (Presupuestos vacío).
+   */
+  if (!sucursal_id && usuarioCatalogId && serviceKey) {
+    try {
+      const { data: asign } = await createServiceRoleClient()
+        .from("usuario_sucursales")
+        .select("sucursal_id")
+        .eq("usuario_id", usuarioCatalogId)
+        .limit(1);
+      const sid = (asign?.[0] as { sucursal_id?: string } | undefined)?.sucursal_id;
+      if (typeof sid === "string" && sid) {
+        sucursal_id = sid;
+        // Se deja guardada como predeterminada: así también la toman las
+        // pantallas que leen el usuario directamente (al guardar un gasto, un
+        // cliente…), no solo las APIs.
+        await createServiceRoleClient()
+          .from("usuarios")
+          .update({ sucursal_predeterminada_id: sid })
+          .eq("id", usuarioCatalogId)
+          .is("sucursal_predeterminada_id", null);
+      }
+    } catch { /* sin asignación: queda sin sucursal, como antes */ }
+  }
 
   if (empresa_id) {
     return {
