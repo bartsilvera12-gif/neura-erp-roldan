@@ -928,22 +928,33 @@ async function fetchChatConversationsUnsafe(
         .filter((x): x is string => Boolean(x && x.length > 0))
     ),
   ];
-  let byId: Record<string, Record<string, unknown>> = {};
+  const byId: Record<string, Record<string, unknown>> = {};
   if (contactIds.length > 0) {
-    const traer = (cols: string) =>
-      supabase.from("chat_contacts").select(cols).eq("empresa_id", empresa_id).in("id", contactIds);
-
-    // "*" a propósito: con columnas fijas, si una no existe en esta base
-    // PostgREST rechaza TODA la consulta y el inbox se queda sin contactos
-    // ("Sin nombre · Número no visible" en todos los chats).
-    const { data: contacts, error: e2 } = await traer("*");
-
-    if (e2) {
-      console.warn("[fetchChatConversations] chat_contacts:", e2.message);
-    } else {
-      byId = Object.fromEntries(
-        ((contacts ?? []) as unknown as Record<string, unknown>[]).map((c) => [String(c.id), c])
-      );
+    /**
+     * DE A LOTES. PostgREST manda el filtro en la URL (`id=in.(uuid,…)`): con
+     * más de ~200 contactos la dirección pasa los 8 KB y el servidor contesta
+     * 414 "URI too long". El error se anotaba y el inbox seguía con la lista
+     * vacía: TODOS los chats salían "Sin nombre · Número no visible", aunque
+     * los nombres y teléfonos estaban guardados. De a 80 son ~3 KB por pedido.
+     *
+     * Y "*" en vez de columnas fijas: si una columna no existe en esta base,
+     * PostgREST rechaza la consulta entera.
+     */
+    const LOTE = 80;
+    for (let i = 0; i < contactIds.length; i += LOTE) {
+      const { data: contacts, error: e2 } = await supabase
+        .from("chat_contacts")
+        .select("*")
+        .eq("empresa_id", empresa_id)
+        .in("id", contactIds.slice(i, i + LOTE));
+      if (e2) {
+        console.warn("[fetchChatConversations] chat_contacts lote", i / LOTE, e2.message);
+        continue;
+      }
+      for (const c of (contacts ?? []) as unknown as Record<string, unknown>[]) byId[String(c.id)] = c;
+    }
+    if (Object.keys(byId).length < contactIds.length) {
+      console.warn("[fetchChatConversations] contactos pedidos", contactIds.length, "recibidos", Object.keys(byId).length);
     }
   }
 
