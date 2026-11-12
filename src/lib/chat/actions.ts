@@ -50,6 +50,7 @@ import {
 } from "@/lib/supabase/chat-pg-pool";
 import { isLikelyUnexposedTenantChatSchema } from "@/lib/supabase/chat-data-schema";
 import { resolveCrmProspectosSchemaForTenant } from "@/lib/crm/crm-prospectos-pg";
+import { ensureWhatsappInboundCrmLeadPg } from "@/lib/crm/whatsapp-inbound-lead-pg";
 import {
   pgDeleteChatChannel,
   pgInsertChatChannelMetaWhatsapp,
@@ -1162,6 +1163,52 @@ export async function renameChatContact(conversationId: string, nombre: string):
     .from("chat_contacts").update({ name, updated_at: new Date().toISOString() })
     .eq("id", contactId).eq("empresa_id", empresa_id);
   return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/**
+ * Trae al CRM los chats que ya existían: a cada contacto con chat abierto y
+ * sin prospecto le crea uno (etapa Lead), con la misma lógica que usa la
+ * entrada de mensajes. Los chats anteriores al arreglo nunca habían creado
+ * prospecto. Solo para quien ve todo (administración).
+ */
+export async function importarChatsAlCrm(): Promise<{ ok: boolean; creados: number; errores: number; error?: string }> {
+  const { supabase, catalogSr, empresa_id, usuario_id, dataSchema } = await requireEmpresaTenantServiceRole();
+  const scope = await getOmnicanalScope(supabase, empresa_id, usuario_id, { tenantDataSchema: dataSchema });
+  if (!(await shouldBypassOmnicanalConversationScope(catalogSr, usuario_id, scope))) {
+    return { ok: false, creados: 0, errores: 0, error: "Solo un administrador puede hacer esto." };
+  }
+  const pool = getChatPostgresPool();
+  if (!pool) return { ok: false, creados: 0, errores: 0, error: "Sin conexión a la base de chats." };
+
+  const convs = quoteSchemaTable(dataSchema, "chat_conversations");
+  const contactos = quoteSchemaTable(dataSchema, "chat_contacts");
+  const r = await pool.query(
+    `SELECT DISTINCT ON (c.contact_id) c.id::text AS id, c.contact_id::text AS contact_id,
+            c.channel_id::text AS channel_id, c.last_message_preview::text AS preview
+       FROM ${convs} c
+       JOIN ${contactos} ct ON ct.id = c.contact_id AND ct.empresa_id = c.empresa_id
+      WHERE c.empresa_id = $1::uuid AND ct.crm_prospecto_id IS NULL
+        AND c.status IN ('open', 'pending')
+      ORDER BY c.contact_id, c.last_message_at DESC NULLS LAST
+      LIMIT 1000`,
+    [empresa_id]
+  );
+  let creados = 0, errores = 0;
+  let primerError: string | undefined;
+  for (const row of r.rows as Array<{ id: string; contact_id: string; channel_id: string; preview: string | null }>) {
+    const res = await ensureWhatsappInboundCrmLeadPg({
+      pool,
+      data_schema: dataSchema,
+      empresa_id,
+      contact_id: row.contact_id,
+      conversation_id: row.id,
+      channel_id: row.channel_id,
+      first_message_preview: row.preview,
+    });
+    if (res.ok) creados++;
+    else { errores++; primerError ??= res.error; }
+  }
+  return { ok: errores === 0, creados, errores, error: primerError };
 }
 
 export async function markConversationRead(conversationId: string): Promise<void> {

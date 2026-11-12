@@ -13,6 +13,8 @@ import ProspectoDetalleModal from "@/app/crm/components/ProspectoDetalleModal";
 
 import { X } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import { importarChatsAlCrm } from "@/lib/chat/actions";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1072,6 +1074,8 @@ export default function CrmPage() {
   const [dragOverEtapa, setDragOverEtapa] = useState<string | null>(null);
   const [nuevoOpen, setNuevoOpen] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const { isAdmin: esAdmin } = useIsAdmin();
+  const [importando, setImportando] = useState(false);
   /** Lead que se está transformando a cliente (abre el modal de Nuevo cliente precargado). */
   const router = useRouter();
 
@@ -1262,6 +1266,33 @@ export default function CrmPage() {
               Lista
             </button>
           </div>
+          {esAdmin && (
+            <button
+              type="button"
+              disabled={importando}
+              onClick={async () => {
+                setImportando(true);
+                try {
+                  const r = await importarChatsAlCrm();
+                  window.alert(
+                    r.creados || r.errores
+                      ? `Se crearon ${r.creados} prospectos desde los chats.${r.errores ? `
+${r.errores} no se pudieron: ${r.error ?? ""}` : ""}`
+                      : r.error ?? "Todos los chats abiertos ya están en el CRM."
+                  );
+                  getProspectos().then(setProspectos);
+                } catch (e) {
+                  window.alert(e instanceof Error ? e.message : "No se pudo.");
+                } finally {
+                  setImportando(false);
+                }
+              }}
+              title="Crea un prospecto por cada chat abierto de WhatsApp que todavía no está en el CRM"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-[#4FAEB2] hover:text-[#3F8E91] disabled:opacity-50"
+            >
+              {importando ? "Trayendo…" : "Traer chats de WhatsApp"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setNuevoOpen(true)}

@@ -147,17 +147,39 @@ export async function ensureWhatsappInboundCrmLeadPg(input: {
       console.warn(LOG, "canal_nombre_omitido", e instanceof Error ? e.message : e);
     }
 
-    const advRes = await client.query(
-      `SELECT trim(coalesce(u.nombre::text, '')) AS full_name,
-              u.email::text AS email
-       FROM ${conv} c
-       LEFT JOIN ${ag} a ON a.id = c.assigned_agent_id AND a.empresa_id = c.empresa_id
-       LEFT JOIN public.usuarios u ON u.id = a.usuario_id
-       WHERE c.id = $1::uuid AND c.empresa_id = $2::uuid
-       LIMIT 1`,
-      [input.conversation_id, input.empresa_id]
-    );
-    const adv = advRes.rows[0] as { full_name?: string | null; email?: string | null } | undefined;
+    /**
+     * El responsable es el agente asignado. La tabla de usuarios no está en el
+     * mismo lugar en todas las instalaciones (acá no está en `public`), y un
+     * error dentro de la transacción la cancelaba ENTERA: no se creaba ningún
+     * prospecto. Va en un savepoint y, si falla, el prospecto nace sin responsable.
+     */
+    let adv: { full_name?: string | null; email?: string | null } | undefined;
+    for (const esquemaUsuarios of [SUPABASE_APP_SCHEMA, "zentra_erp", "public"]) {
+      let tablaUsuarios: string;
+      try {
+        tablaUsuarios = quoteSchemaTable(esquemaUsuarios, "usuarios");
+      } catch {
+        continue;
+      }
+      await client.query("SAVEPOINT responsable");
+      try {
+        const advRes = await client.query(
+          `SELECT trim(coalesce(u.nombre::text, '')) AS full_name,
+                  u.email::text AS email
+           FROM ${conv} c
+           LEFT JOIN ${ag} a ON a.id = c.assigned_agent_id AND a.empresa_id = c.empresa_id
+           LEFT JOIN ${tablaUsuarios} u ON u.id = a.usuario_id
+           WHERE c.id = $1::uuid AND c.empresa_id = $2::uuid
+           LIMIT 1`,
+          [input.conversation_id, input.empresa_id]
+        );
+        await client.query("RELEASE SAVEPOINT responsable");
+        adv = advRes.rows[0] as typeof adv;
+        break;
+      } catch {
+        await client.query("ROLLBACK TO SAVEPOINT responsable");
+      }
+    }
     const responsable =
       (adv?.full_name?.trim() || adv?.email?.trim() || null) as string | null;
 
