@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { VincularAliasBoton } from "@/components/chat/VincularAliasBoton";
 import type {
@@ -161,15 +160,8 @@ function Contenido({ ficha }: { ficha: FichaContacto }) {
       <Seccion titulo="Cliente">
         {cliente ? (
           <div className="rounded-xl border border-[#4FAEB2]/30 bg-[#4FAEB2]/5 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-xs font-semibold text-slate-900">{cliente.nombre}</p>
-              <Link
-                href={`/clientes/${cliente.id}`}
-                className="shrink-0 text-[11px] font-semibold text-[#3F8E91]"
-              >
-                Abrir →
-              </Link>
-            </div>
+            {/* Sin "Abrir →" a la ficha del cliente: eso es el ERP de escritorio y la app es solo conversaciones. */}
+            <p className="text-xs font-semibold text-slate-900">{cliente.nombre}</p>
             <dl className="mt-1.5 flex flex-col gap-1 text-[11px]">
               <Dato etiqueta="RUC" valor={cliente.ruc} />
               <Dato etiqueta="Teléfono" valor={cliente.telefono} />

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { signIn } from "@/lib/auth";
+import { esAppNativa, INICIO_APP_ASESOR } from "@/lib/app-asesor/es-app-nativa";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,7 +39,8 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    // En la APK del asesor se vuelve a las conversaciones, no al ERP completo.
+    router.push(esAppNativa() ? INICIO_APP_ASESOR : "/");
   }
 
   return (

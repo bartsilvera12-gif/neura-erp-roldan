@@ -1,6 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { esAppNativa, INICIO_APP_ASESOR, rutaPermitidaEnApp } from "@/lib/app-asesor/es-app-nativa";
 import Sidebar from "./layout/Sidebar";
 import Header from "./layout/Header";
 import MobileBottomNav from "./layout/MobileBottomNav";
@@ -16,8 +18,25 @@ const STANDALONE_ROUTES = ["/login"];
  */
 const STANDALONE_PREFIXES = ["/fichar/", "/m/asesor"];
 
+const noSuscribir = () => () => {};
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // La APK del asesor es solo conversaciones. Si por cualquier camino cae en
+  // otra pantalla del ERP (el login que manda a "/", un enlace, el aviso de
+  // sesión vencida), se la devuelve a la lista de conversaciones.
+  // useSyncExternalStore y no esAppNativa() directo: en el servidor no hay
+  // window, y leerlo en el render rompería la hidratación.
+  const enApp = useSyncExternalStore(noSuscribir, esAppNativa, () => false);
+  const fueraDeLaApp = enApp && !!pathname && !rutaPermitidaEnApp(pathname);
+  useEffect(() => {
+    if (fueraDeLaApp) router.replace(INICIO_APP_ASESOR);
+  }, [fueraDeLaApp, router]);
+
+  if (fueraDeLaApp) return null;
+
   const isStandalone = pathname && (STANDALONE_ROUTES.includes(pathname) || STANDALONE_PREFIXES.some((p) => pathname.startsWith(p)));
 
   if (isStandalone) {
