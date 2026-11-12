@@ -20,6 +20,7 @@ import { useFacultades } from "@/lib/perfiles/use-facultades";
 import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/nueva/NuevoClienteRapidoModal";
 import Selector from "@/components/ui/Selector";
 import { getSession } from "@/lib/auth";
+import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -414,27 +415,12 @@ export default function NuevoPresupuestoPage() {
      *   vendedor lo cambia, para ESE presupuesto manda lo que escribió; la
      *   plantilla sigue siendo el texto por defecto de todos los demás.
      */
-    fetchWithSupabaseSession("/api/configuracion/presupuesto-plantilla", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        const pl = j?.data?.plantilla;
-        if (!j?.success || !pl) return;
-        if (typeof pl.observaciones === "string" && pl.observaciones.trim()) {
-          setCondiciones((prev) => (prev.trim() ? prev : pl.observaciones));
-        }
-        if (typeof pl.forma_pago === "string" && pl.forma_pago.trim()) {
-          // El {anticipo} de la plantilla se resuelve con el porcentaje
-          // configurado: en el campo tiene que verse el texto final, no la
-          // marca.
-          const pct = Number(pl.anticipo_pct);
-          const texto = pl.forma_pago.replace(
-            /\{anticipo\}/g,
-            Number.isFinite(pct) ? String(pct) : "0"
-          );
-          setFormaPago((prev) => (prev.trim() ? prev : texto));
-        }
-      })
-      .catch(() => { /* sin plantilla, el PDF igual imprime la suya */ });
+    // El {anticipo} de la plantilla ya viene resuelto con el porcentaje.
+    void cargarPlantillaPresupuesto().then((pl) => {
+      if (!pl) return; // sin plantilla, el PDF igual imprime la suya
+      if (pl.condiciones.trim()) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
+      if (pl.formaPago.trim()) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
+    });
 
     // Los clientes ya no se traen todos (son más de 21 mil: 36 MB y medio
     // minuto, y mientras tanto el buscador decía "Sin coincidencias"). Se

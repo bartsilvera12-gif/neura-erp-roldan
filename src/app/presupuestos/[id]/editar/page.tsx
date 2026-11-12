@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -252,6 +253,15 @@ export default function EditarPresupuestoPage() {
         setNotaInterna(p.nota_interna ? String(p.nota_interna) : "");
         setFaltaMaterial(p.falta_material === true);
         setCondiciones(p.condiciones_comerciales ? String(p.condiciones_comerciales) : "");
+        // Si este presupuesto no tiene condiciones propias, se imprimen las de
+        // la casa: se muestran esas, en vez de un campo vacío.
+        if (!p.condiciones_comerciales || !p.forma_pago) {
+          void cargarPlantillaPresupuesto().then((pl) => {
+            if (!pl) return;
+            if (!p.condiciones_comerciales) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
+            if (!p.forma_pago) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
+          });
+        }
         const its = (body.data.items ?? []) as Record<string, unknown>[];
         setItems(
           its.map((it) => ({
