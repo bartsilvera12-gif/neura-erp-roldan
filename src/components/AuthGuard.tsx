@@ -180,7 +180,12 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
   // Overlay de carga: el loader queda encima MIENTRAS children se montan en background.
   // Así el sidebar/dashboard ya están fetcheando sus datos al desaparecer el loader.
   // Esperamos a que termine la auth Y a que el Sidebar reporte que cargó sus módulos.
-  const showLoader = !isPublic && (loading || !sidebarReady);
+  //
+  // Las pantallas sin Sidebar (la app del asesor, /m/asesor) no tienen a nadie
+  // que avise "sidebarReady": si se lo esperara, el loader no se iría nunca y la
+  // app quedaría cargando para siempre. Ahí alcanza con que termine la auth.
+  const sinSidebar = !!pathname && pathname.startsWith("/m/asesor");
+  const showLoader = !isPublic && (loading || (!sinSidebar && !sidebarReady));
 
   if (blockedSlug && access) {
     const fallback = firstAccessibleHref(access.slugs, {
