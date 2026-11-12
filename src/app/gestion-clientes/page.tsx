@@ -281,6 +281,31 @@ function matchesClienteBusqueda(c: Cliente, raw: string) {
   return palabras.every((p) => heno.includes(p));
 }
 
+/**
+ * Qué tan buena es la coincidencia, para ordenar.
+ *
+ * Buscar cada palabra suelta en todos los campos encuentra al cliente, pero
+ * también trae ruido: escribiendo "13 DE", "MODESTO ARAUJO" entra porque
+ * dice "moDEsto" y su RUC empieza con 13. Con el orden alfabético, el que se
+ * buscaba quedaba a veinte filas de distancia.
+ *
+ *   3 · el nombre que se muestra contiene lo tipeado tal cual
+ *   2 · están todas las palabras en el nombre, aunque separadas o al revés
+ *   1 · están en algún lado (RUC, teléfono, correo, código)
+ *
+ * No se descarta nada: buscar por RUC o por teléfono tiene que seguir
+ * andando. Solo cambia quién va primero.
+ */
+function puntajeClienteBusqueda(c: Cliente, raw: string): number {
+  const q = raw.trim().toLowerCase();
+  if (!q) return 0;
+  const nombre = clienteNombre(c).toLowerCase();
+  if (nombre.includes(q)) return 3;
+  const palabras = q.split(/\s+/).filter(Boolean);
+  if (palabras.every((p) => nombre.includes(p))) return 2;
+  return 1;
+}
+
 // ── Modal Estado de Facturación ─────────────────────────────────────────────
 
 const MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -476,12 +501,21 @@ function ClienteBusquedaGlobal({
 
   const resultados = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = q
-      ? clientes.filter((c) => matchesClienteBusqueda(c, q))
-      : [...clientes].sort((a, b) =>
-          clienteNombre(a).localeCompare(clienteNombre(b), "es", { sensitivity: "base" })
-        );
-    return base.slice(0, q ? 50 : 24);
+    if (!q) {
+      return [...clientes]
+        .sort((a, b) => clienteNombre(a).localeCompare(clienteNombre(b), "es", { sensitivity: "base" }))
+        .slice(0, 24);
+    }
+    // Primero los que mejor coinciden; entre iguales, alfabético.
+    return clientes
+      .filter((c) => matchesClienteBusqueda(c, q))
+      .sort((a, b) => {
+        const d = puntajeClienteBusqueda(b, q) - puntajeClienteBusqueda(a, q);
+        return d !== 0
+          ? d
+          : clienteNombre(a).localeCompare(clienteNombre(b), "es", { sensitivity: "base" });
+      })
+      .slice(0, 50);
   }, [clientes, query]);
 
   useEffect(() => {
