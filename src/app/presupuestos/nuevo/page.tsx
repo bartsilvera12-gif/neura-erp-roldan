@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Trash2, Loader2, History } from "lucide-react";
@@ -109,6 +109,8 @@ export default function NuevoPresupuestoPage() {
 
   // Cliente
   const [clienteId, setClienteId] = useState("");
+  const clienteIdRef = useRef("");
+  clienteIdRef.current = clienteId;
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteRuc, setClienteRuc] = useState("");
   const [clienteTel, setClienteTel] = useState("");
@@ -424,23 +426,38 @@ export default function NuevoPresupuestoPage() {
       })
       .catch(() => { /* sin plantilla, el PDF igual imprime la suya */ });
 
-    fetchWithSupabaseSession("/api/clientes", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j?.success && Array.isArray(j.data)) {
-          const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-          setClientes(
-            (j.data as Record<string, unknown>[]).map((r) => ({
-              id: String(r.id),
-              nombre: s(r.empresa) || s(r.nombre_contacto) || s(r.nombre) || "Cliente",
-              ruc: s(r.ruc) || null,
-              telefono: s(r.telefono) || null,
-              direccion: s(r.direccion) || null,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
+    // Los clientes ya no se traen todos (son más de 21 mil: 36 MB y medio
+    // minuto, y mientras tanto el buscador decía "Sin coincidencias"). Se
+    // buscan en el servidor a medida que se escribe: ver `buscarClientes`.
+  }, []);
+
+  const [buscandoClientes, setBuscandoClientes] = useState(false);
+  const pedidoClientes = useRef(0);
+  const buscarClientes = useCallback(async (texto: string) => {
+    const nro = ++pedidoClientes.current;
+    if (texto.length < 2) { setBuscandoClientes(false); return; }
+    setBuscandoClientes(true);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/clientes?q=${encodeURIComponent(texto)}&limite=30`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (nro !== pedidoClientes.current) return; // llegó tarde: ya se escribió otra cosa
+      const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+      const encontrados = (Array.isArray(j?.data) ? (j.data as Record<string, unknown>[]) : []).map((c) => ({
+        id: String(c.id),
+        nombre: s(c.empresa) || s(c.nombre_contacto) || s(c.nombre) || "Cliente",
+        ruc: s(c.ruc) || null,
+        telefono: s(c.telefono) || null,
+        direccion: s(c.direccion) || null,
+      }));
+      // El elegido se conserva aunque no esté en esta búsqueda, para que se
+      // siga viendo su nombre en el selector.
+      setClientes((prev) => {
+        const elegido = prev.find((c) => c.id === clienteIdRef.current);
+        return elegido && !encontrados.some((c) => c.id === elegido.id) ? [elegido, ...encontrados] : encontrados;
+      });
+    } finally {
+      if (nro === pedidoClientes.current) setBuscandoClientes(false);
+    }
   }, []);
 
   function seleccionarCliente(id: string | null) {
@@ -869,6 +886,9 @@ export default function NuevoPresupuestoPage() {
               value={clienteId || null}
               onChange={(v) => seleccionarCliente(v)}
               placeholder="— Seleccioná un cliente —"
+              onSearch={buscarClientes}
+              loading={buscandoClientes}
+              emptyText="No hay clientes con ese nombre, RUC o teléfono"
               options={clientes.map((c) => ({
                 id: c.id,
                 label: c.nombre,

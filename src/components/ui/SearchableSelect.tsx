@@ -19,6 +19,14 @@ interface Props {
   emptyText?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * Búsqueda en el servidor. Si se pasa, lo que se escribe se manda acá (con
+   * una pausa) y `options` son los resultados: no se filtra en el navegador.
+   * Para listas grandes, como los 21 mil clientes, que no conviene traer enteras.
+   */
+  onSearch?: (q: string) => void;
+  /** Mientras se busca en el servidor. */
+  loading?: boolean;
 }
 
 function normalizar(s: string): string {
@@ -38,6 +46,8 @@ export default function SearchableSelect({
   emptyText = "Sin coincidencias",
   disabled = false,
   className = "",
+  onSearch,
+  loading = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -72,6 +82,7 @@ export default function SearchableSelect({
   const selected = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
 
   const filtered = useMemo(() => {
+    if (onSearch) return options;
     const t = normalizar(q);
     if (!t) return options;
     const terminos = t.split(/\s+/).filter(Boolean);
@@ -79,7 +90,13 @@ export default function SearchableSelect({
       const heno = normalizar(`${o.label} ${o.hint ?? ""}`);
       return terminos.every((tk) => heno.includes(tk));
     });
-  }, [options, q]);
+  }, [options, q, onSearch]);
+
+  useEffect(() => {
+    if (!onSearch || !open) return;
+    const t = window.setTimeout(() => onSearch(q.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [q, open, onSearch]);
 
   useEffect(() => {
     if (!open) return;
@@ -160,7 +177,9 @@ export default function SearchableSelect({
           </div>
           <ul className="max-h-56 overflow-y-auto">
             {filtered.length === 0 ? (
-              <li className="px-3 py-4 text-center text-xs text-slate-400">{emptyText}</li>
+              <li className="px-3 py-4 text-center text-xs text-slate-400">
+                {loading ? "Buscando…" : onSearch && q.trim().length < 2 ? "Escribí al menos 2 letras para buscar" : emptyText}
+              </li>
             ) : (
               filtered.map((o) => (
                 <li key={o.id}>
