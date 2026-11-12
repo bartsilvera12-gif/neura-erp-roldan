@@ -7,7 +7,7 @@ import { Plus, Trash2, Loader2, History } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import SeccionForm from "@/components/ui/SeccionForm";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import SearchableSelect from "@/components/ui/SearchableSelect";
+import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
@@ -103,6 +103,16 @@ const inputClass =
 export default function NuevoPresupuestoPage() {
   const router = useRouter();
   const [productos, setProductos] = useState<ProductoLite[]>([]);
+  /**
+   * El botón «Agregar», para encadenar el teclado.
+   *
+   * La carga de un presupuesto es repetitiva: diez, veinte líneas. Elegido el
+   * producto, el foco salta acá, así que la secuencia completa es escribir,
+   * bajar con la flecha, Enter para elegir y Enter para agregar — sin tocar
+   * el mouse en ningún momento.
+   */
+  const btnAgregarRef = useRef<HTMLButtonElement>(null);
+  const buscadorProductoRef = useRef<SearchableSelectHandle>(null);
   /** Por qué no hay inventario para elegir. `null` = llegó bien. */
   const [errorProductos, setErrorProductos] = useState<string | null>(null);
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
@@ -535,6 +545,10 @@ export default function NuevoPresupuestoPage() {
       },
     ]);
     setSelProd("");
+    /* Agregada la línea, el foco vuelve al buscador para escribir la que
+       sigue. Sin esto el foco queda en un botón ya deshabilitado —`selProd`
+       se limpió— y el teclado se pierde justo cuando más se usa. */
+    setTimeout(() => buscadorProductoRef.current?.abrir(), 0);
   }
 
   function agregarManual() {
@@ -998,15 +1012,27 @@ export default function NuevoPresupuestoPage() {
               </p>
             ) : null}
             <SearchableSelect
+              ref={buscadorProductoRef}
               value={selProd || null}
-              onChange={(v) => setSelProd(v)}
+              onChange={(v) => {
+                setSelProd(v);
+                /* Después del render, si no el botón todavía está deshabilitado
+                   —depende de `selProd`— y no puede recibir el foco. */
+                setTimeout(() => btnAgregarRef.current?.focus(), 0);
+              }}
               placeholder="— Buscá un producto por nombre o SKU —"
               options={productos
                 .filter((p) => !items.some((it) => it.producto_id === p.id))
                 .map((p) => ({ id: p.id, label: p.nombre, hint: p.sku || undefined }))}
             />
           </div>
-          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
+          <button
+            ref={btnAgregarRef}
+            type="button"
+            onClick={agregarProducto}
+            disabled={!selProd}
+            className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
+          >
             <Plus className="h-4 w-4" /> Agregar
           </button>
           <button type="button" onClick={agregarManual} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">

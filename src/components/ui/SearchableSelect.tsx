@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, X } from "lucide-react";
 
@@ -29,6 +29,15 @@ interface Props {
   loading?: boolean;
 }
 
+/**
+ * Lo que la pantalla puede pedirle al selector desde afuera.
+ *
+ * Existe por el encadenado con teclado: al agregar una línea, el presupuesto
+ * necesita volver el foco acá para escribir la siguiente, y el estado de
+ * "abierto" vive adentro del componente.
+ */
+export type SearchableSelectHandle = { abrir: () => void };
+
 function normalizar(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 }
@@ -38,7 +47,7 @@ function normalizar(s: string): string {
  * la lista tiene decenas/cientos de opciones (recetas, insumos, productos).
  * No trae dependencias externas.
  */
-export default function SearchableSelect({
+const SearchableSelect = forwardRef<SearchableSelectHandle, Props>(function SearchableSelect({
   value,
   onChange,
   options,
@@ -48,7 +57,7 @@ export default function SearchableSelect({
   className = "",
   onSearch,
   loading = false,
-}: Props) {
+}, ref) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -60,6 +69,19 @@ export default function SearchableSelect({
    * (en Nuevo presupuesto no se podía elegir el producto: la lista se escondía).
    */
   const [pos, setPos] = useState<{ top: number; left: number; width: number; arriba: boolean } | null>(null);
+  /**
+   * ── MANEJO CON TECLADO ─────────────────────────────────────────────────
+   *
+   * Quien carga un presupuesto no suelta el teclado: escribe el producto,
+   * baja con la flecha y confirma con Enter. Antes había que escribir, soltar
+   * el teclado, buscar con el mouse y volver — por cada línea.
+   *
+   * `activo` es la opción resaltada. Arranca en 0: con el primer Enter se
+   * elige la primera coincidencia, que es lo que se espera al escribir el
+   * nombre casi completo.
+   */
+  const [activo, setActivo] = useState(0);
+  const listaRef = useRef<HTMLUListElement>(null);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -79,6 +101,14 @@ export default function SearchableSelect({
     };
   }, [open]);
 
+  useImperativeHandle(ref, () => ({
+    abrir: () => {
+      setOpen(true);
+      setQ("");
+      setActivo(0);
+    },
+  }), []);
+
   const selected = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
 
   const filtered = useMemo(() => {
@@ -91,6 +121,20 @@ export default function SearchableSelect({
       return terminos.every((tk) => heno.includes(tk));
     });
   }, [options, q, onSearch]);
+
+  /* Al cambiar lo escrito, el resaltado vuelve a la primera: si no, queda
+     apuntando a una opción que ya no está y Enter elige cualquier cosa. */
+  useEffect(() => {
+    setActivo(0);
+  }, [q, options]);
+
+  /* La opción resaltada siempre a la vista: con la flecha se pasa de largo
+     del borde de la lista y no se ve a dónde se está yendo. */
+  useEffect(() => {
+    if (!open) return;
+    const el = listaRef.current?.querySelectorAll("li")[activo];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activo, open]);
 
   useEffect(() => {
     if (!onSearch || !open) return;
@@ -126,6 +170,42 @@ export default function SearchableSelect({
     onChange(id);
     setOpen(false);
     setQ("");
+    setActivo(0);
+  }
+
+  /** Flechas para moverse, Enter para elegir, Escape para salir. */
+  function teclasEnLaBusqueda(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActivo((i) => (filtered.length === 0 ? 0 : (i + 1) % filtered.length));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActivo((i) => (filtered.length === 0 ? 0 : (i - 1 + filtered.length) % filtered.length));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActivo(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActivo(Math.max(0, filtered.length - 1));
+    } else if (e.key === "Enter") {
+      /* Sin `preventDefault` el Enter llega al formulario de la pantalla y lo
+         manda: se guardaba el presupuesto al querer elegir un producto. */
+      e.preventDefault();
+      const elegida = filtered[activo];
+      if (elegida) pick(elegida.id);
+    } else if (e.key === "Tab") {
+      // Tab sale del selector: se cierra para no dejar la lista colgada.
+      setOpen(false);
+      setQ("");
+    }
+  }
+
+  /** Abrir con el teclado desde el botón, sin tener que clickear. */
+  function teclasEnElBoton(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setOpen(true);
+    }
   }
 
   return (
@@ -134,6 +214,9 @@ export default function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={teclasEnElBoton}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-left disabled:cursor-not-allowed disabled:opacity-60 hover:border-gray-400 focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
       >
         <span className={selected ? "truncate text-slate-900" : "truncate text-slate-400"}>
@@ -161,6 +244,11 @@ export default function SearchableSelect({
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              onKeyDown={teclasEnLaBusqueda}
+              role="combobox"
+              aria-expanded
+              aria-controls="buscador-opciones"
+              aria-activedescendant={filtered[activo] ? `opcion-${filtered[activo].id}` : undefined}
               placeholder="Buscar…"
               className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-8 text-sm placeholder:text-slate-400 focus:border-[#4FAEB2] focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/20"
             />
@@ -175,19 +263,24 @@ export default function SearchableSelect({
               </button>
             )}
           </div>
-          <ul className="max-h-56 overflow-y-auto">
+          <ul ref={listaRef} id="buscador-opciones" role="listbox" className="max-h-56 overflow-y-auto">
             {filtered.length === 0 ? (
               <li className="px-3 py-4 text-center text-xs text-slate-400">
                 {loading ? "Buscando…" : onSearch && q.trim().length < 2 ? "Escribí al menos 2 letras para buscar" : emptyText}
               </li>
             ) : (
-              filtered.map((o) => (
-                <li key={o.id}>
+              filtered.map((o, i) => (
+                <li key={o.id} id={`opcion-${o.id}`} role="option" aria-selected={o.id === value}>
                   <button
                     type="button"
                     onClick={() => pick(o.id)}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-[#4FAEB2]/[0.08] ${
-                      o.id === value ? "bg-[#4FAEB2]/[0.12] font-medium text-slate-900" : "text-slate-700"
+                    /* El mouse mueve el resaltado: si no, se ve una fila
+                       marcada por el teclado y otra por el mouse a la vez. */
+                    onMouseEnter={() => setActivo(i)}
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                      i === activo ? "bg-[#4FAEB2]/[0.14]" : ""
+                    } ${
+                      o.id === value ? "font-medium text-slate-900" : "text-slate-700"
                     }`}
                   >
                     <span className="truncate">{o.label}</span>
@@ -202,4 +295,6 @@ export default function SearchableSelect({
       )}
     </div>
   );
-}
+});
+
+export default SearchableSelect;
