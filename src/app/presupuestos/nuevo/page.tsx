@@ -103,6 +103,8 @@ const inputClass =
 export default function NuevoPresupuestoPage() {
   const router = useRouter();
   const [productos, setProductos] = useState<ProductoLite[]>([]);
+  /** Por qué no hay inventario para elegir. `null` = llegó bien. */
+  const [errorProductos, setErrorProductos] = useState<string | null>(null);
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
 
   // Cliente
@@ -323,27 +325,59 @@ export default function NuevoPresupuestoPage() {
     window.location.reload();
   }
 
+  /**
+   * ── SI EL INVENTARIO NO LLEGA, HAY QUE DECIRLO ─────────────────────────
+   *
+   * Esto antes hacía `if (j?.success)` y `.catch(() => {})`: ante cualquier
+   * problema —sesión vencida, usuario sin sucursal asignada, error del
+   * servidor— dejaba la lista vacía y no decía nada.
+   *
+   * El resultado en la pantalla era un buscador de productos que no encuentra
+   * NINGUNO, sin un solo mensaje. Quien lo usa no tiene forma de distinguir
+   * "no hay productos cargados" de "no se pudieron traer", y quien tiene que
+   * arreglarlo tampoco: el síntoma es el mismo y no deja rastro.
+   *
+   * Ahora se guarda el motivo y se muestra arriba del buscador. El servidor
+   * ya manda mensajes accionables —por ejemplo, que el usuario no tiene
+   * sucursal asignada y que un administrador se la ponga desde Usuarios—, y
+   * eso es justamente lo que hay que leer.
+   */
   useEffect(() => {
+    let vivo = true;
     fetchWithSupabaseSession("/api/productos", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j?.success) {
-          const list = (j.data?.productos ?? []) as Record<string, unknown>[];
-          setProductos(
-            list
-              .filter((p) => p.es_vendible !== false)
-              .map((p) => ({
-                id: String(p.id),
-                nombre: String(p.nombre),
-                sku: String(p.sku ?? ""),
-                precio_venta: Number(p.precio_venta) || 0,
-                precio_mayorista: Number(p.precio_mayorista) || 0,
-                unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
-              }))
+      .then(async (r) => {
+        const j = await r.json().catch(() => null);
+        if (!vivo) return;
+        if (!r.ok || !j?.success) {
+          setErrorProductos(
+            j?.error?.message ||
+              j?.error ||
+              `No se pudo traer el inventario (${r.status}).`
           );
+          return;
         }
+        const list = (j.data?.productos ?? []) as Record<string, unknown>[];
+        const vendibles = list.filter((p) => p.es_vendible !== false);
+        setErrorProductos(
+          vendibles.length === 0
+            ? "No hay productos disponibles para tu sucursal."
+            : null
+        );
+        setProductos(
+          vendibles.map((p) => ({
+            id: String(p.id),
+            nombre: String(p.nombre),
+            sku: String(p.sku ?? ""),
+            precio_venta: Number(p.precio_venta) || 0,
+            precio_mayorista: Number(p.precio_mayorista) || 0,
+            unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
+          }))
+        );
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (vivo) setErrorProductos(e instanceof Error ? e.message : "No se pudo traer el inventario.");
+      });
+    return () => { vivo = false; };
     /**
      * Las condiciones de la casa, precargadas.
      *
@@ -926,6 +960,11 @@ export default function NuevoPresupuestoPage() {
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[260px]">
             <label className={labelClass}>Agregar desde inventario</label>
+            {errorProductos ? (
+              <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {errorProductos} Igual podés cargar ítems a mano con «Ítem manual».
+              </p>
+            ) : null}
             <SearchableSelect
               value={selProd || null}
               onChange={(v) => setSelProd(v)}
