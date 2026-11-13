@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
+import AccionesTabla from "@/components/ui/AccionesTabla";
 
 /**
  * Valoración de existencias a una fecha (punto 1.6).
@@ -111,6 +112,7 @@ export default function ValoracionPage() {
   }, [filas]);
 
   const esHoy = fecha === hoyPy();
+  const rubroNombre = rubro ? rubros.find((r) => r.id === rubro)?.nombre ?? "" : "";
 
   return (
     <div className="space-y-6">
@@ -158,13 +160,20 @@ export default function ValoracionPage() {
           <input type="checkbox" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} />
           Ver totales por rubro
         </label>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="ml-auto rounded-lg border-2 border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
-        >
-          Imprimir
-        </button>
+        {/* BUG-11: window.print() sacaba la pantalla entera (menú, filtros,
+            tarjetas). Ahora se imprime solo la tabla, con lo filtrado. */}
+        <span className="ml-auto">
+          <AccionesTabla
+            titulo={agrupar ? "Valoración de existencias por rubro" : "Valoración de existencias"}
+            archivo={`valoracion-${fecha}${rubroNombre ? `-${rubroNombre}` : ""}`}
+            subtitulo={`Al cierre del ${fecha.split("-").reverse().join("/")}${rubroNombre ? ` · Rubro: ${rubroNombre}` : " · Todos los rubros"}`}
+            columnas={agrupar ? ["Rubro", "Artículos", "Unidades", "Valor (Gs.)"] : ["Producto", "SKU", "Rubro", "Cantidad", "Unidad", "Costo unitario (Gs.)", "Valor (Gs.)"]}
+            filas={agrupar
+              ? porRubro.map((r) => [r.nombre, r.articulos, Math.round(r.unidades * 1000) / 1000, Math.round(r.valor)])
+              : filas.map((f) => [f.nombre, f.sku ?? "", f.rubro_nombre ?? "", Math.round(f.cantidad * 1000) / 1000, f.unidad ?? "", Math.round(f.costo_unitario), Math.round(f.valor_total)])}
+            sumar={agrupar ? [1, 2, 3] : [6]}
+          />
+        </span>
       </div>
 
       {error && (

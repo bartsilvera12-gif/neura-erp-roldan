@@ -87,7 +87,7 @@ export default function NuevoMovimientoPage() {
     setForm((prev) => ({
       ...prev,
       producto_id: id,
-      costo_unitario: producto ? String(producto.costo_promedio) : "",
+      costo_unitario: producto ? String(Math.round(Number(producto.costo_promedio) || 0)) : "",
     }));
     setBusqueda("");
   }
@@ -247,11 +247,15 @@ export default function NuevoMovimientoPage() {
     router.push("/inventario/movimientos");
   }
 
+  // Sin acentos y palabra por palabra: "cano 20" encuentra "CAÑO 20X20X2.00".
+  const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const termino = busqueda.trim().toLowerCase();
-  const productosFiltrados = termino
-    ? productos.filter((p) =>
-        `${p.nombre} ${p.sku ?? ""}`.toLowerCase().includes(termino)
-      )
+  const palabras = sinTildes(termino).split(/\s+/).filter(Boolean);
+  const productosFiltrados = palabras.length
+    ? productos.filter((p) => {
+        const t = sinTildes(`${p.nombre} ${p.sku ?? ""}`);
+        return palabras.every((w) => t.includes(w));
+      })
     : productos;
 
   const productoSeleccionado = productos.find((p) => p.id === form.producto_id);

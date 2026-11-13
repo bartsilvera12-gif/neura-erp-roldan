@@ -978,7 +978,7 @@ export default function NuevaCompraPage() {
                     setNl((prev) => ({
                       ...prev,
                       producto_id: id,
-                      costo_unitario_input: p ? String(p.costo_promedio) : "",
+                      costo_unitario_input: p ? String(Math.round(Number(p.costo_promedio) || 0)) : "",
                       precio_venta: !p || insumoNoVendible ? "" : String(p.precio_venta),
                     }));
                   }}

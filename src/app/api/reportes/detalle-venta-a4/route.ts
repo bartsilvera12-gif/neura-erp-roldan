@@ -45,20 +45,30 @@ export async function GET(request: NextRequest) {
 
     // Paginado: un mes de esta casa tiene más de mil ventas y PostgREST
     // devolvía las primeras mil como si fueran todas.
-    const vq = {
-      data: await traerTodas<Record<string, unknown>>((d, h) =>
+    // Si a la tabla le falta alguna de estas columnas (tenant con scripts
+    // atrasados), la consulta entera fallaba y el reporte no salía (BUG-09):
+    // se reintenta con "*", que trae lo que haya.
+    const consultar = (cols: string) =>
+      traerTodas<Record<string, unknown>>((d, h) =>
         ctx.supabase
           .from("ventas")
-          .select("numero_control, fecha, total, estado, tipo_venta, metodo_pago, cliente_nombre, usuario_nombre, vendedor_nombre")
+          .select(cols)
           .eq("empresa_id", empresaId)
           .eq("sucursal_id", sucursalId)
           .gte("fecha", `${desde}T00:00:00-03:00`)
           .lte("fecha", `${hasta}T23:59:59.999-03:00`)
           .order("fecha", { ascending: false })
           .order("id", { ascending: true })
-          .range(d, h)
-      ),
-    };
+          .range(d, h) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>
+      );
+    let filasVentas: Record<string, unknown>[];
+    try {
+      filasVentas = await consultar("id, numero_control, fecha, total, estado, tipo_venta, metodo_pago, cliente_nombre, usuario_nombre, vendedor_nombre");
+    } catch (e) {
+      console.warn("[/api/reportes/detalle-venta-a4] reintento con *:", e instanceof Error ? e.message : e);
+      filasVentas = await consultar("*");
+    }
+    const vq = { data: filasVentas };
 
     type V = {
       numero_control?: string | null; fecha?: string; total?: number | string;
@@ -208,7 +218,8 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const rSuc = respuestaSucursalNoAsignada(err);
     if (rSuc) return rSuc;
-    console.error("[/api/reportes/detalle-venta-a4]", err instanceof Error ? err.message : err);
-    return new NextResponse("No se pudo generar el detalle de venta.", { status: 500 });
+    const m = err instanceof Error ? err.message : String(err);
+    console.error("[/api/reportes/detalle-venta-a4]", m);
+    return new NextResponse(`No se pudo generar el detalle de venta: ${m}`, { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 }

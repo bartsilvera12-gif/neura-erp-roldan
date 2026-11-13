@@ -363,15 +363,20 @@ export default function ManualPage() {
   const [q, setQ] = useState("");
 
   const encontradas = useMemo(() => {
-    const t = norm(q.trim());
-    if (!t) return null;
-    return GUIAS.filter((g) =>
-      norm(
-        [g.titulo, g.resumen, ...g.bloques.flatMap((b) => [b.texto, b.consejo, b.ojo, ...(b.pasos ?? []).flatMap((p) => [p.t, p.d])])]
+    // Palabra por palabra y sin importar singular/plural: "Sistemas" encuentra
+    // "sistema", "cerrar caja" encuentra "cierre … de la caja" si tiene "caja".
+    const raiz = (w: string) => w.replace(/(es|s)$/, "");
+    const palabras = norm(q.trim()).split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 2).map(raiz);
+    if (!palabras.length) return null;
+    return GUIAS.filter((g) => {
+      const tema = TEMAS.find((t) => t.grupo === g.grupo);
+      const texto = norm(
+        [g.titulo, g.resumen, g.grupo, tema?.titulo, tema?.detalle, ...g.bloques.flatMap((b) => [b.texto, b.consejo, b.ojo, ...(b.pasos ?? []).flatMap((p) => [p.t, p.d])])]
           .filter(Boolean)
           .join(" ")
-      ).includes(t)
-    );
+      );
+      return palabras.every((w) => texto.includes(w));
+    });
   }, [q]);
 
   if (guia) {

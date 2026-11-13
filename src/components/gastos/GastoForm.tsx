@@ -147,6 +147,25 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
       if (gasto) {
         await updateGasto(gasto.id, payload);
       } else {
+        // Carga doble (BUG-08): mismo concepto y mismo monto, o la misma factura
+        // del mismo proveedor. Se avisa antes de guardar; si es a propósito
+        // (dos pagos iguales en el mes, por ejemplo), se puede seguir.
+        const previos = await getGastos().catch(() => [] as Gasto[]);
+        const n = (v: unknown) => String(v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+        const dig = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+        const repetido = previos.find((g) =>
+          (n(g.descripcion) !== "" && n(g.descripcion) === n(payload.descripcion) && Math.round(Number(g.monto)) === Math.round(total)) ||
+          (dig(payload.numero_factura).length >= 3 && dig(g.numero_factura) === dig(payload.numero_factura) &&
+            dig(g.proveedor_ruc) === dig(payload.proveedor_ruc))
+        );
+        if (repetido) {
+          const ok = window.confirm(
+            `Ya hay un gasto parecido cargado:\n\n${repetido.descripcion || "(sin descripción)"} · Gs. ${Math.round(Number(repetido.monto)).toLocaleString("es-PY")} · ${repetido.fecha}` +
+              (repetido.numero_factura ? ` · Factura ${repetido.numero_factura}` : "") +
+              "\n\n¿Guardarlo igual?"
+          );
+          if (!ok) return;
+        }
         await createGasto(payload);
       }
       onSuccess?.();

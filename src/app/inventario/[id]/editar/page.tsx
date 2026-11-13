@@ -212,7 +212,7 @@ export default function EditarProductoPage() {
         sku: p.sku,
         codigo_barras: p.codigo_barras ?? "",
         codigo_barras_interno: p.codigo_barras_interno === true,
-        costo_promedio: String(p.costo_promedio),
+        costo_promedio: String(Math.round(Number(p.costo_promedio) || 0)),
         markup: markup.toFixed(2),
         precio_venta: String(p.precio_venta),
         precio_mayorista: p.precio_mayorista != null ? String(p.precio_mayorista) : "",

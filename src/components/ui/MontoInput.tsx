@@ -22,6 +22,12 @@ export function parseMontoInput(value: string): number {
   const parts = v.split(".");
   if (parts.length === 1) return parseFloat(parts[0]) || 0;
   const last = parts[parts.length - 1] || "";
+  // Un número de JS pasado a texto ("8970.526315789473", un costo promedio):
+  // un grupo de miles tiene siempre 3 dígitos, así que más de 3 después de un
+  // único punto son decimales. Antes se leía como 8.970.526.315.789.473 (BUG-12).
+  if (parts.length === 2 && last.length > 3 && /^-?\d+$/.test(parts[0]) && /^\d+$/.test(last)) {
+    return parseFloat(v) || 0;
+  }
   if (last.length <= 2 && /^\d+$/.test(last)) {
     return parseFloat(parts.slice(0, -1).join("") + "." + last) || 0;
   }
