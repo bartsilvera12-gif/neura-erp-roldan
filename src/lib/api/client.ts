@@ -314,8 +314,20 @@ export async function apiCreatePago(data: {
   metodo_pago?: string;
   referencia?: string;
 }): Promise<{ id: string; [key: string]: unknown } | null> {
+  const result = await apiCreatePagoDetalle(data);
+  return result.ok ? result.data : null;
+}
+
+/** Igual que `apiCreatePago`, pero con el motivo cuando falla (para mostrarlo). */
+export async function apiCreatePagoDetalle(data: {
+  factura_id: string;
+  monto: number;
+  fecha_pago: string;
+  metodo_pago?: string;
+  referencia?: string;
+}): Promise<{ ok: true; data: { id: string; [key: string]: unknown } } | { ok: false; error: string }> {
   const result = await apiPost<{ id: string; [key: string]: unknown }>("/api/pagos", data);
-  return result.success ? result.data : null;
+  return result.success ? { ok: true, data: result.data } : { ok: false, error: result.error };
 }
 
 export async function apiCreateSuscripcion(data: {

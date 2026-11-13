@@ -496,15 +496,21 @@ function ClienteBusquedaGlobal({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  /**
+   * Cuántos se muestran. Antes era un tope fijo (24 sin buscar, 50 buscando)
+   * y al bajar no cargaba más: parecía que había 23 clientes (BUG-03). Ahora
+   * arranca en 50 y suma 50 cada vez que se llega al final de la lista.
+   */
+  const [cuantos, setCuantos] = useState(50);
+  useEffect(() => { setCuantos(50); }, [query]);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const resultados = useMemo(() => {
+  const coincidencias = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) {
       return [...clientes]
-        .sort((a, b) => clienteNombre(a).localeCompare(clienteNombre(b), "es", { sensitivity: "base" }))
-        .slice(0, 24);
+        .sort((a, b) => clienteNombre(a).localeCompare(clienteNombre(b), "es", { sensitivity: "base" }));
     }
     // Primero los que mejor coinciden; entre iguales, alfabético.
     return clientes
@@ -514,9 +520,9 @@ function ClienteBusquedaGlobal({
         return d !== 0
           ? d
           : clienteNombre(a).localeCompare(clienteNombre(b), "es", { sensitivity: "base" });
-      })
-      .slice(0, 50);
+      });
   }, [clientes, query]);
+  const resultados = useMemo(() => coincidencias.slice(0, cuantos), [coincidencias, cuantos]);
 
   useEffect(() => {
     if (!open) return;
@@ -630,7 +636,15 @@ function ClienteBusquedaGlobal({
 
       {open && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-          <div className="max-h-[70vh] overflow-y-auto overscroll-y-contain">
+          <div
+            className="max-h-[70vh] overflow-y-auto overscroll-y-contain"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80 && cuantos < coincidencias.length) {
+                setCuantos((n) => n + 50);
+              }
+            }}
+          >
             {resultados.length === 0 ? (
               <div className="px-4 py-8 text-center text-xs text-slate-400">
                 {query.trim() ? <>Sin resultados para &ldquo;{query.trim()}&rdquo;</> : <>Sin clientes cargados</>}
@@ -656,6 +670,10 @@ function ClienteBusquedaGlobal({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-400">
+            <span className="font-medium text-slate-500">
+              {resultados.length.toLocaleString("es-PY")} de {coincidencias.length.toLocaleString("es-PY")}
+              {resultados.length < coincidencias.length ? " · bajá para ver más" : ""}
+            </span>
             <span className="inline-flex items-center gap-1">
               <kbd className="rounded border border-slate-200 bg-white px-1 py-0.5 font-mono text-[9px] leading-none">↵</kbd>
               primer resultado

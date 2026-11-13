@@ -193,7 +193,9 @@ export async function POST(request: NextRequest) {
       referencia: referencia?.trim() || null,
       cliente_id: factura.cliente_id ?? null,
       usuario_id: auth.user?.id ?? null,
-      sucursal_id: exigirSucursal(auth.sucursal_id),
+      // Sin sucursal asignada el pago se registra igual (antes fallaba sin
+      // decir por qué y el saldo no cambiaba: BUG-04).
+      sucursal_id: auth.sucursal_id ?? null,
     };
 
     const { data, error } = await supabase

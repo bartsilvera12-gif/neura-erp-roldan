@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import MontoInput, { parseMontoInput } from "@/components/ui/MontoInput";
-import { apiCreatePago } from "@/lib/api/client";
+import { apiCreatePagoDetalle } from "@/lib/api/client";
 import { hoyYmdLocal } from "@/lib/fechas/calendario";
 import Selector from "@/components/ui/Selector";
 
@@ -71,7 +71,7 @@ export function RegistrarPagoModal({
       return;
     }
     setGuardando(true);
-    const result = await apiCreatePago({
+    const result = await apiCreatePagoDetalle({
       factura_id: f.id,
       monto: m,
       fecha_pago: fechaPago,
@@ -79,11 +79,13 @@ export function RegistrarPagoModal({
       referencia: referencia.trim() || undefined,
     });
     setGuardando(false);
-    if (result) {
+    if (result.ok) {
       await Promise.resolve(onExito());
       onClose();
     } else {
-      window.alert("Error al registrar el pago. Verificá el monto y vuelve a intentar.");
+      // El motivo real (BUG-04): antes decía siempre "verificá el monto",
+      // aunque el problema fuera otro, y no había forma de saber qué pasaba.
+      window.alert(`No se pudo registrar el pago: ${result.error}`);
     }
   }
 
