@@ -10,6 +10,11 @@ export interface NuevoClienteCreado {
   id: string;
   nombre: string;
   ruc: string | null;
+  /** El resto de lo cargado, para que la pantalla que lo pidió no lo vuelva a pedir. */
+  telefono?: string | null;
+  ciudad?: string | null;
+  profesion?: string | null;
+  direccion?: string | null;
 }
 
 interface Props {
@@ -135,6 +140,10 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
       id: res.data.id,
       nombre: nombreTrim,
       ruc: (tipo === "empresa" ? ruc.trim() : documento.trim()) || null,
+      telefono: telefono.trim() || null,
+      ciudad: ciudad.trim() || null,
+      profesion: profesion.trim() || null,
+      direccion: direccion.trim() || null,
     });
   }
 
@@ -264,8 +273,16 @@ export default function NuevoClienteRapidoModal({ nombreInicial, onClose, onCrea
             <label className="block text-sm">
               <span className="font-medium text-slate-800">Correo electrónico</span>
               <input
-                type="email" value={email}
-                onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                type="text" inputMode="email" autoComplete="email" value={email}
+                onChange={(e) => {
+                  // Texto y no type="email": en esos campos el navegador no deja
+                  // fijar el cursor, y al pasar a minúsculas saltaba al final
+                  // (no se podía escribir antes del "@").
+                  const el = e.target;
+                  const ini = el.selectionStart, fin = el.selectionEnd;
+                  setEmail(el.value.toLowerCase());
+                  if (ini != null && fin != null) requestAnimationFrame(() => { try { el.setSelectionRange(ini, fin); } catch { /* nada */ } });
+                }}
                 disabled={enviando} placeholder="ej: juan@gmail.com"
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lowercase focus:border-[#4FAEB2] focus:outline-none"
               />

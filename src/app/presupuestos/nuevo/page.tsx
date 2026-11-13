@@ -500,6 +500,17 @@ export default function NuevoPresupuestoPage() {
     setClienteId(c.id);
     setClienteNombre(c.nombre);
     setClienteRuc(c.ruc ?? "");
+    // BUG-06: lo demás que se cargó en el alta también pasa al presupuesto.
+    // Antes quedaba solo el nombre y había que volver a elegir la profesión
+    // (que, si era nueva, ni siquiera aparecía en la lista).
+    if (c.telefono) setClienteTel(c.telefono);
+    if (c.ciudad) setClienteCiudad(c.ciudad);
+    if (c.direccion) setClienteDir(c.direccion);
+    if (c.profesion) {
+      const prof = c.profesion.toUpperCase();
+      setProfesiones((prev) => (prev.some((p) => p.toUpperCase() === prof) ? prev : [...prev, prof].sort()));
+      setClienteProfesion(prof);
+    }
   }
 
   function precioParaProducto(p: ProductoLite): number {
@@ -814,7 +825,8 @@ export default function NuevoPresupuestoPage() {
   }
 
   return (
-    <div className="space-y-6">
+    // pb: la barra fija de abajo no tiene que tapar lo último del formulario.
+    <div className="space-y-6 pb-6">
       <PageHeader
         backHref="/presupuestos"
         backLabel="Volver a presupuestos"
@@ -1349,7 +1361,11 @@ export default function NuevoPresupuestoPage() {
         volver a bajar. Acá el total se ve mientras se cargan los ítems, que es
         cuando sirve.
       */}
-      <div className="sticky bottom-0 -mx-4 mt-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+      {/* z-20 y sombra: sin eso, los campos de la tabla (que tienen su propio
+          apilamiento) se dibujaban por encima o la barra tapaba la última fila
+          sin que se notara (BUG-06). En el celular va arriba de la barra de
+          navegación de abajo. */}
+      <div className="sticky bottom-0 z-20 -mx-4 mt-2 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] max-lg:bottom-16 sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-medium text-slate-500">

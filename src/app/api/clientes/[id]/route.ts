@@ -1,3 +1,4 @@
+import { clienteConMismoRuc } from "@/lib/clientes/ruc-duplicado";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/middleware/auth";
@@ -126,6 +127,18 @@ export async function PATCH(
             'Los datos no fueron cargados correctamente, seguir la estructura del RUC (números-dígito verificador, ej: 12345678-9).'
           ),
           { status: 400 }
+        );
+      }
+    }
+
+    // Al cambiar el RUC o la cédula, que no quede igual al de otro cliente.
+    for (const doc of [raw.ruc, raw.documento]) {
+      if (typeof doc !== "string" || !doc.trim()) continue;
+      const igual = await clienteConMismoRuc(supabase, auth.empresa_id, doc, clienteId);
+      if (igual) {
+        return NextResponse.json(
+          errorResponse(`Ese RUC o cédula ya es de otro cliente: ${igual.nombre}.`),
+          { status: 409 }
         );
       }
     }

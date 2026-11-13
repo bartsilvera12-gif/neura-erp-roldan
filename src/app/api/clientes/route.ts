@@ -1,3 +1,4 @@
+import { clienteConMismoRuc } from "@/lib/clientes/ruc-duplicado";
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -525,6 +526,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse(ident.error ?? "Faltan datos del cliente."), { status: 400 });
     }
 
+    // RUC / cédula repetido: no se da de alta otra ficha del mismo cliente.
+    for (const doc of [ruc, documento]) {
+      const igual = await clienteConMismoRuc(supabase, auth.empresa_id, doc);
+      if (igual) {
+        return NextResponse.json(
+          errorResponse(`Ya existe un cliente con ese RUC o cédula: ${igual.nombre}. Buscalo en Clientes en vez de crearlo de nuevo.`),
+          { status: 409 }
+        );
+      }
+    }
+
     const tipoServicio = tipo_servicio_cliente?.trim();
     if (tipoServicio) {
       await ensureSemillasCatalogoTipos(supabase, auth.empresa_id);
@@ -660,6 +672,18 @@ export async function POST(request: NextRequest) {
 
     const rowWithPlan =
       planComercial ? { ...insertBase, plan_comercial_id: planComercial } : insertBase;
+
+    // Una profesión escrita a mano que no está en el catálogo se agrega, así
+    // aparece en la lista la próxima vez (BUG-06). Si falla, el alta sigue.
+    const profNueva = typeof profesion === "string" ? profesion.trim().toUpperCase() : "";
+    if (profNueva) {
+      try {
+        const ya = await supabase.from("profesiones").select("id").eq("empresa_id", auth.empresa_id).ilike("nombre", profNueva).limit(1);
+        if (!ya.error && (ya.data ?? []).length === 0) {
+          await supabase.from("profesiones").insert({ empresa_id: auth.empresa_id, nombre: profNueva, orden: 999, activa: true });
+        }
+      } catch { /* el catálogo es de cortesía */ }
+    }
 
     let { data, error } = await supabase.from("clientes").insert([rowWithPlan]).select().single();
 

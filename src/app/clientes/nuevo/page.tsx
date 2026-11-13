@@ -273,8 +273,17 @@ function NuevoClienteForm() {
     const { name, value } = e.target;
     const type = (e.target as HTMLInputElement).type;
     let normalized = value;
-    if (lower.includes(name) || type === "email") normalized = value.toLowerCase();
+    const esEmail = type === "email" || name === "email" || name === "email_secundario";
+    if (lower.includes(name) || esEmail) normalized = value.toLowerCase();
     else if (upper.includes(name)) normalized = value.toUpperCase();
+    // Al pasar a mayúsculas/minúsculas se reescribe el valor y el navegador
+    // manda el cursor al final: se lo devuelve a donde se estaba escribiendo
+    // (BUG-02: escribir antes del "@" en el correo).
+    if (normalized !== value) {
+      const el = e.target as HTMLInputElement;
+      const ini = el.selectionStart, fin = el.selectionEnd;
+      if (ini != null && fin != null) requestAnimationFrame(() => { try { el.setSelectionRange(ini, fin); } catch { /* tipo sin selección */ } });
+    }
     setForm((prev) => ({ ...prev, [name]: normalized }));
   }
 
@@ -783,7 +792,8 @@ function NuevoClienteForm() {
               <div>
                 <label className={labelClass}>Email principal</label>
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
@@ -794,7 +804,8 @@ function NuevoClienteForm() {
               <div>
                 <label className={labelClass}>Email secundario</label>
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   name="email_secundario"
                   value={form.email_secundario}
                   onChange={handleChange}
