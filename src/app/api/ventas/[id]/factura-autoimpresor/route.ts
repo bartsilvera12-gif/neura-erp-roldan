@@ -110,7 +110,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       total_letras: numeroALetras(totalRelleno),
     }, {
       titulo: `Factura ${f.numero_factura}`,
-      aviso: `Poné en la impresora la factura N° ${f.numero_factura} del talonario (timbrado ${cfg.timbrado_numero ?? ""}).`,
+      aviso: `Poné en la impresora la próxima hoja del talonario (timbrado ${cfg.timbrado_numero ?? ""}).`,
       auto: new URL(request.url).searchParams.get("auto") === "1",
     });
     return new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
