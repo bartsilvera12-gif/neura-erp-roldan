@@ -13,6 +13,7 @@ import { insertVentaPagoDetalle } from "@/lib/ventas/server/pago-detalle-pg";
 import type { MetodoPagoDetalle } from "@/lib/ventas/server/pago-detalle-pg";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { esIdManual, productoItemManual } from "@/lib/ventas/server/item-manual";
 import type { Venta, LineaVenta } from "@/lib/ventas/types";
 import { createServiceRoleClientWithDbSchema } from "@/lib/supabase/empresa-data-schema";
 import { estaFacturado, marcarFacturado } from "@/lib/caja/facturacion";
@@ -55,7 +56,9 @@ function asItems(body: unknown): CreateVentaItemInput[] | null {
       tp === "mayorista" || tp === "distribuidor" || tp === "costo" ? tp : "minorista";
     const loteId = typeof r.lote_id === "string" && r.lote_id.trim() ? r.lote_id.trim() : null;
     out.push({
-      producto_id: String(r.producto_id ?? ""),
+      // Línea escrita a mano ("manual:<n>" o vacío): se resuelve más abajo al
+      // producto genérico "ÍTEM A MANO" de la sucursal.
+      producto_id: esIdManual(r.producto_id) ? "manual" : String(r.producto_id ?? ""),
       producto_nombre: String(r.producto_nombre ?? ""),
       sku: String(r.sku ?? ""),
       cantidad: Number(r.cantidad),
@@ -76,6 +79,7 @@ function asItems(body: unknown): CreateVentaItemInput[] | null {
     out.some(
       (i) =>
         !i.producto_id ||
+        (i.producto_id === "manual" && !i.producto_nombre.trim()) ||
         !(i.cantidad > 0) ||
         !Number.isFinite(i.precio_venta_original) ||
         !Number.isFinite(i.precio_venta) ||
@@ -163,6 +167,14 @@ export async function POST(request: NextRequest) {
     const items = asItems(body);
     if (!items) {
       return NextResponse.json(errorResponse("Payload inválido: items requeridos."), { status: 400 });
+    }
+    if (items.some((i) => i.producto_id === "manual")) {
+      const idManual = await productoItemManual(
+        await createServiceRoleClientForEmpresa(auth.empresa_id),
+        auth.empresa_id,
+        exigirSucursal(auth.sucursal_id)
+      );
+      for (const i of items) if (i.producto_id === "manual") i.producto_id = idManual;
     }
 
     const o = body as Record<string, unknown>;

@@ -561,9 +561,13 @@ export default function NuevaVentaPage() {
             setPresuSinStock(js.data?.facturable === false ? (js.data?.aviso ?? "Falta stock para entregar este presupuesto.") : null);
           })
           .catch(() => { /* sin el dato no se bloquea: ver el comentario del estado */ });
+        // Las líneas escritas a mano (sin producto del inventario) también
+        // vienen: antes se descartaban y el cobro salía de menos. Viajan como
+        // "manual:<n>" y el servidor las vende con el producto genérico
+        // "ÍTEM A MANO", conservando su descripción.
         const lineas: LineaVenta[] = items
-          .filter((it) => it.producto_id && (Number(it.cantidad) || 0) > 0)
-          .map((it) => {
+          .filter((it) => (it.producto_id || String(it.producto_nombre ?? "").trim()) && (Number(it.cantidad) || 0) > 0)
+          .map((it, n) => {
             const cantidad = Number(it.cantidad) || 0;
             const precio = Number(it.precio_unitario) || 0;
             const ivaRaw = String(it.iva_tipo ?? "10%");
@@ -572,9 +576,9 @@ export default function NuevaVentaPage() {
             const montoIva = calcIva(iva, totalLinea);
             const subtotal = totalLinea - montoIva;
             return {
-              producto_id: String(it.producto_id),
+              producto_id: it.producto_id ? String(it.producto_id) : `manual:${n}`,
               producto_nombre: typeof it.producto_nombre === "string" ? it.producto_nombre : "",
-              sku: typeof it.sku === "string" ? it.sku : "",
+              sku: it.producto_id ? (typeof it.sku === "string" ? it.sku : "") : "A MANO",
               cantidad,
               precio_venta_original: precio,
               precio_venta: precio,
@@ -957,7 +961,7 @@ export default function NuevaVentaPage() {
   // Los productos de la venta, estables como texto: sin esto el efecto se
   // volvería a disparar en cada render porque el array es nuevo cada vez.
   const idsEnVenta = useMemo(
-    () => [...new Set(items.map((i) => i.producto_id).filter(Boolean))].sort().join(","),
+    () => [...new Set(items.map((i) => i.producto_id).filter((id) => id && !id.startsWith("manual:")))].sort().join(","),
     [items]
   );
 
@@ -2261,7 +2265,8 @@ export default function NuevaVentaPage() {
                   <tbody className="divide-y divide-slate-100">
                     {items.map((item, idx) => {
                       const prod = productos.find((p) => p.id === item.producto_id);
-                      const controla = prod ? prod.controla_stock !== false : true;
+                      const esManual = item.producto_id.startsWith("manual:");
+                      const controla = esManual ? false : prod ? prod.controla_stock !== false : true;
                       const stock = prod?.stock_actual ?? 0;
                       const stockBajo = controla && item.cantidad > stock;
                       // Piso del precio de venta = costo de compra del producto. El cajero
