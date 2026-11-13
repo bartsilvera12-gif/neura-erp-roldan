@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     const filtros = mayorFiltersFromUrl(new URL(request.url));
     const { cuentas } = await listLibroMayor(schema, auth.empresaId, filtros);
     const flat: FlatRow[] = [];
-    const docLabel = (o: string) => (o === "compra" ? "Compra" : o === "gasto_servicio" ? "Gasto y Servicio" : o === "reversion" ? "Reversión" : o);
+    const docLabel = (o: string) => (o === "compra" ? "Compra" : o === "gasto_servicio" ? "Gasto y Servicio" : o === "reversion" ? "Reversión" : o === "caja_diferencia" ? "Sobrante/faltante de caja" : o);
     for (const c of cuentas) {
       flat.push({ cuenta: c.cuenta_codigo, denominacion: c.denominacion, naturaleza: c.naturaleza, tipo: "SALDO INICIAL", fecha: "", numero_asiento: "", documento: "", descripcion: "", proveedor: "", debe: 0, haber: 0, saldo: c.saldo_inicial });
       for (const m of c.movimientos) {

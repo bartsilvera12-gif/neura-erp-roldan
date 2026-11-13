@@ -35,7 +35,23 @@ export async function GET(request: NextRequest) {
     }
     const { data, error } = await q;
     if (error) throw new Error(error.message);
-    const movs = ((data ?? []) as Array<{ monto: number | string }>).map((m) => ({ ...m, monto: Number(m.monto) || 0 }));
+    // El asiento contable de cada una (script 88), si ya se asentó.
+    const ids = ((data ?? []) as Array<{ id: string }>).map((m) => m.id);
+    const asientoPorMov = new Map<string, string>();
+    for (let i = 0; i < ids.length; i += 80) {
+      const { data: as } = await ctx.supabase
+        .from("asientos_contables")
+        .select("origen_id, numero_asiento")
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("origen_tipo", "caja_diferencia")
+        .in("origen_id", ids.slice(i, i + 80));
+      for (const a of (as ?? []) as Array<{ origen_id: string; numero_asiento: string }>) asientoPorMov.set(a.origen_id, a.numero_asiento);
+    }
+    const movs = ((data ?? []) as Array<{ id: string; monto: number | string }>).map((m) => ({
+      ...m,
+      monto: Number(m.monto) || 0,
+      asiento: asientoPorMov.get(m.id) ?? null,
+    }));
     const sobrantes = movs.filter((m) => m.monto > 0).reduce((s, m) => s + m.monto, 0);
     const faltantes = movs.filter((m) => m.monto < 0).reduce((s, m) => s - m.monto, 0);
     return NextResponse.json(successResponse({

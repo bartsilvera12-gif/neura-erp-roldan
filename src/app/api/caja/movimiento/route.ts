@@ -5,6 +5,8 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { registrarMovimiento, getCajaAbierta } from "@/lib/caja/server";
 import { comprobantePathBelongsToEmpresa } from "@/lib/compras/comprobante-storage";
 import { esTipoEgresoValido } from "@/lib/caja/tipos-egreso";
+import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
+import { contabilizarDiferenciaCaja, RE_CONCEPTO_DIFERENCIA } from "@/lib/contabilidad/caja-diferencias-pg";
 
 /**
  * POST /api/caja/movimiento
@@ -123,7 +125,18 @@ export async function POST(request: NextRequest) {
       usuarioId: ctx.auth.usuarioCatalogId ?? null,
       usuarioEmail: ctx.auth.user?.email ?? null,
     });
-    return NextResponse.json(successResponse({ movimiento }));
+    // Sobrante o faltante de una venta: además del ajuste de la caja, su
+    // asiento contable (script 88). Si falla, el ajuste queda igual.
+    let asiento: unknown = null;
+    if (tipo === "ajuste" && RE_CONCEPTO_DIFERENCIA.test(concepto) && (movimiento as { id?: string } | null)?.id) {
+      try {
+        const schema = await fetchDataSchemaForEmpresaId(ctx.auth.empresa_id);
+        asiento = await contabilizarDiferenciaCaja(schema, ctx.auth.empresa_id, String((movimiento as { id: string }).id), ctx.auth.usuarioCatalogId ?? null);
+      } catch (e) {
+        console.warn("[/api/caja/movimiento] asiento de la diferencia:", e instanceof Error ? e.message : e);
+      }
+    }
+    return NextResponse.json(successResponse({ movimiento, asiento }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo registrar el movimiento.";
     return NextResponse.json(errorResponse(msg), { status: 500 });

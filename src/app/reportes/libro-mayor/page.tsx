@@ -10,7 +10,7 @@ import Selector from "@/components/ui/Selector";
 interface Mov { fecha_contable: string; numero_asiento: string; origen_tipo: string; descripcion: string | null; proveedor_nombre: string | null; debe: number; haber: number; saldo_acumulado: number }
 interface Cuenta { cuenta_codigo: string; denominacion: string; naturaleza: string; saldo_inicial: number; movimientos: Mov[]; total_debe: number; total_haber: number; saldo_final: number }
 const fmt = (v: number) => Math.round(Number(v) || 0).toLocaleString("es-PY");
-const doc = (o: string) => (o === "compra" ? "Compra" : o === "gasto_servicio" ? "Gasto y Servicio" : o === "reversion" ? "Reversión" : o);
+const doc = (o: string) => (o === "compra" ? "Compra" : o === "gasto_servicio" ? "Gasto y Servicio" : o === "reversion" ? "Reversión" : o === "caja_diferencia" ? "Sobrante/faltante de caja" : o);
 const fom = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; };
 const tod = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 

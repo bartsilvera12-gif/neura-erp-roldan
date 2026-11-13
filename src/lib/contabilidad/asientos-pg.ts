@@ -2,7 +2,7 @@ import "server-only";
 import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-pool";
 import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
 
-export type OrigenTipo = "gasto_servicio" | "compra" | "reversion" | "pago_proveedor" | "factura_venta" | "nota_credito_venta" | "cobro_cliente" | "reclasificacion_anticipo";
+export type OrigenTipo = "gasto_servicio" | "compra" | "reversion" | "pago_proveedor" | "factura_venta" | "nota_credito_venta" | "cobro_cliente" | "reclasificacion_anticipo" | "caja_diferencia";
 
 export class ContabilidadError extends Error {
   status: number;

@@ -21,6 +21,8 @@ interface Config {
   cuenta_ventas_servicios_id: string | null;
   cuenta_clientes_id: string | null;
   cuenta_anticipos_clientes_id: string | null;
+  cuenta_sobrantes_caja_id: string | null;
+  cuenta_faltantes_caja_id: string | null;
 }
 interface Periodo { id: string; anio: number; mes: number; estado: string; cerrado_at: string | null }
 
@@ -30,6 +32,7 @@ const EMPTY: Config = {
   cuenta_iva_debito_5_id: null, cuenta_iva_debito_10_id: null, cuenta_ventas_gravadas_id: null,
   cuenta_ventas_exentas_id: null, cuenta_ventas_servicios_id: null, cuenta_clientes_id: null,
   cuenta_anticipos_clientes_id: null,
+  cuenta_sobrantes_caja_id: null, cuenta_faltantes_caja_id: null,
 };
 
 const FIELDS_COMPRAS: { key: keyof Config; label: string }[] = [
@@ -48,6 +51,10 @@ const FIELDS_VENTAS: { key: keyof Config; label: string }[] = [
   { key: "cuenta_clientes_id", label: "Cuenta general de Clientes (CxC)" },
   { key: "cuenta_anticipos_clientes_id", label: "Cuenta de Anticipos de Clientes" },
 ];
+const FIELDS_CAJA: { key: keyof Config; label: string }[] = [
+  { key: "cuenta_sobrantes_caja_id", label: "Sobrantes de caja (ingreso)" },
+  { key: "cuenta_faltantes_caja_id", label: "Faltantes de caja (pérdida)" },
+];
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 export default function ConfiguracionContablePage() {
@@ -57,13 +64,14 @@ export default function ConfiguracionContablePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [faltaScript88, setFaltaScript88] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [cfg, per] = await Promise.all([apiFetch("/api/configuracion/contable"), apiFetch("/api/configuracion/contable/periodos")]);
       const jc = await cfg.json().catch(() => ({}));
-      if (cfg.ok && jc?.success) setConfig(jc.data.config);
+      if (cfg.ok && jc?.success) { setConfig({ ...EMPTY, ...jc.data.config }); setFaltaScript88(!!jc.data.falta_script_88); }
       else if (cfg.status === 403) setMsg({ ok: false, text: "Sin permiso de Contabilidad." });
       const jp = await per.json().catch(() => ({}));
       if (per.ok && jp?.success) setPeriodos(jp.data.periodos);
@@ -78,8 +86,9 @@ export default function ConfiguracionContablePage() {
       const r = await apiFetch("/api/configuracion/contable", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.success) { setMsg({ ok: false, text: j?.error ?? `Error ${r.status}` }); return; }
-      setConfig(j.data.config);
-      setMsg({ ok: true, text: "Configuración contable guardada." });
+      setConfig({ ...EMPTY, ...j.data.config });
+      const asentadas = Number(j.data.diferencias?.asentadas) || 0;
+      setMsg({ ok: true, text: `Configuración contable guardada.${asentadas > 0 ? ` Se asentaron ${asentadas} sobrante(s)/faltante(s) de caja que estaban pendientes.` : ""}` });
     } finally { setSaving(false); }
   }
 
@@ -124,6 +133,30 @@ export default function ConfiguracionContablePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <ConfigSectionTitle>Sobrantes y faltantes de caja</ConfigSectionTitle>
+          <p className="mb-4 text-xs text-slate-400">
+            Cuando en una venta en efectivo no se da el vuelto (sobrante) o se acepta de menos (faltante), además del ajuste
+            de la caja se asienta: sobrante → Debe Caja / Haber Sobrantes; faltante → Debe Faltantes / Haber Caja. Usa la
+            &quot;Cuenta predeterminada de Caja&quot; de arriba.
+          </p>
+          {faltaScript88 ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Falta correr el script 88 en la base para poder elegir estas cuentas.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {FIELDS_CAJA.map((f) => (
+                <div key={f.key}>
+                  <label className={F_LABEL}>{f.label}</label>
+                  <CuentaCombobox cuentas={cuentas} value={(config[f.key] as string) ?? null}
+                    onChange={(id) => setConfig((c) => ({ ...c, [f.key]: id }))} placeholder="(Sin configurar)" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-4 flex justify-end">

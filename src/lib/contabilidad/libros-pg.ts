@@ -60,7 +60,7 @@ export async function listLibroDiario(schemaRaw: string, empresaId: string, f: D
   );
   const rowsOut: DiarioRow[] = rows.map((r) => ({
     ...r, debe: n(r.debe), haber: n(r.haber),
-    documento: r.origen_tipo === "compra" ? "Compra" : r.origen_tipo === "gasto_servicio" ? "Gasto y Servicio" : r.origen_tipo === "reversion" ? "Reversión" : r.origen_tipo,
+    documento: r.origen_tipo === "compra" ? "Compra" : r.origen_tipo === "gasto_servicio" ? "Gasto y Servicio" : r.origen_tipo === "reversion" ? "Reversión" : r.origen_tipo === "caja_diferencia" ? "Sobrante/faltante de caja" : r.origen_tipo,
   }));
   const totalDebe = rowsOut.reduce((s, r) => s + r.debe, 0);
   const totalHaber = rowsOut.reduce((s, r) => s + r.haber, 0);

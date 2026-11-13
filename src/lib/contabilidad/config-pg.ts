@@ -24,8 +24,30 @@ const CONFIG_FIELDS = [
   "cuenta_ventas_servicios_id",
   "cuenta_clientes_id",
   "cuenta_anticipos_clientes_id",
+  // Caja (script 88): sobrantes y faltantes de las ventas en efectivo.
+  "cuenta_sobrantes_caja_id",
+  "cuenta_faltantes_caja_id",
 ] as const;
 type ConfigField = (typeof CONFIG_FIELDS)[number];
+
+/** Campos que llegan con un script posterior: si la columna no está, se omiten. */
+const CAMPOS_OPCIONALES: readonly ConfigField[] = ["cuenta_sobrantes_caja_id", "cuenta_faltantes_caja_id"];
+
+/** Los campos que existen como columna en este tenant. */
+async function camposDisponibles(schema: string): Promise<ConfigField[]> {
+  const { rows } = await pool().query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'configuracion_contable'`,
+    [schema]
+  );
+  const hay = new Set(rows.map((r) => r.column_name));
+  return CONFIG_FIELDS.filter((f) => !CAMPOS_OPCIONALES.includes(f) || hay.has(f));
+}
+
+/** ¿Falta correr el script 88 (cuentas de sobrantes y faltantes)? */
+export async function faltaScriptSobrantes(schemaRaw: string): Promise<boolean> {
+  const schema = assertAllowedChatDataSchema(schemaRaw);
+  return !(await camposDisponibles(schema)).includes("cuenta_sobrantes_caja_id");
+}
 
 const EMPTY_CONFIG: ConfigContableView = {
   cuenta_iva_credito_5_id: null, cuenta_iva_credito_10_id: null, cuenta_proveedores_id: null,
@@ -33,6 +55,7 @@ const EMPTY_CONFIG: ConfigContableView = {
   cuenta_iva_debito_5_id: null, cuenta_iva_debito_10_id: null, cuenta_ventas_gravadas_id: null,
   cuenta_ventas_exentas_id: null, cuenta_ventas_servicios_id: null, cuenta_clientes_id: null,
   cuenta_anticipos_clientes_id: null,
+  cuenta_sobrantes_caja_id: null, cuenta_faltantes_caja_id: null,
 };
 
 export type ConfigContableView = Record<ConfigField, string | null>;
@@ -40,12 +63,12 @@ export type ConfigContableView = Record<ConfigField, string | null>;
 export async function getConfigView(schemaRaw: string, empresaId: string): Promise<ConfigContableView> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const t = quoteSchemaTable(schema, "configuracion_contable");
-  const cols = CONFIG_FIELDS.join(", ");
+  const cols = (await camposDisponibles(schema)).join(", ");
   const { rows } = await pool().query<ConfigContableView>(
     `SELECT ${cols} FROM ${t} WHERE empresa_id = $1::uuid`,
     [empresaId]
   );
-  return rows[0] ?? { ...EMPTY_CONFIG };
+  return { ...EMPTY_CONFIG, ...(rows[0] ?? {}) };
 }
 
 /** Guarda la configuración; valida que cada cuenta elegida sea activa + asentable. */
@@ -76,13 +99,14 @@ export async function saveConfig(schemaRaw: string, empresaId: string, body: Rec
 
   // INSERT/UPDATE dinámico sobre todos los campos (compras + ventas).
   // $1 = empresa_id; $2..$(n+1) = campos; $(n+2) = updated_by.
-  const cols = CONFIG_FIELDS.join(", ");
-  const insertVals = CONFIG_FIELDS.map((_, i) => `$${i + 2}::uuid`).join(", ");
-  const updateSet = CONFIG_FIELDS.map((f) => `${f} = EXCLUDED.${f}`).join(", ");
-  const params = [empresaId, ...CONFIG_FIELDS.map((f) => values[f]), userId];
+  const campos = await camposDisponibles(schema);
+  const cols = campos.join(", ");
+  const insertVals = campos.map((_, i) => `$${i + 2}::uuid`).join(", ");
+  const updateSet = campos.map((f) => `${f} = EXCLUDED.${f}`).join(", ");
+  const params = [empresaId, ...campos.map((f) => values[f]), userId];
   await pool().query(
     `INSERT INTO ${t} (empresa_id, ${cols}, updated_by)
-     VALUES ($1::uuid, ${insertVals}, $${CONFIG_FIELDS.length + 2}::uuid)
+     VALUES ($1::uuid, ${insertVals}, $${campos.length + 2}::uuid)
      ON CONFLICT (empresa_id) DO UPDATE SET
        ${updateSet},
        updated_by = EXCLUDED.updated_by, updated_at = now()`,

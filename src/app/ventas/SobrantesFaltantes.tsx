@@ -9,10 +9,11 @@ import { ChevronDown, ChevronRight, Scale } from "lucide-react";
  *
  * Junta lo que sobró o faltó en cada venta en efectivo (vuelto que no se dio,
  * o lo que se aceptó de menos) y muestra el saldo del mes. Cada uno ya está
- * sumado o restado en el efectivo esperado de su caja.
+ * sumado o restado en el efectivo esperado de su caja, y se asienta en la
+ * contabilidad contra las cuentas de Sobrantes / Faltantes de caja (script 88).
  */
 
-type Mov = { id: string; concepto: string; monto: number; observacion: string | null; created_at: string };
+type Mov = { id: string; concepto: string; monto: number; observacion: string | null; created_at: string; asiento?: string | null };
 
 const gs = (n: number) => "Gs. " + Math.round(Number(n) || 0).toLocaleString("es-PY");
 const hoyPy = () => new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
@@ -77,6 +78,10 @@ export default function SobrantesFaltantes() {
                 <li key={m.id} className="flex items-center gap-3 py-1.5">
                   <span className="w-24 shrink-0 text-xs tabular-nums text-slate-400">{fechaHora(m.created_at)}</span>
                   <span className="min-w-0 flex-1 truncate text-slate-700" title={m.observacion ?? undefined}>{m.concepto}</span>
+                  <span className={`shrink-0 text-[11px] ${m.asiento ? "text-slate-400" : "text-amber-600"}`}
+                    title={m.asiento ? undefined : "Se asienta cuando estén elegidas las cuentas de Sobrantes y Faltantes de caja en Configuración contable."}>
+                    {m.asiento ? `Asiento ${m.asiento}` : "Sin asentar"}
+                  </span>
                   <span className={`shrink-0 font-semibold tabular-nums ${m.monto >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
                     {m.monto >= 0 ? "+ " : "− "}{gs(Math.abs(m.monto))}
                   </span>
