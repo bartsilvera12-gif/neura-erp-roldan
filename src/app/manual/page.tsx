@@ -21,14 +21,18 @@
  *   flecha apuntando a cualquier lado.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown, ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Expand, Lightbulb,
   Package, Rocket, Search, ShoppingCart, Truck, FileText, X, AlertTriangle,
   Users, Wallet, BarChart3, UserCog, Settings, MessageCircle,
 } from "lucide-react";
-import { GRUPOS, GUIAS, LLEGAR, type Guia } from "@/lib/manual/contenido";
+import { GRUPOS, GUIAS, LLEGAR, modulosDeGuia, type Guia } from "@/lib/manual/contenido";
+import { getModuleAccessCached, peekModuleAccessCache, type ModuleAccessResponse } from "@/lib/modulos/module-access-cache";
+import { canAccessSidebarSlug } from "@/lib/modulos/route-slug-map";
+import { puedeVerSidebarSlugPorRol } from "@/lib/roles/erp-role-access";
+import { useRolErp } from "@/lib/auth/use-rol-erp";
 import marcasJson from "@/lib/manual/marcas.json";
 
 /**
@@ -358,10 +362,46 @@ function norm(s: string) {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
+/**
+ * Las guías que este usuario puede usar: las de los módulos que ve en el
+ * menú, con la MISMA regla del menú (módulos asignados + techo del rol).
+ *
+ * Mientras no se sabe el acceso no se muestra ninguna guía de módulo (solo
+ * las generales): mostrar todas un segundo y después sacarlas enseña
+ * pantallas que esa persona no tiene. Si la consulta falla, se muestran
+ * todas: es un manual, no una puerta, y la pantalla igual no lo deja entrar.
+ */
+function useGuiasVisibles(): Guia[] {
+  const { rol, loaded } = useRolErp();
+  const [acceso, setAcceso] = useState<ModuleAccessResponse | "todas" | null>(() => peekModuleAccessCache());
+  useEffect(() => {
+    let vivo = true;
+    void getModuleAccessCached()
+      .then(({ ok, data }) => { if (vivo) setAcceso(ok ? data : "todas"); })
+      .catch(() => { if (vivo) setAcceso("todas"); });
+    return () => { vivo = false; };
+  }, []);
+  return useMemo(() => {
+    if (acceso === "todas") return GUIAS;
+    return GUIAS.filter((g) => {
+      const mods = modulosDeGuia(g);
+      if (!mods) return true;
+      if (!acceso || !loaded) return false;
+      const slugs = new Set((acceso.modulos ?? []).map((m) => m.slug));
+      const inactivos = new Set(acceso.inactiveSlugs ?? []);
+      return mods.some((m) =>
+        canAccessSidebarSlug(m, slugs, !!acceso.superAdmin, inactivos, { strict: !!acceso.strictAllowlist }) &&
+        puedeVerSidebarSlugPorRol(m, rol)
+      );
+    });
+  }, [acceso, rol, loaded]);
+}
+
 export default function ManualPage() {
   const [tema, setTema] = useState<string | null>(null);
   const [guia, setGuia] = useState<Guia | null>(null);
   const [q, setQ] = useState("");
+  const GUIAS_VISIBLES = useGuiasVisibles();
 
   const encontradas = useMemo(() => {
     // Palabra por palabra y sin importar singular/plural: "Sistemas" encuentra
@@ -369,7 +409,7 @@ export default function ManualPage() {
     const raiz = (w: string) => w.replace(/(es|s)$/, "");
     const palabras = norm(q.trim()).split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 2).map(raiz);
     if (!palabras.length) return null;
-    return GUIAS.filter((g) => {
+    return GUIAS_VISIBLES.filter((g) => {
       const tema = TEMAS.find((t) => t.grupo === g.grupo);
       const texto = norm(
         [g.titulo, g.resumen, g.grupo, tema?.titulo, tema?.detalle, ...g.bloques.flatMap((b) => [b.texto, b.consejo, b.ojo, ...(b.pasos ?? []).flatMap((p) => [p.t, p.d])])]
@@ -378,7 +418,7 @@ export default function ManualPage() {
       );
       return palabras.every((w) => texto.includes(w));
     });
-  }, [q]);
+  }, [q, GUIAS_VISIBLES]);
 
   if (guia) {
     return (
@@ -388,7 +428,7 @@ export default function ManualPage() {
     );
   }
 
-  const lista = encontradas ?? (tema ? GUIAS.filter((g) => g.grupo === tema) : null);
+  const lista = encontradas ?? (tema ? GUIAS_VISIBLES.filter((g) => g.grupo === tema) : null);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -451,7 +491,7 @@ export default function ManualPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {TEMAS.filter((t) => GUIAS.some((g) => g.grupo === t.grupo)).map(({ grupo, titulo, detalle, Icono }) => (
+          {TEMAS.filter((t) => GUIAS_VISIBLES.some((g) => g.grupo === t.grupo)).map(({ grupo, titulo, detalle, Icono }) => (
             <button
               key={grupo}
               type="button"
@@ -465,7 +505,7 @@ export default function ManualPage() {
                 <span className="block font-semibold text-slate-900">{titulo}</span>
                 <span className="block text-sm text-slate-500">{detalle}</span>
                 <span className="mt-1 block text-xs text-slate-400">
-                  {GUIAS.filter((g) => g.grupo === grupo).length} guías
+                  {GUIAS_VISIBLES.filter((g) => g.grupo === grupo).length} guías
                 </span>
               </span>
             </button>

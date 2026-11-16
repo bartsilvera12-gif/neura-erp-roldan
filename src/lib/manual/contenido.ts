@@ -140,6 +140,12 @@ export const LLEGAR: Record<string, [string, string?]> = {
   "tipos-empleado": ["Recursos Humanos", "RRHH → Config · Tipos de empleado"],
   "roles-descuento": ["Administración", "Configuración → RRHH · Usuarios y roles"],
   "factura-talonario": ["Administración", "Configuración → Facturación"],
+  "precios-deposito": ["Operaciones", "Inventario → Precios por depósito"],
+  ubicaciones: ["Operaciones", "Inventario → Ubicaciones"],
+  "rubros-cliente": ["Administración", "Configuración"],
+  "clientes-categorias": ["Comercial", "Clientes → Categorías"],
+  planes: ["Comercial", "Planes"],
+  "rrhh-config": ["Recursos Humanos", "RRHH → Config · Política de vacaciones"],
 };
 
 export const GUIAS: Guia[] = [
@@ -534,6 +540,10 @@ export const GUIAS: Guia[] = [
           { t: "Nombre y RUC son lo importante." },
           { t: "Si te da plazo, cargá a cuántos días.", d: "Con eso el sistema calcula solo cuándo vence cada factura." },
         ],
+      },
+      {
+        consejo:
+          "En Proveedores → Rubros se crean los grupos de proveedores (chapas, caños, ferretería), para tenerlos ordenados y filtrarlos.",
       },
     ],
   },
@@ -1682,6 +1692,146 @@ export const GUIAS: Guia[] = [
     ],
   },
 
+  // ── Lo que faltaba ───────────────────────────────────────────────────────
+  {
+    id: "precios-deposito",
+    grupo: "Inventario",
+    titulo: "Un precio distinto en un depósito",
+    resumen: "Precios por depósito: la excepción a la lista para un depósito.",
+    bloques: [
+      {
+        img: "precios-deposito",
+        alt: "Precios por depósito",
+        texto: "El precio normal de cada producto es el de la lista. Acá se carga la excepción: lo que se cobra en un depósito en particular. La caja usa ese precio cuando se vende desde ese depósito.",
+        pasos: [
+          { t: "Elegí el depósito.", marca: "Depósito" },
+          { t: "Buscá el producto por nombre o código.", marca: "Buscar" },
+          { t: "Tocá «Poner precio» en su fila y escribí el precio para ese depósito.", d: "La columna «Dif.» muestra cuánto se aparta de la lista.", marca: "Poner precio" },
+          { t: "Tildá «Solo los que tienen precio propio» para ver todas las excepciones juntas." },
+        ],
+      },
+      {
+        ojo:
+          "Si después cambiás el precio de lista, el del depósito NO se mueve solo: es una excepción fija. Revisalas cuando hagas un estudio de precios.",
+      },
+    ],
+  },
+  {
+    id: "ubicaciones",
+    grupo: "Inventario",
+    titulo: "Crear un depósito o una ubicación",
+    resumen: "Depósitos, salones, estantes: dónde se guarda cada cosa.",
+    bloques: [
+      {
+        img: "ubicaciones",
+        alt: "Depósitos y ubicaciones",
+        pasos: [
+          { t: "Escribí el nombre del lugar: «Depósito central», «Salón», «Estante 3».", marca: "Nombre" },
+          { t: "Elegí la sucursal a la que pertenece.", marca: "Sucursal" },
+          { t: "Si está adentro de otro lugar (un estante dentro de un depósito), elegilo en «Ubicación padre».", marca: "Ubicación padre" },
+          { t: "Tocá «Crear ubicación».", marca: "Crear ubicación" },
+        ],
+      },
+      {
+        consejo:
+          "Cada depósito tiene su propio stock. Lo que hay en cada uno se ve en Inventario → Depósitos, y ahí mismo se pasa mercadería de uno a otro.",
+      },
+    ],
+  },
+  {
+    id: "rubros-cliente",
+    grupo: "Clientes",
+    titulo: "Rubros de cliente y su precio",
+    resumen: "Mayorista, minorista, frecuente: el porcentaje sobre la lista y el mínimo de compra.",
+    bloques: [
+      {
+        img: "rubros-cliente",
+        alt: "Rubros de cliente",
+        texto: "Está en Configuración → Rubros de cliente. Cada rubro tiene un porcentaje sobre el precio de lista: al elegir un cliente en la caja o en un presupuesto, el precio se ajusta solo.",
+        pasos: [
+          { t: "Escribí el nombre del rubro nuevo.", marca: "Nombre" },
+          { t: "Poné el porcentaje sobre la lista.", d: "Con signo: -8 es 8% menos que la lista, 5 es 5% más. Vacío o 0 es precio de lista.", marca: "% sobre lista" },
+          { t: "Tocá «Crear rubro».", marca: "Crear rubro" },
+          { t: "Para cambiar uno, tocá «Editar» en su fila.", d: "Ahí también se carga el mínimo mensual de compra.", marca: "Editar" },
+        ],
+      },
+      {
+        consejo:
+          "Con mínimo mensual, el rubro se asigna solo: se suma lo que el cliente compró en el mes y le toca el rubro más alto que alcanza. Un rubro con el mínimo vacío se asigna a mano y el automático no lo toca: es para los acuerdos particulares.",
+      },
+    ],
+  },
+  {
+    id: "clientes-categorias",
+    grupo: "Clientes",
+    titulo: "Por qué un cliente cambió de rubro",
+    resumen: "El historial de cambios de rubro y quién dejó de comprar.",
+    bloques: [
+      {
+        img: "clientes-categorias",
+        alt: "Categorías de cliente",
+        pasos: [
+          { t: "Buscá un cliente, o dejalo vacío para ver a todos.", marca: "Cliente" },
+          { t: "Cada fila dice en qué fecha cambió, de qué rubro a cuál, y cuánto compró ese mes." },
+          { t: "Filtrá por el rubro en que quedó, si buscás a todos los que pasaron a mayorista, por ejemplo.", marca: "Quedó en" },
+          { t: "«No compra» lista a los que tenían rubro y este mes no compraron nada.", marca: "No compra" },
+        ],
+      },
+      {
+        consejo:
+          "El rubro sube apenas se cierra la venta que cruza el mínimo, y baja en el recálculo de fin de mes. «Recalcular» lo hace en el momento, si cambiaste los mínimos.",
+      },
+    ],
+  },
+  {
+    id: "planes",
+    grupo: "Clientes",
+    titulo: "Planes",
+    resumen: "Los servicios que se cobran todos los meses.",
+    bloques: [
+      {
+        img: "planes",
+        alt: "Planes",
+        texto: "Un plan es un servicio con precio fijo que se cobra cada mes (o cada año): por ejemplo, un mantenimiento. Si el negocio no vende servicios así, esta pantalla no hace falta.",
+        pasos: [
+          { t: "Tocá «Nuevo plan».", marca: "Nuevo plan" },
+          { t: "Poné el nombre, el precio y cada cuánto se cobra." },
+          { t: "Para cambiar uno, usá el lápiz de su fila.", marca: "Editar" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "rrhh-config",
+    grupo: "Personal",
+    titulo: "Vacaciones según la ley y salario mínimo",
+    resumen: "La política de vacaciones y el salario mínimo para el IPS.",
+    bloques: [
+      {
+        img: "rrhh-politica-vacaciones",
+        alt: "Política de vacaciones",
+        texto: "En RRHH → Config · Política de vacaciones está lo que dice la ley (12, 18 o 30 días hábiles según la antigüedad). Eso no se cambia: el sistema lo aplica solo.",
+        pasos: [
+          { t: "Lo único que decide la empresa es si se pueden adelantar vacaciones.", d: "Tildado, se pueden registrar más días de los disponibles; por ejemplo, antes del primer año.", marca: "Permitir adelantar vacaciones" },
+          { t: "Tocá «Guardar».", marca: "Guardar" },
+        ],
+      },
+      {
+        img: "rrhh-salario-minimo",
+        alt: "Salario mínimo",
+        pasos: [
+          { t: "En RRHH → Config · Salario mínimo, escribí el salario mínimo vigente.", d: "Es lo que se le declara al IPS por los empleados marcados «sobre el mínimo».", marca: "Salario mínimo mensual" },
+          { t: "Poné desde cuándo rige.", marca: "Vigente desde" },
+          { t: "Tocá «Guardar».", marca: "Guardar" },
+        ],
+      },
+      {
+        ojo:
+          "El salario mínimo no viene cargado a propósito: lo fija un decreto y cambia. Cuando suba, cambialo acá y todos los empleados marcados «sobre el mínimo» quedan al día solos.",
+      },
+    ],
+  },
+
   // ── Omnicanal ──────────────────────────────────────────────────────────
   {
     id: "omni-que-es",
@@ -1866,3 +2016,57 @@ export const GUIAS: Guia[] = [
     ],
   },
 ];
+
+/**
+ * QUÉ MÓDULO HAY QUE TENER PARA VER CADA GUÍA.
+ *
+ * El Manual muestra solo las guías de las pantallas a las que el usuario
+ * puede entrar, con la misma regla que el menú (módulos asignados + techo del
+ * rol). Una guía de una pantalla que no ve solo confunde: busca el botón y no
+ * está.
+ *
+ * Se decide por tema y se corrige por guía donde el tema mezcla módulos (en
+ * «Compras y pagos» hay Compras, Proveedores y Pagos, que se asignan por
+ * separado). `null` = la ve todo el mundo. Una lista = alcanza con uno.
+ */
+const MODULO_POR_GRUPO: Record<string, string | string[] | null> = {
+  "Primeros pasos": null,
+  "Caja y ventas": "ventas",
+  Inventario: "inventario",
+  "Compras y pagos": "compras",
+  Presupuestos: "presupuestos",
+  Clientes: "clientes",
+  "Gastos y bancos": "pagos",
+  Informes: "reportes",
+  Contabilidad: "contabilidad",
+  Personal: "rrhh",
+  "Administración": "configuracion",
+  Omnicanal: "conversaciones",
+};
+
+const MODULO_POR_GUIA: Record<string, string | string[] | null> = {
+  proveedor: "proveedores",
+  "rubros-proveedores": "proveedores",
+  "pagar-proveedor": "pagos",
+  "cobrar-cliente": "pagos",
+  crm: "crm",
+  "gestion-cliente": "gestion-clientes",
+  "gasto-nuevo": "gastos",
+  "tipos-cambio": "compras",
+  "cierres-caja": ["reportes", "cierres-caja"],
+  comisiones: "comisiones",
+  "estudio-precios": "inventario",
+  "usuario-nuevo": "usuarios",
+  "roles-descuento": ["usuarios", "configuracion"],
+  sucursales: "sucursales",
+  transferencias: "reposicion",
+  planes: "planes",
+  "rubros-cliente": "configuracion",
+};
+
+/** Los módulos que habilitan una guía (alcanza con uno), o null si es para todos. */
+export function modulosDeGuia(g: Guia): string[] | null {
+  const m = g.id in MODULO_POR_GUIA ? MODULO_POR_GUIA[g.id] : MODULO_POR_GRUPO[g.grupo] ?? null;
+  if (m == null) return null;
+  return Array.isArray(m) ? m : [m];
+}
