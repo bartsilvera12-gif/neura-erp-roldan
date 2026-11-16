@@ -58,6 +58,7 @@ export const GRUPOS = [
   "Clientes",
   "Gastos y bancos",
   "Informes",
+  "Contabilidad",
   "Personal",
   "Administración",
   "Omnicanal",
@@ -120,6 +121,25 @@ export const LLEGAR: Record<string, [string, string?]> = {
   "omni-equipos": ["Omnicanal", "Conversaciones → Config · Equipos y supervisión"],
   "omni-horarios": ["Omnicanal", "Conversaciones → Config · Horarios"],
   "omni-flujos": ["Omnicanal", "Conversaciones → Flujos"],
+  "factura-caja": ["Comercial", "Caja → Nueva venta"],
+  sobrantes: ["Comercial", "Caja → Nueva venta"],
+  depositos: ["Operaciones", "Inventario → Depósitos"],
+  reposicion: ["Operaciones", "Inventario → Reposición"],
+  cotizaciones: ["Operaciones", "Compras → Comparativo de cotizaciones"],
+  "presupuesto-reservar": ["Comercial", "Presupuestos"],
+  "gestion-cliente": ["Comercial", "Gestión Clientes"],
+  rentabilidad: ["Finanzas", "Reportes → Rentabilidad"],
+  modificaciones: ["Finanzas", "Reportes → Modificaciones administrativas"],
+  "otros-informes": ["Finanzas", "Reportes"],
+  "libro-diario": ["Finanzas", "Contabilidad → Libro diario"],
+  "libro-compras": ["Finanzas", "Contabilidad → Libro de compras"],
+  "plan-cuentas": ["Finanzas", "Contabilidad → Plan de cuentas"],
+  "config-contable": ["Finanzas", "Contabilidad → Configuración contable"],
+  "punto-equilibrio": ["Finanzas", "Contabilidad → Punto de equilibrio"],
+  amonestaciones: ["Recursos Humanos", "RRHH → Empleados"],
+  "tipos-empleado": ["Recursos Humanos", "RRHH → Config · Tipos de empleado"],
+  "roles-descuento": ["Administración", "Configuración → RRHH · Usuarios y roles"],
+  "factura-talonario": ["Administración", "Configuración → Facturación"],
 };
 
 export const GUIAS: Guia[] = [
@@ -221,7 +241,11 @@ export const GUIAS: Guia[] = [
       },
       {
         consejo:
-          "Si arriba aparece un recuadro verde que dice «Hay un presupuesto aprobado esperando cobro», tocá «Cobrar» ahí: carga todos los productos de una.",
+          "Si arriba aparece un recuadro verde que dice «Hay un presupuesto aprobado esperando cobro», tocá «Cobrar» ahí: carga todos los productos de una, también los ítems escritos a mano.",
+      },
+      {
+        consejo:
+          "Antes de confirmar, en «Documento» elegís si sale «Factura» (sobre el talonario) o «Solo ticket». Está explicado en la guía «Imprimir la factura del talonario».",
       },
       {
         ojo:
@@ -586,7 +610,7 @@ export const GUIAS: Guia[] = [
       },
       {
         consejo:
-          "El presupuesto no descuenta stock. Recién cuando se cobra en la caja se descuenta.",
+          "El presupuesto no descuenta stock: se descuenta cuando se cobra en la caja. Si querés que nadie más cotice esa mercadería mientras el cliente decide, reservala (guía «Reservar la mercadería de un presupuesto»).",
       },
     ],
   },
@@ -701,6 +725,10 @@ export const GUIAS: Guia[] = [
           { t: "Poné el monto en la fila del IVA que corresponda.", d: "Si la factura es toda de un tipo, cargá solo ese." },
           { t: "Tocá «Crear gasto»." },
         ],
+      },
+      {
+        consejo:
+          "Si cargás un gasto con el mismo concepto y monto que otro, o la misma factura del mismo proveedor, el sistema avisa antes de guardar. Si es a propósito, se puede seguir.",
       },
       {
         ojo:
@@ -915,7 +943,7 @@ export const GUIAS: Guia[] = [
   },
   {
     id: "paquete-mensual",
-    grupo: "Informes",
+    grupo: "Contabilidad",
     titulo: "Lo que se le manda al contador",
     resumen: "Todos los informes del mes en un solo ZIP.",
     bloques: [
@@ -936,7 +964,7 @@ export const GUIAS: Guia[] = [
   },
   {
     id: "libro-ventas",
-    grupo: "Informes",
+    grupo: "Contabilidad",
     titulo: "El libro de ventas",
     resumen: "Lo que pide el IVA, por fecha de comprobante.",
     bloques: [
@@ -976,6 +1004,10 @@ export const GUIAS: Guia[] = [
       {
         consejo:
           "Empleado y usuario no son lo mismo. El empleado es la persona, con su legajo y su sueldo. El usuario es la cuenta con la que entra al sistema. Una persona puede estar en RR HH sin tener usuario.",
+      },
+      {
+        consejo:
+          "En la ficha, «Datos y horario» tiene el puesto y si es mensualero o jornalero. Las pestañas de al lado guardan las vacaciones, las amonestaciones y observaciones, el historial salarial y los documentos.",
       },
     ],
   },
@@ -1159,6 +1191,10 @@ export const GUIAS: Guia[] = [
         ojo:
           "Esto se toca una vez, al arrancar o cuando el SET da un timbrado nuevo. Cambiar la numeración con facturas ya emitidas rompe la correlatividad, y eso se lo preguntan a uno en una fiscalización.",
       },
+      {
+        consejo:
+          "En la misma pantalla, «Papel de la factura» define dónde cae cada dato sobre el talonario preimpreso. Ver la guía «Alinear la factura con el talonario».",
+      },
     ],
   },
   {
@@ -1171,15 +1207,477 @@ export const GUIAS: Guia[] = [
         img: "transferencias",
         alt: "Transferencias entre sucursales",
         pasos: [
-          { t: "Tocá «Solicitar reposición» y cargá qué necesitás.", marca: "Solicitar reposición" },
-          { t: "«Solicitudes realizadas» son las que pediste vos.", },
-          { t: "«Solicitudes recibidas» son las que te pidieron a vos.", marca: "Solicitudes recibidas" },
-          { t: "El estado de cada fila dice en qué anda: pedida, enviada o recibida." },
+          { t: "Para pedir mercadería, tocá «Solicitar reposición» y cargá qué necesitás.", marca: "Solicitar reposición" },
+          { t: "Para mandar algo que la otra sucursal no tiene, sin que te lo pidan, tocá «Enviar a otra sucursal».", d: "No hace falta aprobarlo: queda listo para despachar.", marca: "Enviar a otra sucursal" },
+          { t: "«Remisiones realizadas» son las que mandaste o pediste vos.", marca: "Remisiones realizadas" },
+          { t: "«Remisiones recibidas» son las que te llegan a vos.", marca: "Remisiones recibidas" },
+          { t: "Tocá «Ver» en una fila para despacharla, recibirla o imprimir su nota de remisión." },
         ],
       },
       {
         consejo:
           "El stock se mueve de verdad recién cuando la sucursal que recibe la marca como recibida. Mientras tanto la mercadería figura en viaje, que es lo que pasa en la realidad.",
+      },
+    ],
+  },
+
+  // ── Caja y ventas: lo nuevo ──────────────────────────────────────────────
+  {
+    id: "factura-caja",
+    grupo: "Caja y ventas",
+    titulo: "Imprimir la factura del talonario",
+    resumen: "Factura o solo ticket, y cómo sale sobre la hoja preimpresa.",
+    bloques: [
+      {
+        img: "venta-nueva",
+        alt: "Nueva venta con la opción de factura",
+        texto: "La factura se imprime sobre el talonario de imprenta: el sistema escribe solo los datos de la venta en su lugar (fecha, cliente, productos y totales).",
+        pasos: [
+          { t: "Cargá la venta como siempre: cliente, productos y contado o crédito.", marca: "Cliente" },
+          { t: "En «Documento», dejá elegida «Factura».", d: "Si el cliente no pide factura, elegí «Solo ticket».", marca: "Factura" },
+          { t: "Sin cliente, la factura sale a nombre de SIN NOMBRE.", d: "Si el cliente quiere su factura con RUC, buscalo o crealo antes de confirmar.", marca: "Crear cliente" },
+          { t: "Tocá «Confirmar venta».", d: "El sistema le pone a la factura el próximo número del talonario." },
+          { t: "Se abre la hoja para imprimir.", d: "Poné en la impresora la próxima hoja del talonario y mandá a imprimir." },
+        ],
+      },
+      {
+        ojo:
+          "El sistema anota en la venta el número que sigue en el talonario. Fijate que la hoja que ponés en la impresora sea justo la siguiente: si te salteás una, los números de la venta y del papel dejan de coincidir.",
+      },
+    ],
+  },
+  {
+    id: "sobrantes",
+    grupo: "Caja y ventas",
+    titulo: "Sobrantes y faltantes",
+    resumen: "Cuando no se da el vuelto o se acepta de menos.",
+    bloques: [
+      {
+        img: "venta-nueva",
+        alt: "Nueva venta",
+        texto: "A veces el cliente paga en efectivo y no se le da el vuelto (sobra plata), o paga un poco menos y se acepta (falta). Esa diferencia se registra en la misma venta.",
+        pasos: [
+          { t: "Cobrá en efectivo y escribí cuánto te entregó el cliente.", d: "El sistema calcula el vuelto." },
+          { t: "Si no vas a dar ese vuelto, o aceptás de menos, tildá la opción que aparece debajo del vuelto.", d: "Así la diferencia queda registrada y la caja cierra bien." },
+          { t: "Confirmá la venta." },
+        ],
+      },
+      {
+        img: "caja-sobrantes",
+        alt: "Tarjeta de sobrantes y faltantes en la caja",
+        pasos: [
+          { t: "En Caja, la tarjeta «Sobrantes y faltantes» junta todas las diferencias del período.", d: "Arriba a la derecha: cuánto sobró, cuánto faltó y el saldo.", marca: "Sobrantes y faltantes" },
+          { t: "Tocala para ver el detalle de cada venta y cambiar las fechas." },
+        ],
+      },
+      {
+        consejo:
+          "Cada diferencia también se asienta en la contabilidad, contra las cuentas de Sobrantes y Faltantes de caja. Esas cuentas se eligen en Contabilidad → Configuración contable.",
+      },
+    ],
+  },
+
+  // ── Inventario: lo nuevo ─────────────────────────────────────────────────
+  {
+    id: "depositos",
+    grupo: "Inventario",
+    titulo: "Depósitos: qué hay en cada uno",
+    resumen: "El stock por depósito y cómo pasar mercadería de uno a otro.",
+    bloques: [
+      {
+        img: "depositos",
+        alt: "Depósitos",
+        pasos: [
+          { t: "Arriba elegí el depósito que querés mirar.", marca: "DEP-01" },
+          { t: "Abajo está el stock de cada producto en ese depósito." },
+          { t: "Para mover mercadería a otro depósito de la misma sucursal, tocá «Transferir» en la fila del producto.", d: "Elegís a qué depósito va y cuánto.", marca: "Transferir" },
+          { t: "Las últimas transferencias quedan listadas al pie." },
+        ],
+      },
+      {
+        consejo:
+          "Transferir entre depósitos no cambia el stock total del producto: lo cambia de lugar. Para mandar mercadería a OTRA sucursal se usa Transferencias entre sucursales.",
+      },
+    ],
+  },
+  {
+    id: "reposicion",
+    grupo: "Inventario",
+    titulo: "Qué conviene comprar",
+    resumen: "Reposición: cuánto se vendió, cuánto queda y cuánto pedir.",
+    bloques: [
+      {
+        img: "reposicion",
+        alt: "Reposición",
+        pasos: [
+          { t: "Arriba elegí cuántos días mirar para atrás y para cuántos días querés tener stock.", d: "Por ejemplo: lo vendido en los últimos 60 días, para tener stock para 30.", marca: "Analizar los últimos" },
+          { t: "Las tarjetas dicen cuántos productos están sin stock, críticos y bajos, y cuánto costaría reponer." },
+          { t: "En la tabla, la columna «Comprar» es la cantidad sugerida de cada producto." },
+          { t: "«Actualizar todos» recalcula el stock mínimo de cada producto según lo que se vendió.", d: "Usa la mediana de los últimos meses: una venta grande de una sola vez no infla el mínimo.", marca: "Actualizar todos" },
+        ],
+      },
+      {
+        consejo:
+          "Reposición mira lo que se vende. Bajo mínimo mira el mínimo cargado en la ficha. Un artículo que no se vende hace meses aparece en Bajo mínimo y no acá.",
+      },
+    ],
+  },
+
+  // ── Compras y pagos: lo nuevo ────────────────────────────────────────────
+  {
+    id: "cotizaciones",
+    grupo: "Compras y pagos",
+    titulo: "Comparar precios de proveedores",
+    resumen: "Pedir el mismo listado a varios proveedores y elegir.",
+    bloques: [
+      {
+        img: "cotizaciones",
+        alt: "Comparativo de cotizaciones",
+        pasos: [
+          { t: "Tocá «Pedir cotización» y armá el listado de artículos y cantidades.", d: "Elegí a qué proveedores se lo pedís.", marca: "Pedir cotización" },
+          { t: "Cuando contestan, abrí la cotización y tocá «Cargar precios».", d: "Cargás lo que pasó cada proveedor.", marca: "Cargar precios" },
+          { t: "La tabla pone a los proveedores lado a lado y marca el mejor precio de cada artículo." },
+          { t: "Al pie de cada proveedor, «Orden» arma la orden de compra con lo que le vas a comprar a él." },
+        ],
+      },
+      {
+        ojo:
+          "El total más bajo engaña si el proveedor no cotizó todo: el que pasó dos precios de diez siempre parece el más barato. Mirá cuántos artículos cotizó cada uno.",
+      },
+    ],
+  },
+
+  // ── Presupuestos: lo nuevo ───────────────────────────────────────────────
+  {
+    id: "presupuesto-reservar",
+    grupo: "Presupuestos",
+    titulo: "Reservar la mercadería de un presupuesto",
+    resumen: "Apartar el stock para que no se lo coticen a otro.",
+    bloques: [
+      {
+        img: "presupuestos",
+        alt: "Listado de presupuestos",
+        pasos: [
+          { t: "Abrí el presupuesto." },
+          { t: "Tocá «Reservar mercadería».", d: "Esas cantidades quedan apartadas: no se pueden cotizar en otro presupuesto." },
+          { t: "El botón pasa a decir «Reservado», con quién lo reservó." },
+        ],
+      },
+      {
+        ojo:
+          "Reservar puede cualquiera; quitar la reserva, solo un administrador. Si el cliente no vuelve, pedile a un administrador que la quite para liberar el stock.",
+      },
+      {
+        consejo:
+          "Un usuario normal solo puede presupuestar al contado, salvo que el cliente esté habilitado para crédito, y no puede presupuestar sin stock: eso lo hace un administrador.",
+      },
+    ],
+  },
+
+  // ── Clientes: lo nuevo ───────────────────────────────────────────────────
+  {
+    id: "gestion-cliente",
+    grupo: "Clientes",
+    titulo: "Atender a un cliente",
+    resumen: "Gestión Clientes: su ficha, lo que debe y cobrarle, en una pantalla.",
+    bloques: [
+      {
+        img: "gestion-buscar",
+        alt: "Gestión del cliente, buscador",
+        pasos: [
+          { t: "Escribí el nombre, el RUC, el teléfono o el código.", d: "Un solo buscador cubre todo. Si hay muchos resultados, bajá en la lista para ver más.", marca: "Buscar cliente" },
+          { t: "Tocá el cliente en la lista." },
+        ],
+      },
+      {
+        img: "gestion-cliente",
+        alt: "Ficha del cliente en gestión",
+        pasos: [
+          { t: "Arriba están sus datos: RUC, contacto, ciudad y condición." },
+          { t: "«Tipificación» registra el motivo del contacto: un reclamo, una consulta, un pedido.", marca: "Tipificación" },
+          { t: "«Historial cliente» muestra todo lo que pasó con él.", marca: "Historial cliente" },
+          { t: "En «Estado de cuenta» están sus facturas: pendientes, vencidas y pagadas.", marca: "Estado de cuenta" },
+          { t: "En cada factura pendiente, «Cobrar» registra el pago.", d: "Es el mismo formulario que en Pagos → Cobros a clientes." },
+          { t: "«Descargar» saca el estado de cuenta para mandárselo.", marca: "Descargar" },
+        ],
+      },
+    ],
+  },
+
+  // ── Informes: lo nuevo ───────────────────────────────────────────────────
+  {
+    id: "rentabilidad",
+    grupo: "Informes",
+    titulo: "Qué productos dejan más ganancia",
+    resumen: "Rentabilidad por producto y por rubro.",
+    bloques: [
+      {
+        img: "rentabilidad",
+        alt: "Rentabilidad",
+        pasos: [
+          { t: "Elegí si querés verlo por producto o por rubro.", marca: "Por rubro" },
+          { t: "Elegí el período: día, semana, mes, trimestre, año o un rango." },
+          { t: "Las tarjetas dicen cuánto se facturó, cuánto costó lo vendido, la ganancia y el margen." },
+          { t: "En la tabla, tocá el título de una columna para ordenar.", d: "Por ganancia ves qué producto aporta más plata; por margen, cuál deja más por cada venta." },
+          { t: "«Exportar Excel» o «Imprimir» sacan lo que estás viendo.", marca: "Exportar Excel" },
+        ],
+      },
+      {
+        consejo:
+          "Margen alto con poca venta deja menos plata que margen bajo con mucha venta. Para eso está la columna «Partic.»: qué parte de la ganancia total aporta cada producto.",
+      },
+    ],
+  },
+  {
+    id: "modificaciones",
+    grupo: "Informes",
+    titulo: "Quién anuló o cambió algo",
+    resumen: "Modificaciones administrativas: anulaciones, ediciones y cajas reabiertas.",
+    bloques: [
+      {
+        img: "modificaciones",
+        alt: "Modificaciones administrativas",
+        pasos: [
+          { t: "En Reportes, entrá a «Modificaciones administrativas»." },
+          { t: "Poné el período y, si querés, el módulo.", marca: "Módulo" },
+          { t: "Cada fila dice qué se tocó, quién lo hizo y cuándo.", d: "El detalle completo de cada cambio sigue en el historial de su módulo." },
+        ],
+      },
+      {
+        consejo:
+          "Lo normal es que esta lista esté casi vacía: anular ventas o reabrir cajas no debería pasar todos los días. Si se llena, conviene preguntar por qué.",
+      },
+    ],
+  },
+  {
+    id: "otros-informes",
+    grupo: "Informes",
+    titulo: "Los demás informes",
+    resumen: "Qué contesta cada informe de Reportes.",
+    bloques: [
+      {
+        img: "reportes",
+        alt: "Reportes",
+        texto: "Todos están en Reportes. Cada uno se filtra por fecha y se saca a Excel o se imprime.",
+        pasos: [
+          { t: "Ventas y Vendedores: cuánto se vendió y quién lo vendió." },
+          { t: "Compras y Proveedores: qué se compró y a quién se le debe." },
+          { t: "Estado de cuenta: lo que debe cada cliente, con el detalle de sus facturas." },
+          { t: "Ingresos y egresos, y Tesorería: la plata que entró y salió de las cajas y bancos." },
+          { t: "Gastos no deducibles: los gastos que no sirven para el IVA, para revisarlos antes del cierre." },
+        ],
+      },
+    ],
+  },
+
+  // ── Contabilidad ─────────────────────────────────────────────────────────
+  {
+    id: "libro-diario",
+    grupo: "Contabilidad",
+    titulo: "El libro diario y el mayor",
+    resumen: "Los asientos que hace el sistema, y el saldo de cada cuenta.",
+    bloques: [
+      {
+        img: "libro-diario",
+        alt: "Libro diario",
+        pasos: [
+          { t: "Poné el período.", marca: "Desde" },
+          { t: "Si querés, filtrá por cuenta, por origen o por estado." },
+          { t: "Tocá «Aplicar».", marca: "Aplicar" },
+          { t: "Cada asiento muestra su cuenta, el debe y el haber.", d: "«Exportar Excel» lo saca para el contador.", marca: "Exportar Excel" },
+          { t: "El libro mayor (Contabilidad → Libro mayor) muestra lo mismo agrupado por cuenta, con el saldo." },
+        ],
+      },
+      {
+        consejo:
+          "Los asientos los hace el sistema solo: por ahora, los de compras, gastos y servicios, y los sobrantes y faltantes de caja. Para que salgan, las cuentas tienen que estar elegidas en la Configuración contable.",
+      },
+    ],
+  },
+  {
+    id: "libro-compras",
+    grupo: "Contabilidad",
+    titulo: "El libro de compras",
+    resumen: "Las facturas de proveedores y gastos, para el IVA.",
+    bloques: [
+      {
+        img: "libro-ventas",
+        alt: "Libro de ventas (el de compras es igual)",
+        texto: "El libro de compras está en Contabilidad → Libro de compras y funciona igual que el de ventas.",
+        pasos: [
+          { t: "Poné el período." },
+          { t: "Las columnas separan exento, gravado al 5 y gravado al 10, con su IVA." },
+          { t: "«Exportar Excel» y se lo mandás al contador." },
+        ],
+      },
+      {
+        ojo:
+          "Una compra o un gasto sin RUC, timbrado y número de factura no sirve para el crédito fiscal. Si falta alguno, completalo en la compra antes de cerrar el mes.",
+      },
+    ],
+  },
+  {
+    id: "plan-cuentas",
+    grupo: "Contabilidad",
+    titulo: "El plan de cuentas",
+    resumen: "Las cuentas contables y cómo agregar una.",
+    bloques: [
+      {
+        img: "plan-cuentas",
+        alt: "Plan de cuentas",
+        pasos: [
+          { t: "Las cuentas están en árbol: Activo, Pasivo, Patrimonio, Ingresos y Egresos.", d: "Tocá la flecha de cada una para abrirla." },
+          { t: "Para agregar una cuenta, tocá «Nueva cuenta».", d: "Elegís de qué cuenta cuelga, el código y el nombre.", marca: "Nueva cuenta" },
+          { t: "Si el contador te pasa el plan en Excel, «Importar plan de cuentas» lo carga entero.", marca: "Importar plan de cuentas" },
+        ],
+      },
+      {
+        ojo:
+          "Solo las cuentas «asentables» reciben movimientos. Las agrupadoras (Activo, Caja y Bancos…) suman lo de abajo. Si necesitás una cuenta para los asientos, creala asentable debajo de la que corresponda.",
+      },
+    ],
+  },
+  {
+    id: "config-contable",
+    grupo: "Contabilidad",
+    titulo: "Las cuentas de los asientos automáticos",
+    resumen: "Qué cuenta usa el sistema para el IVA, la caja, los proveedores y las ventas.",
+    bloques: [
+      {
+        img: "config-contable",
+        alt: "Configuración contable",
+        pasos: [
+          { t: "En cada casilla elegí la cuenta que corresponde.", d: "Por ejemplo, en «Cuenta predeterminada de Caja», la cuenta Caja del plan.", marca: "Cuenta predeterminada de Caja" },
+          { t: "Más abajo están las cuentas de ventas y la sección «Sobrantes y faltantes de caja».", d: "Ahí van la cuenta de ingreso por sobrantes y la de pérdida por faltantes." },
+          { t: "Tocá «Guardar configuración»." },
+        ],
+      },
+      {
+        consejo:
+          "Una casilla vacía no rompe nada: el asiento de ese tipo simplemente no se hace. Al completar las de sobrantes y faltantes, el sistema asienta solo las diferencias que habían quedado pendientes.",
+      },
+    ],
+  },
+  {
+    id: "punto-equilibrio",
+    grupo: "Contabilidad",
+    titulo: "Cuánto hay que vender para no perder",
+    resumen: "El punto de equilibrio del mes.",
+    bloques: [
+      {
+        img: "punto-equilibrio",
+        alt: "Punto de equilibrio",
+        pasos: [
+          { t: "Elegí el mes y el año." },
+          { t: "Arriba dice cuánto hay que vender en el mes para cubrir los gastos, y cuánto va vendido." },
+          { t: "Abajo explica de dónde sale: el margen y los gastos del mes anterior." },
+          { t: "Si el mes pasado fue raro, cambiá el margen o los gastos a mano y el objetivo se recalcula.", marca: "Margen a usar" },
+        ],
+      },
+      {
+        ojo:
+          "El costo de lo vendido es una estimación con el costo promedio de hoy. Si el margen que ves no es el que conocés, corregilo: todo el objetivo depende de ese número.",
+      },
+    ],
+  },
+
+  // ── Personal: lo nuevo ───────────────────────────────────────────────────
+  {
+    id: "amonestaciones",
+    grupo: "Personal",
+    titulo: "Amonestaciones y observaciones",
+    resumen: "Llamadas de atención, suspensiones y reconocimientos, en la ficha.",
+    bloques: [
+      {
+        img: "rrhh-novedades",
+        alt: "Amonestaciones y observaciones del empleado",
+        pasos: [
+          { t: "Abrí la ficha del empleado y entrá a la pestaña «Amonestaciones y observaciones».", marca: "Amonestaciones y observaciones" },
+          { t: "Tocá «Registrar».", marca: "Registrar" },
+          { t: "Elegí el tipo: observación, llamada de atención, amonestación, suspensión o reconocimiento.", marca: "Amonestación" },
+          { t: "Poné la fecha, el motivo y el detalle (qué pasó, testigos).", marca: "Motivo" },
+          { t: "Tocá el botón de registrar.", d: "Lo que va por escrito trae su hoja para imprimir y firmar.", marca: "Registrar amonestación" },
+        ],
+      },
+      {
+        consejo:
+          "Cuando vuelve la hoja firmada, marcala como firmada en el historial. Arriba queda el resumen de los últimos 12 meses por tipo; tocá un tipo para filtrar.",
+      },
+    ],
+  },
+  {
+    id: "tipos-empleado",
+    grupo: "Personal",
+    titulo: "Tipos de empleado y departamentos",
+    resumen: "Los catálogos que se eligen en la ficha de cada empleado.",
+    bloques: [
+      {
+        img: "tipos-empleado",
+        alt: "Tipos de empleado",
+        texto: "Están en RRHH → Config · Tipos de empleado (y Config · Departamentos, que funciona igual).",
+        pasos: [
+          { t: "Escribí el nombre del tipo nuevo: gerente, ventas, chofer.", marca: "Nombre" },
+          { t: "Tocá «+ Agregar».", marca: "+ Agregar" },
+          { t: "Después, en la ficha del empleado, lo elegís en «Datos y horario»." },
+        ],
+      },
+      {
+        consejo:
+          "Si es mensualero o jornalero se elige en la ficha del empleado, junto al salario: eso es cómo se le paga, no el tipo de puesto.",
+      },
+    ],
+  },
+
+  // ── Administración: lo nuevo ─────────────────────────────────────────────
+  {
+    id: "roles-descuento",
+    grupo: "Administración",
+    titulo: "Hasta cuánto puede descontar cada uno",
+    resumen: "El tope de descuento en Caja y el rol de RRHH de cada usuario.",
+    bloques: [
+      {
+        img: "roles-descuento",
+        alt: "Usuarios y roles",
+        texto: "Está en Configuración → RRHH · Usuarios y roles.",
+        pasos: [
+          { t: "En «Rol RRHH» elegí qué puede hacer cada uno en Personal.", d: "Empleado ve lo suyo; Admin RRHH maneja todo.", marca: "Rol RRHH" },
+          { t: "En «Desc. máx.» tocá el porcentaje de la persona y escribí su tope.", d: "Vacío es «sin tope» y 0 es «no puede descontar».", marca: "Desc. máx." },
+        ],
+      },
+      {
+        ojo:
+          "Si un artículo o su rubro tienen su propio tope, en la caja vale el más chico de los dos. Un descuento más grande se le pide a un administrador desde la venta.",
+      },
+    ],
+  },
+  {
+    id: "factura-talonario",
+    grupo: "Administración",
+    titulo: "Alinear la factura con el talonario",
+    resumen: "Dónde cae cada dato sobre la hoja preimpresa.",
+    bloques: [
+      {
+        img: "factura-papel",
+        alt: "Papel de la factura",
+        texto: "Está en Configuración → Facturación, en «Papel de la factura». Se hace una vez, con la impresora que se va a usar.",
+        pasos: [
+          { t: "Dejá elegido «Talonario preimpreso (imprenta)».", d: "El talonario ya trae timbrado, RUC y número: el sistema escribe solo los datos de la venta." },
+          { t: "Las posiciones están en milímetros desde la esquina de arriba a la izquierda de la hoja." },
+        ],
+      },
+      {
+        img: "factura-posiciones",
+        alt: "Posiciones de la factura",
+        pasos: [
+          { t: "Tocá «Imprimir hoja de prueba» y pasala sobre una factura en blanco (o encimala a contraluz).", d: "Cada dato sale con una cruz roja en su punto.", marca: "Imprimir hoja de prueba" },
+          { t: "Si todo sale corrido igual, corregí el «Corrimiento general».", d: "Por ejemplo, si todo cae 2 mm más abajo, poné -2 en y.", marca: "Corrimiento general" },
+          { t: "Si se corrió un dato solo, corregí ese.", d: "En los importes, la posición es el borde derecho del número." },
+          { t: "Tocá «Guardar papel y posiciones» y volvé a imprimir la prueba hasta que caiga justo.", marca: "Guardar papel y posiciones" },
+        ],
+      },
+      {
+        ojo:
+          "La hoja de prueba usa lo último GUARDADO. Si cambiaste un número, guardá antes de imprimirla.",
       },
     ],
   },

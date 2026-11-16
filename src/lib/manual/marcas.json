@@ -98,21 +98,39 @@
   "Cerrar caja": null
  },
  "venta-nueva": {
-  "Buscar producto": {
-   "x": 50.97,
-   "y": 83.61,
-   "w": 59.03,
-   "h": 5.33
+  "Factura": {
+   "x": 30.56,
+   "y": 61.7,
+   "w": 18.25,
+   "h": 4
   },
-  "Cobrar": {
-   "x": 94,
-   "y": 38,
-   "w": 4.49,
-   "h": 3.11
+  "Solo ticket": {
+   "x": 48.8,
+   "y": 61.7,
+   "w": 18.3,
+   "h": 4
+  },
+  "Buscar producto": {
+   "x": 50.4,
+   "y": 92.8,
+   "w": 58,
+   "h": 5.2
   },
   "Cliente": {
-   "x": 91.7,
-   "y": 66.06,
+   "x": 39.7,
+   "y": 50.5,
+   "w": 36.5,
+   "h": 4
+  },
+  "Cobrar": {
+   "x": 92.9,
+   "y": 27.1,
+   "w": 4.5,
+   "h": 3
+  },
+  "Crear cliente": {
+   "x": 90.6,
+   "y": 75.3,
    "w": 9.8,
    "h": 4
   }
@@ -645,6 +663,30 @@
    "y": 12.67,
    "w": 4.29,
    "h": 4.22
+  },
+  "Enviar a otra sucursal": {
+   "x": 78,
+   "y": 12.67,
+   "w": 13.69,
+   "h": 4.59
+  },
+  "Remisiones realizadas": {
+   "x": 26.19,
+   "y": 42.52,
+   "w": 12.39,
+   "h": 3.56
+  },
+  "Remisiones recibidas": {
+   "x": 38.7,
+   "y": 42.52,
+   "w": 12.07,
+   "h": 3.56
+  },
+  "Imprimir": {
+   "x": 67.8,
+   "y": 12.67,
+   "w": 5.58,
+   "h": 4.15
   }
  },
  "conversaciones": {
@@ -875,6 +917,278 @@
    "y": 20.78,
    "w": 66.67,
    "h": 2.22
+  }
+ },
+ "factura-posiciones": {
+  "Imprimir hoja de prueba": {
+   "x": 70.39,
+   "y": 93.5,
+   "w": 12.69,
+   "h": 4.15
+  },
+  "Guardar papel y posiciones": {
+   "x": 84.73,
+   "y": 93.5,
+   "w": 14.88,
+   "h": 4.15
+  },
+  "Corrimiento general": {
+   "x": 29.41,
+   "y": 30.48,
+   "w": 9.19,
+   "h": 2.22
+  },
+  "Primera fila (y)": {
+   "x": 62.76,
+   "y": 22.19,
+   "w": 6.31,
+   "h": 2.22
+  }
+ },
+ "roles-descuento": {
+  "Rol RRHH": {
+   "x": 76.24,
+   "y": 23.2,
+   "w": 18.46,
+   "h": 4.48
+  },
+  "Desc. máx.": {
+   "x": 89.17,
+   "y": 23.2,
+   "w": 7.4,
+   "h": 4.48
+  }
+ },
+ "rentabilidad": {
+  "Por producto": {
+   "x": 23.97,
+   "y": 24.8,
+   "w": 7.85,
+   "h": 3.56
+  },
+  "Por rubro": {
+   "x": 31.15,
+   "y": 24.8,
+   "w": 5.95,
+   "h": 3.56
+  },
+  "Exportar Excel": {
+   "x": 88.1,
+   "y": 24.8,
+   "w": 9.93,
+   "h": 4.15
+  },
+  "Imprimir": {
+   "x": 22.51,
+   "y": 30.5,
+   "w": 5.58,
+   "h": 4.15
+  }
+ },
+ "rrhh-novedades": {
+  "Amonestaciones y observaciones": {
+   "x": 52.4,
+   "y": 35.7,
+   "w": 18.5,
+   "h": 4.6
+  },
+  "Registrar": {
+   "x": 91.35,
+   "y": 45.22,
+   "w": 7.71,
+   "h": 4
+  },
+  "Amonestación": {
+   "x": 48,
+   "y": 67.9,
+   "w": 8.1,
+   "h": 3.2
+  },
+  "Motivo": {
+   "x": 64.4,
+   "y": 77.8,
+   "w": 57,
+   "h": 4
+  },
+  "Registrar amonestación": {
+   "x": 86.3,
+   "y": 96.2,
+   "w": 13.3,
+   "h": 4
+  }
+ },
+ "tipos-empleado": {
+  "+ Agregar": {
+   "x": 85.06,
+   "y": 26.1,
+   "w": 6.75,
+   "h": 4
+  },
+  "Nombre": {
+   "x": 55.3,
+   "y": 26.1,
+   "w": 51.6,
+   "h": 4.1
+  }
+ },
+ "punto-equilibrio": {
+  "Margen a usar": {
+   "x": 27.25,
+   "y": 89,
+   "w": 8.9,
+   "h": 4.1
+  },
+  "Gastos a cubrir": {
+   "x": 38.66,
+   "y": 89,
+   "w": 12.2,
+   "h": 4.1
+  }
+ },
+ "reposicion": {
+  "Actualizar todos": {
+   "x": 92,
+   "y": 38.4,
+   "w": 8.2,
+   "h": 4
+  },
+  "Analizar los últimos": {
+   "x": 23.6,
+   "y": 27.1,
+   "w": 5.6,
+   "h": 4.1
+  }
+ },
+ "cotizaciones": {
+  "Pedir cotización": {
+   "x": 91.3,
+   "y": 14.4,
+   "w": 10.7,
+   "h": 4
+  },
+  "Cargar precios": {
+   "x": 91.6,
+   "y": 44.2,
+   "w": 7.7,
+   "h": 3.2
+  }
+ },
+ "gestion-buscar": {
+  "Buscar cliente": {
+   "x": 58.3,
+   "y": 52.2,
+   "w": 46.7,
+   "h": 4.6
+  }
+ },
+ "gestion-cliente": {
+  "Tipificación": {
+   "x": 24.75,
+   "y": 42.3,
+   "w": 7.25,
+   "h": 3.4
+  },
+  "Facturación": {
+   "x": 32.2,
+   "y": 42.3,
+   "w": 7.25,
+   "h": 3.4
+  },
+  "Historial cliente": {
+   "x": 71.3,
+   "y": 42.3,
+   "w": 8.6,
+   "h": 3.4
+  },
+  "Estado de cuenta": {
+   "x": 27,
+   "y": 48.8,
+   "w": 11.9,
+   "h": 3
+  },
+  "Descargar": {
+   "x": 93.4,
+   "y": 48.8,
+   "w": 7.3,
+   "h": 3.6
+  }
+ },
+ "caja-sobrantes": {
+  "Sobrantes y faltantes": {
+   "x": 29.4,
+   "y": 53.2,
+   "w": 10,
+   "h": 2.4
+  },
+  "Nueva venta": {
+   "x": 91.2,
+   "y": 81.6,
+   "w": 8.7,
+   "h": 4
+  }
+ },
+ "libro-diario": {
+  "Exportar Excel": {
+   "x": 93.9,
+   "y": 11.8,
+   "w": 8.6,
+   "h": 4
+  },
+  "Aplicar": {
+   "x": 91,
+   "y": 26.2,
+   "w": 12.2,
+   "h": 4
+  },
+  "Desde": {
+   "x": 26.6,
+   "y": 25.9,
+   "w": 12.25,
+   "h": 3.6
+  }
+ },
+ "config-contable": {
+  "Cuenta predeterminada de Caja": {
+   "x": 76.3,
+   "y": 39.9,
+   "w": 34.5,
+   "h": 4.1
+  }
+ },
+ "plan-cuentas": {
+  "Nueva cuenta": {
+   "x": 26.9,
+   "y": 40.9,
+   "w": 9.9,
+   "h": 4
+  },
+  "Importar plan de cuentas": {
+   "x": 39.9,
+   "y": 40.9,
+   "w": 15.1,
+   "h": 4
+  }
+ },
+ "depositos": {
+  "DEP-01": {
+   "x": 29.9,
+   "y": 30.8,
+   "w": 5.75,
+   "h": 4
+  },
+  "Transferir": {
+   "x": 95,
+   "y": 65.3,
+   "w": 4,
+   "h": 2.5
+  }
+ },
+ "modificaciones": {
+  "Módulo": {
+   "x": 46.4,
+   "y": 30.6,
+   "w": 6.3,
+   "h": 4
   }
  }
 }
