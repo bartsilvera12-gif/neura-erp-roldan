@@ -22,12 +22,6 @@ export function parseMontoInput(value: string): number {
   const parts = v.split(".");
   if (parts.length === 1) return parseFloat(parts[0]) || 0;
   const last = parts[parts.length - 1] || "";
-  // Un número de JS pasado a texto ("8970.526315789473", un costo promedio):
-  // un grupo de miles tiene siempre 3 dígitos, así que más de 3 después de un
-  // único punto son decimales. Antes se leía como 8.970.526.315.789.473 (BUG-12).
-  if (parts.length === 2 && last.length > 3 && /^-?\d+$/.test(parts[0]) && /^\d+$/.test(last)) {
-    return parseFloat(v) || 0;
-  }
   if (last.length <= 2 && /^\d+$/.test(last)) {
     return parseFloat(parts.slice(0, -1).join("") + "." + last) || 0;
   }
@@ -52,8 +46,16 @@ export default function MontoInput({
   className = "",
   ...rest
 }: MontoInputProps) {
+  // El VALOR que llega por prop puede ser un número de JS pasado a texto
+  // ("8970.526315789473", un costo promedio): eso no es formato de miles, son
+  // decimales, y leerlo como miles daba 8.970.526.315.789.473 (BUG-12).
+  // Ojo: esta lectura va SOLO acá y no en parseMontoInput. Lo que se TIPEA
+  // pasa por "1.234" + "5" = "1.2345", que sí es el quinto dígito; tratarlo
+  // como decimal no dejaba escribir más de 4 cifras en ningún monto.
   const numValue = typeof value === "string"
-    ? (value === "" ? 0 : parseMontoInput(value))
+    ? (value === "" ? 0 : /^-?\d+\.\d+$/.test(value.trim()) && !/^-?\d{1,3}(\.\d{3})+$/.test(value.trim())
+        ? Number(value.trim()) || 0
+        : parseMontoInput(value))
     : Number(value) || 0;
   const display = (typeof value === "string" && value === "") ? "" : formatMontoDisplay(numValue, decimals);
 
