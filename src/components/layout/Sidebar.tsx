@@ -579,7 +579,7 @@ export default function Sidebar() {
   );
   const [esSuperAdmin, setEsSuperAdmin] = useState<boolean>(!!cachedAccess?.superAdmin);
   /** Rol ERP del usuario actual — restringe visibilidad del menú además de módulos. */
-  const { rol: rolErp } = useRolErp();
+  const { rol: rolErp, facultades: facultadesErp } = useRolErp();
   /** Filtro visual del menú (no altera permisos ni rutas). */
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const { setSidebarReady, mobileSidebarOpen, setMobileSidebarOpen } = useBoot();
@@ -779,10 +779,10 @@ export default function Sidebar() {
         favoritos.includes(idForSlug(item.slug)) &&
         access(item.slug) &&
         !esAtajoRedundante(item.slug, slugs, esSuperAdmin, inactiveSlugsSet, { strict: strictAllowlist }) &&
-        puedeVerSidebarSlugPorRol(item.slug, rolErp) &&
+        puedeVerSidebarSlugPorRol(item.slug, rolErp, facultadesErp) &&
         menuItemMatchesQuery(item, menuSearchQuery)
     );
-  }, [favoritos, menuSearchQuery, modulos, esSuperAdmin, inactiveSlugsSet, strictAllowlist, rolErp]);
+  }, [favoritos, menuSearchQuery, modulos, esSuperAdmin, inactiveSlugsSet, strictAllowlist, rolErp, facultadesErp]);
 
   const mainItemsFiltered = useMemo(() => {
     const slugs = new Set(modulos.map((m) => m.slug));
@@ -794,10 +794,10 @@ export default function Sidebar() {
         !favoritos.includes(idForSlug(item.slug)) &&
         access(item.slug) &&
         !esAtajoRedundante(item.slug, slugs, esSuperAdmin, inactiveSlugsSet, { strict: strictAllowlist }) &&
-        puedeVerSidebarSlugPorRol(item.slug, rolErp) &&
+        puedeVerSidebarSlugPorRol(item.slug, rolErp, facultadesErp) &&
         menuItemMatchesQuery(item, menuSearchQuery)
     );
-  }, [favoritos, menuSearchQuery, modulos, esSuperAdmin, inactiveSlugsSet, strictAllowlist, rolErp]);
+  }, [favoritos, menuSearchQuery, modulos, esSuperAdmin, inactiveSlugsSet, strictAllowlist, rolErp, facultadesErp]);
 
   // Agrupar los ítems visibles del menú principal por familias (solo visual).
   const seccionesMenu = useMemo(() => {

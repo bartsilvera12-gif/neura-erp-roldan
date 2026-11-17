@@ -58,6 +58,26 @@ export const SLUGS_VEDADOS_ROL_USUARIO: ReadonlySet<string> = new Set([
   "ordenes_venta",
 ]);
 
+/**
+ * Pantallas vedadas al `usuario` que un PERFIL puede volver a abrir.
+ *
+ * La veda de órdenes de venta es por la cajera, no por todo el que tiene
+ * nivel `usuario`: el vendedor externo y el call center negocian esas
+ * órdenes, y su perfil trae «Ver órdenes de venta». Sin esto la casilla del
+ * perfil habilitaba la API pero el menú y el guard seguían escondiendo la
+ * pantalla: una casilla que no hace nada.
+ *
+ * Solo levanta la veda del rol; el módulo igual tiene que estar asignado.
+ */
+const FACULTAD_QUE_LEVANTA_VEDA: Readonly<Record<string, string>> = {
+  ordenes_venta: "ver_ordenes_venta",
+};
+
+function perfilLevantaVeda(slug: string, facultades?: readonly string[] | null): boolean {
+  const f = FACULTAD_QUE_LEVANTA_VEDA[slug];
+  return !!f && !!facultades && facultades.includes(f);
+}
+
 /** Ruta a la que se redirige un `usuario` que entra a "/". */
 export const LANDING_ROL_USUARIO_LIMITADO = "/ventas";
 
@@ -134,9 +154,11 @@ export function puedeEditarRecetas(rol: string | null | undefined): boolean {
  */
 export function puedeVerSidebarSlugPorRol(
   slug: string,
-  rol: string | null | undefined
+  rol: string | null | undefined,
+  facultades?: readonly string[] | null
 ): boolean {
   if (esSupervisorErp(rol)) return SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(slug);
+  if (perfilLevantaVeda(slug, facultades)) return true;
   // En Darocha el control de acceso es 100% por `usuario_modulos` (los módulos
   // que un admin asigna a cada usuario). Única excepción: el Dashboard es solo
   // para admin/supervisor — a un rol `usuario` lo redirige/saca al entrar, así
@@ -165,14 +187,17 @@ export function puedeVerSidebarSlugPorRol(
  */
 export function slugsEfectivosPorRol(
   slugs: ReadonlySet<string>,
-  rol: string | null | undefined
+  rol: string | null | undefined,
+  facultades?: readonly string[] | null
 ): Set<string> {
   // El `usuario` pierde lo vedado por rol, aunque tenga el módulo: si el
   // recorte se hiciera solo en el menú, entraría igual escribiendo la
   // dirección.
   if (esUsuarioLimitadoErp(rol)) {
     const recortado = new Set<string>();
-    for (const s of slugs) if (!SLUGS_VEDADOS_ROL_USUARIO.has(s)) recortado.add(s);
+    for (const s of slugs) {
+      if (!SLUGS_VEDADOS_ROL_USUARIO.has(s) || perfilLevantaVeda(s, facultades)) recortado.add(s);
+    }
     return recortado;
   }
   if (!esSupervisorErp(rol)) return new Set(slugs);

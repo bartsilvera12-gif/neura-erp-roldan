@@ -102,6 +102,10 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
       // caja (ver `slugsEfectivosPorRol`). Si esta lectura falla no se recorta
       // nada — el permiso de verdad lo aplica cada endpoint.
       let rolErp: string | null = null;
+      // Un perfil puede abrir una pantalla que el nivel esconde (el vendedor
+      // externo y las órdenes de venta). Si la lectura falla queda vacío y
+      // rige la veda del nivel, que es lo de siempre.
+      let facultades: string[] = [];
       if (!superAdmin) {
         try {
           const cu = await getCurrentUser();
@@ -110,11 +114,23 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
         } catch {
           /* sin fila usuarios en cliente */
         }
+        if (!superAdmin) {
+          try {
+            const r = await fetch("/api/me/rol", { credentials: "include", cache: "no-store" });
+            const j = await r.json();
+            if (j?.success && Array.isArray(j.data?.facultades)) {
+              facultades = j.data.facultades.filter((f: unknown): f is string => typeof f === "string");
+            }
+          } catch {
+            /* sin facultades: rige el nivel */
+          }
+        }
       }
+      if (cancelled) return;
 
       setAccess({
         superAdmin,
-        slugs: superAdmin ? new Set(slugs) : slugsEfectivosPorRol(new Set(slugs), rolErp),
+        slugs: superAdmin ? new Set(slugs) : slugsEfectivosPorRol(new Set(slugs), rolErp, facultades),
         inactiveSlugs: new Set(inactiveSlugs),
         strict,
       });

@@ -372,7 +372,7 @@ function norm(s: string) {
  * todas: es un manual, no una puerta, y la pantalla igual no lo deja entrar.
  */
 function useGuiasVisibles(): Guia[] {
-  const { rol, loaded } = useRolErp();
+  const { rol, facultades, loaded } = useRolErp();
   const [acceso, setAcceso] = useState<ModuleAccessResponse | "todas" | null>(() => peekModuleAccessCache());
   useEffect(() => {
     let vivo = true;
@@ -391,10 +391,10 @@ function useGuiasVisibles(): Guia[] {
       const inactivos = new Set(acceso.inactiveSlugs ?? []);
       return mods.some((m) =>
         canAccessSidebarSlug(m, slugs, !!acceso.superAdmin, inactivos, { strict: !!acceso.strictAllowlist }) &&
-        puedeVerSidebarSlugPorRol(m, rol)
+        puedeVerSidebarSlugPorRol(m, rol, facultades)
       );
     });
-  }, [acceso, rol, loaded]);
+  }, [acceso, rol, facultades, loaded]);
 }
 
 export default function ManualPage() {
