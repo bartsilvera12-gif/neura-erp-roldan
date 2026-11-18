@@ -8,7 +8,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import SearchableSelect from "@/components/ui/SearchableSelect";
+import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
+import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
 import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
@@ -24,6 +25,7 @@ type ProductoLite = {
   precio_venta: number;
   precio_mayorista: number;
   unidad_medida: string;
+  costo: number;
 };
 type ClienteLite = {
   id: string;
@@ -55,7 +57,12 @@ type Item = {
    * agreguen ahora el precio es el del momento y la comparación es exacta.
    */
   precio_lista: number;
+  /** Costo unitario, para la utilidad del administrador. Solo para la pantalla. */
+  costo?: number;
 };
+
+/** Ver `Pendiente` en `presupuestos/nuevo/page.tsx`. */
+type Pendiente = { p: ProductoLite; cantidad: string; precio: number; descPct: string };
 
 function fmtPct(n: number) {
   const x = Number(n) || 0;
@@ -167,6 +174,7 @@ export default function EditarPresupuestoPage() {
                 precio_venta: Number(p.precio_venta) || 0,
                 precio_mayorista: Number(p.precio_mayorista) || 0,
                 unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
+                costo: Number(p.costo_promedio) || 0,
               }))
           );
         }
@@ -316,13 +324,12 @@ export default function EditarPresupuestoPage() {
     setItems((prev) => {
       let cambio = false;
       const sig = prev.map((it) => {
-        if (it.precio_lista > 0 || !it.producto_id) return it;
+        if ((it.precio_lista > 0 && it.costo != null) || !it.producto_id) return it;
         const p = productos.find((x) => x.id === it.producto_id);
         if (!p) return it;
         const lista = usarMayorista && p.precio_mayorista > 0 ? p.precio_mayorista : p.precio_venta;
-        if (!(lista > 0)) return it;
         cambio = true;
-        return { ...it, precio_lista: lista };
+        return { ...it, precio_lista: it.precio_lista > 0 ? it.precio_lista : (lista > 0 ? lista : 0), costo: p.costo };
       });
       return cambio ? sig : prev;
     });
@@ -333,30 +340,64 @@ export default function EditarPresupuestoPage() {
     return p.precio_venta;
   }
 
+  const lleno = items.length >= MAX_ITEMS_PRESUPUESTO;
+  const buscadorProductoRef = useRef<SearchableSelectHandle>(null);
+  const [pendiente, setPendiente] = useState<Pendiente | null>(null);
+  const cantPendRef = useRef<HTMLInputElement>(null);
+
+  function prepararLinea(pid: string | null) {
+    const p = productos.find((x) => x.id === pid);
+    if (!p) { setPendiente(null); return; }
+    setPendiente({ p, cantidad: "1", precio: precioParaProducto(p), descPct: "" });
+    setTimeout(() => { cantPendRef.current?.focus(); cantPendRef.current?.select(); }, 0);
+  }
+
   function agregarProducto() {
-    const p = productos.find((x) => x.id === selProd);
-    if (!p) return;
+    const pend = pendiente;
+    if (!pend) return;
+    const p = pend.p;
     if (items.some((it) => it.producto_id === p.id)) return;
-    setItems((prev) => [
-      ...prev,
+    if (lleno) { setError(mensajeTopeItems()); return; }
+    const cantidad = Number(String(pend.cantidad).replace(",", ".")) || 0;
+    if (cantidad <= 0) { cantPendRef.current?.focus(); return; }
+    const lista = precioParaProducto(p);
+    const pct = Math.min(100, Math.max(0, Number(String(pend.descPct).replace(",", ".")) || 0));
+    const nueva: Item = aplicarCambio(
       {
         producto_id: p.id,
         producto_nombre: p.nombre,
         sku: p.sku || null,
-        cantidad: 1,
+        cantidad,
         unidad_medida: p.unidad_medida,
-        precio_unitario: precioParaProducto(p),
+        precio_unitario: pend.precio > 0 ? pend.precio : lista,
         iva_tipo: "10%",
         descuento: 0,
         descuento_pct: 0,
         descuento_modo: "monto" as const,
-        precio_lista: precioParaProducto(p),
+        precio_lista: lista,
+        costo: p.costo,
       },
-    ]);
+      pct > 0 ? { descuento_pct: pct } : {}
+    );
+    setItems((prev) => [...prev, nueva]);
+    setPendiente(null);
     setSelProd("");
+    setTimeout(() => buscadorProductoRef.current?.abrir(), 0);
+  }
+
+  function teclaPendiente(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") { setPendiente(null); setSelProd(""); return; }
+    enterPasaAlSiguiente(e, agregarProducto);
+  }
+
+  /** Precio borrado y nada escrito: vuelve el que tenía. */
+  function restaurarPrecioSiVacio(i: number) {
+    const it = items[i];
+    if (it && !(Number(it.precio_unitario) > 0) && it.precio_lista > 0) updItem(i, { precio_unitario: it.precio_lista });
   }
 
   function agregarManual() {
+    if (lleno) { setError(mensajeTopeItems()); return; }
     setItems((prev) => [
       ...prev,
       { producto_id: null, producto_nombre: "", sku: null, cantidad: 1, unidad_medida: null, precio_unitario: 0, iva_tipo: "10%", descuento: 0, descuento_pct: 0, descuento_modo: "monto", precio_lista: 0 },
@@ -373,15 +414,26 @@ export default function EditarPresupuestoPage() {
   }
 
   const totales = useMemo(() => {
-    let subtotal = 0, iva = 0, desc = 0, total = 0;
+    let subtotal = 0, iva = 0, desc = 0, total = 0, costo = 0, netoConCosto = 0;
     for (const it of items) {
       const t = itemTotals(it);
       subtotal += t.subtotal;
       iva += t.iva;
       total += t.total;
       desc += descuentoTotalLinea(it).monto;
+      const c = Number(it.costo) || 0;
+      if (it.producto_id && c > 0) {
+        costo += c * (Number(it.cantidad) || 0);
+        netoConCosto += t.subtotal;
+      }
     }
-    return { subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total) };
+    const utilidad = netoConCosto - costo;
+    return {
+      subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total),
+      utilidad: round2(utilidad),
+      margen: netoConCosto > 0 ? round2((utilidad / netoConCosto) * 100) : null,
+      utilidadParcial: items.some((it) => !it.producto_id || !(Number(it.costo) > 0)),
+    };
   }, [items]);
 
   /**
@@ -580,26 +632,58 @@ export default function EditarPresupuestoPage() {
           <div className="flex-1 min-w-[260px]">
             <label className={labelClass}>Agregar desde inventario</label>
             <SearchableSelect
+              ref={buscadorProductoRef}
               value={selProd || null}
-              onChange={(v) => setSelProd(v)}
-              placeholder="— Buscá un producto por nombre o SKU —"
+              onChange={(v) => { setSelProd(v ?? ""); prepararLinea(v); }}
+              disabled={lleno}
+              placeholder={lleno ? `Llegaste a ${MAX_ITEMS_PRESUPUESTO} ítems` : "— Buscá un producto por nombre o SKU —"}
               options={productos
                 .filter((p) => !items.some((it) => it.producto_id === p.id))
                 .map((p) => ({ id: p.id, label: p.nombre, hint: p.sku || undefined }))}
             />
           </div>
-          <button type="button" onClick={agregarProducto} disabled={!selProd} className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50">
-            <Plus className="h-4 w-4" /> Agregar
-          </button>
-          <button type="button" onClick={agregarManual} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          <button type="button" onClick={agregarManual} disabled={lleno} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             <Plus className="h-4 w-4" /> Ítem manual
           </button>
         </div>
 
+        {lleno && <p className="-mt-2 mb-3 text-xs text-amber-700">{mensajeTopeItems()}</p>}
+
+        {pendiente && (
+          <div onKeyDown={teclaPendiente} className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[#4FAEB2]/40 bg-[#4FAEB2]/5 p-3">
+            <div className="min-w-[200px] flex-1">
+              <p className="text-sm font-semibold text-slate-800">{pendiente.p.nombre}</p>
+              {pendiente.p.sku && <p className="text-[11px] text-slate-500">{pendiente.p.sku}</p>}
+            </div>
+            <label className="w-28">
+              <span className={labelClass}>Cantidad</span>
+              <input ref={cantPendRef} type="number" min="0" step="0.01" inputMode="decimal" value={pendiente.cantidad}
+                onChange={(e) => setPendiente({ ...pendiente, cantidad: e.target.value })} className={inputClass} />
+            </label>
+            <label className="w-36">
+              <span className={labelClass}>Precio unit.</span>
+              <input type="number" min="0" step="1" value={pendiente.precio || ""}
+                onChange={(e) => setPendiente({ ...pendiente, precio: Number(e.target.value) })}
+                onBlur={() => { if (!(pendiente.precio > 0)) setPendiente({ ...pendiente, precio: precioParaProducto(pendiente.p) }); }}
+                className={inputClass} />
+            </label>
+            {puedeDescontar && (
+              <label className="w-24">
+                <span className={labelClass}>Desc. %</span>
+                <input type="number" min="0" max="100" step="0.01" value={pendiente.descPct} placeholder="0"
+                  onChange={(e) => setPendiente({ ...pendiente, descPct: e.target.value })} className={inputClass} />
+              </label>
+            )}
+            <button type="button" onClick={agregarProducto} className="inline-flex h-[38px] items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 text-sm font-medium text-white hover:bg-[#3F8E91]">
+              <Plus className="h-4 w-4" /> Agregar <span className="text-[11px] font-normal opacity-80">(Enter)</span>
+            </button>
+          </div>
+        )}
+
         {items.length === 0 ? (
           <p className="text-sm text-gray-500">Sin ítems. Agregá productos del inventario o ítems manuales.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" onKeyDown={(e) => enterPasaAlSiguiente(e, () => buscadorProductoRef.current?.abrir())}>
             <table className="w-full min-w-[820px] text-sm">
               <thead className="text-left bg-slate-50 text-xs text-slate-500">
                 <tr>
@@ -628,7 +712,7 @@ export default function EditarPresupuestoPage() {
                         />
                       </td>
                       <td className="py-2 px-2">
-                        <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                        <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} onBlur={() => restaurarPrecioSiVacio(i)} className={inputClass} />
                         {(() => {
                           const d = descuentoPorPrecio(it.precio_lista, it.precio_unitario, it.cantidad);
                           if (!d) return null;
@@ -690,9 +774,19 @@ export default function EditarPresupuestoPage() {
 
         {items.length > 0 && (
           <div className="mt-4 ml-auto w-full sm:w-72 text-sm space-y-1">
-            <div className="flex justify-between"><span className="text-gray-500">Subtotal (sin IVA)</span><span className="tabular-nums">{fmtGs(totales.subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">IVA</span><span className="tabular-nums">{fmtGs(totales.iva)}</span></div>
-            {totales.desc > 0 && (
+            {/* El desglose es para administración; los demás ven el total. */}
+            {isAdmin && <>
+              <div className="flex justify-between"><span className="text-gray-500">Ítems</span><span className="tabular-nums">{items.length} / {MAX_ITEMS_PRESUPUESTO}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Gravado (sin IVA)</span><span className="tabular-nums">{fmtGs(totales.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">IVA</span><span className="tabular-nums">{fmtGs(totales.iva)}</span></div>
+              <div className="flex justify-between" title={totales.utilidadParcial ? "No cuenta las líneas a mano ni las que no tienen costo cargado." : undefined}>
+                <span className="text-gray-500">Utilidad{totales.utilidadParcial ? " *" : ""}</span>
+                <span className={`tabular-nums ${totales.utilidad < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                  {fmtGs(totales.utilidad)}{totales.margen != null ? ` (${fmtPct(totales.margen)})` : ""}
+                </span>
+              </div>
+            </>}
+            {puedeDescontar && totales.desc > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-500" title="Incluye lo que se resignó bajando el precio unitario, que ya está dentro del total.">
                   Descuentos otorgados

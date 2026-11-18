@@ -10,6 +10,7 @@ import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/types";
+import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems } from "@/lib/presupuestos/carga-rapida";
 import {
   conCamposScript38,
   faltaScript38,
@@ -249,6 +250,9 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       const rawItems = body.items as Record<string, unknown>[];
       if (rawItems.length === 0) {
         return NextResponse.json(errorResponse("El presupuesto debe tener al menos un item."), { status: 400 });
+      }
+      if (rawItems.length > MAX_ITEMS_PRESUPUESTO) {
+        return NextResponse.json(errorResponse(mensajeTopeItems()), { status: 400 });
       }
       const clienteNombre = String(body.cliente_nombre ?? "").trim();
       if (!clienteNombre) {

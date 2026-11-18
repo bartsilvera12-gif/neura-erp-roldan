@@ -21,6 +21,7 @@ import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/n
 import Selector from "@/components/ui/Selector";
 import { getSession } from "@/lib/auth";
 import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
+import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, etiquetaTipoPrecio, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
 type ProductoLite = {
   id: string;
   nombre: string;
@@ -28,6 +29,26 @@ type ProductoLite = {
   precio_venta: number;
   precio_mayorista: number;
   unidad_medida: string;
+  /** Para la utilidad que ve el administrador al pie. */
+  costo: number;
+};
+
+/**
+ * El producto elegido en el buscador, antes de pasar a la tabla.
+ *
+ * Elegido el producto, ahí mismo se escribe la cantidad (y el precio y el
+ * descuento, si el usuario puede tocarlos) y con Enter queda agregado: no hay
+ * que agregarlo primero y después ir a buscar su fila para corregirla.
+ */
+type Pendiente = {
+  p: ProductoLite;
+  cantidad: string;
+  precio: number;
+  precioLista: number;
+  /** Si el usuario ya escribió el precio: la respuesta del rubro no lo pisa. */
+  precioTocado: boolean;
+  descPct: string;
+  tipoPrecio: string;
 };
 type ClienteLite = {
   id: string;
@@ -60,6 +81,10 @@ type Item = {
    */
   precio_lista: number;
   tipo_precio: "mayorista" | "minorista";
+  /** De dónde salió el precio, en palabras: «Lista», «MAYORISTA (-8%)». Solo para la pantalla. */
+  tipo_precio_label?: string;
+  /** Costo unitario, para la utilidad del administrador. Solo para la pantalla. */
+  costo?: number;
 };
 
 function fmtPct(n: number) {
@@ -414,6 +439,7 @@ export default function NuevoPresupuestoPage() {
             precio_venta: Number(p.precio_venta) || 0,
             precio_mayorista: Number(p.precio_mayorista) || 0,
             unidad_medida: String(p.unidad_medida ?? "UNIDAD"),
+            costo: Number(p.costo_promedio) || 0,
           }))
         );
       })
@@ -518,10 +544,11 @@ export default function NuevoPresupuestoPage() {
     return p.precio_venta;
   }
 
-  /** Consulta al backend el precio a aplicar para este producto según la
+  /** Consulta al backend el precio a aplicar para este producto según el
    *  rubro del cliente (si tiene) y el precio configurado en
-   *  precios_por_categoria. Si no hay match, cae al precio_venta. */
-  async function resolverPrecioPorCategoria(productoId: string): Promise<number | null> {
+   *  precios_por_categoria. Si no hay match, cae al precio_venta. También
+   *  devuelve de dónde salió, para mostrar el tipo de precio. */
+  async function resolverPrecioPorCategoria(productoId: string): Promise<{ precio: number; etiqueta: string } | null> {
     if (!clienteId) return null;
     try {
       const r = await fetch(`/api/productos/${productoId}/precio-para-cliente?cliente_id=${encodeURIComponent(clienteId)}`, {
@@ -530,49 +557,105 @@ export default function NuevoPresupuestoPage() {
       const j = await r.json();
       if (r.ok && j.success && j.data.fuente === "categoria") {
         const p = Number(j.data.precio);
-        return Number.isFinite(p) && p > 0 ? p : null;
+        return Number.isFinite(p) && p > 0 ? { precio: p, etiqueta: etiquetaTipoPrecio(j.data) } : null;
       }
     } catch { /* silencioso: cae al fallback */ }
     return null;
   }
 
-  async function agregarProducto() {
-    const p = productos.find((x) => x.id === selProd);
-    if (!p) return;
+  const lleno = items.length >= MAX_ITEMS_PRESUPUESTO;
+
+  // Un borrador recuperado puede traer líneas sin costo (se guardaron antes de
+  // que existiera la utilidad al pie): se completa desde el catálogo.
+  useEffect(() => {
+    if (productos.length === 0) return;
+    setItems((prev) => {
+      let cambio = false;
+      const sig = prev.map((it) => {
+        if (!it.producto_id || it.costo != null) return it;
+        const p = productos.find((x) => x.id === it.producto_id);
+        if (!p) return it;
+        cambio = true;
+        return { ...it, costo: p.costo };
+      });
+      return cambio ? sig : prev;
+    });
+  }, [productos, items.length]);
+
+  /** El producto elegido, esperando cantidad y Enter. Ver `Pendiente`. */
+  const [pendiente, setPendiente] = useState<Pendiente | null>(null);
+  const cantPendRef = useRef<HTMLInputElement>(null);
+
+  function prepararLinea(id: string | null) {
+    const p = productos.find((x) => x.id === id);
+    if (!p) { setPendiente(null); return; }
+    const base = precioParaProducto(p);
+    setPendiente({ p, cantidad: "1", precio: base, precioLista: base, precioTocado: false, descPct: "", tipoPrecio: "Lista" });
+    setTimeout(() => { cantPendRef.current?.focus(); cantPendRef.current?.select(); }, 0);
+    // El precio del rubro llega después; si el usuario ya escribió uno, manda el suyo.
+    void resolverPrecioPorCategoria(p.id).then((r) => {
+      if (!r) return;
+      setPendiente((act) =>
+        act && act.p.id === p.id
+          ? { ...act, precioLista: r.precio, tipoPrecio: r.etiqueta, precio: act.precioTocado ? act.precio : r.precio }
+          : act
+      );
+    });
+  }
+
+  function agregarProducto() {
+    const pend = pendiente;
+    if (!pend) return;
+    const p = pend.p;
     if (items.some((it) => it.producto_id === p.id)) return;
-    const usaMay = usarMayorista && p.precio_mayorista > 0;
+    if (lleno) { setError(mensajeTopeItems()); return; }
+    const cantidad = Number(String(pend.cantidad).replace(",", ".")) || 0;
+    if (cantidad <= 0) { cantPendRef.current?.focus(); return; }
+    // Precio vacío o en cero: vale el de lista, igual que en la tabla.
+    const precio = pend.precio > 0 ? pend.precio : pend.precioLista;
+    const pct = Math.min(100, Math.max(0, Number(String(pend.descPct).replace(",", ".")) || 0));
 
-    // Prioridad: precio por rubro del cliente → mayorista → precio_venta.
-    const precioCategoria = await resolverPrecioPorCategoria(p.id);
-    const precio = precioCategoria ?? precioParaProducto(p);
-    const tipo_precio: "minorista" | "mayorista" | "distribuidor" =
-      precioCategoria != null ? "minorista" : (usaMay ? "mayorista" : "minorista");
-
-    setItems((prev) => [
-      ...prev,
+    const nueva: Item = aplicarCambio(
       {
         producto_id: p.id,
         producto_nombre: p.nombre,
         sku: p.sku || null,
-        cantidad: 1,
+        cantidad,
         unidad_medida: p.unidad_medida,
         precio_unitario: precio,
         iva_tipo: "10%",
         descuento: 0,
         descuento_pct: 0,
         descuento_modo: "monto",
-        precio_lista: precio,
-        tipo_precio,
+        precio_lista: pend.precioLista,
+        tipo_precio: "minorista",
+        tipo_precio_label: pend.tipoPrecio,
+        costo: p.costo,
       },
-    ]);
+      pct > 0 ? { descuento_pct: pct } : {}
+    );
+    setItems((prev) => [...prev, nueva]);
+    setPendiente(null);
     setSelProd("");
     /* Agregada la línea, el foco vuelve al buscador para escribir la que
-       sigue. Sin esto el foco queda en un botón ya deshabilitado —`selProd`
-       se limpió— y el teclado se pierde justo cuando más se usa. */
+       sigue. */
     setTimeout(() => buscadorProductoRef.current?.abrir(), 0);
   }
 
+  /** Enter en la línea pendiente: pasa al campo siguiente; en el último, agrega. */
+  function teclaPendiente(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") { setPendiente(null); setSelProd(""); setTimeout(() => buscadorProductoRef.current?.abrir(), 0); return; }
+    enterPasaAlSiguiente(e, agregarProducto);
+  }
+
+  /** Precio borrado y nada escrito: vuelve el que tenía. */
+  function restaurarPrecioSiVacio(i: number) {
+    const it = items[i];
+    if (it && !(Number(it.precio_unitario) > 0) && it.precio_lista > 0) updItem(i, { precio_unitario: it.precio_lista });
+  }
+
   function agregarManual() {
+    if (lleno) { setError(mensajeTopeItems()); return; }
     setItems((prev) => [
       ...prev,
       {
@@ -610,15 +693,30 @@ export default function NuevoPresupuestoPage() {
     let subtotal = 0,
       iva = 0,
       desc = 0,
-      total = 0;
+      total = 0,
+      costo = 0,
+      netoConCosto = 0;
     for (const it of items) {
       const t = itemTotals(it);
       subtotal += t.subtotal;
       iva += t.iva;
       total += t.total;
       desc += descuentoTotalLinea(it).monto;
+      // Utilidad: lo que entra sin IVA menos lo que costó. Las líneas a mano
+      // o sin costo cargado no entran: no hay con qué comparar.
+      const c = Number(it.costo) || 0;
+      if (it.producto_id && c > 0) {
+        costo += c * (Number(it.cantidad) || 0);
+        netoConCosto += t.subtotal;
+      }
     }
-    return { subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total) };
+    const utilidad = netoConCosto - costo;
+    return {
+      subtotal: round2(subtotal), iva: round2(iva), desc: round2(desc), total: round2(total),
+      utilidad: round2(utilidad),
+      margen: netoConCosto > 0 ? round2((utilidad / netoConCosto) * 100) : null,
+      utilidadParcial: items.some((it) => !it.producto_id || !(Number(it.costo) > 0)),
+    };
   }, [items]);
 
   // Mismo criterio que el servidor, acá para que el aviso salga antes de
@@ -1023,35 +1121,94 @@ export default function NuevoPresupuestoPage() {
               ref={buscadorProductoRef}
               value={selProd || null}
               onChange={(v) => {
-                setSelProd(v);
-                /* Después del render, si no el botón todavía está deshabilitado
-                   —depende de `selProd`— y no puede recibir el foco. */
-                setTimeout(() => btnAgregarRef.current?.focus(), 0);
+                setSelProd(v ?? "");
+                prepararLinea(v);
               }}
-              placeholder="— Buscá un producto por nombre o SKU —"
+              disabled={lleno}
+              placeholder={lleno ? `Llegaste a ${MAX_ITEMS_PRESUPUESTO} ítems` : "— Buscá un producto por nombre o SKU —"}
               options={productos
                 .filter((p) => !items.some((it) => it.producto_id === p.id))
                 .map((p) => ({ id: p.id, label: p.nombre, hint: p.sku || undefined }))}
             />
           </div>
-          <button
-            ref={btnAgregarRef}
-            type="button"
-            onClick={agregarProducto}
-            disabled={!selProd}
-            className="inline-flex items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white hover:bg-[#3F8E91] disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" /> Agregar
-          </button>
-          <button type="button" onClick={agregarManual} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          <button type="button" onClick={agregarManual} disabled={lleno} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             <Plus className="h-4 w-4" /> Ítem manual
           </button>
         </div>
 
+        {lleno && (
+          <p className="-mt-2 mb-3 text-xs text-amber-700">{mensajeTopeItems()}</p>
+        )}
+
+        {/* La línea del producto elegido: cantidad (y precio y descuento si se
+            pueden tocar) y Enter. Escape la descarta. */}
+        {pendiente && (
+          <div
+            onKeyDown={teclaPendiente}
+            className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[#4FAEB2]/40 bg-[#4FAEB2]/5 p-3"
+          >
+            <div className="min-w-[200px] flex-1">
+              <p className="text-sm font-semibold text-slate-800">{pendiente.p.nombre}</p>
+              <p className="text-[11px] text-slate-500">
+                {pendiente.p.sku ? `${pendiente.p.sku} · ` : ""}Precio: {pendiente.tipoPrecio}
+              </p>
+            </div>
+            <label className="w-28">
+              <span className={labelClass}>Cantidad</span>
+              <input
+                ref={cantPendRef}
+                type="number" min="0" step="0.01" inputMode="decimal"
+                value={pendiente.cantidad}
+                onChange={(e) => setPendiente({ ...pendiente, cantidad: e.target.value })}
+                className={inputClass}
+              />
+            </label>
+            <label className="w-36">
+              <span className={labelClass}>Precio unit.</span>
+              {isAdmin ? (
+                <input
+                  type="number" min="0" step="1"
+                  value={pendiente.precio || ""}
+                  onChange={(e) => setPendiente({ ...pendiente, precio: Number(e.target.value), precioTocado: true })}
+                  onBlur={() => { if (!(pendiente.precio > 0)) setPendiente({ ...pendiente, precio: pendiente.precioLista, precioTocado: false }); }}
+                  className={inputClass}
+                />
+              ) : (
+                <div className={`${inputClass} bg-slate-50 tabular-nums text-slate-700`}>
+                  {(pendiente.precio || 0).toLocaleString("es-PY")}
+                </div>
+              )}
+            </label>
+            {puedeDescontar && (
+              <label className="w-24">
+                <span className={labelClass}>Desc. %</span>
+                <input
+                  type="number" min="0" max="100" step="0.01"
+                  value={pendiente.descPct}
+                  onChange={(e) => setPendiente({ ...pendiente, descPct: e.target.value })}
+                  className={inputClass}
+                  placeholder="0"
+                />
+              </label>
+            )}
+            <button
+              ref={btnAgregarRef}
+              type="button"
+              onClick={agregarProducto}
+              className="inline-flex h-[38px] items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 text-sm font-medium text-white hover:bg-[#3F8E91]"
+            >
+              <Plus className="h-4 w-4" /> Agregar <span className="text-[11px] font-normal opacity-80">(Enter)</span>
+            </button>
+          </div>
+        )}
+
         {items.length === 0 ? (
           <p className="text-sm text-gray-500">Sin ítems. Agregá productos del inventario o ítems manuales.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto"
+            onKeyDown={(e) => enterPasaAlSiguiente(e, () => buscadorProductoRef.current?.abrir())}
+          >
             <table className="w-full min-w-[820px] text-sm">
               <thead className="text-left bg-slate-50 text-xs text-slate-500">
                 <tr>
@@ -1071,9 +1228,13 @@ export default function NuevoPresupuestoPage() {
                     <tr key={i} className="align-top">
                       <td className="py-2 pr-2">
                         <input value={it.producto_nombre} onChange={(e) => updItem(i, { producto_nombre: e.target.value })} className={inputClass} placeholder="Descripción" />
-                        {it.tipo_precio === "mayorista" && (
+                        {it.tipo_precio === "mayorista" ? (
                           <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Mayorista</span>
-                        )}
+                        ) : it.producto_id && it.tipo_precio_label ? (
+                          <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                            Precio: {it.tipo_precio_label}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2 px-2">
                         <input type="number" min="0" step="0.01" value={it.cantidad || ""} onChange={(e) => updItem(i, { cantidad: Number(e.target.value) })} className={inputClass} />
@@ -1088,7 +1249,7 @@ export default function NuevoPresupuestoPage() {
                             que nadie autorizó. */}
                         {isAdmin || !rolCargado ? (
                           <>
-                            <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} className={inputClass} />
+                            <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} onBlur={() => restaurarPrecioSiVacio(i)} className={inputClass} />
                             {/* Escribir un precio más bajo que el de lista ES un
                                 descuento, aunque no se cargue en la columna de
                                 descuentos. Acá se dice cuánto, al lado de donde
@@ -1188,9 +1349,12 @@ export default function NuevoPresupuestoPage() {
 
         {items.length > 0 && (
           <div className="mt-4 ml-auto w-full sm:w-72 text-sm space-y-1">
-            <div className="flex justify-between"><span className="text-gray-500">Subtotal (sin IVA)</span><span className="tabular-nums">{fmtGs(totales.subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">IVA</span><span className="tabular-nums">{fmtGs(totales.iva)}</span></div>
-            {totales.desc > 0 && (
+            {/* El desglose es para administración; los demás ven el total. */}
+            {isAdmin && <>
+              <div className="flex justify-between"><span className="text-gray-500">Subtotal (sin IVA)</span><span className="tabular-nums">{fmtGs(totales.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">IVA</span><span className="tabular-nums">{fmtGs(totales.iva)}</span></div>
+            </>}
+            {puedeDescontar && totales.desc > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-500" title="Incluye lo que se resignó bajando el precio unitario, que ya está dentro del total.">
                   Descuentos otorgados
@@ -1367,11 +1531,36 @@ export default function NuevoPresupuestoPage() {
           navegación de abajo. */}
       <div className="sticky bottom-0 z-20 -mx-4 mt-2 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] max-lg:bottom-16 sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-500">
-              Total{items.length > 0 ? ` · ${items.length} ${items.length === 1 ? "ítem" : "ítems"}` : ""}
-            </p>
-            <p className="text-xl font-semibold leading-tight text-slate-900">{fmtGs(totales.total)}</p>
+          {/* Administración ve el desglose (pedido del cliente); los demás,
+              solo el total. */}
+          <div className="flex min-w-0 flex-wrap items-end gap-x-6 gap-y-1">
+            {isAdmin && (
+              <>
+                <div>
+                  <p className="text-[11px] font-medium text-slate-500">Ítems</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-700">{items.length} / {MAX_ITEMS_PRESUPUESTO}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-slate-500">Gravado</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-700">{fmtGs(totales.subtotal)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-slate-500">IVA</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-700">{fmtGs(totales.iva)}</p>
+                </div>
+                <div title={totales.utilidadParcial ? "No cuenta las líneas a mano ni las que no tienen costo cargado." : undefined}>
+                  <p className="text-[11px] font-medium text-slate-500">Utilidad{totales.utilidadParcial ? " *" : ""}</p>
+                  <p className={`text-sm font-semibold tabular-nums ${totales.utilidad < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                    {fmtGs(totales.utilidad)}
+                    {totales.margen != null && <span className="ml-1 text-[11px] font-normal text-slate-500">({fmtPct(totales.margen)})</span>}
+                  </p>
+                </div>
+              </>
+            )}
+            <div>
+              <p className="text-[11px] font-medium text-slate-500">Total</p>
+              <p className="text-xl font-semibold leading-tight text-slate-900">{fmtGs(totales.total)}</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href="/presupuestos" className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">

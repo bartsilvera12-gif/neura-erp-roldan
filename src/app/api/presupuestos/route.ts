@@ -8,6 +8,7 @@ import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { isAdmin } from "@/lib/middleware/auth";
 import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
+import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems } from "@/lib/presupuestos/carga-rapida";
 import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
 import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
 import {
@@ -143,6 +144,9 @@ export async function POST(request: NextRequest) {
     const items = parseItems(body.items);
     if (!items) {
       return NextResponse.json(errorResponse("El presupuesto debe tener al menos un ítem válido."), { status: 400 });
+    }
+    if (items.length > MAX_ITEMS_PRESUPUESTO) {
+      return NextResponse.json(errorResponse(mensajeTopeItems()), { status: 400 });
     }
 
     /**
