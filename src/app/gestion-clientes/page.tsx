@@ -7,6 +7,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { AlertTriangle, Calendar, ChevronDown, ChevronUp, ClipboardList, Clock, FileDown, FileText, Link2, Printer, Receipt, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { ModalCambioPlanGestion } from "@/components/gestion-clientes/ModalCambioPlanGestion";
 import { ModalHistorialClienteGestion } from "@/components/gestion-clientes/ModalHistorialClienteGestion";
+import UltimasComprasCliente from "@/components/gestion-clientes/UltimasComprasCliente";
 import { RegistrarPagoModal } from "@/components/pagos/RegistrarPagoModal";
 import { EstadoCuentaClienteBlock } from "@/components/cobros/EstadoCuentaClienteBlock";
 import { SifenEstadoBadge } from "@/components/sifen/SifenEstadoBadge";
@@ -1084,6 +1085,9 @@ function GestionClientesPageInner() {
                   />
                 </div>
               </section>
+
+              {/* Lo último que compró (pedido del cliente). */}
+              <UltimasComprasCliente clienteId={selected.id} />
 
               {/* Estado de cuenta (nueva lógica: cuentas por cobrar de ventas a crédito + cobros) */}
               <EstadoCuentaClienteBlock clienteId={selected.id} />
