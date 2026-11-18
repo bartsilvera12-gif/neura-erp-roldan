@@ -32,6 +32,15 @@ COMMENT ON COLUMN roldanerp.sucursales.direccion IS
 COMMENT ON COLUMN roldanerp.sucursales.telefono IS
   'Teléfono que sale en el membrete de los documentos de esta sucursal. NULL = el de la casa central.';
 
+-- Carapeguá, con los datos de su papelería. Solo si todavía no tiene nada
+-- cargado: si alguien ya la editó desde Configuración, no se pisa.
+UPDATE roldanerp.sucursales
+   SET direccion = 'Ruta 1 Mcal. Francisco Solano López Km. 84 - Carapeguá, Paraguay',
+       telefono  = '(0218) 213 082 - Cel.: (0982) 255 487'
+ WHERE translate(lower(nombre), 'áéíóú', 'aeiou') LIKE '%carapegu%'
+   AND direccion IS NULL
+   AND telefono IS NULL;
+
 NOTIFY pgrst, 'reload schema';
 
 SELECT nombre, direccion, telefono FROM roldanerp.sucursales ORDER BY nombre;
