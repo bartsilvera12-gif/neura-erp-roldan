@@ -828,9 +828,31 @@ export async function abrirCaja(
      * se usa `montoApertura` tal cual (flujo manual de siempre).
      */
     arqueoApertura?: ArqueoItem[] | null;
+    /**
+     * Una sola caja por persona (pedido del cliente): si quien abre ya tiene
+     * una caja abierta o en cierre a su nombre, no puede abrir otra. La
+     * administración queda afuera de la regla.
+     */
+    unaPorUsuario?: boolean;
   }
 ): Promise<Caja> {
   const sucursalId = params.sucursalId ?? null;
+  if (params.unaPorUsuario && params.usuarioId) {
+    const ya = await sb
+      .from("cajas")
+      .select("numero_caja, estado, sucursal_id")
+      .eq("empresa_id", params.empresaId)
+      .eq("abierta_por", params.usuarioId)
+      .in("estado", ["abierta", "en_cierre"])
+      .limit(1);
+    if (!ya.error && (ya.data ?? []).length > 0) {
+      const c = (ya.data as Array<{ numero_caja?: number | null; estado?: string }>)[0];
+      throw new Error(
+        `Ya tenés abierta la Caja ${c.numero_caja ?? ""}${c.estado === "en_cierre" ? " (en cierre)" : ""}. ` +
+        "Cerrala antes de abrir otra: cada cajero trabaja con una sola caja."
+      );
+    }
+  }
   // Números activos acotados a la sucursal: cada sucursal puede tener su Caja 1.
   const activos = await numerosActivos(sb, params.empresaId, sucursalId);
   let numero = params.numeroCaja ?? null;

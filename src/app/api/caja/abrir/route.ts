@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { abrirCaja } from "@/lib/caja/server";
@@ -8,7 +9,7 @@ import { normalizarArqueo } from "@/lib/caja/denominaciones";
 /** POST /api/caja/abrir — abre la caja con monto inicial. */
 export async function POST(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 
     let body: unknown;
@@ -50,11 +51,12 @@ export async function POST(request: NextRequest) {
       usuarioId: ctx.auth.usuarioCatalogId ?? null,
       numeroCaja,
       arqueoApertura,
+      unaPorUsuario: !isAdmin(ctx.auth),
     });
     return NextResponse.json(successResponse({ caja }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo abrir la caja.";
-    const status = /ya está activa/i.test(msg) ? 409 : 500;
+    const status = /ya está activa|Ya tenés abierta/i.test(msg) ? 409 : 500;
     return NextResponse.json(errorResponse(msg), { status });
   }
 }
