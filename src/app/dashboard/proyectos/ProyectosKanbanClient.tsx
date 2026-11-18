@@ -877,7 +877,7 @@ function EstadoMetric({
 function fmtDate(s?: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
-  return Number.isFinite(d.getTime()) ? d.toLocaleDateString() : "—";
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 }
 
 function fmtDateTime(s?: string | null): string {

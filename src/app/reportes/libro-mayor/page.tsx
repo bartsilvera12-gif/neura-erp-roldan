@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getCuentasContablesOpciones, type CuentaContableOpcion } from "@/lib/compras/storage";
 import CuentaCombobox from "@/components/contabilidad/CuentaCombobox";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 interface Mov { fecha_contable: string; numero_asiento: string; origen_tipo: string; descripcion: string | null; proveedor_nombre: string | null; debe: number; haber: number; saldo_acumulado: number }
 interface Cuenta { cuenta_codigo: string; denominacion: string; naturaleza: string; saldo_inicial: number; movimientos: Mov[]; total_debe: number; total_haber: number; saldo_final: number }
@@ -105,7 +106,7 @@ export default function LibroMayorPage() {
               <tr className="border-b bg-slate-50/50 text-slate-500"><td colSpan={7} className="px-2 py-1.5 text-right italic">Saldo inicial</td><td className="px-2 py-1.5 text-right tabular-nums font-semibold">{fmt(c.saldo_inicial)}</td></tr>
               {c.movimientos.map((m, i) => (
                 <tr key={i} className="border-b last:border-0">
-                  <td className="px-2 py-1.5">{(m.fecha_contable ?? "").slice(0, 10)}</td>
+                  <td className="px-2 py-1.5">{fechaDMA(m.fecha_contable, "")}</td>
                   <td className="px-2 py-1.5 font-mono">{m.numero_asiento}</td>
                   <td className="px-2 py-1.5">{doc(m.origen_tipo)}</td>
                   <td className="px-2 py-1.5">{m.descripcion ?? "—"}</td>

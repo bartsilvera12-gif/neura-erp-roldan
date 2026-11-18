@@ -7,6 +7,7 @@ import type { AmbienteSifen, EmpresaSifenConfigDTO } from "@/lib/sifen/types";
 
 import { CheckCircle2 } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 const fLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1";
 const fInput =
@@ -513,7 +514,7 @@ export default function FacturacionElectronicaSifenPage() {
               </li>
               <li>
                 <span className="text-slate-500">Inicio vigencia timbrado (dFeIniT):</span>{" "}
-                <span className="font-mono font-medium">{cfg.timbrado_fecha_inicio_vigencia ?? "—"}</span>
+                <span className="font-mono font-medium">{fechaDMA(cfg.timbrado_fecha_inicio_vigencia)}</span>
               </li>
               <li>
                 <span className="text-slate-500">Actividad económica (cActEco):</span>{" "}

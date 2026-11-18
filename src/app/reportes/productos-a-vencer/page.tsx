@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 type Lote = {
   id: string;
@@ -197,7 +198,7 @@ export default function ProductosAVencerPage() {
                   <td className="py-2 px-3 font-mono text-xs text-slate-500">{l.producto_sku}</td>
                   <td className="py-2 px-3 font-mono text-xs">{l.numero_lote}</td>
                   <td className="py-2 px-3 text-right tabular-nums">{l.cantidad}</td>
-                  <td className="py-2 px-3">{l.fecha_vencimiento}</td>
+                  <td className="py-2 px-3">{fechaDMA(l.fecha_vencimiento)}</td>
                   <td className="py-2 px-3 text-right tabular-nums">
                     {l.dias_restantes < 0 ? (
                       <span className="text-red-700 font-semibold">

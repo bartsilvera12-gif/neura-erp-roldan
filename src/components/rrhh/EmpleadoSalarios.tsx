@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 type Salario = {
   id: string;
@@ -84,7 +85,7 @@ export default function EmpleadoSalarios({ empleadoId }: { empleadoId: string })
   }
 
   async function eliminar(s: Salario) {
-    if (!confirm(`¿Eliminar tramo desde ${s.fecha_vigencia_desde}?`)) return;
+    if (!confirm(`¿Eliminar tramo desde ${fechaDMA(s.fecha_vigencia_desde)}?`)) return;
     const res = await fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/salarios/${s.id}`, { method: "DELETE" });
     const j = await res.json();
     if (!res.ok || !j.success) return alert(j.error || "Error");
@@ -186,7 +187,7 @@ export default function EmpleadoSalarios({ empleadoId }: { empleadoId: string })
             <tbody>
               {salarios.map((s, idx) => (
                 <tr key={s.id} className={`border-t border-slate-100 ${idx === 0 && !s.fecha_vigencia_hasta ? "bg-emerald-50/40" : ""}`}>
-                  <td className="px-3 py-2 text-slate-700">{s.fecha_vigencia_desde}</td>
+                  <td className="px-3 py-2 text-slate-700">{fechaDMA(s.fecha_vigencia_desde)}</td>
                   <td className="px-3 py-2 text-slate-600">{s.fecha_vigencia_hasta ?? <span className="text-emerald-600 text-xs font-medium">Vigente</span>}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmt(s.salario_bruto, s.moneda)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-slate-600">{fmt(s.salario_neto, s.moneda)}</td>

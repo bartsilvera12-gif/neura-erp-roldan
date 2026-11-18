@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 type Archivo = {
   id: string;
@@ -108,7 +109,7 @@ export default function EmpleadoArchivos({ empleadoId }: { empleadoId: string })
                   </td>
                   <td className="px-3 py-2 text-slate-500 text-xs">{a.mime_type ?? "—"}</td>
                   <td className="px-3 py-2 text-right text-slate-600">{fmtSize(a.size_bytes)}</td>
-                  <td className="px-3 py-2 text-slate-500 text-xs">{a.created_at.slice(0, 10)}</td>
+                  <td className="px-3 py-2 text-slate-500 text-xs">{fechaDMA(a.created_at)}</td>
                   <td className="px-3 py-2 text-right">
                     <button onClick={() => eliminar(a)} className="text-xs text-red-600 hover:text-red-800">Eliminar</button>
                   </td>

@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 interface Row {
   origen_tipo: "compra" | "gasto";
@@ -199,7 +200,7 @@ export default function LibroComprasPage() {
               <tr><td colSpan={15} className="px-2 py-8 text-center text-slate-400">Sin documentos en el período/filtros.</td></tr>
             ) : rows.map((r, i) => (
               <tr key={i} className="border-b last:border-0 hover:bg-slate-50/60">
-                <td className="px-2 py-1.5">{(r.fecha ?? "").slice(0, 10)}</td>
+                <td className="px-2 py-1.5">{fechaDMA(r.fecha, "")}</td>
                 <td className="px-2 py-1.5">
                   <span className={`rounded px-1.5 py-0.5 font-medium ${r.origen_tipo === "compra" ? "bg-sky-50 text-sky-700" : "bg-emerald-50 text-emerald-700"}`}>{r.origen}</span>
                 </td>

@@ -82,5 +82,5 @@ export function clienteLabel(cliente?: { empresa?: string | null; nombre_contact
 export function fmtDate(value?: string | null): string {
   if (!value) return "—";
   const d = new Date(`${value}T12:00:00`);
-  return Number.isFinite(d.getTime()) ? d.toLocaleDateString() : "—";
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 }

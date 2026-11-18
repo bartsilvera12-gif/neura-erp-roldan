@@ -11,6 +11,7 @@ import type {
 
 import { X } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 /**
  * Flujo de caja de proveedores.
@@ -93,8 +94,8 @@ function tooltipDe(e: EntradaFlujo): string {
   }
   if (e.numero_cheque) l.push(`${nombreMedio(e.medio)} Nº ${e.numero_cheque}${e.banco_nombre ? ` — ${e.banco_nombre}` : ""}`);
   else l.push("Sin cheque emitido");
-  if (e.fecha_emision) l.push(`Emitido: ${e.fecha_emision}`);
-  if (e.fecha_cobro) l.push(`Cobro: ${e.fecha_cobro}`);
+  if (e.fecha_emision) l.push(`Emitido: ${fechaDMA(e.fecha_emision)}`);
+  if (e.fecha_cobro) l.push(`Cobro: ${fechaDMA(e.fecha_cobro)}`);
   if (e.observacion) l.push(e.observacion);
   l.push(ETIQUETA[e.estado] ?? e.estado);
   return l.join("\n");

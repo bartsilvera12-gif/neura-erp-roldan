@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 interface Row {
   origen_tipo: "factura" | "nota_credito";
@@ -179,7 +180,7 @@ export default function LibroVentasPage() {
               const esNC = r.origen_tipo === "nota_credito";
               return (
                 <tr key={i} className={`border-b last:border-0 hover:bg-slate-50/60 ${esNC ? "bg-red-50/40" : ""}`}>
-                  <td className="px-2 py-1.5">{(r.fecha ?? "").slice(0, 10)}</td>
+                  <td className="px-2 py-1.5">{fechaDMA(r.fecha, "")}</td>
                   <td className="px-2 py-1.5">
                     <span className={`rounded px-1.5 py-0.5 font-medium ${esNC ? "bg-red-100 text-red-700" : "bg-sky-50 text-sky-700"}`}>{r.tipo_comprobante}</span>
                     {r.origen === "suscripcion" && <span className="ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-500">susc.</span>}

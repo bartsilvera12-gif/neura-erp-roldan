@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getCuentasContablesOpciones, type CuentaContableOpcion } from "@/lib/compras/storage";
 import CuentaCombobox from "@/components/contabilidad/CuentaCombobox";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 interface Row {
   numero_asiento: string; fecha_contable: string; glosa: string | null; documento: string | null;
@@ -103,7 +104,7 @@ export default function LibroDiarioPage() {
             : rows.map((r, i) => (
               <tr key={i} className={`border-b last:border-0 hover:bg-slate-50/60 ${r.estado === "revertido" ? "opacity-60" : ""}`}>
                 <td className="px-2 py-1.5 font-mono">{r.numero_asiento}</td>
-                <td className="px-2 py-1.5">{(r.fecha_contable ?? "").slice(0, 10)}</td>
+                <td className="px-2 py-1.5">{fechaDMA(r.fecha_contable, "")}</td>
                 <td className="px-2 py-1.5">{r.documento ?? "—"}</td>
                 <td className="px-2 py-1.5 font-mono">{r.cuenta_codigo}</td>
                 <td className="px-2 py-1.5">{r.cuenta_denominacion}</td>

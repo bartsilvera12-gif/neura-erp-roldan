@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
+import { formatFecha as fechaDMA } from "@/lib/fecha/asuncion";
 
 type CursoCat = { id: string; nombre: string; tipo: string };
 type Curso = {
@@ -146,8 +147,8 @@ export default function EmpleadoCursos({ empleadoId }: { empleadoId: string }) {
                 <tr key={c.id} className="border-t border-slate-100">
                   <td className="px-3 py-2">{c.nombre}</td>
                   <td className="px-3 py-2 text-slate-600 capitalize">{c.tipo.replace(/_/g, " ")}</td>
-                  <td className="px-3 py-2 text-slate-600">{c.fecha_emision ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-600">{c.fecha_vencimiento ?? "—"}</td>
+                  <td className="px-3 py-2 text-slate-600">{fechaDMA(c.fecha_emision)}</td>
+                  <td className="px-3 py-2 text-slate-600">{fechaDMA(c.fecha_vencimiento)}</td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded text-xs ${ESTADO_BADGE[c.estado] ?? ESTADO_BADGE.pendiente}`}>{c.estado.replace(/_/g, " ")}</span>
                   </td>
