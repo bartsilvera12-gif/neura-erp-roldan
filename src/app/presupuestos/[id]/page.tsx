@@ -8,6 +8,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 import { CambiosAlCobrar, type AvisoCambios } from "@/components/presupuestos/CambiosAlCobrar";
+import { fechaCorta, hoyPy, reservaHastaPorDefecto } from "@/lib/presupuestos/reserva-vencimiento";
 
 type Presu = {
   id: string;
@@ -163,8 +164,12 @@ export default function PresupuestoDetallePage() {
    */
   const [reserva, setReserva] = useState<{
     disponible: boolean; reservado: boolean; reservado_por?: string | null; reservado_at?: string | null; puede_quitar: boolean;
+    reservado_hasta?: string | null; vencida?: boolean;
   } | null>(null);
   const [reservando, setReservando] = useState(false);
+  /** Al tocar «Reservar», se elige hasta cuándo (por defecto, 3 días). */
+  const [eligiendoFecha, setEligiendoFecha] = useState(false);
+  const [reservaHasta, setReservaHasta] = useState(reservaHastaPorDefecto());
   const cargarReserva = useCallback(async () => {
     try {
       const r = await fetchWithSupabaseSession(`/api/presupuestos/${id}/reserva`, { cache: "no-store" });
@@ -174,15 +179,21 @@ export default function PresupuestoDetallePage() {
   }, [id]);
   useEffect(() => { void cargarReserva(); }, [cargarReserva]);
 
-  async function cambiarReserva(reservar: boolean) {
+  async function cambiarReserva(reservar: boolean, hasta?: string) {
     if (!reservar && !confirm("¿Quitar la reserva? La mercadería vuelve a quedar libre para otros presupuestos.")) return;
     setReservando(true);
     setError(null);
     try {
-      const r = await fetchWithSupabaseSession(`/api/presupuestos/${id}/reserva`, { method: reservar ? "POST" : "DELETE" });
+      const r = await fetchWithSupabaseSession(`/api/presupuestos/${id}/reserva`, {
+        method: reservar ? "POST" : "DELETE",
+        ...(reservar ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hasta: hasta ?? reservaHastaPorDefecto() }) } : {}),
+      });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.success) { setError(j?.error ?? "No se pudo cambiar la reserva."); return; }
-      setOk(reservar ? "Mercadería reservada: no se puede cotizar en otro presupuesto." : "Se quitó la reserva.");
+      setOk(reservar
+        ? `Mercadería reservada hasta el ${fechaCorta(j?.data?.reservado_hasta ?? hasta)}: no se puede cotizar en otro presupuesto.`
+        : "Se quitó la reserva.");
+      setEligiendoFecha(false);
       setTimeout(() => setOk(null), 3500);
       await cargarReserva();
     } catch {
@@ -380,17 +391,43 @@ export default function PresupuestoDetallePage() {
                 }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-default disabled:opacity-90"
               >
-                <Lock className="h-4 w-4" /> Reservado{reserva.puede_quitar ? " — quitar" : ""}
+                <Lock className="h-4 w-4" /> Reservado
+                {reserva.reservado_hasta ? ` hasta el ${fechaCorta(reserva.reservado_hasta)}` : ""}
+                {reserva.puede_quitar ? " — quitar" : ""}
               </button>
+            ) : eligiendoFecha ? (
+              <span className="inline-flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900">
+                <Lock className="h-4 w-4" /> Reservar hasta el
+                <input
+                  type="date"
+                  value={reservaHasta}
+                  min={hoyPy()}
+                  onChange={(e) => setReservaHasta(e.target.value)}
+                  className="rounded border border-amber-300 bg-white px-2 py-1 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => void cambiarReserva(true, reservaHasta)}
+                  disabled={reservando || !reservaHasta}
+                  className="rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {reservando ? "Reservando…" : "Reservar"}
+                </button>
+                <button type="button" onClick={() => setEligiendoFecha(false)} className="text-xs text-amber-800 hover:underline">
+                  Cancelar
+                </button>
+              </span>
             ) : (
               <button
                 type="button"
-                onClick={() => void cambiarReserva(true)}
+                onClick={() => { setReservaHasta(reservaHastaPorDefecto()); setEligiendoFecha(true); }}
                 disabled={reservando}
-                title="Aparta la mercadería: no se va a poder cotizar en otro presupuesto"
+                title={reserva.vencida
+                  ? `La reserva venció el ${fechaCorta(reserva.reservado_hasta)}. Tocá para volver a reservar.`
+                  : "Aparta la mercadería: no se va a poder cotizar en otro presupuesto"}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
               >
-                <Lock className="h-4 w-4" /> {reservando ? "Reservando…" : "Reservar mercadería"}
+                <Lock className="h-4 w-4" /> {reserva.vencida ? "Reserva vencida — reservar de nuevo" : "Reservar mercadería"}
               </button>
             )
           )}

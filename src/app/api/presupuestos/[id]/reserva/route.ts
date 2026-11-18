@@ -5,11 +5,14 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
+import { hoyPy, reservaHastaPorDefecto, reservaVigente } from "@/lib/presupuestos/reserva-vencimiento";
 
 /**
  * POST   /api/presupuestos/[id]/reserva — reserva la mercadería del presupuesto.
  *        Lo puede hacer cualquiera. No se puede reservar más de lo que está
  *        libre (stock − lo ya reservado en otros presupuestos).
+ *        Body opcional `{ hasta: "YYYY-MM-DD" }`: hasta qué día aparta la
+ *        mercadería. Sin fecha, 3 días contando hoy (script 89).
  * DELETE /api/presupuestos/[id]/reserva — quita la reserva. Solo un administrador.
  *
  * Mientras está reservado, su mercadería no se puede cotizar en otro
@@ -41,20 +44,27 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   const { id } = await ctxParams.params;
   const ctx = await getTenantSupabaseFromAuthWithRol(request);
   if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-  const r = await ctx.supabase
+  const leer = (cols: string) => ctx.supabase
     .from("presupuestos")
-    .select("reservado, reservado_at, reservado_por")
+    .select(cols)
     .eq("empresa_id", ctx.auth.empresa_id)
     .eq("id", id)
     .maybeSingle();
+  let r = await leer("reservado, reservado_at, reservado_por, reservado_hasta");
+  if (r.error && /reservado_hasta/.test(r.error.message)) r = await leer("reservado, reservado_at, reservado_por");
   if (r.error) {
     // Sin el script 86: no hay reservas, y se dice por qué.
     return NextResponse.json(successResponse({ disponible: false, aviso: AVISO_86, reservado: false, puede_quitar: false }));
   }
-  const d = (r.data ?? {}) as { reservado?: boolean; reservado_at?: string | null; reservado_por?: string | null };
+  const d = (r.data ?? {}) as unknown as {
+    reservado?: boolean; reservado_at?: string | null; reservado_por?: string | null; reservado_hasta?: string | null;
+  };
   return NextResponse.json(successResponse({
     disponible: true,
-    reservado: d.reservado === true,
+    // Una reserva vencida ya no aparta nada: para la pantalla, no está reservado.
+    reservado: reservaVigente(d.reservado, d.reservado_hasta),
+    reservado_hasta: d.reservado_hasta ?? null,
+    vencida: d.reservado === true && !reservaVigente(d.reservado, d.reservado_hasta),
     reservado_at: d.reservado_at ?? null,
     reservado_por: d.reservado_por ?? null,
     puede_quitar: isAdmin(ctx.auth),
@@ -74,7 +84,16 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
     if (presu.estado === "rechazado" || presu.estado === "anulado") {
       return NextResponse.json(errorResponse(`Está ${presu.estado}: no tiene sentido reservar.`), { status: 409 });
     }
-    if (presu.reservado) return NextResponse.json(successResponse({ reservado: true }));
+    let body: Record<string, unknown> = {};
+    try { body = (await request.json()) as Record<string, unknown>; } catch { /* sin cuerpo: 3 días */ }
+    const hastaPedida = typeof body.hasta === "string" ? body.hasta.trim().slice(0, 10) : "";
+    if (hastaPedida && !/^\d{4}-\d{2}-\d{2}$/.test(hastaPedida)) {
+      return NextResponse.json(errorResponse("La fecha de la reserva no es válida."), { status: 400 });
+    }
+    if (hastaPedida && hastaPedida < hoyPy()) {
+      return NextResponse.json(errorResponse("La reserva no puede vencer antes de hoy."), { status: 400 });
+    }
+    const hasta = hastaPedida || reservaHastaPorDefecto();
 
     // No se puede reservar lo que ya está reservado por otro: se mide contra
     // lo libre, sin contar este mismo presupuesto.
@@ -103,16 +122,28 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
     }
 
     const firma = await firmaUsuario(ctx.supabase, ctx.auth);
-    const up = await ctx.supabase
+    const datos: Record<string, unknown> = {
+      reservado: true, reservado_at: new Date().toISOString(), reservado_por: firma.nombre ?? null, reservado_hasta: hasta,
+    };
+    const escribir = (d: Record<string, unknown>) => ctx.supabase
       .from("presupuestos")
-      .update({ reservado: true, reservado_at: new Date().toISOString(), reservado_por: firma.nombre ?? null })
+      .update(d)
       .eq("empresa_id", ctx.auth.empresa_id)
       .eq("id", id);
+    let up = await escribir(datos);
+    let conFecha = true;
+    if (up.error && /reservado_hasta/.test(up.error.message)) {
+      // Sin el script 89 la reserva queda sin fecha, como antes.
+      const { reservado_hasta: _sinFecha, ...resto } = datos;
+      void _sinFecha;
+      up = await escribir(resto);
+      conFecha = false;
+    }
     if (up.error) {
       if (faltaScript86(up.error.message)) return NextResponse.json(errorResponse(AVISO_86), { status: 503 });
       throw new Error(up.error.message);
     }
-    return NextResponse.json(successResponse({ reservado: true }));
+    return NextResponse.json(successResponse({ reservado: true, reservado_hasta: conFecha ? hasta : null }));
   } catch (err) {
     console.error("[/api/presupuestos/[id]/reserva POST]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudo reservar."), { status: 500 });

@@ -9,6 +9,7 @@ import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import Selector from "@/components/ui/Selector";
 import { CambiosAlCobrar, type AvisoCambios } from "@/components/presupuestos/CambiosAlCobrar";
+import { fechaCorta, reservaVigente } from "@/lib/presupuestos/reserva-vencimiento";
 
 /** Estados que el usuario puede elegir manualmente desde el listado (nunca 'convertido'). */
 const ESTADOS_EDITABLES: EstadoPresupuesto[] = ["creado", "enviado", "aprobado", "rechazado"];
@@ -30,6 +31,9 @@ type PresupuestoRow = {
   vendedor_nombre?: string | null;
   /** Falta material para cumplirlo. Tampoco va en el PDF (script 38). */
   falta_material?: boolean;
+  /** Reservado a mano (script 86) y hasta cuándo (script 89; null = no vence). */
+  reservado?: boolean;
+  reservado_hasta?: string | null;
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
@@ -66,7 +70,7 @@ function fmtGs(n: number | string, moneda: string) {
  * en una fila de botones es más corto que dos filas de filtros que se
  * combinan de seis maneras y confunden más de lo que ayudan.
  */
-type FiltroPresupuesto = "todos" | "vencidos" | "pendientes" | EstadoPresupuesto;
+type FiltroPresupuesto = "todos" | "vencidos" | "pendientes" | "reservados" | "reserva_vencida" | EstadoPresupuesto;
 
 /**
  * "Pendientes" son los que se mandaron y todavía no contestaron, Y SIGUEN
@@ -96,7 +100,13 @@ const FILTROS: { id: FiltroPresupuesto; label: string }[] = [
   { id: "rechazado", label: "Rechazados" },
   { id: "convertido", label: "Convertidos" },
   { id: "vencidos", label: "Vencidos" },
+  // La reserva aparta mercadería hasta una fecha (3 días por defecto).
+  { id: "reservados", label: "Reservados" },
+  { id: "reserva_vencida", label: "Reserva vencida" },
 ];
+
+/** Cómo se ordena la lista. */
+type Orden = "fecha" | "monto_desc" | "monto_asc";
 
 /** Hoy en Paraguay (UTC−3): el server es UTC y de noche adelanta un día. */
 function hoyPy(): string {
@@ -122,6 +132,7 @@ export default function PresupuestosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<FiltroPresupuesto>("todos");
+  const [orden, setOrden] = useState<Orden>("fecha");
   /** Cliente del catálogo o escrito a mano en el mostrador. */
   const [fCliente, setFCliente] = useState<"todos" | "sistema" | "a_mano">("todos");
   // Requisito 11.2: desde/hasta también acá. Un presupuesto es un documento con
@@ -255,6 +266,8 @@ export default function PresupuestosPage() {
         filtro === "todos" ? true
         : filtro === "vencidos" ? estaVencido(r)
         : filtro === "pendientes" ? (r.estado === "enviado" && !estaVencido(r))
+        : filtro === "reservados" ? reservaVigente(r.reservado, r.reservado_hasta)
+        : filtro === "reserva_vencida" ? (r.reservado === true && !reservaVigente(r.reservado, r.reservado_hasta))
         : r.estado === filtro
       )
       .filter((r) => {
@@ -281,8 +294,15 @@ export default function PresupuestosPage() {
         !texto ||
         r.numero_control.toLowerCase().includes(texto) ||
         r.cliente_nombre.toLowerCase().includes(texto)
+      )
+      // La lista ya viene de la más nueva a la más vieja; el orden por monto
+      // es para encontrar los presupuestos grandes (o los chicos) de una.
+      .sort((a, b) =>
+        orden === "monto_desc" ? (Number(b.total) || 0) - (Number(a.total) || 0)
+        : orden === "monto_asc" ? (Number(a.total) || 0) - (Number(b.total) || 0)
+        : 0
       );
-  }, [rows, filtro, desde, hasta, buscar, fPersona, fCliente]);
+  }, [rows, filtro, desde, hasta, buscar, fPersona, fCliente, orden]);
 
   /** Las personas que tienen al menos un presupuesto en la lista. */
   const personas = useMemo(() => {
@@ -330,6 +350,8 @@ export default function PresupuestosPage() {
               filtro === "todos" ? undefined
               : filtro === "vencidos" ? "Vencidos"
               : filtro === "pendientes" ? "Pendientes: mandados, sin contestar y vigentes"
+              : filtro === "reservados" ? "Reservados"
+              : filtro === "reserva_vencida" ? "Reserva vencida"
               : `Estado: ${ESTADO_LABEL[filtro as EstadoPresupuesto]}`
             }
             columnas={["Número", "Cliente", "Fecha", "Vence", "Emitió", "Total", "Moneda", "Estado"]}
@@ -439,8 +461,20 @@ export default function PresupuestosPage() {
             placeholder="Número o cliente"
             className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
         </label>
-        {(desde || hasta || buscar || fCliente !== "todos") && (
-          <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); setFCliente("todos"); }}
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-slate-500">Ordenar por</span>
+          <Selector
+            value={orden}
+            onChange={(e) => setOrden(e.target.value as Orden)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none"
+          >
+            <option value="fecha">Más recientes</option>
+            <option value="monto_desc">Monto: de mayor a menor</option>
+            <option value="monto_asc">Monto: de menor a mayor</option>
+          </Selector>
+        </label>
+        {(desde || hasta || buscar || fCliente !== "todos" || orden !== "fecha") && (
+          <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); setFCliente("todos"); setOrden("fecha"); }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
             Limpiar
           </button>
@@ -476,6 +510,8 @@ export default function PresupuestosPage() {
             {filtro === "todos" ? "todavía"
              : filtro === "vencidos" ? "vencidos"
              : filtro === "pendientes" ? "pendientes de respuesta"
+             : filtro === "reservados" ? "con la mercadería reservada"
+             : filtro === "reserva_vencida" ? "con la reserva vencida"
              : `en estado "${ESTADO_LABEL[filtro as EstadoPresupuesto]}"`}.
           </div>
         ) : (
@@ -515,6 +551,18 @@ export default function PresupuestosPage() {
                         <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
                           Falta material
                         </span>
+                      )}
+                      {r.reservado && (
+                        reservaVigente(r.reservado, r.reservado_hasta) ? (
+                          <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+                            title="La mercadería está apartada: no se puede cotizar en otro presupuesto.">
+                            Reservado{r.reservado_hasta ? ` hasta ${fechaCorta(r.reservado_hasta)}` : ""}
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Reserva vencida
+                          </span>
+                        )
                       )}
                     </td>
                     <td className="py-3 px-4 text-gray-600">{fmtFecha(r.fecha)}</td>

@@ -94,24 +94,34 @@ export async function reservasPorProducto(
     .map((p) => String(p.id));
 
   /**
-   * Y los marcados como RESERVADOS a mano (script 86): esos no vencen. Siguen
-   * reservando hasta que un administrador quite la marca, o hasta que se
-   * cobren (el stock ya se descontó) o se rechacen.
+   * Y los marcados como RESERVADOS a mano (script 86). Reservan hasta la
+   * fecha elegida (script 89; por defecto 3 días), hasta que un administrador
+   * quite la marca, o hasta que se cobren (el stock ya se descontó) o se
+   * rechacen. Las reservas sin fecha son anteriores al script 89 y no vencen.
    */
   let idsReservados: string[] = [];
   {
-    let qr = sb
-      .from("presupuestos")
-      .select("id, estado, convertido_venta_id")
-      .eq("empresa_id", empresaId)
-      .eq("reservado", true);
-    if (sucursalId) qr = qr.eq("sucursal_id", sucursalId);
-    const r = await qr.limit(1000);
+    const leer = (cols: string) => {
+      let qr = sb
+        .from("presupuestos")
+        .select(cols)
+        .eq("empresa_id", empresaId)
+        .eq("reservado", true);
+      if (sucursalId) qr = qr.eq("sucursal_id", sucursalId);
+      return qr.limit(1000);
+    };
+    let r = await leer("id, estado, convertido_venta_id, reservado_hasta");
+    // Sin el script 89 no hay fecha: se lee como antes.
+    if (r.error && /reservado_hasta/.test(r.error.message)) r = await leer("id, estado, convertido_venta_id");
     // Sin el script 86 la columna no existe: solo cuentan los aprobados.
     if (!r.error) {
-      idsReservados = ((r.data ?? []) as Array<Record<string, unknown>>)
+      idsReservados = ((r.data ?? []) as unknown as Array<Record<string, unknown>>)
         .filter((p) => p.convertido_venta_id == null)
         .filter((p) => !["rechazado", "convertido", "anulado"].includes(String(p.estado ?? "")))
+        .filter((p) => {
+          const h = p.reservado_hasta == null ? "" : String(p.reservado_hasta).slice(0, 10);
+          return h === "" || h >= hoy;
+        })
         .map((p) => String(p.id));
     }
   }

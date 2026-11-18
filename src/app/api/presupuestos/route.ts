@@ -93,6 +93,34 @@ export async function GET(request: NextRequest) {
     );
     if (error) throw new Error(error.message);
     const presupuestos = (data ?? []).map((r) => conCamposScript38(r, script38));
+
+    /**
+     * La reserva de cada uno, para el filtro del listado. Va aparte del select
+     * principal: si falta el script 86 u 89, el listado sale igual, sin la
+     * marca, en vez de quedarse vacío.
+     */
+    if (presupuestos.length > 0) {
+      const leerReservas = (cols: string) =>
+        ctx.supabase
+          .from("presupuestos")
+          .select(cols)
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("reservado", true)
+          .limit(1000);
+      let rq = await leerReservas("id, reservado_hasta");
+      if (rq.error && /reservado_hasta/.test(rq.error.message)) rq = await leerReservas("id");
+      if (!rq.error) {
+        const hasta = new Map<string, string | null>();
+        for (const x of (rq.data ?? []) as unknown as Array<{ id: string; reservado_hasta?: string | null }>) {
+          hasta.set(String(x.id), x.reservado_hasta ?? null);
+        }
+        for (const p of presupuestos as Record<string, unknown>[]) {
+          const id = String(p.id);
+          p.reservado = hasta.has(id);
+          p.reservado_hasta = hasta.get(id) ?? null;
+        }
+      }
+    }
     return NextResponse.json(successResponse({ presupuestos }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error";
