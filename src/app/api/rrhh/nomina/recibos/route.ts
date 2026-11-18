@@ -5,6 +5,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { DIAS_MES, rangoMes, reciboInicial } from "@/lib/rrhh/nomina-py";
 import { diasAusenciaEnMes, diasPagablesMes, type AusenciaSimple } from "@/lib/rrhh/aguinaldo-py";
 import { baseIps, baseDelPeriodo } from "@/lib/rrhh/ips";
+import { aportaIps } from "@/lib/rrhh/contrato";
 
 /**
  * Recibos de salario — Paraguay (IPS 9% trabajador / 16,5% patronal).
@@ -86,14 +87,14 @@ type Supa = Awaited<ReturnType<typeof getTenantSupabaseFromAuth>> extends infer 
 async function traerEmpleados(supabase: Supa, empresaId: string, ids: string[]) {
   const con = await supabase
     .from("empleados")
-    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_ingreso_ips, salario_base, salario_ips, ips_sobre_minimo, tipo_periodo")
+    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_ingreso_ips, salario_base, salario_ips, ips_sobre_minimo, tipo_periodo, tipo_contrato")
     .eq("empresa_id", empresaId)
     .in("id", ids);
   if (!con.error || !/ips|42703|does not exist/i.test(con.error.message ?? "")) return con;
 
   return supabase
     .from("empleados")
-    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, salario_base, tipo_periodo")
+    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, salario_base, tipo_periodo, tipo_contrato")
     .eq("empresa_id", empresaId)
     .in("id", ids);
 }
@@ -200,7 +201,9 @@ export async function POST(request: NextRequest) {
         Number(e.salario_base) || 0,
         diasPago,
         (e.tipo_periodo as string | null) ?? null,
-        baseDeclarada
+        baseDeclarada,
+        // El facturador no aporta al IPS (pedido del cliente).
+        !aportaIps(e.tipo_contrato as string | null)
       );
 
       const cabecera = {

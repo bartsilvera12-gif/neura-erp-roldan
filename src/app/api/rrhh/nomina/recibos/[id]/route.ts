@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { conIpsRecalculado, totalesRecibo, type Descuento, type Ingreso } from "@/lib/rrhh/nomina-py";
+import { aportaIps } from "@/lib/rrhh/contrato";
 
 const num = (v: unknown): number => {
   if (v === null || v === undefined || v === "") return 0;
@@ -68,6 +69,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       importe_total: Math.round(num(d.importe_total)),
       es_salarial: d.es_salarial !== false,
     }));
+    // El facturador no aporta al IPS: al editar su recibo no se le agrega.
+    let sinIps = false;
+    {
+      const rq = await ctx.supabase.from("nomina_recibos").select("empleado_id").eq("empresa_id", ctx.auth.empresa_id).eq("id", id).maybeSingle();
+      const empId = (rq.data as { empleado_id?: string } | null)?.empleado_id;
+      if (empId) {
+        const eq = await ctx.supabase.from("empleados").select("tipo_contrato").eq("empresa_id", ctx.auth.empresa_id).eq("id", empId).maybeSingle();
+        sinIps = !eq.error && !aportaIps((eq.data as { tipo_contrato?: string | null } | null)?.tipo_contrato);
+      }
+    }
     const deducciones: Descuento[] = conIpsRecalculado(
       devengos,
       descuentosRaw.map((d) => ({
@@ -76,7 +87,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         base: numn(d.base),
         tipo_pct: numn(d.tipo_pct),
         importe: Math.round(num(d.importe)),
-      }))
+      })),
+      null,
+      sinIps
     );
     const t = totalesRecibo(devengos, deducciones);
 

@@ -85,10 +85,12 @@ export function lineasIps(ingresos: Ingreso[], baseDeclarada?: number | null): D
 export function conIpsRecalculado(
   ingresos: Ingreso[],
   descuentos: Descuento[],
-  baseDeclarada?: number | null
+  baseDeclarada?: number | null,
+  /** El facturador no aporta al IPS: el recibo va sin esas dos líneas. */
+  sinIps = false
 ): Descuento[] {
   const otros = descuentos.filter((d) => d.tipo !== "ips_trabajador" && d.tipo !== "ips_patronal");
-  return [...lineasIps(ingresos, baseDeclarada), ...otros];
+  return sinIps ? otros : [...lineasIps(ingresos, baseDeclarada), ...otros];
 }
 
 export type Totales = {
@@ -118,10 +120,12 @@ export function reciboInicial(
   diasTrabajados: number,
   tipoPeriodo: string | null | undefined,
   /** Lo que se le declara al IPS en el período, si no es lo que cobra. */
-  baseDeclarada?: number | null
+  baseDeclarada?: number | null,
+  /** El facturador no aporta al IPS. */
+  sinIps = false
 ) {
   const ingresos = salarioBase > 0 ? [lineaSalario(salarioBase, diasTrabajados, tipoPeriodo)] : [];
-  const descuentos = lineasIps(ingresos, baseDeclarada);
+  const descuentos = sinIps ? [] : lineasIps(ingresos, baseDeclarada);
   return { ingresos, descuentos, totales: totalesRecibo(ingresos, descuentos) };
 }
 

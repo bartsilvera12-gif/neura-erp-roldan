@@ -18,6 +18,7 @@ import {
   type TipoDescuento,
 } from "@/lib/rrhh/nomina-py";
 import { FileText, Minus, Plus, X } from "lucide-react";
+import { aportaIps } from "@/lib/rrhh/contrato";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default function ReciboPage() {
   const params = useParams();
   const id = params?.id as string | undefined;
   const [cab, setCab] = useState<Recibo | null>(null);
-  const [empleado, setEmpleado] = useState<{ salario_base: number; tipo_periodo: string | null } | null>(null);
+  const [empleado, setEmpleado] = useState<{ salario_base: number; tipo_periodo: string | null; tipo_contrato?: string | null } | null>(null);
   const [ingresos, setIngresos] = useState<Ingreso[]>([]);
   const [descuentos, setDescuentos] = useState<Descuento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,9 +81,13 @@ export default function ReciboPage() {
         setIngresos(j.data.devengos.map((d) => ({ ...d, importe_total: Math.round(Number(d.importe_total) || 0) })));
         setDescuentos(j.data.deducciones.map((d) => ({ ...d, importe: Math.round(Number(d.importe) || 0) })));
         const e = await fetchWithSupabaseSession(`/api/rrhh/empleados/${j.data.recibo.empleado_id}`, { cache: "no-store" });
-        const je = (await e.json().catch(() => ({}))) as { data?: { empleado?: { salario_base?: number; tipo_periodo?: string | null } } };
+        const je = (await e.json().catch(() => ({}))) as { data?: { empleado?: { salario_base?: number; tipo_periodo?: string | null; tipo_contrato?: string | null } } };
         if (je?.data?.empleado) {
-          setEmpleado({ salario_base: Number(je.data.empleado.salario_base) || 0, tipo_periodo: je.data.empleado.tipo_periodo ?? null });
+          setEmpleado({
+            salario_base: Number(je.data.empleado.salario_base) || 0,
+            tipo_periodo: je.data.empleado.tipo_periodo ?? null,
+            tipo_contrato: je.data.empleado.tipo_contrato ?? null,
+          });
         }
       } finally {
         setLoading(false);
@@ -91,7 +96,9 @@ export default function ReciboPage() {
   }, [id]);
 
   // El IPS siempre acompaña a lo que se cobra (el servidor hace la misma cuenta).
-  const descuentosVista = useMemo(() => conIpsRecalculado(ingresos, descuentos), [ingresos, descuentos]);
+  // El facturador no aporta al IPS (el servidor hace la misma cuenta).
+  const sinIps = empleado != null && !aportaIps(empleado.tipo_contrato);
+  const descuentosVista = useMemo(() => conIpsRecalculado(ingresos, descuentos, null, sinIps), [ingresos, descuentos, sinIps]);
   const tot = useMemo(() => totalesRecibo(ingresos, descuentosVista), [ingresos, descuentosVista]);
   const ipsTrab = descuentosVista.find((d) => d.tipo === "ips_trabajador");
   const ipsPatr = descuentosVista.find((d) => d.tipo === "ips_patronal");

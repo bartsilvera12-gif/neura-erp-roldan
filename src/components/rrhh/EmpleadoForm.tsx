@@ -11,6 +11,7 @@ import {
 } from "@/lib/rrhh/horario";
 import type { UsuarioParaVincular } from "@/lib/rrhh/empleado-vinculo";
 import Selector from "@/components/ui/Selector";
+import { TIPOS_CONTRATO, aportaIps } from "@/lib/rrhh/contrato";
 
 /**
  * Formulario del empleado: el MISMO para el alta y para la ficha.
@@ -37,6 +38,8 @@ export const FORM_EMPLEADO_VACIO: Record<string, string> = {
   usuario_id: "",
   estado: "activo",
   tipo_contrato: "",
+  /** La sucursal donde trabaja (pedido del cliente). */
+  sucursal_id: "",
   jornada_laboral: "",
   hora_entrada_prevista: "",
   /** JSON del horario por día (script 74); vacío = sin horario. */
@@ -103,6 +106,7 @@ export function cuerpoDesdeForm(form: Record<string, string>): Record<string, un
     fecha_ingreso_ips: form.fecha_ingreso_ips || null,
     tolerancia_minutos: Number(form.tolerancia_minutos) || 0,
     usuario_id: form.usuario_id || null,
+    sucursal_id: form.sucursal_id || null,
     horario_semanal: normalizarHorario(form.horario_semanal),
   };
 }
@@ -118,6 +122,13 @@ async function fetchCatalog(cat: CatalogEndpoint): Promise<CatalogItem[]> {
       return { id: String(o.id ?? ""), nombre: String((o.nombre as string) ?? (cat.nameField ? (o[cat.nameField] as string) : "") ?? "") };
     })
     .filter((x) => x.id && x.nombre);
+}
+
+/** Quita un ítem del catálogo (los que el sistema trae se desactivan). */
+async function deleteCatalogItem(cat: CatalogEndpoint, id: string): Promise<void> {
+  const res = await fetchWithSupabaseSession(`${cat.url}/${id}`, { method: "DELETE" });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j?.success === false) throw new Error(j?.error || "No se pudo quitar.");
 }
 
 async function createCatalogItem(cat: CatalogEndpoint, nombre: string): Promise<void> {
@@ -150,8 +161,13 @@ export default function EmpleadoForm({
   const [departamentos, setDepartamentos] = useState<CatalogItem[]>([]);
   const [tiposEmpleado, setTiposEmpleado] = useState<CatalogItem[]>([]);
   const [bancos, setBancos] = useState<CatalogItem[]>([]);
+  const [sucursales, setSucursales] = useState<CatalogItem[]>([]);
 
   useEffect(() => {
+    fetchWithSupabaseSession("/api/sucursales")
+      .then((r) => r.json())
+      .then((j) => setSucursales(((j?.data?.sucursales ?? []) as Array<{ id: string; nombre: string }>).map((x) => ({ id: String(x.id), nombre: String(x.nombre ?? "") }))))
+      .catch(() => {});
     fetchCatalog(CATALOGS.cargos).then(setCargos).catch(() => {});
     fetchCatalog(CATALOGS.departamentos).then(setDepartamentos).catch(() => {});
     fetchCatalog(CATALOGS.tipos_empleado).then(setTiposEmpleado).catch(() => {});
@@ -162,6 +178,12 @@ export default function EmpleadoForm({
     await createCatalogItem(cat, nombre);
     setter(await fetchCatalog(cat));
     setF(campo, nombre);
+  }
+
+  /** La ✕ del catálogo: lo saca de la lista. Los empleados que ya lo tienen lo conservan. */
+  async function quitar(cat: CatalogEndpoint, item: CatalogItem, setter: (v: CatalogItem[]) => void) {
+    await deleteCatalogItem(cat, item.id);
+    setter(await fetchCatalog(cat));
   }
 
   const F = (k: string) => form[k] ?? "";
@@ -229,15 +251,28 @@ export default function EmpleadoForm({
       <Section icon={<Briefcase className="h-4 w-4" />} title="Puesto y jornada">
         <Grid>
           <CatalogSelectField label="Cargo" value={F("cargo")} onChange={(v) => setF("cargo", v)} options={cargos}
-            onCreate={(n) => crear(CATALOGS.cargos, n, setCargos, "cargo")} />
+            onCreate={(n) => crear(CATALOGS.cargos, n, setCargos, "cargo")}
+            onDelete={(it) => quitar(CATALOGS.cargos, it, setCargos)} />
           <CatalogSelectField label="Departamento" value={F("departamento")} onChange={(v) => setF("departamento", v)} options={departamentos}
-            onCreate={(n) => crear(CATALOGS.departamentos, n, setDepartamentos, "departamento")} />
+            onCreate={(n) => crear(CATALOGS.departamentos, n, setDepartamentos, "departamento")}
+            onDelete={(it) => quitar(CATALOGS.departamentos, it, setDepartamentos)} />
+          <div>
+            <label className={labelCls}>Sucursal</label>
+            <Selector value={F("sucursal_id")} onChange={(e) => setF("sucursal_id", e.target.value)} className={inputCls}>
+              <option value="">—</option>
+              {F("sucursal_id") && !sucursales.some((x) => x.id === F("sucursal_id")) && (
+                <option value={F("sucursal_id")}>(sucursal guardada)</option>
+              )}
+              {sucursales.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+            </Selector>
+          </div>
           <TextField label="Sección" value={F("seccion")} onChange={(v) => setF("seccion", v)} />
           <CatalogSelectField label="Tipo de empleado" value={F("tipo_empleado")} onChange={(v) => setF("tipo_empleado", v)} options={tiposEmpleado}
-            onCreate={(n) => crear(CATALOGS.tipos_empleado, n, setTiposEmpleado, "tipo_empleado")} />
+            onCreate={(n) => crear(CATALOGS.tipos_empleado, n, setTiposEmpleado, "tipo_empleado")}
+            onDelete={(it) => quitar(CATALOGS.tipos_empleado, it, setTiposEmpleado)} />
           <TextField label="Supervisor" placeholder="Nombre del supervisor" value={F("supervisor")} onChange={(v) => setF("supervisor", v)} />
           <SelectField label="Tipo de contrato" value={F("tipo_contrato")} onChange={(v) => setF("tipo_contrato", v)}
-            options={opcionesConActual(F("tipo_contrato"), [["", "—"], ["indefinido", "Por tiempo indefinido"], ["temporal", "Plazo fijo"], ["prueba", "Período de prueba"], ["obra", "Por obra determinada"]])} />
+            options={opcionesConActual(F("tipo_contrato"), TIPOS_CONTRATO.map(([v, l]) => [v, l] as [string, string]))} />
           <SelectField label="Jornada laboral" value={F("jornada_laboral")} onChange={(v) => setF("jornada_laboral", v)}
             options={opcionesConActual(F("jornada_laboral"), [["", "—"], ["completa", "Completa"], ["parcial", "Parcial"], ["turnos", "Turnos"]])} />
           <TextField label="Fecha de ingreso" type="date" value={F("fecha_ingreso")} onChange={(v) => setF("fecha_ingreso", v)} />
@@ -308,6 +343,15 @@ export default function EmpleadoForm({
             Va acá, pegado al salario, porque la pregunta que contesta es
             "de qué número sale el 9%" y esa comparación solo se puede
             hacer con los dos a la vista. */}
+        {!aportaIps(F("tipo_contrato")) ? (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-800">IPS</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+              Es <strong>facturador</strong>: no aporta al IPS. Su recibo sale sin el 9% del trabajador y sin el aporte
+              patronal.
+            </p>
+          </div>
+        ) : (
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-800">IPS</p>
           <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
@@ -370,6 +414,7 @@ export default function EmpleadoForm({
             )}
           </div>
         </div>
+        )}
       </Section>
 
       <Section icon={<HeartPulse className="h-4 w-4" />} title="Contacto de emergencia">
@@ -645,10 +690,26 @@ function SelectField({ label, value, onChange, options }: {
   );
 }
 
-function CatalogSelectField({ label, value, onChange, options, onCreate }: {
+function CatalogSelectField({ label, value, onChange, options, onCreate, onDelete }: {
   label: string; value: string; onChange: (v: string) => void;
   options: CatalogItem[]; onCreate: (nombre: string) => Promise<void>;
+  /** La ✕ para quitar del catálogo los que ya no sirven (pedido del cliente). */
+  onDelete?: (item: CatalogItem) => Promise<void>;
 }) {
+  const [quitando, setQuitando] = useState<string | null>(null);
+  async function quitarItem(item: CatalogItem) {
+    if (!onDelete) return;
+    if (!window.confirm(`¿Quitar «${item.nombre}» de la lista? Los empleados que ya lo tienen lo conservan.`)) return;
+    setQuitando(item.id);
+    setErr(null);
+    try {
+      await onDelete(item);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "No se pudo quitar.");
+    } finally {
+      setQuitando(null);
+    }
+  }
   const [modalOpen, setModalOpen] = useState(false);
   const [nuevo, setNuevo] = useState("");
   const [creating, setCreating] = useState(false);
@@ -691,7 +752,7 @@ function CatalogSelectField({ label, value, onChange, options, onCreate }: {
         </Selector>
         <button type="button" onClick={() => setModalOpen(true)} title={`Crear ${label.toLowerCase()}`}
           className="whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-2 text-sm text-[#3F8E91] hover:bg-[#4FAEB2]/5">
-          + Nuevo
+          {onDelete ? "+ / ✕" : "+ Nuevo"}
         </button>
       </div>
 
@@ -702,6 +763,20 @@ function CatalogSelectField({ label, value, onChange, options, onCreate }: {
               <BadgeCheck className="h-4 w-4 text-[#3F8E91]" /> Nuevo {label.toLowerCase()}
             </h3>
             <p className="mb-3 text-xs text-slate-500">Queda en el catálogo para los demás empleados.</p>
+            {onDelete && options.length > 0 && (
+              <div className="mb-3 max-h-48 overflow-y-auto rounded-lg border border-slate-200">
+                {options.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 text-sm last:border-0">
+                    <span className="text-slate-700">{o.nombre}</span>
+                    <button type="button" onClick={() => void quitarItem(o)} disabled={quitando === o.id}
+                      title="Quitar de la lista" aria-label={`Quitar ${o.nombre}`}
+                      className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <input autoFocus value={nuevo} onChange={(e) => setNuevo(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") { e.preventDefault(); submit(); }
