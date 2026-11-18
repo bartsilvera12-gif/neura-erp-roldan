@@ -419,6 +419,7 @@ export async function POST(request: NextRequest) {
       // escribió a mano con todos sus datos, se le abre la ficha y queda
       // igual que uno elegido del catálogo.
       cliente_a_mano: !body.cliente_id,
+      sucursal_id: ctx.auth.sucursal_id ?? null,
       items,
     });
 

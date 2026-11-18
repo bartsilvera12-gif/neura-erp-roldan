@@ -77,7 +77,10 @@ export async function reservasPorProducto(
     .select("id, fecha_vencimiento, convertido_venta_id")
     .eq("empresa_id", empresaId)
     .in("estado", ESTADOS_QUE_RESERVAN as unknown as string[]);
-  if (sucursalId) qb = qb.eq("sucursal_id", sucursalId);
+  // Los presupuestos sin sucursal también: hasta hace poco no se guardaba, y
+  // dejarlos afuera hacía que ninguna reserva apartara nada. Sus ítems apuntan
+  // a productos de una sucursal, así que no se mezclan con los de otra.
+  if (sucursalId) qb = qb.or(`sucursal_id.eq.${sucursalId},sucursal_id.is.null`);
 
   const pres = await qb.limit(1000);
   if (pres.error) throw new Error(pres.error.message);
@@ -107,7 +110,7 @@ export async function reservasPorProducto(
         .select(cols)
         .eq("empresa_id", empresaId)
         .eq("reservado", true);
-      if (sucursalId) qr = qr.eq("sucursal_id", sucursalId);
+      if (sucursalId) qr = qr.or(`sucursal_id.eq.${sucursalId},sucursal_id.is.null`);
       return qr.limit(1000);
     };
     let r = await leer("id, estado, convertido_venta_id, reservado_hasta");

@@ -188,12 +188,13 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   try {
     const porId = p.vendedor_usuario_id ? String(p.vendedor_usuario_id) : "";
     const porAuth = p.usuario_id ? String(p.usuario_id) : "";
-    const uq = porId
-      ? await ctx.supabase.from("usuarios").select("telefono").eq("id", porId).maybeSingle()
-      : porAuth
-        ? await ctx.supabase.from("usuarios").select("telefono").eq("auth_user_id", porAuth).maybeSingle()
-        : null;
-    if (uq && !uq.error && uq.data) telefonoVendedor = String((uq.data as { telefono?: string | null }).telefono ?? "").trim();
+    // El vendedor puede venir con el id de la ficha o con el de la sesión
+    // (sin vendedor elegido se guarda el de quien lo cargó): se prueban los dos.
+    for (const [col, val] of [["id", porId], ["auth_user_id", porId], ["auth_user_id", porAuth]] as const) {
+      if (!val || telefonoVendedor) continue;
+      const uq = await ctx.supabase.from("usuarios").select("telefono").eq(col, val).maybeSingle();
+      if (!uq.error && uq.data) telefonoVendedor = String((uq.data as { telefono?: string | null }).telefono ?? "").trim();
+    }
   } catch { /* sin teléfono */ }
   const condicionesDoc = txtPropio(p.condiciones_comerciales) ?? plantilla.observaciones;
 

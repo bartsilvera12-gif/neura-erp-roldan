@@ -56,6 +56,8 @@ export interface CrearPresupuestoInput {
    * dos casos se ven iguales.
    */
   cliente_a_mano?: boolean;
+  /** La sucursal de quien lo emite: sale impresa y acota las reservas. */
+  sucursal_id?: string | null;
   items: PresupuestoItemInput[];
 }
 
@@ -193,6 +195,9 @@ export async function crearPresupuesto(
     vendedor_nombre: input.vendedor_nombre ?? input.usuario_nombre ?? null,
     cliente_ciudad: input.cliente_ciudad ?? null,
     cliente_profesion: input.cliente_profesion ?? null,
+    // Antes no se guardaba, y como las reservas se buscan por sucursal, un
+    // presupuesto reservado no apartaba nada para quien tiene sucursal.
+    sucursal_id: input.sucursal_id ?? null,
   };
 
   let ins = await sb.from("presupuestos").insert(cabecera).select("id, numero_control").single();
