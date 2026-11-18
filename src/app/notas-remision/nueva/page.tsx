@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, Send, Truck, X } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, crearNR, type Deposito, type StockItem } from "@/lib/multideposito/client";
 import Selector from "@/components/ui/Selector";
+import { MAX_ITEMS_REMISION, mensajeTope } from "@/lib/transferencias/reglas";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
 function hoyISO() { return new Date().toISOString().slice(0, 10); }
@@ -209,6 +210,7 @@ export default function EmitirNRPage() {
                       key={p.producto_id}
                       type="button"
                       onMouseDown={() => {
+                        if (productosAgregados.length >= MAX_ITEMS_REMISION) { setError(mensajeTope("remisión", MAX_ITEMS_REMISION)); return; }
                         setProductosAgregados([...productosAgregados, p.producto_id]);
                         setBusqueda(""); setDropdownAbierto(false);
                       }}

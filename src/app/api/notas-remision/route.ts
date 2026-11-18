@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { MAX_ITEMS_REMISION, mensajeTope, puedeCrearRemision } from "@/lib/transferencias/reglas";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
@@ -69,8 +70,12 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(request);
+    const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+    // Pedido del cliente: el usuario normal ve las remisiones pero no las crea.
+    if (!puedeCrearRemision(ctx.auth.rol)) {
+      return NextResponse.json(errorResponse("Tu usuario puede ver las remisiones, pero no crearlas."), { status: 403 });
+    }
     const { supabase, auth } = ctx;
     const body = (await request.json().catch(() => ({}))) as {
       emisor?: string;
@@ -97,6 +102,9 @@ export async function POST(request: NextRequest) {
     if (origenId === destinoId) return NextResponse.json(errorResponse("Origen y destino no pueden ser iguales."), { status: 400 });
     const items = (body.items ?? []).filter((i) => i && i.producto_id && Number(i.cantidad) > 0);
     if (items.length === 0) return NextResponse.json(errorResponse("Cargá al menos 1 producto con cantidad > 0."), { status: 400 });
+    if (items.length > MAX_ITEMS_REMISION) {
+      return NextResponse.json(errorResponse(mensajeTope("remisión", MAX_ITEMS_REMISION)), { status: 400 });
+    }
 
     // Validar ubicaciones
     const ubQ = await supabase

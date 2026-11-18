@@ -5,6 +5,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import { ArrowLeftRight, Plus, X, Search, Clock, CheckCircle2, Truck, PackageCheck } from "lucide-react";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import Selector from "@/components/ui/Selector";
+import { MAX_ITEMS_TRANSFERENCIA, mensajeTope } from "@/lib/transferencias/reglas";
 
 // ── Tipos que devuelve la API ────────────────────────────────────────────────
 type Resumen = {
@@ -28,7 +29,8 @@ type Resumen = {
   items_count: number;
   es_solicitante: boolean;
   /** Valor de la mercadería movida, en guaraníes. Lo suma el servidor. */
-  total_gs: number;
+  /** null para quien no es administración: el total no le llega. */
+  total_gs: number | null;
   solicitada_por_nombre: string | null;
   despachada_por_nombre: string | null;
   recibida_por_nombre: string | null;
@@ -163,11 +165,15 @@ export default function ReposicionPage() {
   const totales = useMemo(() => {
     let entrada = 0, salida = 0, nEntrada = 0, nSalida = 0;
     for (const t of transfers) {
-      if (t.es_solicitante) { entrada += t.total_gs; nEntrada++; }
-      else { salida += t.total_gs; nSalida++; }
+      if (t.es_solicitante) { entrada += t.total_gs ?? 0; nEntrada++; }
+      else { salida += t.total_gs ?? 0; nSalida++; }
     }
     return { entrada, salida, nEntrada, nSalida };
   }, [transfers]);
+
+  /** Lo decide el servidor: el total es de administración y el usuario normal no crea. */
+  const [veTotal, setVeTotal] = useState(false);
+  const [puedeCrear, setPuedeCrear] = useState(false);
 
   const esAprobador = useMemo(() => {
     const r = rol.trim().toLowerCase();
@@ -188,6 +194,8 @@ export default function ReposicionPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "No se pudo cargar.");
       setTransfers(json?.data?.transferencias ?? []);
+      setVeTotal(json?.data?.ve_total === true);
+      setPuedeCrear(json?.data?.puede_crear !== false);
       setConteos(json?.data?.conteos ?? {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar.");
@@ -231,7 +239,7 @@ export default function ReposicionPage() {
             archivo={`transferencias-${fDesde || "inicio"}_${fHasta || "hoy"}`}
             subtitulo={fDesde || fHasta ? `Del ${fDesde || "inicio"} al ${fHasta || "hoy"}` : undefined}
             columnas={["Número", "Remisión", "Fecha", "Hora", "Movimiento", "Origen", "Destino",
-                       "Pidió", "Despachó", "Recibió", "Ítems", "Total Gs.", "Nota",
+                       "Pidió", "Despachó", "Recibió", "Ítems", ...(veTotal ? ["Total Gs."] : []), "Nota",
                        "Despachada", "Recibida", "Estado"]}
             filas={transfers.map((t) => [
               t.numero,
@@ -245,7 +253,7 @@ export default function ReposicionPage() {
               t.despachada_por_nombre ?? "",
               t.recibida_por_nombre ?? "",
               t.items_count,
-              t.total_gs,
+              ...(veTotal ? [t.total_gs ?? 0] : []),
               t.observacion_solicitud ?? "",
               t.despachada_at ? fmtFecha(t.despachada_at) : "",
               t.recibida_at ? fmtFecha(t.recibida_at) : "",
@@ -254,6 +262,7 @@ export default function ReposicionPage() {
           />
           {/* Mandar a otra sucursal sin que la pidan, incluso algo que nunca
               tuvieron (se les crea la ficha). Nace aprobada. */}
+          {puedeCrear && <>
           <button
             onClick={() => setCrearAbierto("enviar")}
             className="inline-flex items-center gap-2 rounded-lg border border-[#4FAEB2] bg-white px-4 py-2.5 text-sm font-semibold text-[#3F8E91] shadow-sm transition-colors hover:bg-[#4FAEB2]/10"
@@ -266,6 +275,7 @@ export default function ReposicionPage() {
           >
             <Plus className="h-4 w-4" /> Solicitar reposición
           </button>
+          </>}
         </div>
       </div>
 
@@ -292,7 +302,7 @@ export default function ReposicionPage() {
 
       {/* Totales de lo que se está viendo. Entrada y salida van separadas: una
           es mercadería que llegó y la otra que se fue; sumadas no dicen nada. */}
-      {transfers.length > 0 && (
+      {veTotal && transfers.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
           <div>
             <span className="text-xs text-slate-400">Entró</span>
@@ -419,7 +429,7 @@ export default function ReposicionPage() {
                 <th className="px-4 py-3 font-semibold">Movimiento</th>
                 <th className="px-4 py-3 font-semibold">Personal</th>
                 <th className="px-4 py-3 font-semibold text-center">Ítems</th>
-                <th className="px-4 py-3 font-semibold text-right">Total Gs.</th>
+                {veTotal && <th className="px-4 py-3 font-semibold text-right">Total Gs.</th>}
                 <th className="px-4 py-3 font-semibold">Nota</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
                 <th className="px-4 py-3" />
@@ -458,9 +468,11 @@ export default function ReposicionPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-center tabular-nums text-slate-600">{t.items_count}</td>
+                  {veTotal && (
                   <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                    {t.total_gs > 0 ? fmtGs(t.total_gs) : <span className="text-slate-300">—</span>}
+                    {(t.total_gs ?? 0) > 0 ? fmtGs(t.total_gs ?? 0) : <span className="text-slate-300">—</span>}
                   </td>
+                  )}
                   <td className="px-4 py-3 max-w-[18rem] truncate text-slate-500" title={t.observacion_solicitud ?? ""}>
                     {t.observacion_solicitud || <span className="text-slate-300">—</span>}
                   </td>
@@ -567,6 +579,7 @@ function ModalCrear({ modo, onClose, onCreada }: { modo: "pedir" | "enviar"; onC
 
   function agregar(p: ProductoBusq) {
     if (lineas.some((l) => l.producto_destino_id === p.id)) return;
+    if (lineas.length >= MAX_ITEMS_TRANSFERENCIA) { setErr(mensajeTope("transferencia", MAX_ITEMS_TRANSFERENCIA)); return; }
     setLineas((prev) => [...prev, { producto_destino_id: p.id, nombre: p.nombre, sku: p.sku, stock: p.stock_actual, cantidad: "" }]);
     setBusqueda("");
     setResultados([]);

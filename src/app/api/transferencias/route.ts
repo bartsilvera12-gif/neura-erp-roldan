@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { resolverCtx, respError } from "./_ctx";
+import { resolverCtx, respError, respProhibido } from "./_ctx";
+import { MAX_ITEMS_TRANSFERENCIA, mensajeTope, puedeCrearRemision, veTotalTransferencia } from "@/lib/transferencias/reglas";
 import { crearTransferencia } from "@/lib/transferencias/server/transferencias-pg";
 import { listarTransferencias, contarPorEstado } from "@/lib/transferencias/server/transferencias-queries";
 
@@ -33,7 +34,14 @@ export async function GET(request: NextRequest) {
       }),
       contarPorEstado({ schemaRaw: r.ctx.schema, empresaId: r.ctx.empresaId, sucursalId: r.ctx.sucursalId }),
     ]);
-    return NextResponse.json(successResponse({ transferencias, conteos }));
+    // El total en guaraníes es de administración: al resto ni le llega.
+    const veTotal = veTotalTransferencia(r.ctx.rol);
+    return NextResponse.json(successResponse({
+      transferencias: veTotal ? transferencias : transferencias.map((t) => ({ ...t, total_gs: null })),
+      conteos,
+      ve_total: veTotal,
+      puede_crear: puedeCrearRemision(r.ctx.rol),
+    }));
   } catch (err) {
     return respError(err);
   }
@@ -43,6 +51,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const r = await resolverCtx(request);
   if (!r.ok) return r.response;
+  // Pedido del cliente: el usuario normal ve las remisiones pero no las crea.
+  if (!puedeCrearRemision(r.ctx.rol)) {
+    return respProhibido("Tu usuario puede ver las remisiones y transferencias, pero no crearlas.");
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       sucursal_origen_id?: unknown;
@@ -89,6 +101,9 @@ export async function POST(request: NextRequest) {
       .filter((it) => (it.producto_destino_id || it.producto_origen_id) && it.cantidad_solicitada > 0);
     if (items.length === 0) {
       return NextResponse.json(errorResponse("Agregá al menos un producto con cantidad."), { status: 400 });
+    }
+    if (items.length > MAX_ITEMS_TRANSFERENCIA) {
+      return NextResponse.json(errorResponse(mensajeTope("transferencia", MAX_ITEMS_TRANSFERENCIA)), { status: 400 });
     }
     const observacion =
       typeof body.observacion === "string" ? body.observacion.trim().slice(0, 500) || null : null;

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Truck, Plus, Inbox, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { fetchDepositos, fetchNRs, type Deposito, type NotaRemision, type NotaRemisionEstado } from "@/lib/multideposito/client";
 import Selector from "@/components/ui/Selector";
+import { useRolErp } from "@/lib/auth/use-rol-erp";
+import { puedeCrearRemision } from "@/lib/transferencias/reglas";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
 function fmtFecha(iso: string) {
@@ -15,6 +17,8 @@ function fmtFecha(iso: string) {
 }
 
 export default function HistorialNRPage() {
+  const { rol, loaded: rolCargado } = useRolErp();
+  const puedeCrear = rolCargado && puedeCrearRemision(rol);
   const [nrs, setNrs] = useState<NotaRemision[]>([]);
   const [depositos, setDepositos] = useState<Deposito[]>([]);
   const [filtroEstado, setFiltroEstado] = useState<"" | NotaRemisionEstado>("");
@@ -65,9 +69,12 @@ export default function HistorialNRPage() {
             <Link href="/notas-remision/recepcion" className="rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 inline-flex items-center gap-1.5">
               <Inbox className="h-4 w-4" /> Recepción
             </Link>
+            {/* El usuario normal ve las remisiones pero no las emite (pedido del cliente). */}
+            {puedeCrear && (
             <Link href="/notas-remision/nueva" className="rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-500/30 hover:shadow-md inline-flex items-center gap-1.5">
               <Plus className="h-4 w-4" /> Emitir NR
             </Link>
+            )}
           </div>
         </div>
       </div>
@@ -130,7 +137,7 @@ export default function HistorialNRPage() {
                 <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-400">Cargando…</td></tr>
               ) : nrs.length === 0 ? (
                 <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-400">
-                  Todavía no hay Notas de Remisión. <Link href="/notas-remision/nueva" className="text-emerald-700 font-medium hover:underline">Emitir la primera →</Link>
+                  Todavía no hay Notas de Remisión.{puedeCrear && <> <Link href="/notas-remision/nueva" className="text-emerald-700 font-medium hover:underline">Emitir la primera →</Link></>}
                 </td></tr>
               ) : nrs.map((nr) => {
                 const total = (nr.items ?? []).reduce((s, i) => s + i.cantidad, 0);
