@@ -97,7 +97,7 @@ export const LLEGAR: Record<string, [string, string?]> = {
   "flujo-caja": ["Finanzas", "Pagos → Flujo de caja"],
   bancos: ["Finanzas", "Pagos → Bancos y cajas"],
   "tipos-cambio": ["Operaciones", "Compras → Tipos de cambio"],
-  "historial-ventas": ["Finanzas", "Reportes → Historial de ventas"],
+  "historial-ventas": ["Finanzas", "Reportes → Ventas"],
   ganancias: ["Finanzas", "Reportes → Ganancias"],
   cobranzas: ["Finanzas", "Reportes → Cobranzas"],
   "cierres-caja": ["Finanzas", "Reportes → Cierres de caja"],
@@ -837,7 +837,7 @@ export const GUIAS: Guia[] = [
       },
       {
         consejo:
-          "Esta pantalla es para buscar UNA venta. Si lo que querés son promedios o cuánto se vendió de cada producto, eso está en Ventas del mes.",
+          "Esta pantalla (Reportes → Ventas) es para buscar UNA venta: cada fila dice si fue contado o crédito, el descuento y, a quien ve costos, la utilidad. Para el año completo mes por mes, con gráfico, está Reportes → Historial de ventas.",
       },
     ],
   },

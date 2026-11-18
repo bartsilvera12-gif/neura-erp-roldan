@@ -19,6 +19,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
  */
 
 export interface VentaItemLite {
+  producto_id?: string | null;
   producto_nombre: string;
   sku?: string | null;
   cantidad: number;
@@ -44,7 +45,17 @@ export interface VentaDetalleLite {
   numero_factura?: string | null;
   anulacion_motivo?: string | null;
   items?: VentaItemLite[];
+  /** El presupuesto que se cobró en esta venta (Ventas lo manda con ?detalle=1). */
+  presupuesto_id?: string;
+  presupuesto_numero?: string;
+  descuento?: number;
+  costo_venta?: number;
+  utilidad?: number;
+  margen_pct?: number | null;
 }
+
+/** Una línea del presupuesto de origen, para comparar con lo cobrado. */
+interface LineaPresupuesto { producto_id: string | null; producto_nombre: string; cantidad: number; precio_unitario: number; descuento: number; total: number }
 
 interface Cambio { campo?: string; antes?: string | null; despues?: string | null }
 interface Edicion {
@@ -105,6 +116,36 @@ export default function DetalleVentaModal({
   const [devoluciones, setDevoluciones] = useState<Devolucion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [presu, setPresu] = useState<{ fecha: string | null; total: number; forma_pago: string | null; vendedor: string | null; lineas: LineaPresupuesto[] } | null>(null);
+
+  // Los datos del presupuesto de origen: lo que se cotizó, para ver contra lo cobrado.
+  useEffect(() => {
+    if (!venta.presupuesto_id) { setPresu(null); return; }
+    let cancel = false;
+    fetchWithSupabaseSession(`/api/presupuestos/${venta.presupuesto_id}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancel || !j?.success) return;
+        const p = (j.data?.presupuesto ?? {}) as Record<string, unknown>;
+        const lineas = ((j.data?.items ?? []) as Record<string, unknown>[]).map((i) => ({
+          producto_id: i.producto_id ? String(i.producto_id) : null,
+          producto_nombre: String(i.producto_nombre ?? ""),
+          cantidad: Number(i.cantidad) || 0,
+          precio_unitario: Number(i.precio_unitario) || 0,
+          descuento: Number(i.descuento) || 0,
+          total: Number(i.total) || 0,
+        }));
+        setPresu({
+          fecha: p.fecha ? String(p.fecha) : null,
+          total: Number(p.total) || 0,
+          forma_pago: p.forma_pago ? String(p.forma_pago).replace(/\{anticipo\}/g, p.anticipo_pct != null ? String(p.anticipo_pct) : "…") : null,
+          vendedor: (p.vendedor_nombre ?? p.usuario_nombre) ? String(p.vendedor_nombre ?? p.usuario_nombre) : null,
+          lineas,
+        });
+      })
+      .catch(() => { /* sin presupuesto: la venta se ve igual */ });
+    return () => { cancel = true; };
+  }, [venta.presupuesto_id]);
 
   useEffect(() => {
     let cancel = false;
@@ -250,6 +291,85 @@ export default function DetalleVentaModal({
               </div>
             )}
           </Seccion>
+
+          {(venta.descuento || venta.utilidad != null) && (
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-400">Descuento</p>
+                <p className="font-medium tabular-nums text-slate-800">{gs(venta.descuento ?? 0)}</p>
+              </div>
+              {venta.utilidad != null && (
+                <>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400">Costo de venta</p>
+                    <p className="font-medium tabular-nums text-slate-800">{gs(venta.costo_venta ?? 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400">Utilidad</p>
+                    <p className={`font-semibold tabular-nums ${venta.utilidad < 0 ? "text-rose-700" : "text-emerald-700"}`}>{gs(venta.utilidad)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400">Margen</p>
+                    <p className="font-medium tabular-nums text-slate-800">
+                      {venta.margen_pct == null ? "—" : `${venta.margen_pct.toLocaleString("es-PY", { maximumFractionDigits: 1 })}%`}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {venta.presupuesto_numero && (
+            <Seccion titulo={`Del presupuesto ${venta.presupuesto_numero}`}>
+              {!presu ? (
+                <p className="text-sm text-slate-400">Buscando el presupuesto…</p>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-500">
+                    {presu.fecha ? `Cotizado el ${fechaHora(presu.fecha).slice(0, 10)}` : "Cotizado"}
+                    {presu.vendedor ? ` por ${presu.vendedor}` : ""}
+                    {presu.forma_pago ? ` · ${presu.forma_pago}` : ""}
+                  </p>
+                  <div className="overflow-hidden rounded-lg border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold">Producto</th>
+                          <th className="px-3 py-2 text-right font-semibold">Cant. cotizada</th>
+                          <th className="px-3 py-2 text-right font-semibold">Precio cotizado</th>
+                          <th className="px-3 py-2 text-right font-semibold">Precio cobrado</th>
+                          <th className="px-3 py-2 text-right font-semibold">Total cotizado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {presu.lineas.map((l, k) => {
+                          const vendida = items.find((i) => (l.producto_id && i.producto_id === l.producto_id) || i.producto_nombre === l.producto_nombre);
+                          const distinto = vendida && Math.round(vendida.precio_venta) !== Math.round(l.precio_unitario);
+                          return (
+                            <tr key={k}>
+                              <td className="px-3 py-2 text-slate-800">{l.producto_nombre}</td>
+                              <td className="px-3 py-2 text-right tabular-nums text-slate-700">{cant(l.cantidad)}</td>
+                              <td className="px-3 py-2 text-right tabular-nums text-slate-700">{gs(l.precio_unitario)}</td>
+                              <td className={`px-3 py-2 text-right tabular-nums ${distinto ? "font-semibold text-amber-700" : "text-slate-500"}`}>
+                                {vendida ? gs(vendida.precio_venta) : <span className="text-slate-300">no se cobró</span>}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums text-slate-700">{gs(l.total)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-50">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2 text-right text-slate-500">Total del presupuesto</td>
+                          <td className="px-3 py-2 text-right font-bold tabular-nums text-slate-900">{gs(presu.total)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </>
+              )}
+            </Seccion>
+          )}
 
           {error && <p className="text-sm text-rose-700">{error}</p>}
           {cargando && <p className="text-sm text-slate-400">Buscando ediciones y devoluciones…</p>}

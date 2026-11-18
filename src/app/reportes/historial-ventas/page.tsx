@@ -8,7 +8,8 @@ import DetalleVentaModal, { type VentaDetalleLite } from "@/components/ventas/De
 import Selector from "@/components/ui/Selector";
 
 /**
- * Historial de ventas.
+ * Ventas (antes «Historial de ventas»; el nombre se cambió a pedido del
+ * cliente y el reporte por año pasó a llamarse Historial de ventas).
  *
  * ── POR QUÉ ES UNA PANTALLA APARTE Y NO UN FILTRO MÁS ────────────────────
  *   Reportes → Ventas trabaja de a un mes: calcula ticket promedio, corte por
@@ -47,7 +48,21 @@ type Row = {
   /** Banderas del listado; el detalle de cada una se pide al abrir la venta. */
   editada?: boolean;
   tiene_devolucion?: boolean;
+  /** Con `?detalle=1`: lo rebajado del precio de lista. */
+  descuento?: number;
+  /** Solo para quien ve costos. Misma fórmula que el punto de equilibrio. */
+  costo_venta?: number;
+  utilidad?: number;
+  margen_pct?: number | null;
+  utilidad_parcial?: boolean;
+  /** El presupuesto que se cobró en esta venta. */
+  presupuesto_id?: string;
+  presupuesto_numero?: string;
+  presupuesto_total?: number;
 };
+
+const fmtPct = (n: number | null | undefined) =>
+  n == null ? "—" : `${n.toLocaleString("es-PY", { maximumFractionDigits: 1 })}%`;
 
 const TOPE = 2000;
 
@@ -83,6 +98,7 @@ export default function HistorialVentasPage() {
   const [filas, setFilas] = useState<Row[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verCostos, setVerCostos] = useState(false);
 
   // Estos cuatro filtran sobre lo ya traído: son listas cortas (un puñado de
   // vendedores, cuatro medios de pago) y filtrarlos en el servidor obligaría a
@@ -93,8 +109,14 @@ export default function HistorialVentasPage() {
   // muestra el número de la venta y desde acá se la busca. Si la venta es de
   // un mes anterior, el rango de arriba sigue siendo del que manda.
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
+    const sp = new URLSearchParams(window.location.search);
+    const q = sp.get("q");
     if (q) setFTexto(q);
+    // Desde el Historial de ventas, cada mes trae su rango.
+    const re = /^\d{4}-\d{2}-\d{2}$/;
+    const d = sp.get("desde"), h = sp.get("hasta");
+    if (d && re.test(d)) setDesde(d);
+    if (h && re.test(h)) setHasta(h);
   }, []);
   const [fCliente, setFCliente] = useState("");
   const [fVendedor, setFVendedor] = useState("");
@@ -106,7 +128,7 @@ export default function HistorialVentasPage() {
     setCargando(true);
     setError(null);
     try {
-      const qs = new URLSearchParams({ limite: String(TOPE) });
+      const qs = new URLSearchParams({ limite: String(TOPE), detalle: "1" });
       if (desde) qs.set("desde", desde);
       if (hasta) qs.set("hasta", hasta);
       const r = await fetchWithSupabaseSession(`/api/ventas?${qs}`, { cache: "no-store" });
@@ -117,6 +139,7 @@ export default function HistorialVentasPage() {
         return;
       }
       setFilas((j.data?.ventas ?? []) as Row[]);
+      setVerCostos(j.data?.ver_costos === true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red.");
     } finally {
@@ -158,7 +181,7 @@ export default function HistorialVentasPage() {
         const productos = (v.items ?? [])
           .map((i) => `${i.producto_nombre} ${i.sku ?? ""}`)
           .join(" ");
-        const heno = [v.numero_control, v.numero_factura, v.cliente_nombre, vend, productos]
+        const heno = [v.numero_control, v.numero_factura, v.cliente_nombre, vend, productos, v.presupuesto_numero]
           .filter(Boolean).join(" ").toLowerCase();
         if (!heno.includes(t)) return false;
       }
@@ -173,25 +196,39 @@ export default function HistorialVentasPage() {
     [vista]
   );
   const anuladas = useMemo(() => vista.filter((v) => v.estado === "anulada").length, [vista]);
+  // Lo mismo para la utilidad, el costo y el descuento: sin las anuladas.
+  const sumaActivas = (f: (v: Row) => number | undefined) =>
+    vista.reduce((s, v) => s + (v.estado === "anulada" ? 0 : Number(f(v)) || 0), 0);
+  const totDescuento = sumaActivas((v) => v.descuento);
+  const totCosto = sumaActivas((v) => v.costo_venta);
+  const totUtilidad = sumaActivas((v) => v.utilidad);
+  const totContado = sumaActivas((v) => (v.tipo_venta === "CREDITO" ? 0 : v.total));
+  const totCredito = sumaActivas((v) => (v.tipo_venta === "CREDITO" ? v.total : 0));
 
   const hayFiltro = !!(fTexto || fCliente || fVendedor || fMedio || fEstado);
   const periodo = `Del ${desde || "inicio"} al ${hasta || "hoy"}`;
 
-  const columnas = ["Fecha", "Hora", "Comprobante", "Factura", "Cliente", "Qué se vendió", "Vendedor", "Condición", "Medio", "Total", "Estado", "Motivo de anulación"];
+  const columnas = [
+    "Fecha", "Hora", "N° venta", "Factura", "Presupuesto", "Cliente", "Qué se vendió", "Vendedor", "Condición", "Medio",
+    "Descuento", "Total", ...(verCostos ? ["Costo de venta", "Utilidad", "Margen %"] : []), "Estado", "Motivo de anulación",
+  ];
   const filasExport = vista.map((v) => {
     const { fecha, hora } = fechaHora(v.fecha);
     return [
       fecha, hora,
       v.numero_control,
       v.numero_factura ?? "",
+      v.presupuesto_numero ?? "",
       v.cliente_nombre ?? "Consumidor final",
       // En la planilla va la lista completa, no el resumen de la pantalla: un
       // Excel se filtra y se busca, y "y 3 productos más" no se puede buscar.
       (v.items ?? []).map((i) => `${i.cantidad} × ${i.producto_nombre}`).join(" · "),
       v.vendedor_nombre || v.usuario_nombre || "",
-      v.tipo_venta ?? "",
+      v.tipo_venta === "CREDITO" ? "Crédito" : "Contado",
       MEDIO[v.metodo_pago ?? ""] ?? v.metodo_pago ?? "",
+      Number(v.descuento) || 0,
       Number(v.total) || 0,
+      ...(verCostos ? [Number(v.costo_venta) || 0, Number(v.utilidad) || 0, v.margen_pct == null ? "" : Math.round(v.margen_pct * 10) / 10] : []),
       v.estado === "anulada" ? "ANULADA" : "",
       v.anulacion_motivo ?? "",
     ];
@@ -205,21 +242,21 @@ export default function HistorialVentasPage() {
         <div>
           <nav className="mb-1 text-xs text-slate-500">
             <Link href="/reportes" className="hover:text-[#4FAEB2]">Reportes</Link> /{" "}
-            <span className="font-semibold text-slate-700">Historial de ventas</span>
+            <span className="font-semibold text-slate-700">Ventas</span>
           </nav>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Historial de ventas</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Ventas</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Todas las ventas de un período, para buscar una y para mandarla. Para los
-            promedios y los cortes por producto está <Link href="/reportes/ventas" className="underline hover:text-[#4FAEB2]">Ventas del mes</Link>.
+            Todas las ventas de un período, para buscar una y para mandarla. Para el año
+            completo, mes por mes y con gráfico, está el <Link href="/reportes/ventas" className="underline hover:text-[#4FAEB2]">Historial de ventas</Link>.
           </p>
         </div>
         <AccionesTabla
-          titulo="Historial de ventas"
-          archivo={`historial-ventas-${desde || "inicio"}_${hasta || "hoy"}`}
+          titulo="Ventas"
+          archivo={`ventas-${desde || "inicio"}_${hasta || "hoy"}`}
           subtitulo={hayFiltro ? `${periodo} · filtrado` : periodo}
           columnas={columnas}
           filas={filasExport}
-          sumar={[8]}
+          sumar={verCostos ? [10, 11, 12, 13] : [10, 11]}
         />
       </div>
 
@@ -311,6 +348,30 @@ export default function HistorialVentasPage() {
           <span className="text-xs text-slate-400">Total (sin las anuladas)</span>
           <p className="font-bold tabular-nums text-emerald-700">Gs. {fmtGs(total)}</p>
         </div>
+        <div>
+          <span className="text-xs text-slate-400">Contado · Crédito</span>
+          <p className="font-bold tabular-nums text-slate-700">Gs. {fmtGs(totContado)} · Gs. {fmtGs(totCredito)}</p>
+        </div>
+        {totDescuento > 0 && (
+          <div>
+            <span className="text-xs text-slate-400">Descuentos</span>
+            <p className="font-bold tabular-nums text-slate-700">Gs. {fmtGs(totDescuento)}</p>
+          </div>
+        )}
+        {verCostos && (
+          <>
+            <div>
+              <span className="text-xs text-slate-400">Costo de venta</span>
+              <p className="font-bold tabular-nums text-slate-700">Gs. {fmtGs(totCosto)}</p>
+            </div>
+            <div title="Misma fórmula que el punto de equilibrio, con el costo de hoy de cada artículo">
+              <span className="text-xs text-slate-400">Utilidad</span>
+              <p className={`font-bold tabular-nums ${totUtilidad < 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                Gs. {fmtGs(totUtilidad)} <span className="text-xs font-normal text-slate-500">({fmtPct(total > 0 ? (totUtilidad / total) * 100 : null)})</span>
+              </p>
+            </div>
+          </>
+        )}
         {anuladas > 0 && (
           <div>
             <span className="text-xs text-slate-400">Anuladas</span>
@@ -334,18 +395,26 @@ export default function HistorialVentasPage() {
             {filas.length === 0 ? "No hay ventas en el período." : "Ninguna venta coincide con los filtros."}
           </p>
         ) : (
-          <table className="w-full min-w-[60rem] text-left text-sm">
+          <table className={`w-full text-left text-sm ${verCostos ? "min-w-[78rem]" : "min-w-[64rem]"}`}>
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Fecha</th>
                 <th className="px-4 py-3 font-semibold">Hora</th>
-                <th className="px-4 py-3 font-semibold">Comprobante</th>
+                <th className="px-4 py-3 font-semibold">N° venta</th>
                 <th className="px-4 py-3 font-semibold">Cliente</th>
                 <th className="px-4 py-3 font-semibold">Qué se vendió</th>
                 <th className="px-4 py-3 font-semibold">Vendedor</th>
                 <th className="px-4 py-3 font-semibold">Condición</th>
                 <th className="px-4 py-3 font-semibold">Medio</th>
+                <th className="px-4 py-3 text-right font-semibold">Descuento</th>
                 <th className="px-4 py-3 text-right font-semibold">Total</th>
+                {verCostos && (
+                  <>
+                    <th className="px-4 py-3 text-right font-semibold">Costo de venta</th>
+                    <th className="px-4 py-3 text-right font-semibold" title="Misma fórmula que el punto de equilibrio, con el costo de hoy">Utilidad</th>
+                    <th className="px-4 py-3 text-right font-semibold">Margen</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -365,6 +434,15 @@ export default function HistorialVentasPage() {
                       {v.numero_control}
                       {v.numero_factura && (
                         <span className="block text-[11px] font-normal text-slate-400">Fact. {v.numero_factura}</span>
+                      )}
+                      {/* De qué presupuesto salió: el número y lo que se había cotizado. */}
+                      {v.presupuesto_numero && (
+                        <span className="block text-[11px] font-normal text-sky-700">
+                          Presup. {v.presupuesto_numero}
+                          {v.presupuesto_total != null && Math.round(v.presupuesto_total) !== Math.round(v.total) && (
+                            <span className="text-slate-400"> · cotizado {fmtGs(v.presupuesto_total)}</span>
+                          )}
+                        </span>
                       )}
                       {/* El motivo va acá y no en una columna: es texto largo y
                           una columna propia quedaría vacía en casi todas las filas. */}
@@ -411,11 +489,30 @@ export default function HistorialVentasPage() {
                       })()}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{v.vendedor_nombre || v.usuario_nombre || <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3 text-slate-600">{v.tipo_venta ?? ""}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {v.tipo_venta === "CREDITO"
+                        ? <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700">Crédito</span>
+                        : <span className="text-[12px]">Contado</span>}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{MEDIO[v.metodo_pago ?? ""] ?? v.metodo_pago ?? ""}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-500">
+                      {v.descuento ? fmtGs(v.descuento) : <span className="text-slate-300">—</span>}
+                    </td>
                     <td className={`px-4 py-3 text-right font-semibold tabular-nums ${anulada ? "text-slate-400 line-through" : "text-slate-800"}`}>
                       {fmtGs(v.total)}
                     </td>
+                    {verCostos && (
+                      <>
+                        <td className="px-4 py-3 text-right tabular-nums text-slate-600">{fmtGs(v.costo_venta ?? 0)}</td>
+                        <td
+                          className={`px-4 py-3 text-right font-semibold tabular-nums ${anulada ? "text-slate-400 line-through" : (v.utilidad ?? 0) < 0 ? "text-rose-600" : "text-emerald-700"}`}
+                          title={v.utilidad_parcial ? "Hay artículos sin costo cargado: no entran en la cuenta." : undefined}
+                        >
+                          {fmtGs(v.utilidad ?? 0)}{v.utilidad_parcial ? " *" : ""}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-slate-500">{fmtPct(v.margen_pct)}</td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

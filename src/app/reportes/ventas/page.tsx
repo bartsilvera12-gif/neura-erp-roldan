@@ -1,319 +1,284 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import PageHeader from "@/components/ui/PageHeader";
-import StatCard from "@/components/ui/StatCard";
-import ExportExcelButton from "@/components/ui/ExportExcelButton";
-import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
-import MesSelector from "@/components/reportes/MesSelector";
-import { getVentasReporte } from "@/lib/reportes/storage";
-import { mesActualAsuncion } from "@/lib/fechas/asuncion-bounds";
-import { useModoPersistido } from "@/components/ui/ToggleNutricionConsig";
-import type { VentasReporte, TipoPrecioReporte, VentaTipoPrecioTotal } from "@/lib/reportes/types";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import AccionesTabla from "@/components/ui/AccionesTabla";
+import type { VentasAnual } from "@/lib/reportes/server/ventas-anual-pg";
 
-function formatGs(v: number) { return `Gs. ${Math.round(v).toLocaleString("es-PY")}`; }
-function formatFecha(iso: string) {
-  try {
-    const d = new Date(iso);
-    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-  } catch { return iso; }
+/**
+ * Historial de ventas (antes «Ventas», el reporte del mes).
+ *
+ * Pedido del cliente: que sea por AÑO, con los datos completos y un gráfico.
+ * El listado de cada venta, con rango de fechas y filtros, es la pantalla
+ * Ventas (/reportes/historial-ventas); cada mes de acá lleva ahí.
+ */
+
+const GraficoVentasAnual = dynamic(() => import("@/components/reportes/GraficoVentasAnual"), {
+  ssr: false,
+  loading: () => <div className="h-full" />,
+});
+
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const gs = (n: number | undefined) => Math.round(Number(n) || 0).toLocaleString("es-PY");
+const pct = (n: number | null | undefined) => (n == null ? "—" : `${n.toLocaleString("es-PY", { maximumFractionDigits: 1 })}%`);
+const TP_LABEL: Record<string, string> = { minorista: "Minorista", mayorista: "Mayorista", distribuidor: "Distribuidor", costo: "Al costo" };
+
+function anioPy(): number {
+  return new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCFullYear();
 }
-function formatFechaHora(iso: string | null) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
-    return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-  } catch { return iso; }
+function finDeMes(anio: number, mes: number): string {
+  const d = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
-const TP: { key: TipoPrecioReporte; label: string; badge: string }[] = [
-  { key: "minorista", label: "Minorista", badge: "bg-slate-100 text-slate-600" },
-  { key: "mayorista", label: "Mayorista", badge: "bg-indigo-100 text-indigo-700" },
-  { key: "distribuidor", label: "Distribuidor", badge: "bg-emerald-100 text-emerald-700" },
-  { key: "costo", label: "Al costo", badge: "bg-amber-100 text-amber-700" },
-];
 
-type FiltroAnuladas = "todas" | "solo_activas" | "solo_anuladas";
-
-const ORIGENES_NUTRICION = new Set(["normal", "MANUAL", "presupuesto"]);
-const ORIGEN_CONSIG = "consignacion";
-
-export default function VentasReportePage() {
-  const [modo, setModo] = useModoPersistido("reportes-ventas.modo");
-  const [mes, setMes] = useState(mesActualAsuncion());
-  const [data, setData] = useState<VentasReporte | null>(null);
+export default function HistorialVentasAnualPage() {
+  const [anio, setAnio] = useState(anioPy());
+  const [data, setData] = useState<VentasAnual | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [filtroAnuladas, setFiltroAnuladas] = useState<FiltroAnuladas>("todas");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancel = false;
+    let vivo = true;
     setCargando(true);
-    getVentasReporte(mes).then((d) => { if (!cancel) { setData(d); setCargando(false); } });
-    return () => { cancel = true; };
-  }, [mes]);
+    setError(null);
+    fetchWithSupabaseSession(`/api/reportes/ventas-anual?anio=${anio}`, { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json().catch(() => null);
+        if (!vivo) return;
+        if (!r.ok || !j?.success) { setError(j?.error ?? `No se pudo cargar (${r.status}).`); setData(null); return; }
+        setData(j.data as VentasAnual);
+      })
+      .catch((e) => { if (vivo) setError(e instanceof Error ? e.message : "Error de red."); })
+      .finally(() => { if (vivo) setCargando(false); });
+    return () => { vivo = false; };
+  }, [anio]);
 
-  // Filtro por origen client-side + RECÁLCULO de KPIs sobre el subconjunto
-  // visible (sino los totales de arriba muestran el período completo aunque la
-  // tabla esté filtrada).
-  const dataFiltrada = useMemo<VentasReporte | null>(() => {
-    if (!data) return null;
-    const ventasVisibles = data.ventas.filter((v) => {
-      const origen = ((v as unknown as { origen?: string }).origen ?? "").toString();
-      if (modo === "consignataria") {
-        if (origen) return origen === ORIGEN_CONSIG;
-        // fallback: buscar "Consignación" en cliente/observaciones
-        const obs = ((v as unknown as { observaciones?: string }).observaciones ?? "").toString().toLowerCase();
-        const cli = (v.cliente ?? "").toString().toLowerCase();
-        return obs.includes("consignaci") || cli.includes("consignaci");
-      }
-      // nutrición
-      if (origen) return ORIGENES_NUTRICION.has(origen);
-      return true;
-    });
+  const conCostos = data?.conCostos === true;
+  const grafico = useMemo(
+    () => (data?.meses ?? []).map((m) => ({
+      mes: MESES[m.mes - 1].slice(0, 3),
+      contado: m.contado,
+      credito: m.credito,
+      ...(conCostos ? { utilidad: m.utilidad ?? 0 } : {}),
+    })),
+    [data, conCostos]
+  );
 
-    // Números de control visibles → filtrar items detallados por esas ventas.
-    const numControls = new Set(ventasVisibles.map((v) => v.numero_control));
-    const itemsVisibles = (data.items ?? []).filter((it) => numControls.has(it.numero_control));
-
-    // KPIs de plata solo sobre ventas activas (igual que el reporte base).
-    const ventasActivas = ventasVisibles.filter((v) => v.estado !== "anulada");
-    const totalVendido = ventasActivas.reduce((s, v) => s + (Number(v.total) || 0), 0);
-    const cantidadVentas = ventasActivas.length;
-    const cantidadItems = itemsVisibles.length;
-    const unidadesVendidas = itemsVisibles.reduce((s, it) => s + (Number(it.cantidad) || 0), 0);
-    const ticketPromedio = cantidadVentas > 0 ? totalVendido / cantidadVentas : 0;
-
-    const porTipoPrecio: Record<TipoPrecioReporte, VentaTipoPrecioTotal> = {
-      minorista: { items: 0, total: 0 },
-      mayorista: { items: 0, total: 0 },
-      distribuidor: { items: 0, total: 0 },
-      costo: { items: 0, total: 0 },
-    };
-    for (const it of itemsVisibles) {
-      const tp: TipoPrecioReporte =
-        it.tipo_precio === "mayorista" || it.tipo_precio === "distribuidor" || it.tipo_precio === "costo"
-          ? it.tipo_precio
-          : "minorista";
-      porTipoPrecio[tp].items += 1;
-      porTipoPrecio[tp].total += Number(it.total_linea) || 0;
-    }
-
-    return {
-      ...data,
-      ventas: ventasVisibles,
-      items: itemsVisibles,
-      totalVendido,
-      cantidadVentas,
-      cantidadItems,
-      unidadesVendidas,
-      ticketPromedio,
-      porTipoPrecio,
-    };
-  }, [data, modo]);
-
-  /**
-   * Las ventas que se están viendo, con el filtro de anuladas ya aplicado.
-   *
-   * Vive acá y no adentro del JSX porque la usan tres cosas —la tabla, el
-   * Excel y la hoja impresa— y calculada en un solo lugar no se pueden
-   * despegar, que es justo el riesgo de tener el filtro escrito dentro del
-   * render.
-   */
-  const ventasVista = useMemo(() => {
-    const vs = dataFiltrada?.ventas ?? [];
-    if (filtroAnuladas === "solo_activas") return vs.filter((v) => v.estado !== "anulada");
-    if (filtroAnuladas === "solo_anuladas") return vs.filter((v) => v.estado === "anulada");
-    return vs;
-  }, [dataFiltrada, filtroAnuladas]);
+  const columnas = [
+    "Mes", "Ventas", "Anuladas", "Contado", "Crédito", "Descuentos", "Total", "Ticket promedio", "Unidades",
+    ...(conCostos ? ["Costo de venta", "Utilidad", "Margen %"] : []),
+  ];
+  const filas = (data?.meses ?? []).map((m) => [
+    MESES[m.mes - 1], m.ventas, m.anuladas, Math.round(m.contado), Math.round(m.credito), Math.round(m.descuento),
+    Math.round(m.total), Math.round(m.ticket), m.unidades,
+    ...(conCostos ? [Math.round(m.costo ?? 0), Math.round(m.utilidad ?? 0), m.margen_pct == null ? "" : Math.round(m.margen_pct * 10) / 10] : []),
+  ]);
+  const t = data?.totales;
+  const esteAnio = anioPy();
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Zentra · Reportes"
-        title="Ventas"
-        description="Facturación y operaciones comerciales del período"
-        backHref="/reportes"
-        backLabel="Reportes"
-        actions={
-          <div className="flex items-center gap-3">
-            <MesSelector mes={mes} onChange={setMes} />
-            <span className="inline-flex items-start gap-2">
-              <ExportExcelButton url={`/api/reportes/ventas/export?mes=${mes}&origen=${modo === "consignataria" ? "consignacion" : "nutricion"}`} />
-              <ImprimirTablaButton
-                titulo="Ventas del mes"
-                subtitulo={`Mes ${mes}`}
-                columnas={["Fecha", "N° venta", "Cliente", "Pago", "Ítems", "Total", "Estado"]}
-                sumar={[4, 5]}
-                filas={ventasVista.map((v) => [
-                  v.fecha ? String(v.fecha).slice(0, 10) : "",
-                  v.numero_control,
-                  v.cliente ?? "",
-                  v.metodo_pago ?? "",
-                  v.items_count,
-                  v.total,
-                  v.estado === "anulada" ? "ANULADA" : "",
-                ])}
-              />
-            </span>
+    <div className="w-full min-w-0 space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <nav className="mb-1 text-xs text-slate-500">
+            <Link href="/reportes" className="hover:text-[#4FAEB2]">Reportes</Link> /{" "}
+            <span className="font-semibold text-slate-700">Historial de ventas</span>
+          </nav>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Historial de ventas</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            El año completo, mes por mes. Para ver venta por venta, tocá un mes o andá a{" "}
+            <Link href="/reportes/historial-ventas" className="underline hover:text-[#4FAEB2]">Ventas</Link>.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
+            <button type="button" onClick={() => setAnio((a) => a - 1)} className="px-2 py-2 text-slate-500 hover:text-slate-800" aria-label="Año anterior">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-[4rem] text-center text-sm font-semibold tabular-nums text-slate-800">{anio}</span>
+            <button type="button" onClick={() => setAnio((a) => Math.min(esteAnio, a + 1))} disabled={anio >= esteAnio}
+              className="px-2 py-2 text-slate-500 hover:text-slate-800 disabled:opacity-30" aria-label="Año siguiente">
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
-        }
-      />
+          <AccionesTabla
+            titulo={`Historial de ventas ${anio}`}
+            archivo={`historial-ventas-${anio}`}
+            subtitulo={`Año ${anio}, mes por mes`}
+            columnas={columnas}
+            filas={filas}
+            sumar={conCostos ? [1, 2, 3, 4, 5, 6, 8, 9, 10] : [1, 2, 3, 4, 5, 6, 8]}
+          />
+        </div>
+      </div>
+
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
       {cargando ? (
-        <p className="text-slate-500 animate-pulse">Cargando…</p>
-      ) : !dataFiltrada ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 text-slate-500">
-          No se pudo cargar el reporte de ventas.
-        </div>
-      ) : (
+        <p className="animate-pulse text-sm text-slate-500">Cargando el año…</p>
+      ) : data && t ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <StatCard compact label="Total vendido" value={formatGs(dataFiltrada.totalVendido)} accent />
-            <StatCard compact label="Ventas" value={String(dataFiltrada.cantidadVentas)} hint={`${dataFiltrada.cantidadItems} ítems / líneas`} />
-            <StatCard compact label="Ticket promedio" value={formatGs(dataFiltrada.ticketPromedio)} hint="por venta" />
-            <StatCard compact label="Unidades vendidas" value={String(dataFiltrada.unidadesVendidas)} />
-            <StatCard compact label="Ítems vendidos" value={String(dataFiltrada.cantidadItems)} />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            {[
+              { l: "Total vendido", v: `Gs. ${gs(t.total)}`, fuerte: true },
+              { l: "Ventas", v: gs(t.ventas), h: t.anuladas ? `${t.anuladas} anuladas aparte` : undefined },
+              { l: "Contado · Crédito", v: `${gs(t.contado)} · ${gs(t.credito)}` },
+              { l: "Ticket promedio", v: `Gs. ${gs(t.ticket)}` },
+              { l: "Descuentos", v: `Gs. ${gs(t.descuento)}` },
+              ...(conCostos ? [{ l: "Utilidad", v: `Gs. ${gs(t.utilidad)}`, h: `Margen ${pct(t.margen_pct)}`, verde: true }] : [{ l: "Unidades", v: gs(t.unidades) }]),
+            ].map((k) => (
+              <div key={k.l} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] font-medium text-slate-500">{k.l}</p>
+                <p className={`mt-1 text-base font-bold tabular-nums ${"verde" in k && k.verde ? "text-emerald-700" : "fuerte" in k && k.fuerte ? "text-[#3F8E91]" : "text-slate-800"}`}>{k.v}</p>
+                {"h" in k && k.h && <p className="text-[11px] text-slate-400">{k.h}</p>}
+              </div>
+            ))}
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Por tipo de precio</h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {TP.map(({ key, label, badge }) => (
-                <div key={key} className="rounded-xl border border-slate-200 p-4">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge}`}>{label}</span>
-                  <p className="mt-2 text-lg font-bold tabular-nums text-slate-800">{formatGs(dataFiltrada.porTipoPrecio[key].total)}</p>
-                  <p className="text-xs text-slate-400">{dataFiltrada.porTipoPrecio[key].items} {dataFiltrada.porTipoPrecio[key].items === 1 ? "ítem" : "ítems"}</p>
-                </div>
-              ))}
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">Mes por mes</h2>
+            <div className="h-[300px]">
+              <GraficoVentasAnual data={grafico} conUtilidad={conCostos} />
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-slate-800">Ventas del mes</h2>
-              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium">
-                {(
-                  [
-                    { key: "todas", label: "Todas" },
-                    { key: "solo_activas", label: "Solo activas" },
-                    { key: "solo_anuladas", label: "Solo anuladas" },
-                  ] as { key: FiltroAnuladas; label: string }[]
-                ).map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => setFiltroAnuladas(opt.key)}
-                    className={`rounded-lg px-3 py-1.5 transition-colors ${
-                      filtroAnuladas === opt.key
-                        ? "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full min-w-[56rem] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Mes</th>
+                  <th className="px-4 py-3 text-right font-semibold">Ventas</th>
+                  <th className="px-4 py-3 text-right font-semibold">Contado</th>
+                  <th className="px-4 py-3 text-right font-semibold">Crédito</th>
+                  <th className="px-4 py-3 text-right font-semibold">Descuentos</th>
+                  <th className="px-4 py-3 text-right font-semibold">Total</th>
+                  <th className="px-4 py-3 text-right font-semibold">Ticket prom.</th>
+                  {conCostos && (
+                    <>
+                      <th className="px-4 py-3 text-right font-semibold">Costo de venta</th>
+                      <th className="px-4 py-3 text-right font-semibold" title="Misma fórmula que el punto de equilibrio, con el costo de hoy">Utilidad</th>
+                      <th className="px-4 py-3 text-right font-semibold">Margen</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.meses.map((m) => (
+                  <tr key={m.mes} className={m.ventas === 0 ? "text-slate-300" : "hover:bg-slate-50"}>
+                    <td className="px-4 py-2.5">
+                      {m.ventas > 0 ? (
+                        <Link
+                          href={`/reportes/historial-ventas?desde=${anio}-${String(m.mes).padStart(2, "0")}-01&hasta=${finDeMes(anio, m.mes)}`}
+                          className="font-medium text-slate-800 hover:text-[#3F8E91] hover:underline"
+                        >
+                          {MESES[m.mes - 1]}
+                        </Link>
+                      ) : MESES[m.mes - 1]}
+                      {m.anuladas > 0 && <span className="ml-2 text-[11px] text-rose-500">{m.anuladas} anul.</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{gs(m.ventas)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{gs(m.contado)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{gs(m.credito)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{gs(m.descuento)}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{gs(m.total)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{gs(m.ticket)}</td>
+                    {conCostos && (
+                      <>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{gs(m.costo)}</td>
+                        <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${(m.utilidad ?? 0) < 0 ? "text-rose-600" : m.ventas ? "text-emerald-700" : ""}`}>{gs(m.utilidad)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{m.ventas ? pct(m.margen_pct) : "—"}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 font-semibold">
+                <tr>
+                  <td className="px-4 py-3">Total {anio}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{gs(t.ventas)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{gs(t.contado)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{gs(t.credito)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{gs(t.descuento)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{gs(t.total)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{gs(t.ticket)}</td>
+                  {conCostos && (
+                    <>
+                      <td className="px-4 py-3 text-right tabular-nums">{gs(t.costo)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{gs(t.utilidad)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{pct(t.margen_pct)}</td>
+                    </>
+                  )}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-semibold text-slate-800">Por vendedor</h2>
+              <table className="w-full text-sm">
+                <thead className="text-xs text-slate-500">
+                  <tr>
+                    <th className="py-1.5 text-left font-semibold">Vendedor</th>
+                    <th className="py-1.5 text-right font-semibold">Ventas</th>
+                    <th className="py-1.5 text-right font-semibold">Total</th>
+                    {conCostos && <th className="py-1.5 text-right font-semibold">Utilidad</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {data.porVendedor.map((v) => (
+                    <tr key={v.vendedor}>
+                      <td className="py-1.5 text-slate-700">{v.vendedor}</td>
+                      <td className="py-1.5 text-right tabular-nums">{gs(v.ventas)}</td>
+                      <td className="py-1.5 text-right font-medium tabular-nums">{gs(v.total)}</td>
+                      {conCostos && <td className="py-1.5 text-right tabular-nums text-emerald-700">{gs(v.utilidad)}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <h2 className="mb-2 mt-5 text-sm font-semibold text-slate-800">Por tipo de precio</h2>
+              <div className="flex flex-wrap gap-3">
+                {data.porTipoPrecio.map((r) => (
+                  <div key={r.tipo_precio} className="rounded-lg border border-slate-200 px-3 py-2">
+                    <p className="text-[11px] text-slate-500">{TP_LABEL[r.tipo_precio] ?? r.tipo_precio}</p>
+                    <p className="text-sm font-bold tabular-nums text-slate-800">Gs. {gs(r.total)}</p>
+                    <p className="text-[11px] text-slate-400">{gs(r.items)} ítems</p>
+                  </div>
                 ))}
               </div>
             </div>
-            {(() => {
-              const ventasFiltradas = ventasVista;
-              if (dataFiltrada.ventas.length === 0) {
-                return <p className="text-sm text-slate-400">
-                  {modo === "consignataria"
-                    ? "No hay ventas de consignación en el período."
-                    : "No hay ventas en el período."}
-                </p>;
-              }
-              if (ventasFiltradas.length === 0) {
-                return (
-                  <p className="text-sm text-slate-400">
-                    {filtroAnuladas === "solo_anuladas" ? "No hay ventas anuladas en el período." : "No hay ventas activas en el período."}
-                  </p>
-                );
-              }
-              return (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b text-slate-500">
-                        <th className="py-2.5 pr-4 font-medium">Fecha</th>
-                        <th className="py-2.5 pr-4 font-medium">N° Venta</th>
-                        <th className="py-2.5 pr-4 font-medium">Cliente</th>
-                        <th className="py-2.5 pr-4 font-medium">Pago</th>
-                        <th className="py-2.5 pr-4 font-medium text-right">Ítems</th>
-                        <th className="py-2.5 font-medium text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ventasFiltradas.map((v) => {
-                        const anulada = v.estado === "anulada";
-                        return (
-                          <tr key={v.id} className={`border-b border-slate-100 last:border-0 ${anulada ? "text-slate-400" : ""}`}>
-                            <td className="py-3 pr-4 text-xs tabular-nums">{formatFecha(v.fecha)}</td>
-                            <td className={`py-3 pr-4 font-mono text-xs ${anulada ? "line-through" : "text-slate-500"}`}>{v.numero_control}</td>
-                            <td className="py-3 pr-4">
-                              <div className="flex items-center gap-2">
-                                <span className={anulada ? "line-through" : "text-slate-700"}>{v.cliente ?? "—"}</span>
-                                {anulada && (
-                                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-rose-50 text-rose-700 ring-1 ring-rose-200">Anulada</span>
-                                )}
-                              </div>
-                              {anulada && (
-                                <div className="mt-1 text-[11px] text-rose-700/80 leading-snug">
-                                  {v.productos_resumen && <div><span className="font-semibold">Productos:</span> {v.productos_resumen}</div>}
-                                  {v.anulacion_motivo && <div><span className="font-semibold">Motivo:</span> {v.anulacion_motivo}</div>}
-                                  <div className="text-slate-500">
-                                    {v.anulada_at ? formatFechaHora(v.anulada_at) : "—"}
-                                    {v.anulada_por_email ? ` · ${v.anulada_por_email}` : ""}
-                                  </div>
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3 pr-4 capitalize">{v.metodo_pago ?? "—"}</td>
-                            <td className="py-3 pr-4 text-right tabular-nums">{v.items_count}</td>
-                            <td className={`py-3 text-right tabular-nums font-semibold ${anulada ? "line-through" : "text-slate-800"}`}>{formatGs(v.total)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })()}
-          </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Total por producto</h2>
-            {dataFiltrada.porProducto.length === 0 ? (
-              <p className="text-sm text-slate-400">Sin datos.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b text-slate-500">
-                      <th className="py-2.5 pr-4 font-medium">Producto</th>
-                      <th className="py-2.5 pr-4 font-medium text-right">Cantidad</th>
-                      <th className="py-2.5 font-medium text-right">Total</th>
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-semibold text-slate-800">Los 50 productos que más facturaron</h2>
+              <div className="max-h-[28rem] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white text-xs text-slate-500">
+                    <tr>
+                      <th className="py-1.5 text-left font-semibold">Producto</th>
+                      <th className="py-1.5 text-right font-semibold">Cant.</th>
+                      <th className="py-1.5 text-right font-semibold">Total</th>
+                      {conCostos && <th className="py-1.5 text-right font-semibold">Utilidad</th>}
                     </tr>
                   </thead>
-                  <tbody>
-                    {dataFiltrada.porProducto.map((p, i) => (
-                      <tr key={i} className="border-b border-slate-100 last:border-0">
-                        <td className="py-2.5 pr-4 text-slate-700">{p.producto_nombre}</td>
-                        <td className="py-2.5 pr-4 text-right tabular-nums text-slate-600">{p.cantidad}</td>
-                        <td className="py-2.5 text-right tabular-nums font-semibold text-slate-800">{formatGs(p.total)}</td>
+                  <tbody className="divide-y divide-slate-100">
+                    {data.porProducto.map((p, i) => (
+                      <tr key={i}>
+                        <td className="py-1.5 pr-2 text-slate-700">{p.producto_nombre}</td>
+                        <td className="py-1.5 text-right tabular-nums">{p.cantidad.toLocaleString("es-PY", { maximumFractionDigits: 2 })}</td>
+                        <td className="py-1.5 text-right font-medium tabular-nums">{gs(p.total)}</td>
+                        {conCostos && <td className={`py-1.5 text-right tabular-nums ${(p.utilidad ?? 0) < 0 ? "text-rose-600" : "text-emerald-700"}`}>{gs(p.utilidad)}</td>}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
+            </div>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

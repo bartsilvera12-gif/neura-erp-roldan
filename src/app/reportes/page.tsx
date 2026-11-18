@@ -26,10 +26,10 @@ export default function ReportesPage() {
         </li>
         <li>
           <ReportCard
-            title="Historial de ventas"
+            title="Ventas"
             subtitle="Todas las ventas de un período"
-            icon={History}
-            description="Para buscar una venta vieja y para mandar el listado: rango de fechas, filtros por cliente, vendedor, medio y estado, con Excel e imprimir."
+            icon={ShoppingCart}
+            description="Venta por venta: contado o crédito, descuento, costo, utilidad y el presupuesto de origen. Rango de fechas, filtros por cliente, vendedor, medio y estado, con Excel e imprimir."
             href="/reportes/historial-ventas"
           />
         </li>
@@ -98,10 +98,10 @@ export default function ReportesPage() {
         </li>
         <li>
           <ReportCard
-            title="Ventas"
-            subtitle="Facturación y operaciones"
-            icon={ShoppingCart}
-            description="Ventas del mes, desglose por tipo de precio (minorista/mayorista/al costo) y por producto."
+            title="Historial de ventas"
+            subtitle="El año completo, mes por mes"
+            icon={History}
+            description="Lo vendido cada mes del año con gráfico: contado y crédito, descuentos, ticket promedio y utilidad; por vendedor, por tipo de precio y los productos que más facturaron."
             href="/reportes/ventas"
           />
         </li>

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { traerTodas } from "@/lib/supabase/traer-todo";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
+import { divisorIva } from "@/lib/precios/iva";
+import { utilidadDeLineas } from "@/lib/contabilidad/punto-equilibrio";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import type { Venta, LineaVenta, TipoIvaVenta, TipoPrecioVenta } from "@/lib/ventas/types";
@@ -399,6 +402,80 @@ export async function GET(request: NextRequest) {
         })(),
       };
     });
+
+    /**
+     * Descuento, costo de venta, utilidad y presupuesto de origen (pedido del
+     * cliente para el listado de Ventas). Solo con `?detalle=1`: la pantalla de
+     * Caja y las demás que usan esta ruta no lo necesitan.
+     *
+     * - Descuento: lo que se rebajó del precio de lista, línea por línea.
+     * - Costo y utilidad: con el costo promedio de HOY (las ventas no guardan
+     *   el costo) y la misma fórmula del punto de equilibrio. Solo para quien
+     *   puede ver costos; al resto no le llega el número.
+     * - Presupuesto: el que se cobró en esta venta, con su número y su total.
+     */
+    let verCostos = false;
+    if (sp.get("detalle") === "1" && ventas.length > 0) {
+      const extra = new Map<string, Record<string, unknown>>();
+      const ctxRol = await getTenantSupabaseFromAuthWithRol(request);
+      verCostos = !!ctxRol && (await tieneFacultad(ctxRol.supabase, ctxRol.auth, "ver_costos"));
+
+      const costoDe = new Map<string, { costo: number; iva: string }>();
+      if (verCostos) {
+        const prodIds = [...new Set(itemsRows.map((i) => String(i.producto_id ?? "")).filter(Boolean))];
+        const rp = await porIds<{ id: string; costo_promedio?: number | string | null; tipo_iva?: string | null }>(
+          (ids) => ctx.supabase.from("productos").select("id, costo_promedio, tipo_iva").eq("empresa_id", empresaId).in("id", ids),
+          prodIds
+        );
+        for (const p of rp.filas) costoDe.set(p.id, { costo: Number(p.costo_promedio) || 0, iva: String(p.tipo_iva ?? "10%") });
+      }
+
+      for (const v of ventas) {
+        const lineas = byVenta.get(v.id) ?? [];
+        const descuento = lineas.reduce((s, l) => {
+          const orig = num(l.precio_venta_original), pv = num(l.precio_venta);
+          return s + (orig > pv ? (orig - pv) * num(l.cantidad) : 0);
+        }, 0);
+        const e: Record<string, unknown> = { descuento: Math.round(descuento) };
+        if (verCostos) {
+          const u = utilidadDeLineas(
+            lineas.map((l) => {
+              const ci = costoDe.get(String(l.producto_id ?? ""));
+              const cant = num(l.cantidad);
+              return {
+                cantidad: cant,
+                // Lo cobrado por unidad, con IVA y con el descuento ya aplicado.
+                precio_unitario: cant > 0 ? num(l.total_linea) / cant : 0,
+                costo: ci?.costo ?? 0,
+                tipo_iva: String(l.tipo_iva ?? ci?.iva ?? "10%"),
+              };
+            }),
+            divisorIva
+          );
+          Object.assign(e, {
+            costo_venta: Math.round(u.costo),
+            utilidad: Math.round(u.margen),
+            margen_pct: u.margen_pct,
+            utilidad_parcial: u.lineas_sin_costo > 0,
+          });
+        }
+        extra.set(v.id, e);
+      }
+
+      // El presupuesto que se cobró en cada venta.
+      const rpq = await porIds<{ id: string; numero_control: string; total: number | string; convertido_venta_id: string }>(
+        (ids) => ctx.supabase.from("presupuestos").select("id, numero_control, total, convertido_venta_id")
+          .eq("empresa_id", empresaId).in("convertido_venta_id", ids),
+        ventas.map((v) => v.id)
+      );
+      for (const pr of rpq.filas) {
+        const e = extra.get(pr.convertido_venta_id);
+        if (e) Object.assign(e, { presupuesto_id: pr.id, presupuesto_numero: pr.numero_control, presupuesto_total: num(pr.total) });
+      }
+
+      const conExtra = ventas.map((v) => ({ ...v, ...(extra.get(v.id) ?? {}) }));
+      return NextResponse.json(successResponse({ ventas: conExtra, ver_costos: verCostos }));
+    }
 
     return NextResponse.json(successResponse({ ventas }));
   } catch (err) {
