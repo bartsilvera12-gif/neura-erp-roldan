@@ -5,6 +5,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { readFile } from "fs/promises";
 import path from "path";
 import { PLANTILLA_POR_DEFECTO, formaPagoConAnticipo, observacionesConPlazo } from "@/lib/presupuestos/plantilla";
+import { pideAnticipo } from "@/lib/presupuestos/formas-pago";
 
 /**
  * GET /api/presupuestos/[id]/pdf
@@ -156,7 +157,44 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     const t = typeof v === "string" ? v.trim() : "";
     return t.length > 0 ? t : null;
   };
-  const formaPagoDoc = txtPropio(p.forma_pago) ?? formaPagoConAnticipo(plantilla.forma_pago, plantilla.anticipo_pct);
+  /**
+   * El anticipo: el de este presupuesto si se pactó uno (script 89), si no el
+   * de la casa. Y solo si la forma de pago lo pide: a un contado sin anticipo
+   * o a un crédito no se le imprime un anticipo requerido.
+   *
+   * El marcador {anticipo} se reemplaza siempre. Antes solo se hacía con la
+   * plantilla, y un presupuesto que guardaba «Anticipo del {anticipo}%…»
+   * salía impreso con las llaves.
+   */
+  const formaPagoCruda = txtPropio(p.forma_pago) ?? plantilla.forma_pago;
+  const anticipoPropio = p.anticipo_pct == null ? null : Number(p.anticipo_pct);
+  const anticipoPct = anticipoPropio != null && Number.isFinite(anticipoPropio) ? anticipoPropio : plantilla.anticipo_pct;
+  const conAnticipo = pideAnticipo(formaPagoCruda);
+  const formaPagoDoc = formaPagoConAnticipo(formaPagoCruda, anticipoPct);
+
+  /**
+   * De qué sucursal salió y el teléfono de quien lo hizo (pedido del cliente):
+   * el cliente llama a su vendedor, no a la central. Si algo falla, el papel
+   * sale igual sin esos datos.
+   */
+  let sucursalNombre = "";
+  if (p.sucursal_id) {
+    try {
+      const sq = await ctx.supabase.from("sucursales").select("nombre").eq("id", String(p.sucursal_id)).maybeSingle();
+      if (!sq.error && sq.data) sucursalNombre = String((sq.data as { nombre?: string }).nombre ?? "").trim();
+    } catch { /* sin sucursal */ }
+  }
+  let telefonoVendedor = "";
+  try {
+    const porId = p.vendedor_usuario_id ? String(p.vendedor_usuario_id) : "";
+    const porAuth = p.usuario_id ? String(p.usuario_id) : "";
+    const uq = porId
+      ? await ctx.supabase.from("usuarios").select("telefono").eq("id", porId).maybeSingle()
+      : porAuth
+        ? await ctx.supabase.from("usuarios").select("telefono").eq("auth_user_id", porAuth).maybeSingle()
+        : null;
+    if (uq && !uq.error && uq.data) telefonoVendedor = String((uq.data as { telefono?: string | null }).telefono ?? "").trim();
+  } catch { /* sin teléfono */ }
   const condicionesDoc = txtPropio(p.condiciones_comerciales) ?? plantilla.observaciones;
 
   const e = EMPRESA_DOC;
@@ -218,13 +256,24 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   y -= 13;
   T("RUC / CI:", MARGIN, y, 9, bold);
   T(String(p.cliente_ruc ?? ""), MARGIN + 72, y, 9);
-  TR("Teléfono:", RIGHT, y, 9, bold);
+  TR(`Teléfono: ${telefonoVendedor}`, RIGHT, y, 9, bold);
   y -= 13;
   T("Teléfono:", MARGIN, y, 9, bold);
   T(String(p.cliente_telefono ?? ""), MARGIN + 72, y, 9);
+  if (sucursalNombre) TR(`Sucursal: ${sucursalNombre}`, RIGHT, y, 9, bold);
   y -= 13;
   T("Email:", MARGIN, y, 9, bold);
-  y -= 15;
+  y -= 13;
+  // La obra (script 89): a dónde va la mercadería.
+  const obraNombre = String(p.obra_nombre ?? "").trim();
+  if (obraNombre) {
+    const obraDir = String(p.obra_direccion ?? "").trim();
+    T("Obra:", MARGIN, y, 9, bold);
+    const lineasObra = wrap(obraDir ? `${obraNombre} - ${obraDir}` : obraNombre, font, 9, RIGHT - MARGIN - 72).slice(0, 2);
+    lineasObra.forEach((l, k) => T(l, MARGIN + 72, y - k * 11, 9));
+    y -= 13 + (lineasObra.length - 1) * 11;
+  }
+  y -= 2;
   T("PRESENTE:", MARGIN, y, 9, bold);
   // Subrayado, como en el modelo.
   page.drawLine({
@@ -294,15 +343,18 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 
   const total = Number(p.total) || 0;
   const iva = Number(p.monto_iva) || 0;
-  const anticipoPct = plantilla.anticipo_pct;
-  const anticipoRequerido = anticipoPct > 0 ? Math.round((total * anticipoPct) / 100) : null;
+  const anticipoRequerido = conAnticipo && anticipoPct > 0 ? Math.round((total * anticipoPct) / 100) : null;
 
   // El rótulo lleva "Gs." porque el modelo lo lleva, y porque un número sin
   // moneda en un papel que viaja es una discusión esperando a pasar.
   filaTotal("TOTAL PRESUPUESTO: Gs.", num(total), true, 9.5);
   filaTotal("IVA INCLUIDO (10%):", num(iva));
   filaTotal("TOTAL KILOS:", "-");
-  filaTotal(`ANTICIPO REQUERIDO (${num(anticipoPct)}%):`, anticipoRequerido == null ? "-" : num(anticipoRequerido), true);
+  filaTotal(
+    conAnticipo ? `ANTICIPO REQUERIDO (${num(anticipoPct, Number.isInteger(anticipoPct) ? 0 : 2)}%):` : "ANTICIPO REQUERIDO:",
+    anticipoRequerido == null ? "-" : num(anticipoRequerido),
+    true
+  );
   filaTotal("ANTICIPO ABONADO:", "-");
   regla(ty + 11, 0.8, xRotuloDer, RIGHT);
   ty -= 2;
@@ -346,7 +398,8 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${nombre}"`,
+      // ?ver=1 lo muestra en el navegador (vista previa); sin eso se descarga.
+      "Content-Disposition": `${new URL(request.url).searchParams.get("ver") === "1" ? "inline" : "attachment"}; filename="${nombre}"`,
       "Cache-Control": "no-store",
     },
   });

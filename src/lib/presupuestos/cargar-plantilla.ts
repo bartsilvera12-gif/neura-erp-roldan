@@ -9,7 +9,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
  * vacías, sin aviso. El impreso igual usaba la plantilla, pero en pantalla el
  * vendedor no veía lo que iba a firmar el cliente.
  */
-export async function cargarPlantillaPresupuesto(): Promise<{ condiciones: string; formaPago: string } | null> {
+export async function cargarPlantillaPresupuesto(): Promise<{ condiciones: string; formaPago: string; anticipoPct: number } | null> {
   for (let intento = 0; intento < 4; intento++) {
     try {
       const r = await fetchWithSupabaseSession("/api/configuracion/presupuesto-plantilla", { cache: "no-store" });
@@ -21,6 +21,8 @@ export async function cargarPlantillaPresupuesto(): Promise<{ condiciones: strin
           // Tal cual, con el marcador {anticipo}: así coincide con la opción del
           // desplegable (FORMAS_PAGO) y el porcentaje se pone al imprimir.
           formaPago: typeof pl.forma_pago === "string" ? pl.forma_pago : "",
+          // El anticipo de la casa: el que se propone si el presupuesto no fija otro.
+          anticipoPct: Number(pl.anticipo_pct) || 0,
         };
       }
     } catch { /* se reintenta */ }

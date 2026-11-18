@@ -34,6 +34,8 @@ type PresupuestoRow = {
   /** Reservado a mano (script 86) y hasta cuándo (script 89; null = no vence). */
   reservado?: boolean;
   reservado_hasta?: string | null;
+  /** La obra (script 89), para buscar por obra. */
+  obra_nombre?: string | null;
 };
 
 const ESTADO_BADGE: Record<EstadoPresupuesto, string> = {
@@ -293,7 +295,8 @@ export default function PresupuestosPage() {
       .filter((r) =>
         !texto ||
         r.numero_control.toLowerCase().includes(texto) ||
-        r.cliente_nombre.toLowerCase().includes(texto)
+        r.cliente_nombre.toLowerCase().includes(texto) ||
+        (r.obra_nombre ?? "").toLowerCase().includes(texto)
       )
       // La lista ya viene de la más nueva a la más vieja; el orden por monto
       // es para encontrar los presupuestos grandes (o los chicos) de una.
@@ -458,7 +461,7 @@ export default function PresupuestosPage() {
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-slate-500">Buscar</span>
           <input type="text" value={buscar} onChange={(e) => setBuscar(e.target.value)}
-            placeholder="Número o cliente"
+            placeholder="Número, cliente u obra"
             className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
         </label>
         <label className="flex flex-col gap-1">
@@ -535,6 +538,9 @@ export default function PresupuestosPage() {
                     <td className="py-3 px-4 font-mono font-medium text-gray-800">{r.numero_control}</td>
                     <td className="py-3 px-4 text-gray-700">
                       {r.cliente_nombre}
+                      {r.obra_nombre && (
+                        <span className="block text-[11px] text-slate-500">Obra: {r.obra_nombre}</span>
+                      )}
                       {/* Escrito a mano en el mostrador. Se marca acá para que
                           el filtro se entienda sin tener que usarlo. */}
                       {r.cliente_a_mano && (

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Check, Download, FileCheck2, FileText, Loader2, Lock, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Download, Eye, FileCheck2, FileText, Loader2, Lock, Pencil, Trash2 } from "lucide-react";
+import VistaPreviaPdf from "@/components/presupuestos/VistaPreviaPdf";
+import { etiquetaFormaPago } from "@/lib/presupuestos/formas-pago";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { ESTADO_LABEL, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
@@ -27,6 +29,10 @@ type Presu = {
   fecha: string;
   fecha_vencimiento: string | null;
   forma_pago: string | null;
+  /** Script 89. */
+  obra_nombre?: string | null;
+  obra_direccion?: string | null;
+  anticipo_pct?: number | null;
   plazo_entrega: string | null;
   observaciones: string | null;
   condiciones_comerciales?: string | null;
@@ -266,6 +272,8 @@ export default function PresupuestoDetallePage() {
     }
   }
 
+  const [preview, setPreview] = useState(false);
+
   async function abrirPdf() {
     if (busy) return;
     setBusy(true);
@@ -332,9 +340,19 @@ export default function PresupuestoDetallePage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button onClick={() => setPreview(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Eye className="h-4 w-4" /> Vista previa
+          </button>
           <button onClick={abrirPdf} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Descargar PDF
           </button>
+          {preview && (
+            <VistaPreviaPdf
+              url={`/api/presupuestos/${id}/pdf?ver=1`}
+              titulo={`Vista previa · ${presu.numero_control}`}
+              onClose={() => setPreview(false)}
+            />
+          )}
           {presu.estado !== "convertido" && (
             <Link
               href={`/presupuestos/${presu.id}/editar`}
@@ -511,6 +529,12 @@ export default function PresupuestoDetallePage() {
           {presu.cliente_ruc && <p className="text-sm text-gray-600">RUC/CI: {presu.cliente_ruc}</p>}
           {presu.cliente_telefono && <p className="text-sm text-gray-600">Tel: {presu.cliente_telefono}</p>}
           {presu.cliente_direccion && <p className="text-sm text-gray-600">{presu.cliente_direccion}</p>}
+          {presu.obra_nombre && (
+            <p className="mt-1 text-sm text-gray-700">
+              <span className="font-medium">Obra:</span> {presu.obra_nombre}
+              {presu.obra_direccion ? ` — ${presu.obra_direccion}` : ""}
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Datos</h3>
@@ -541,7 +565,13 @@ export default function PresupuestoDetallePage() {
               </p>
             );
           })()}
-          {presu.forma_pago && <p className="text-sm text-gray-600">Forma de pago: {presu.forma_pago}</p>}
+          {presu.forma_pago && (
+            <p className="text-sm text-gray-600">
+              Forma de pago: {presu.anticipo_pct != null
+                ? presu.forma_pago.replace(/\{anticipo\}/g, String(presu.anticipo_pct))
+                : etiquetaFormaPago(presu.forma_pago)}
+            </p>
+          )}
           {presu.plazo_entrega && <p className="text-sm text-gray-600">Plazo de entrega: {presu.plazo_entrega}</p>}
           {/* Quién lo cotizó. Está acá y no en el PDF: adentro sirve para saber
               a quién preguntarle; al cliente no le dice nada. */}

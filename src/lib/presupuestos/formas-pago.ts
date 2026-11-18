@@ -75,6 +75,16 @@ export function clienteTieneCredito(c: { condicion_pago?: unknown; limite_credit
   return cond.includes("CREDITO") || cond.includes("CRÉDITO") || (Number.isFinite(limite) && limite > 0);
 }
 
+/** ¿La forma de pago es a crédito? El resto es contado (con o sin anticipo). */
+export function esFormaCredito(valor: string | null | undefined): boolean {
+  return /cr[eé]dito/i.test(String(valor ?? ""));
+}
+
+/** ¿La forma de pago pide anticipo? */
+export function pideAnticipo(valor: string | null | undefined): boolean {
+  return /\{anticipo\}|anticipo/i.test(String(valor ?? ""));
+}
+
 /** Las formas de pago que puede elegir quien cotiza para ese cliente. */
 export function formasPagoPermitidas(puedeTodo: boolean, conCredito: boolean): readonly FormaPagoOpcion[] {
   return puedeTodo || conCredito ? FORMAS_PAGO : FORMAS_PAGO.filter((f) => f.valor === FORMA_PAGO_CONTADO);

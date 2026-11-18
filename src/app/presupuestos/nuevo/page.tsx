@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Trash2, Loader2, History } from "lucide-react";
+import { Plus, Trash2, Loader2, History, Eye } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import SeccionForm from "@/components/ui/SeccionForm";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
-import { FORMA_PAGO_CONTADO, clienteTieneCredito, esFormaPagoConocida, formasPagoPermitidas } from "@/lib/presupuestos/formas-pago";
+import { FORMA_PAGO_CONTADO, clienteTieneCredito, formasPagoPermitidas, pideAnticipo } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
@@ -21,6 +21,10 @@ import NuevoClienteRapidoModal, { type NuevoClienteCreado } from "@/app/ventas/n
 import Selector from "@/components/ui/Selector";
 import { getSession } from "@/lib/auth";
 import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
+import ObraSelector, { type ObraLite } from "@/components/presupuestos/ObraSelector";
+import CondicionPago from "@/components/presupuestos/CondicionPago";
+import CreditoCliente from "@/components/presupuestos/CreditoCliente";
+import VistaPreviaPdf from "@/components/presupuestos/VistaPreviaPdf";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, etiquetaTipoPrecio, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
 type ProductoLite = {
   id: string;
@@ -189,6 +193,11 @@ export default function NuevoPresupuestoPage() {
   const [observaciones, setObservaciones] = useState("");
   const [notaInterna, setNotaInterna] = useState("");
   const [faltaMaterial, setFaltaMaterial] = useState(false);
+  /** La obra (dirección de entrega), elegida de la lista. Script 89. */
+  const [obra, setObra] = useState<ObraLite | null>(null);
+  /** El anticipo de este presupuesto ("" = el de la casa) y el de la casa. */
+  const [anticipoPct, setAnticipoPct] = useState("");
+  const [anticipoCasa, setAnticipoCasa] = useState(0);
 
   /**
    * Quién mira la pantalla.
@@ -315,6 +324,8 @@ export default function NuevoPresupuestoPage() {
           setFaltaMaterial(b.faltaMaterial === true);
           setVendedorId(txt("vendedorId"));
           if (txt("condiciones")) setCondiciones(txt("condiciones"));
+          if (b.obra && typeof b.obra === "object") setObra(b.obra as ObraLite);
+          setAnticipoPct(txt("anticipoPct"));
           if (txt("borradorId")) setBorradorId(txt("borradorId"));
           if (txt("borradorNumero")) setBorradorNumero(txt("borradorNumero"));
           const cuando = typeof b.at === "number" ? new Date(b.at) : null;
@@ -356,13 +367,13 @@ export default function NuevoPresupuestoPage() {
           v: 1, at: Date.now(),
           clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad, clienteProfesion,
           items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
-          vendedorId, condiciones, borradorId, borradorNumero,
+          vendedorId, condiciones, borradorId, borradorNumero, obra, anticipoPct,
         })
       : null;
     escribirBorrador();
   }, [borradorListo, hayAlgoCargado, clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad,
       clienteProfesion, items, usarMayorista, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial,
-      vendedorId, condiciones, borradorId, borradorNumero]);
+      vendedorId, condiciones, borradorId, borradorNumero, obra, anticipoPct]);
 
   useEffect(() => {
     const alSalir = () => escribirBorrador();
@@ -463,6 +474,7 @@ export default function NuevoPresupuestoPage() {
       if (!pl) return; // sin plantilla, el PDF igual imprime la suya
       if (pl.condiciones.trim()) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
       if (pl.formaPago.trim()) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
+      setAnticipoCasa(pl.anticipoPct);
     });
 
     // El `return` va AL FINAL. Estaba arriba, justo después del inventario, y
@@ -783,6 +795,9 @@ export default function NuevoPresupuestoPage() {
           vendedor_usuario_id: vendedorId || null,
           vendedor_nombre: vendedores.find((v) => v.id === vendedorId)?.nombre ?? null,
           condiciones_comerciales: condiciones.trim() || null,
+          obra_id: obra?.id ?? null,
+          // Solo si la forma de pago pide anticipo; si no, queda el de la casa.
+          anticipo_pct: pideAnticipo(formaPago) && anticipoPct.trim() !== "" ? Number(anticipoPct.replace(",", ".")) : null,
           items: items.map((it) => ({
             producto_id: it.producto_id,
             producto_nombre: it.producto_nombre.trim(),
@@ -883,12 +898,32 @@ export default function NuevoPresupuestoPage() {
     const t = window.setTimeout(() => { void guardarEnSistemaRef.current(); }, 2000);
     return () => window.clearTimeout(t);
   }, [borradorListo, listoParaSistema, clienteId, clienteNombre, clienteRuc, clienteTel, clienteDir, clienteCiudad,
-      clienteProfesion, items, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial, vendedorId, condiciones]);
+      clienteProfesion, items, formaPago, plazoEntrega, observaciones, notaInterna, faltaMaterial, vendedorId, condiciones,
+      obra, anticipoPct]);
 
   // Al salir a otro menú, lo que quedó sin mandar se manda igual.
   useEffect(() => () => {
     if (sucio.current) void guardarEnSistemaRef.current(true);
   }, []);
+
+  /**
+   * Vista previa: guarda lo que hay como borrador y muestra el PDF tal cual
+   * va a salir, sin salir de la pantalla.
+   */
+  const [preview, setPreview] = useState<string | null>(null);
+  const [armandoPreview, setArmandoPreview] = useState(false);
+  async function verVistaPrevia() {
+    if (!listoParaSistema || armandoPreview) return;
+    setArmandoPreview(true);
+    try {
+      sucio.current = true;
+      await guardarEnSistema();
+      if (idRef.current) setPreview(`/api/presupuestos/${idRef.current}/pdf?ver=1`);
+      else setError("No se pudo guardar el borrador para mostrar la vista previa.");
+    } finally {
+      setArmandoPreview(false);
+    }
+  }
 
   async function guardar() {
     if (guardando || !valido) return;
@@ -1099,6 +1134,21 @@ export default function NuevoPresupuestoPage() {
           <div>
             <label className={labelClass}>Dirección</label>
             <input value={clienteDir} onChange={(e) => setClienteDir(e.target.value)} className={inputClass} />
+          </div>
+          {clienteId && (
+            <div className="sm:col-span-2">
+              <CreditoCliente clienteId={clienteId} />
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <ObraSelector
+              value={obra?.id ?? ""}
+              onChange={setObra}
+              clienteId={clienteId || null}
+              inicial={obra}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           </div>
         </div>
       </SeccionForm>
@@ -1377,34 +1427,17 @@ export default function NuevoPresupuestoPage() {
             hueco a la derecha. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Forma de pago</label>
-            {/* Lista cerrada: antes era texto libre y cada vendedor escribía la
-                suya ("50% anticipo", "mitad y mitad"), así que el documento que
-                firma el cliente decía algo distinto cada vez. Son condiciones
-                comerciales: las define la casa, no quien atiende. */}
-            <Selector
-              value={esFormaPagoConocida(formaPago) || formaPago === "" ? formaPago : "__otra__"}
-              onChange={(e) => setFormaPago(e.target.value === "__otra__" ? formaPago : e.target.value)}
-              className={`${inputClass} bg-white`}
-            >
-              <option value="">— Elegir —</option>
-              {formasPermitidas.map((f) => (
-                <option key={f.valor} value={f.valor}>{f.etiqueta}</option>
-              ))}
-              {/* Un presupuesto viejo puede tener una forma escrita a mano: se
-                  muestra como está en vez de pisarla. Cambiarla a la fuerza
-                  cambiaría la condición de un documento que el cliente ya
-                  tiene. */}
-              {formaPago !== "" && !esFormaPagoConocida(formaPago) && (
-                <option value="__otra__">{formaPago} (cargada a mano)</option>
-              )}
-            </Selector>
-            {formaPago.includes("{anticipo}") && (
-              <p className="mt-1 text-[11px] leading-snug text-slate-500">
-                El porcentaje sale de Configuración → Presupuesto, así cambiarlo no obliga a
-                rehacer cada presupuesto.
-              </p>
-            )}
+            <CondicionPago
+              formaPago={formaPago}
+              setFormaPago={setFormaPago}
+              formasPermitidas={formasPermitidas}
+              anticipoPct={anticipoPct}
+              setAnticipoPct={setAnticipoPct}
+              anticipoCasa={anticipoCasa}
+              total={totales.total}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Plazo de entrega</label>
@@ -1567,6 +1600,15 @@ export default function NuevoPresupuestoPage() {
               Cancelar
             </Link>
             <button
+              type="button"
+              onClick={() => void verVistaPrevia()}
+              disabled={!listoParaSistema || armandoPreview}
+              title={listoParaSistema ? "Ver cómo sale impreso" : "Necesita cliente y al menos un producto"}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {armandoPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Vista previa
+            </button>
+            <button
               onClick={guardar}
               disabled={!valido || guardando}
               // Ámbar cuando va a quedar borrador: el color dice qué botón es
@@ -1583,6 +1625,9 @@ export default function NuevoPresupuestoPage() {
           </div>
         </div>
       </div>
+    {preview && (
+        <VistaPreviaPdf url={preview} titulo="Vista previa del presupuesto" onClose={() => setPreview(null)} />
+      )}
     {nuevoClienteOpen && (
         <NuevoClienteRapidoModal
           nombreInicial={clienteNombre}

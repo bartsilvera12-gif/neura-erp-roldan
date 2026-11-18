@@ -9,6 +9,7 @@ import { isAdmin } from "@/lib/middleware/auth";
 import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems } from "@/lib/presupuestos/carga-rapida";
+import { guardarExtras89 } from "@/lib/presupuestos/server/extras-89";
 import { asegurarClienteDelPresupuesto } from "@/lib/presupuestos/server/cliente-del-presupuesto";
 import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
 import {
@@ -119,6 +120,20 @@ export async function GET(request: NextRequest) {
           p.reservado = hasta.has(id);
           p.reservado_hasta = hasta.get(id) ?? null;
         }
+      }
+      // La obra, para buscar por obra en el listado (script 89).
+      const oq = await ctx.supabase
+        .from("presupuestos")
+        .select("id, obra_nombre")
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .not("obra_nombre", "is", null)
+        .limit(2000);
+      if (!oq.error) {
+        const obra = new Map<string, string>();
+        for (const x of (oq.data ?? []) as unknown as Array<{ id: string; obra_nombre: string | null }>) {
+          if (x.obra_nombre) obra.set(String(x.id), x.obra_nombre);
+        }
+        for (const p of presupuestos as Record<string, unknown>[]) p.obra_nombre = obra.get(String(p.id)) ?? null;
       }
     }
     return NextResponse.json(successResponse({ presupuestos }));
@@ -407,6 +422,11 @@ export async function POST(request: NextRequest) {
       items,
     });
 
+    // La obra y el anticipo (script 89): aparte, para que sin el script el
+    // presupuesto se guarde igual.
+    const avisoExtras = await guardarExtras89(ctx.supabase, ctx.auth.empresa_id, id, body);
+    if (avisoExtras) console.warn("[/api/presupuestos POST] extras 89:", avisoExtras);
+
     // El aviso va en la respuesta y no en un error: el presupuesto SE GUARDÓ,
     // y la pantalla tiene que poder decir las dos cosas a la vez —quedó
     // registrado, y así no avanza— sin que parezca que falló.
@@ -415,6 +435,7 @@ export async function POST(request: NextRequest) {
       numero_control,
       estado: esBorrador ? "borrador" : "creado",
       falta: faltan,
+      aviso_extras: avisoExtras,
       aviso: esBorrador && !autoguardado
         ? `Quedó guardado como BORRADOR porque falta${faltan.length === 1 ? "" : "n"} ` +
           `${textoFaltantes(faltan)}. Se puede imprimir, pero no se puede mandar, aprobar ` +

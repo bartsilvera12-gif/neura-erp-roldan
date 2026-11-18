@@ -12,7 +12,10 @@ import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/S
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
-import { FORMAS_PAGO, esFormaPagoConocida } from "@/lib/presupuestos/formas-pago";
+import { FORMAS_PAGO, pideAnticipo } from "@/lib/presupuestos/formas-pago";
+import ObraSelector, { type ObraLite } from "@/components/presupuestos/ObraSelector";
+import CondicionPago from "@/components/presupuestos/CondicionPago";
+import CreditoCliente from "@/components/presupuestos/CreditoCliente";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
@@ -154,6 +157,13 @@ export default function EditarPresupuestoPage() {
 
   const [cargando, setCargando] = useState(true);
   const [numero, setNumero] = useState("");
+  /** La obra y el anticipo de este presupuesto (script 89). */
+  const [obra, setObra] = useState<ObraLite | null>(null);
+  const [anticipoPct, setAnticipoPct] = useState("");
+  const [anticipoCasa, setAnticipoCasa] = useState(0);
+  useEffect(() => {
+    void cargarPlantillaPresupuesto().then((pl) => { if (pl) setAnticipoCasa(pl.anticipoPct); });
+  }, []);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -263,6 +273,10 @@ export default function EditarPresupuestoPage() {
         setNotaInterna(p.nota_interna ? String(p.nota_interna) : "");
         setFaltaMaterial(p.falta_material === true);
         setCondiciones(p.condiciones_comerciales ? String(p.condiciones_comerciales) : "");
+        setObra(p.obra_id
+          ? { id: String(p.obra_id), nombre: String(p.obra_nombre ?? "Obra"), direccion: p.obra_direccion ? String(p.obra_direccion) : null, ciudad: null, cliente_id: null }
+          : null);
+        setAnticipoPct(p.anticipo_pct == null ? "" : String(p.anticipo_pct));
         // Si este presupuesto no tiene condiciones propias, se imprimen las de
         // la casa: se muestran esas, en vez de un campo vacío.
         if (!p.condiciones_comerciales || !p.forma_pago) {
@@ -499,6 +513,8 @@ export default function EditarPresupuestoPage() {
           nota_interna: notaInterna.trim() || null,
           falta_material: faltaMaterial,
           condiciones_comerciales: condiciones.trim() || null,
+          obra_id: obra?.id ?? null,
+          anticipo_pct: pideAnticipo(formaPago) && anticipoPct.trim() !== "" ? Number(anticipoPct.replace(",", ".")) : null,
           items: items.map((it) => ({
             producto_id: it.producto_id,
             producto_nombre: it.producto_nombre.trim(),
@@ -591,6 +607,21 @@ export default function EditarPresupuestoPage() {
           <div className="sm:col-span-2">
             <label className={labelClass}>Dirección</label>
             <input value={clienteDir} onChange={(e) => setClienteDir(e.target.value)} className={inputClass} />
+          </div>
+          {clienteId && (
+            <div className="sm:col-span-2">
+              <CreditoCliente clienteId={clienteId} />
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <ObraSelector
+              value={obra?.id ?? ""}
+              onChange={setObra}
+              clienteId={clienteId || null}
+              inicial={obra}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Ciudad</label>
@@ -806,34 +837,17 @@ export default function EditarPresupuestoPage() {
             hueco a la derecha. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Forma de pago</label>
-            {/* Lista cerrada: antes era texto libre y cada vendedor escribía la
-                suya ("50% anticipo", "mitad y mitad"), así que el documento que
-                firma el cliente decía algo distinto cada vez. Son condiciones
-                comerciales: las define la casa, no quien atiende. */}
-            <Selector
-              value={esFormaPagoConocida(formaPago) || formaPago === "" ? formaPago : "__otra__"}
-              onChange={(e) => setFormaPago(e.target.value === "__otra__" ? formaPago : e.target.value)}
-              className={`${inputClass} bg-white`}
-            >
-              <option value="">— Elegir —</option>
-              {FORMAS_PAGO.map((f) => (
-                <option key={f.valor} value={f.valor}>{f.etiqueta}</option>
-              ))}
-              {/* Un presupuesto viejo puede tener una forma escrita a mano: se
-                  muestra como está en vez de pisarla. Cambiarla a la fuerza
-                  cambiaría la condición de un documento que el cliente ya
-                  tiene. */}
-              {formaPago !== "" && !esFormaPagoConocida(formaPago) && (
-                <option value="__otra__">{formaPago} (cargada a mano)</option>
-              )}
-            </Selector>
-            {formaPago.includes("{anticipo}") && (
-              <p className="mt-1 text-[11px] leading-snug text-slate-500">
-                El porcentaje sale de Configuración → Presupuesto, así cambiarlo no obliga a
-                rehacer cada presupuesto.
-              </p>
-            )}
+            <CondicionPago
+              formaPago={formaPago}
+              setFormaPago={setFormaPago}
+              formasPermitidas={FORMAS_PAGO}
+              anticipoPct={anticipoPct}
+              setAnticipoPct={setAnticipoPct}
+              anticipoCasa={anticipoCasa}
+              total={totales.total}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Plazo de entrega</label>

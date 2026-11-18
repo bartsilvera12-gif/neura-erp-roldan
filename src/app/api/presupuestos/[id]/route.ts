@@ -11,6 +11,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems } from "@/lib/presupuestos/carga-rapida";
+import { guardarExtras89, leerExtras89 } from "@/lib/presupuestos/server/extras-89";
 import {
   conCamposScript38,
   faltaScript38,
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     if (!ccq.error) cambiosAlCobrar = (ccq.data ?? []) as Record<string, unknown>[];
 
     return NextResponse.json(successResponse({
-      presupuesto: { ...cabecera, condiciones_comerciales: condiciones },
+      presupuesto: { ...cabecera, condiciones_comerciales: condiciones, ...(await leerExtras89(ctx.supabase, ctx.auth.empresa_id, id)) },
       items: itq.data ?? [],
       cambios_al_cobrar: cambiosAlCobrar,
     }));
@@ -469,9 +470,13 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
         updHead = await guardarCabecera(sin46);
       }
       if (updHead.error) throw new Error(updHead.error.message);
+      // La obra y el anticipo (script 89), aparte: ver `extras-89.ts`.
+      const avisoExtras = await guardarExtras89(ctx.supabase, ctx.auth.empresa_id, id, body);
+      if (avisoExtras) console.warn("[/api/presupuestos/[id] PATCH] extras 89:", avisoExtras);
       return NextResponse.json(
         successResponse({
           presupuesto: updHead.data ? conCamposScript38(updHead.data, updHead.script38) : null,
+          aviso_extras: avisoExtras,
         })
       );
     }
