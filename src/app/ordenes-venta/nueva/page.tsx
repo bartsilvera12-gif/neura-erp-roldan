@@ -5,10 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
+import { divisorIva } from "@/lib/precios/iva";
+import { utilidadDeLineas } from "@/lib/contabilidad/punto-equilibrio";
 
 type Cliente = { id: string; label: string; nombre_contacto?: string; empresa?: string };
-type Producto = { id: string; nombre: string; sku: string; precio_venta: number };
-type ItemLinea = { producto_id: string; nombre: string; cantidad: number; precio_unitario: number };
+type Producto = { id: string; nombre: string; sku: string; precio_venta: number; costo_promedio?: number; tipo_iva?: string | null };
+type ItemLinea = { producto_id: string; nombre: string; cantidad: number; precio_unitario: number; costo: number; tipo_iva: string };
+
+const gs = (n: number) => "Gs. " + new Intl.NumberFormat("es-PY").format(Math.round(n));
 
 const inputClass =
   "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]";
@@ -26,6 +32,10 @@ export default function NuevaOrdenVentaPage() {
   const [prodSel, setProdSel] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El desglose del pie es de administración; la utilidad, de quien ve costos.
+  const { isAdmin } = useIsAdmin();
+  const { tiene } = useFacultades();
+  const verCostos = tiene("ver_costos");
 
   useEffect(() => {
     (async () => {
@@ -59,11 +69,15 @@ export default function NuevaOrdenVentaPage() {
     if (items.some((i) => i.producto_id === p.id)) return;
     setItems((prev) => [...prev, {
       producto_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: p.precio_venta,
+      costo: Number(p.costo_promedio) || 0, tipo_iva: String(p.tipo_iva ?? "10%"),
     }]);
     setProdSel("");
   }
 
   const total = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0);
+  const gravado = items.reduce((s, i) => s + (i.cantidad * i.precio_unitario) / divisorIva(i.tipo_iva), 0);
+  // La misma cuenta que el punto de equilibrio.
+  const util = utilidadDeLineas(items, divisorIva);
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -186,13 +200,45 @@ export default function NuevaOrdenVentaPage() {
                     </td>
                   </tr>
                 ))}
-                <tr className="border-t border-slate-200 font-semibold">
-                  <td colSpan={3} className="px-3 py-2 text-right">Total</td>
-                  <td className="px-3 py-2 text-right tabular-nums">Gs. {new Intl.NumberFormat("es-PY").format(Math.round(total))}</td>
-                  <td></td>
-                </tr>
               </tbody>
             </table>
+          )}
+          {items.length > 0 && (
+            <div className="flex flex-wrap items-end justify-end gap-x-8 gap-y-2 border-t border-slate-200 pt-3">
+              {isAdmin && (
+                <>
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-500">Ítems</p>
+                    <p className="text-sm font-semibold tabular-nums text-slate-700">{items.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-500">Gravado</p>
+                    <p className="text-sm font-semibold tabular-nums text-slate-700">{gs(gravado)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-500">IVA</p>
+                    <p className="text-sm font-semibold tabular-nums text-slate-700">{gs(total - gravado)}</p>
+                  </div>
+                </>
+              )}
+              {isAdmin && verCostos && (
+                <div title={util.lineas_sin_costo > 0 ? "Hay artículos sin costo cargado: no entran en la cuenta." : undefined}>
+                  <p className="text-[11px] font-medium text-slate-500">Utilidad{util.lineas_sin_costo > 0 ? " *" : ""}</p>
+                  <p className={`text-sm font-semibold tabular-nums ${util.margen < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                    {gs(util.margen)}
+                    {util.margen_pct != null && (
+                      <span className="ml-1 text-[11px] font-normal text-slate-500">
+                        ({util.margen_pct.toLocaleString("es-PY", { maximumFractionDigits: 1 })}%)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-[11px] font-medium text-slate-500">Total</p>
+                <p className="text-xl font-semibold tabular-nums text-slate-900">{gs(total)}</p>
+              </div>
+            </div>
           )}
         </div>
 

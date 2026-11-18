@@ -15,9 +15,24 @@ type Orden = {
   total: number;
   venta_id: string | null;
   items: Array<{ producto_id: string; cantidad: number; precio_unitario: number; subtotal: number }>;
+  cliente_nombre?: string | null;
+  cantidad_items?: number;
+  gravado?: number;
+  iva?: number;
+  /** Solo llega a quien puede ver costos. Misma fórmula que el punto de equilibrio. */
+  utilidad?: number;
+  margen_pct?: number | null;
+  utilidad_parcial?: boolean;
 };
 
-type Cliente = { id: string; label: string };
+/** dd/mm/aaaa. */
+function fmtFecha(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ""));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
+}
+function fmtPct(n: number): string {
+  return `${n.toLocaleString("es-PY", { maximumFractionDigits: 1 })}%`;
+}
 
 const badgeClass: Record<Orden["estado"], string> = {
   pendiente:   "bg-amber-50 text-amber-700 border-amber-200",
@@ -33,7 +48,9 @@ function fmtGs(n: number): string {
 
 export default function OrdenesVentaPage() {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
-  const [clientes, setClientes] = useState<Map<string, string>>(new Map());
+  /** Qué puede ver quien mira: la utilidad (ver costos) y el desglose del pie (administración). */
+  const [verCostos, setVerCostos] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,17 +60,14 @@ export default function OrdenesVentaPage() {
     setError(null);
     try {
       const qs = filtroEstado ? `?estado=${encodeURIComponent(filtroEstado)}` : "";
-      const [rOrd, rCli] = await Promise.all([
-        fetchWithSupabaseSession(`/api/ordenes-venta${qs}`, { cache: "no-store" }),
-        fetchWithSupabaseSession(`/api/clientes`, { cache: "no-store" }),
-      ]);
+      const rOrd = await fetchWithSupabaseSession(`/api/ordenes-venta${qs}`, { cache: "no-store" });
       const jOrd = await rOrd.json();
-      const jCli = await rCli.json();
-      if (rOrd.ok && jOrd.success) setOrdenes(jOrd.data.ordenes ?? []);
-      if (rCli.ok && jCli.success) {
-        const map = new Map<string, string>();
-        for (const c of ((jCli.data.clientes ?? []) as Cliente[])) map.set(c.id, c.label ?? c.id);
-        setClientes(map);
+      if (rOrd.ok && jOrd.success) {
+        setOrdenes(jOrd.data.ordenes ?? []);
+        setVerCostos(jOrd.data.ver_costos === true);
+        setEsAdmin(jOrd.data.es_admin === true);
+      } else {
+        setError(jOrd?.error ?? `No se pudieron cargar las órdenes (${rOrd.status}).`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red.");
@@ -119,6 +133,7 @@ export default function OrdenesVentaPage() {
                 <th className="text-left px-4 py-2">Fecha</th>
                 <th className="text-left px-4 py-2">Entrega</th>
                 <th className="text-right px-4 py-2">Total</th>
+                {verCostos && <th className="text-right px-4 py-2" title="Misma fórmula que el punto de equilibrio, con el costo de hoy">Utilidad</th>}
                 <th className="text-left px-4 py-2">Estado</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -127,10 +142,19 @@ export default function OrdenesVentaPage() {
               {ordenes.map((o) => (
                 <tr key={o.id} className="border-t border-slate-100">
                   <td className="px-4 py-2 font-mono text-xs">{o.numero_orden}</td>
-                  <td className="px-4 py-2">{clientes.get(o.cliente_id) ?? "—"}</td>
-                  <td className="px-4 py-2 text-slate-500">{o.fecha}</td>
-                  <td className="px-4 py-2 text-slate-500">{o.fecha_entrega_solicitada ?? "—"}</td>
+                  <td className="px-4 py-2">{o.cliente_nombre ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-500">{fmtFecha(o.fecha)}</td>
+                  <td className="px-4 py-2 text-slate-500">{fmtFecha(o.fecha_entrega_solicitada)}</td>
                   <td className="px-4 py-2 text-right tabular-nums font-medium">Gs. {fmtGs(o.total)}</td>
+                  {verCostos && (
+                    <td
+                      className={`px-4 py-2 text-right tabular-nums ${(o.utilidad ?? 0) < 0 ? "text-rose-600" : "text-emerald-700"}`}
+                      title={o.utilidad_parcial ? "Hay artículos sin costo cargado: no entran en la cuenta." : undefined}
+                    >
+                      Gs. {fmtGs(o.utilidad ?? 0)}{o.utilidad_parcial ? " *" : ""}
+                      {o.margen_pct != null && <span className="block text-[10px] text-slate-500">{fmtPct(o.margen_pct)}</span>}
+                    </td>
+                  )}
                   <td className="px-4 py-2">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border capitalize ${badgeClass[o.estado]}`}>
                       {o.estado}
@@ -161,6 +185,47 @@ export default function OrdenesVentaPage() {
           </table>
         )}
       </div>
+
+      {/* Totales de lo que está en pantalla: administración ve el desglose,
+          el resto solo el total (pedido del cliente, igual que Presupuestos). */}
+      {!loading && ordenes.length > 0 && (() => {
+        const suma = (f: (o: Orden) => number) => ordenes.reduce((s, o) => s + (f(o) || 0), 0);
+        const total = suma((o) => o.total);
+        const utilidad = suma((o) => o.utilidad ?? 0);
+        const margen = total > 0 ? (utilidad / total) * 100 : null;
+        return (
+          <div className="flex flex-wrap items-end justify-end gap-x-8 gap-y-2 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            {esAdmin && (
+              <>
+                <div>
+                  <p className="text-[11px] font-medium text-slate-500">Órdenes · ítems</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-700">{ordenes.length} · {suma((o) => o.cantidad_items ?? o.items.length)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-slate-500">Gravado</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-700">Gs. {fmtGs(suma((o) => o.gravado ?? 0))}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-slate-500">IVA</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-700">Gs. {fmtGs(suma((o) => o.iva ?? 0))}</p>
+                </div>
+              </>
+            )}
+            {esAdmin && verCostos && (
+              <div>
+                <p className="text-[11px] font-medium text-slate-500">Utilidad</p>
+                <p className={`text-sm font-semibold tabular-nums ${utilidad < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                  Gs. {fmtGs(utilidad)}{margen != null && <span className="ml-1 text-[11px] font-normal text-slate-500">({fmtPct(margen)})</span>}
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="text-[11px] font-medium text-slate-500">Total</p>
+              <p className="text-xl font-semibold tabular-nums text-slate-900">Gs. {fmtGs(total)}</p>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

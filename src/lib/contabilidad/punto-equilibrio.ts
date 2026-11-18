@@ -95,6 +95,34 @@ export function margenDeVenta(b: { vendido: unknown; costo: unknown; iva_debito:
   };
 }
 
+/**
+ * La utilidad de un conjunto de líneas (una orden de venta, un presupuesto),
+ * con la MISMA fórmula que el punto de equilibrio: `margenDeVenta`.
+ *
+ * Precio y costo están guardados con IVA. El IVA de cada lado se saca con la
+ * tasa del artículo. Las líneas sin costo cargado no entran en la cuenta —ni
+ * su venta ni su costo—: contarlas como costo cero inflaría la utilidad.
+ */
+export function utilidadDeLineas(
+  lineas: Array<{ cantidad: unknown; precio_unitario: unknown; costo: unknown; tipo_iva?: string | null }>,
+  divisor: (tipoIva: string) => number
+): MargenDeVenta & { lineas_sin_costo: number } {
+  let vendido = 0, costo = 0, deb = 0, cred = 0, sinCosto = 0;
+  for (const l of lineas) {
+    const c = n(l.costo);
+    if (c <= 0) { sinCosto += 1; continue; }
+    const cant = n(l.cantidad);
+    const venta = cant * n(l.precio_unitario);
+    const compra = cant * c;
+    const d = divisor(String(l.tipo_iva ?? "10%")) || 1;
+    vendido += venta;
+    costo += compra;
+    deb += venta - venta / d;
+    cred += compra - compra / d;
+  }
+  return { ...margenDeVenta({ vendido, costo, iva_debito: deb, iva_credito: cred }), lineas_sin_costo: sinCosto };
+}
+
 export type MotivoSinPunto = "sin_margen" | "margen_negativo" | "sin_gastos";
 
 export interface Resultado {

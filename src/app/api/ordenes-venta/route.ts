@@ -3,6 +3,9 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { isAdmin } from "@/lib/middleware/auth";
+import { divisorIva } from "@/lib/precios/iva";
+import { utilidadDeLineas } from "@/lib/contabilidad/punto-equilibrio";
 
 /**
  * /api/ordenes-venta — órdenes de compra RECIBIDAS de clientes (Biggie, Casa
@@ -64,8 +67,69 @@ export async function GET(request: NextRequest) {
       arr.push(it);
       byOrden.set(it.orden_id, arr);
     }
-    const ordenes = rows.map((r) => ({ ...r, items: byOrden.get(String(r.id)) ?? [] }));
-    return NextResponse.json(successResponse({ ordenes }));
+    /**
+     * Gravado, IVA y utilidad de cada orden.
+     *
+     * La utilidad es la del punto de equilibrio (`utilidadDeLineas` →
+     * `margenDeVenta`), con el costo promedio de HOY de cada artículo: las
+     * órdenes no guardan el costo. Solo va para quien puede ver costos; al
+     * resto ni siquiera le llega el número.
+     */
+    const verCostos = await tieneFacultad(supabase, auth, "ver_costos");
+    const prodIds = [...new Set(((itemsQ.data ?? []) as Array<{ producto_id?: string }>).map((i) => String(i.producto_id ?? "")).filter(Boolean))];
+    const info = new Map<string, { costo: number; iva: string }>();
+    for (let i = 0; i < prodIds.length; i += 200) {
+      const pq = await supabase
+        .from("productos")
+        .select("id, costo_promedio, tipo_iva")
+        .eq("empresa_id", auth.empresa_id)
+        .in("id", prodIds.slice(i, i + 200));
+      if (pq.error) break;
+      for (const p of (pq.data ?? []) as Array<Record<string, unknown>>) {
+        info.set(String(p.id), { costo: Number(p.costo_promedio) || 0, iva: String(p.tipo_iva ?? "10%") });
+      }
+    }
+    // El nombre del cliente de cada orden. Antes la pantalla traía los 21 mil
+    // clientes para armar los nombres (y los leía mal: salía «—»).
+    const cliIds = [...new Set(rows.map((r) => String(r.cliente_id ?? "")).filter(Boolean))];
+    const nombres = new Map<string, string>();
+    for (let i = 0; i < cliIds.length; i += 200) {
+      const cq = await supabase
+        .from("clientes")
+        .select("id, empresa, nombre_contacto")
+        .eq("empresa_id", auth.empresa_id)
+        .in("id", cliIds.slice(i, i + 200));
+      if (cq.error) break;
+      for (const c of (cq.data ?? []) as Array<Record<string, unknown>>) {
+        const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+        nombres.set(String(c.id), t(c.empresa) || t(c.nombre_contacto) || "Cliente");
+      }
+    }
+    const ordenes = rows.map((r) => {
+      const items = (byOrden.get(String(r.id)) ?? []) as Array<Record<string, unknown>>;
+      let gravado = 0;
+      for (const it of items) {
+        const total = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+        gravado += total / divisorIva(info.get(String(it.producto_id ?? ""))?.iva ?? "10%");
+      }
+      const total = Number(r.total) || 0;
+      const base = { ...r, cliente_nombre: nombres.get(String(r.cliente_id ?? "")) ?? null, items, cantidad_items: items.length, gravado: Math.round(gravado), iva: Math.round(total - gravado) };
+      if (!verCostos) return base;
+      const u = utilidadDeLineas(
+        items.map((it) => {
+          const pi = info.get(String(it.producto_id ?? ""));
+          return { cantidad: it.cantidad, precio_unitario: it.precio_unitario, costo: pi?.costo ?? 0, tipo_iva: pi?.iva ?? "10%" };
+        }),
+        divisorIva
+      );
+      return {
+        ...base,
+        utilidad: Math.round(u.margen),
+        margen_pct: u.margen_pct,
+        utilidad_parcial: u.lineas_sin_costo > 0,
+      };
+    });
+    return NextResponse.json(successResponse({ ordenes, ver_costos: verCostos, es_admin: isAdmin(auth) }));
   } catch (err) {
     console.error("[/api/ordenes-venta GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudieron cargar las órdenes."), { status: 500 });
