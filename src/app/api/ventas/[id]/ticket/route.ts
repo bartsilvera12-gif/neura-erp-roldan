@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { membreteA4, membreteTicket } from "@/lib/documentos/membrete";
+import { htmlConSucursal } from "@/lib/documentos/server/membrete-sucursal";
 
 /**
  * GET /api/ventas/[id]/ticket?w=58|80&mode=comandas&auto=1
@@ -519,7 +520,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     }
     const itemsRem = itemsRaw.map((it) => ({ ...it, unidad: unidadByProd.get(it.producto_id) ?? "UNIDAD" }));
     const htmlRem = renderNotaRemision({ negocio, venta, items: itemsRem, cliente: clienteRem });
-    return new NextResponse(htmlRem, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    return new NextResponse(await htmlConSucursal(ctx.supabase, venta.sucursal_id, htmlRem), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
 
   // Pedido cocina (opcional) — busca card de Pedidos vinculada a esta venta.
@@ -677,7 +678,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 </body>
 </html>`;
 
-  return new NextResponse(html, {
+  return new NextResponse(await htmlConSucursal(ctx.supabase, venta.sucursal_id, html), {
     status: 200,
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
   });

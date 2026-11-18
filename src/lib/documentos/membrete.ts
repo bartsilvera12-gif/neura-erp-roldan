@@ -7,13 +7,30 @@
  * de la empresa (Roldán e Hijos).
  */
 
-export const EMPRESA_DOC = {
+export type EmpresaDoc = {
+  nombre: string;
+  propietario: string;
+  ruc: string;
+  actividad: string[];
+  telefono: string;
+  email: string;
+  direccion: string[];
+  logoUrl: string;
+};
+
+/**
+ * Los datos de la casa central. Cada sucursal puede tener su dirección y su
+ * teléfono (script 91): ver `empresaDocDeSucursal` en
+ * `lib/documentos/server/membrete-sucursal.ts`.
+ */
+export const EMPRESA_DOC: EmpresaDoc = {
   nombre: "Aceros Metal Roldán e Hijos",
   propietario: "",
   ruc: "4538617-0",
   actividad: [] as string[],
   telefono: "+595 984 792 917 / +595 984 753 986",
-  email: "joaquin@acerosmetalroldanehijos.com.py",
+  // Pedido del cliente: el correo de la casa matriz en todos los documentos.
+  email: "acerosmetalmatriz@gmail.com",
   direccion: ["Avda. Acceso Sur c/ Primero de Marzo"],
   /** Logo del cliente. Reemplazar los archivos en /public/brand/roldan-*.png. */
   logoUrl: "/brand/roldan-doc-logo.png",
@@ -35,8 +52,11 @@ function esc(v: unknown): string {
  * de salario usa una gris fina (el cliente la pidió más sobria).
  * `compacto`: logo más bajo y menos aire, para que entren dos copias por hoja.
  */
-export function membreteA4(origin = "", opts: { linea?: string; compacto?: boolean } = {}): string {
-  const e = EMPRESA_DOC;
+export function membreteA4(
+  origin = "",
+  opts: { linea?: string; compacto?: boolean; empresa?: EmpresaDoc } = {}
+): string {
+  const e = opts.empresa ?? EMPRESA_DOC;
   const logo = origin ? `${origin}${e.logoUrl}` : e.logoUrl;
   const linea = opts.linea ?? "2px solid #2E7D32";
   const alto = opts.compacto ? 58 : 92;
@@ -72,8 +92,8 @@ export function membreteA4(origin = "", opts: { linea?: string; compacto?: boole
  *
  * `extra` se imprime a la derecha: sirve para el período o la fecha del corte.
  */
-export function membreteLinea(extra = "", origin = ""): string {
-  const e = EMPRESA_DOC;
+export function membreteLinea(extra = "", origin = "", empresa?: EmpresaDoc): string {
+  const e = empresa ?? EMPRESA_DOC;
   const logo = origin ? `${origin}${e.logoUrl}` : e.logoUrl;
   return `
   <div style="display:flex;align-items:center;gap:8px;border-bottom:1.5px solid #333;padding-bottom:5px;margin-bottom:8px;">
@@ -91,8 +111,8 @@ export function membreteLinea(extra = "", origin = ""): string {
 /**
  * Membrete compacto para ticket angosto (58/80mm): logo arriba, datos centrados.
  */
-export function membreteTicket(origin = ""): string {
-  const e = EMPRESA_DOC;
+export function membreteTicket(origin = "", empresa?: EmpresaDoc): string {
+  const e = empresa ?? EMPRESA_DOC;
   const logo = origin ? `${origin}${e.logoUrl}` : e.logoUrl;
   return `
   <div style="text-align:center;padding-bottom:6px;margin-bottom:6px;border-bottom:1px dashed #000;">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
-import { EMPRESA_DOC } from "@/lib/documentos/membrete";
+import { empresaDocDeSucursal } from "@/lib/documentos/server/membrete-sucursal";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -198,7 +198,8 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   } catch { /* sin teléfono */ }
   const condicionesDoc = txtPropio(p.condiciones_comerciales) ?? plantilla.observaciones;
 
-  const e = EMPRESA_DOC;
+  // El membrete de la sucursal que emitió el presupuesto (script 91).
+  const e = await empresaDocDeSucursal(ctx.supabase, (p.sucursal_id ? String(p.sucursal_id) : null) ?? ctx.auth.sucursal_id);
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

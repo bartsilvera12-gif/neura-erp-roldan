@@ -18,12 +18,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(errorResponse("Solo administradores."), { status: 403 });
     }
     const sr = createServiceRoleClient();
-    const { data, error } = await sr
+    const leer = (cols: string) => sr
       .from("sucursales")
-      .select("id, codigo, nombre, es_principal, activa, establecimiento, punto_expedicion")
+      .select(cols)
       .eq("empresa_id", ctx.auth.empresa_id)
       .order("es_principal", { ascending: false })
       .order("codigo");
+    // Dirección y teléfono para los documentos (script 91). Sin el script, se
+    // lee como antes.
+    let { data, error } = await leer("id, codigo, nombre, es_principal, activa, establecimiento, punto_expedicion, direccion, telefono");
+    if (error && /direccion|telefono/.test(error.message)) {
+      ({ data, error } = await leer("id, codigo, nombre, es_principal, activa, establecimiento, punto_expedicion"));
+    }
     if (error) throw new Error(error.message);
     return NextResponse.json(successResponse({ sucursales: data ?? [] }));
   } catch (err) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { membreteA4 } from "@/lib/documentos/membrete";
 import { nombreUsuarioDisplay } from "@/lib/usuarios/hweber";
+import { htmlConSucursal } from "@/lib/documentos/server/membrete-sucursal";
 
 /**
  * GET /api/recibos-dinero/[id]/pdf?auto=1
@@ -145,5 +146,5 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
 <script>try{ if (${auto ? "true" : "false"}) window.print(); }catch(e){}</script>
 </body></html>`;
 
-  return new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return new NextResponse(await htmlConSucursal(ctx.supabase, r.sucursal_id ? String(r.sucursal_id) : ctx.auth.sucursal_id, html), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

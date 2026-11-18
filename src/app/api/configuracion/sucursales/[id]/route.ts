@@ -53,6 +53,9 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     if (body.activa !== undefined) patch.activa = body.activa === true;
     if (body.establecimiento !== undefined) patch.establecimiento = body.establecimiento == null ? null : String(body.establecimiento).trim() || null;
     if (body.punto_expedicion !== undefined) patch.punto_expedicion = body.punto_expedicion == null ? null : String(body.punto_expedicion).trim() || null;
+    // Lo que sale en el membrete de los documentos de esta sucursal (script 91).
+    if (body.direccion !== undefined) patch.direccion = body.direccion == null ? null : String(body.direccion).trim().slice(0, 300) || null;
+    if (body.telefono !== undefined) patch.telefono = body.telefono == null ? null : String(body.telefono).trim().slice(0, 120) || null;
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(errorResponse("Nada para actualizar."), { status: 400 });
@@ -75,7 +78,15 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       .eq("empresa_id", ctx.auth.empresa_id)
       .select("id, codigo, nombre, es_principal, activa, establecimiento, punto_expedicion")
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (/direccion|telefono/.test(error.message)) {
+        return NextResponse.json(
+          errorResponse("Falta correr el script 91: todavía no hay dónde guardar la dirección de la sucursal."),
+          { status: 409 }
+        );
+      }
+      throw new Error(error.message);
+    }
     if (!data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
     return NextResponse.json(successResponse({ sucursal: data }));
   } catch (err) {

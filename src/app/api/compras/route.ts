@@ -11,6 +11,7 @@ import {
   type CompraItemInput,
 } from "@/lib/compras/server/compras-pg";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { MAX_ITEMS_COMPRA, mensajeTopeCompra } from "@/lib/compras/tope";
 
 /**
  * GET /api/compras — lista via PG directo.
@@ -220,6 +221,8 @@ export async function POST(request: NextRequest) {
 
     if (rawItems.length === 0)
       return NextResponse.json(errorResponse("La compra no tiene productos."), { status: 400 });
+    if (rawItems.length > MAX_ITEMS_COMPRA)
+      return NextResponse.json(errorResponse(mensajeTopeCompra()), { status: 400 });
 
     // fecha_factura: acepta 'YYYY-MM-DD' del form; ignora cualquier otro formato.
     const fechaFacturaRaw = body.fecha_factura;

@@ -12,6 +12,9 @@ type Sucursal = {
   activa: boolean;
   establecimiento: string | null;
   punto_expedicion: string | null;
+  /** Lo que sale en el membrete de sus documentos (script 91). */
+  direccion?: string | null;
+  telefono?: string | null;
 };
 
 type UsuarioItem = { id: string; nombre: string | null; email: string | null };
@@ -96,11 +99,18 @@ export default function ConfiguracionSucursalesPage() {
     if (establecimiento == null) return;
     const punto = window.prompt("Punto de expedición (ej. 002):", s.punto_expedicion ?? "");
     if (punto == null) return;
+    // Lo que sale en los documentos de esta sucursal. Vacío = los de la casa central.
+    const direccion = window.prompt("Dirección que sale en los documentos de esta sucursal (vacío = la de la casa central):", s.direccion ?? "");
+    if (direccion == null) return;
+    const telefono = window.prompt("Teléfono que sale en los documentos (vacío = el de la casa central):", s.telefono ?? "");
+    if (telefono == null) return;
     await patch(s.id, {
       nombre: nombre.trim(),
       codigo: codigo.trim().toUpperCase(),
       establecimiento: establecimiento.trim() || null,
       punto_expedicion: punto.trim() || null,
+      direccion: direccion.trim() || null,
+      telefono: telefono.trim() || null,
     });
   }
 
@@ -212,6 +222,11 @@ export default function ConfiguracionSucursalesPage() {
                   <td className="px-4 py-2 font-medium">
                     {s.nombre}
                     {s.es_principal && <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Principal</span>}
+                    {(s.direccion || s.telefono) && (
+                      <span className="block text-[11px] font-normal text-slate-500">
+                        En los documentos: {[s.direccion, s.telefono].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-slate-500">
                     {(s.establecimiento ?? "—")} / {(s.punto_expedicion ?? "—")}

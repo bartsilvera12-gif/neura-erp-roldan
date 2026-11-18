@@ -3,6 +3,8 @@ import { resolverCtx } from "../../_ctx";
 import { getTransferenciaDetalle } from "@/lib/transferencias/server/transferencias-queries";
 import { membreteA4, EMPRESA_DOC } from "@/lib/documentos/membrete";
 import { hojaSobria } from "@/lib/documentos/hoja-sobria";
+import { htmlConSucursal } from "@/lib/documentos/server/membrete-sucursal";
+import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 
 export const dynamic = "force-dynamic";
 
@@ -107,5 +109,8 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   .transporte { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 9.5px; color: #3F3F46; }
 `,
   });
-  return new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  // La remisión sale con la dirección de la sucursal que despacha.
+  const sbDoc = await getTenantSupabaseFromAuth(request);
+  const htmlFinal = sbDoc ? await htmlConSucursal(sbDoc.supabase, String(cab.sucursal_origen_id ?? "") || r.ctx.sucursalId, html) : html;
+  return new NextResponse(htmlFinal, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

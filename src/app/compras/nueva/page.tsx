@@ -18,6 +18,7 @@ import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib
 import { Check } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import { aGuaranies } from "@/lib/moneda";
+import { MAX_ITEMS_COMPRA, mensajeTopeCompra } from "@/lib/compras/tope";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -421,6 +422,7 @@ export default function NuevaCompraPage() {
       return setErrorLinea("Cargá el tipo de cambio (USD → Gs.) en la cabecera.");
     const prod = productos.find((p) => p.id === nl.producto_id);
     if (!prod) return setErrorLinea("Producto no encontrado. Recargá e intentá de nuevo.");
+    if (lineas.length >= MAX_ITEMS_COMPRA) return setErrorLinea(mensajeTopeCompra());
 
     // Roldán e Hijos: la orden de compra no pide lote. No validamos ni guardamos lote acá.
     const prodCtrlLote = false;
