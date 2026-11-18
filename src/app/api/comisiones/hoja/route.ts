@@ -78,6 +78,9 @@ export async function GET(request: NextRequest) {
       : hasta ? `hasta el ${fechaPy(`${hasta}T12:00:00Z`)}`
       : "todo el historial";
 
+    // La ganancia de cada venta NO va en la hoja (pedido del cliente): el
+    // vendedor se lleva este papel, y la ganancia es información de la casa.
+    // La comisión se sigue calculando igual; solo no se imprime.
     const filas = informe.ventas.map((v) => `
       <tr>
         <td class="n">${esc(v.numero_control)}</td>
@@ -85,7 +88,6 @@ export async function GET(request: NextRequest) {
         <td>${esc(v.cliente_nombre ?? "Consumidor final")}</td>
         <td class="m">${gs(v.facturado)}</td>
         <td class="m">${v.descuento > 0 ? gs(v.descuento) : "—"}</td>
-        <td class="m">${gs(v.ganancia)}</td>
         <td class="m b">${gs(v.comision)}</td>
       </tr>`).join("");
 
@@ -159,20 +161,19 @@ export async function GET(request: NextRequest) {
 
   <table>
     <thead>
-      <tr class="aire"><td colspan="7"></td></tr>
+      <tr class="aire"><td colspan="6"></td></tr>
       <tr>
         <th>Comprobante</th>
         <th>Fecha</th>
         <th>Cliente</th>
         <th class="m">Vendido</th>
         <th class="m">Descuento</th>
-        <th class="m">Ganancia</th>
         <th class="m">Comisión</th>
       </tr>
     </thead>
-    <tfoot><tr class="aire"><td colspan="7"></td></tr></tfoot>
+    <tfoot><tr class="aire"><td colspan="6"></td></tr></tfoot>
     <tbody>
-      ${filas || `<tr><td colspan="7" style="text-align:center;padding:16px">Sin ventas en el período.</td></tr>`}
+      ${filas || `<tr><td colspan="6" style="text-align:center;padding:16px">Sin ventas en el período.</td></tr>`}
     </tbody>
   </table>
 
@@ -181,7 +182,6 @@ export async function GET(request: NextRequest) {
       <tr><td>Operaciones</td><td class="m">${informe.totales.operaciones}</td></tr>
       <tr><td>Vendido (sin IVA)</td><td class="m">${gs(informe.totales.facturado)}</td></tr>
       <tr><td>Descuentos otorgados</td><td class="m">${gs(informe.totales.descuento)}</td></tr>
-      <tr><td>Ganancia generada</td><td class="m">${gs(informe.totales.ganancia)}</td></tr>
       ${vd && vd.minimo_ventas != null ? (
         vd.llego_al_minimo === false
           ? `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — no alcanzado</td></tr>
@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
 
   <p class="nota">
     La comisión se calcula ${informe.base_calculo === "margen"
-      ? "sobre la ganancia de cada venta (precio sin IVA menos costo), así que un descuento la reduce en la misma proporción en que reduce la rentabilidad"
+      ? "sobre la ganancia de cada venta, así que un descuento la reduce en la misma proporción en que reduce la rentabilidad"
       : "sobre el importe vendido sin IVA"}.
     Las ventas anuladas no se incluyen. Los importes son sin IVA.
   </p>
