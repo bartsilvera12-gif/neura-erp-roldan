@@ -8,6 +8,8 @@ import type { Producto } from "@/lib/inventario/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { aUsd, markupDesdePrecio, precioConDescuento } from "@/lib/precios/ficha";
 import { topeDeLista } from "@/lib/precios/tope-descuento";
+import HistorialProducto from "@/components/inventario/HistorialProducto";
+import { useFacultades } from "@/lib/perfiles/use-facultades";
 
 interface CatRow { id: string; nombre: string; descuento_pct?: number | null }
 interface UbiRow { id: string; nombre: string; tipo: string }
@@ -37,6 +39,9 @@ export default function DetalleProductoPage() {
   const params = useParams();
   const id = (params?.id as string) ?? "";
   const { isAdmin } = useIsAdmin();
+  // Costo, costo en dólares y remarcación: solo con «Ver costos» en el perfil.
+  const { tiene, cargando: cargandoFacultades } = useFacultades();
+  const verCostos = !cargandoFacultades && tiene("ver_costos");
 
   const [producto, setProducto] = useState<Producto | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -174,7 +179,7 @@ export default function DetalleProductoPage() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Precios</h2>
-            <DatoFila label="Costo promedio">{formatGs(producto.costo_promedio)}</DatoFila>
+            {verCostos && <DatoFila label="Costo promedio">{formatGs(producto.costo_promedio)}</DatoFila>}
             {mostrarPrecioVenta && <DatoFila label="Precio de venta (minorista)">{formatGs(producto.precio_venta)}</DatoFila>}
             {mostrarPrecioVenta && <DatoFila label="Precio mayorista">{formatGs(producto.precio_mayorista)}</DatoFila>}
             {mostrarPrecioVenta && producto.cantidad_minima_mayorista != null && (
@@ -186,7 +191,7 @@ export default function DetalleProductoPage() {
                 en dólares con el que compró, la remarcación que le aplicó y el
                 descuento que termina saliendo en la venta. Se muestra acá para
                 no tener que entrar a editar el producto solo para mirarlo. */}
-            <DatoFila label="Costo en dólares">
+            {verCostos && <DatoFila label="Costo en dólares">
               {producto.costo_usd != null && Number(producto.costo_usd) > 0
                 ? `US$ ${Number(producto.costo_usd).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
                 : "—"}
@@ -195,8 +200,8 @@ export default function DetalleProductoPage() {
                   Equivale a US$ {(aUsd(producto.costo_promedio, cotizacionVenta) ?? 0).toLocaleString("es-PY", { maximumFractionDigits: 2 })} al cambio de hoy
                 </span>
               )}
-            </DatoFila>
-            {mostrarPrecioVenta && (
+            </DatoFila>}
+            {mostrarPrecioVenta && verCostos && (
               <DatoFila label="Remarcación sobre el costo">
                 {remarcacion != null ? `${remarcacion.toLocaleString("es-PY", { maximumFractionDigits: 2 })} %` : "—"}
                 {producto.markup_pct != null && remarcacion != null && Math.abs(Number(producto.markup_pct) - remarcacion) >= 0.5 && (
@@ -269,6 +274,9 @@ export default function DetalleProductoPage() {
           </div>
         </div>
       </div>
+
+      {/* Precio por tipo de cliente e historial completo del producto. */}
+      <HistorialProducto productoId={producto.id} />
     </div>
   );
 }
