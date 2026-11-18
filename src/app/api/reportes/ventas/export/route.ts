@@ -7,11 +7,14 @@ import { asuncionMesBoundsUtc, normalizarMes, mesLabelLargo } from "@/lib/fechas
 import { xlsxResponseHeaders } from "@/lib/excel/export";
 import { buildXlsxEstiladoMulti, hoja, formatearGs, formatearCantidad } from "@/lib/excel/estilo";
 import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 const TP_LABEL: Record<string, string> = { minorista: "Minorista", mayorista: "Mayorista", distribuidor: "Distribuidor", costo: "Al costo" };
 
 /** GET /api/reportes/ventas/export?mes=YYYY-MM → XLSX (Resumen + Por tipo de precio + Por producto + Ventas + Items). */
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "ventas");
+  if (bloqueo) return bloqueo;
   const ctx = await getTenantSupabaseFromAuth(request);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
   try {

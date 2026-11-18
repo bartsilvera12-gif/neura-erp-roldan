@@ -15,6 +15,7 @@ import {
   isUsuariosOmnicanalTenantUnavailableError,
   sanitizePostgrestErrorForLog,
 } from "@/lib/chat/postgrest-schema-error";
+import { soloReportesConocidos } from "@/lib/reportes/permisos-reportes";
 
 const ERP_ROLES = ["usuario", "supervisor", "administrador"] as const;
 
@@ -283,6 +284,17 @@ export async function GET(
 
     const es_admin_empresa = esRolAdminEmpresa(usuario.rol);
 
+    // Qué reportes ve (script 90). `reportes_disponible` = false sin la columna.
+    let reportes_permitidos: string[] = [];
+    let reportes_disponible = false;
+    {
+      const rq = await supabase.from("usuarios").select("reportes_permitidos").eq("id", id).maybeSingle();
+      if (!rq.error) {
+        reportes_disponible = true;
+        reportes_permitidos = soloReportesConocidos((rq.data as { reportes_permitidos?: unknown } | null)?.reportes_permitidos);
+      }
+    }
+
     const puede_editar_modulos =
       (currentUser?.rol ?? "").trim() === "super_admin" ||
       ["admin", "administrador"].includes((currentUser?.rol ?? "").trim());
@@ -310,6 +322,8 @@ export async function GET(
       omnicanal,
       perfil_id,
       perfiles_empresa,
+      reportes_permitidos,
+      reportes_disponible,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error";
@@ -475,6 +489,18 @@ export async function PATCH(
         }
         updates.perfil_id = pid;
       }
+    }
+
+    /**
+     * Qué reportes ve (script 90). Lo decide quien decide el rol: es
+     * información de la empresa (ganancias, márgenes) y repartirla es
+     * cosa de administración.
+     */
+    if (Object.prototype.hasOwnProperty.call(body, "reportes_permitidos")) {
+      if (!puede_editar_rol) {
+        return NextResponse.json({ error: "Los reportes de un usuario los asigna un administrador." }, { status: 403 });
+      }
+      updates.reportes_permitidos = soloReportesConocidos(body.reportes_permitidos);
     }
 
     if (estado !== undefined && authUserId) {

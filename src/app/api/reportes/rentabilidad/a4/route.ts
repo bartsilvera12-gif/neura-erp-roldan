@@ -9,6 +9,7 @@ import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
 import type { AgruparRentabilidad } from "@/lib/reportes/rentabilidad-types";
 import { htmlUtilidadA4, TOP_PRODUCTOS } from "@/lib/reportes/server/utilidad-a4";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/rentabilidad/a4 — utilidad del período para imprimir (10.1).
@@ -31,6 +32,8 @@ import { htmlUtilidadA4, TOP_PRODUCTOS } from "@/lib/reportes/server/utilidad-a4
  */
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "rentabilidad");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

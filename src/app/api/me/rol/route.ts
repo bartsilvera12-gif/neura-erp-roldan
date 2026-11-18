@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { descuentoMaximoDe } from "@/lib/ventas/server/descuento-maximo";
 import { facultadesDeUsuario } from "@/lib/perfiles/server/facultades-usuario";
+import { reportesPermitidosDe } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/me/rol — devuelve {rol, isAdmin, descuentoMaximo}. Usado por la UI
@@ -31,10 +32,13 @@ export async function GET(request: NextRequest) {
   // de dónde salen los precios que están mostrando. Cada usuario ve solo su
   // sucursal, pero eso no se veía en ningún lado.
   let sucursalNombre: string | null = null;
+  // Qué reportes ve (script 90): "todos" o la lista tildada en su ficha.
+  let reportes: string[] | "todos" = isAdmin(auth) ? "todos" : [];
   try {
     const sb = await createServiceRoleClientForEmpresa(auth.empresa_id);
     descuentoMaximo = await descuentoMaximoDe(sb, auth.empresa_id, auth.usuarioCatalogId);
     facultades = [...(await facultadesDeUsuario(sb, auth))];
+    reportes = await reportesPermitidosDe(sb, auth);
     if (auth.sucursal_id) {
       const r = await sb
         .from("sucursales")
@@ -53,6 +57,7 @@ export async function GET(request: NextRequest) {
     rol: auth.rol ?? null,
     isAdmin: isAdmin(auth),
     facultades,
+    reportes,
     descuentoMaximo,
     sucursal_nombre: sucursalNombre,
   }));

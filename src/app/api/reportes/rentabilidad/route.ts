@@ -8,6 +8,7 @@ import { getRentabilidad } from "@/lib/reportes/server/reportes-pg";
 import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
 import type { RentabilidadReporte, AgruparRentabilidad } from "@/lib/reportes/rentabilidad-types";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/rentabilidad
@@ -20,6 +21,8 @@ import type { RentabilidadReporte, AgruparRentabilidad } from "@/lib/reportes/re
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "rentabilidad");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

@@ -9,6 +9,7 @@ import { getUtilidadDetalle } from "@/lib/reportes/server/mes-detalle-pg";
 import { xlsxResponseHeaders } from "@/lib/excel/export";
 import { buildXlsxEstiladoMulti, hoja, formatearGs, type ColumnaEstilada } from "@/lib/excel/estilo";
 import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/rentabilidad/export → XLSX de utilidad por período
@@ -65,6 +66,8 @@ const COLS_COMUNES: ColumnaEstilada<FilaRent>[] = [
 ];
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "rentabilidad");
+  if (bloqueo) return bloqueo;
   const ctx = await getTenantSupabaseFromAuth(request);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
   try {

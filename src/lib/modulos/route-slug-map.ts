@@ -25,7 +25,9 @@ const SIDEBAR_SLUG_HREF_ORDER: { slug: string; href: string }[] = [
   { slug: "cierres-caja", href: "/reportes/cajas" },
   { slug: "reportes", href: "/reportes" },
   { slug: "productos-a-vencer", href: "/reportes/productos-a-vencer" },
-  { slug: "pagos", href: "/pagos" },
+  // Cobranzas es un módulo aparte de Pagos (script 90, pedido del cliente).
+  { slug: "cobranzas", href: "/cobranzas" },
+  { slug: "pagos", href: "/pagos/proveedores" },
   { slug: "comisiones", href: "/comisiones" },
   { slug: "notas_credito", href: "/notas-credito" },
   { slug: "usuarios", href: "/usuarios" },
@@ -94,6 +96,8 @@ export function isModuleSlugGranted(
     return true;
   }
   if (routeSlug === "gestion-clientes" && grantedSlugs.has("clientes")) return true;
+  // Las cobranzas eran parte de Pagos: quien tiene Pagos las sigue viendo.
+  if (routeSlug === "cobranzas" && grantedSlugs.has("pagos")) return true;
   if (routeSlug === "notas_credito" && grantedSlugs.has("ventas")) return true;
   return false;
 }
@@ -223,6 +227,8 @@ export function pathRequiresModuleSlug(pathname: string): string | null {
   // entrar solo acá. Quien tiene `reportes` completo también entra: lo
   // resuelve `isModuleSlugGranted`.
   if (p.startsWith("/reportes/cajas")) return "cierres-caja";
+  // El reporte de cobranzas es del módulo Cobranzas, no de la reportería.
+  if (p.startsWith("/reportes/cobranzas") || p.startsWith("/cobranzas") || p.startsWith("/cobros")) return "cobranzas";
   if (p.startsWith("/reportes")) return "reportes";
   if (p.startsWith("/pagos")) return "pagos";
   if (p.startsWith("/comisiones")) return "comisiones";

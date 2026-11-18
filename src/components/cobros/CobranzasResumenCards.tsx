@@ -45,7 +45,7 @@ export default function CobranzasResumenCards() {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-700">Cobranzas (cuentas por cobrar)</h3>
-        <Link href="/pagos" className="text-xs font-medium text-[#4FAEB2] hover:underline">Ver Pagos →</Link>
+        <Link href="/cobranzas" className="text-xs font-medium text-[#4FAEB2] hover:underline">Ver Cobranzas →</Link>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => (

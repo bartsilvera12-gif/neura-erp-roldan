@@ -7,6 +7,7 @@ import { asuncionMesBoundsUtc, normalizarMes, mesLabelLargo } from "@/lib/fechas
 import { xlsxResponseHeaders } from "@/lib/excel/export";
 import { buildXlsxEstiladoMulti, hoja, formatearGs, formatearCantidad } from "@/lib/excel/estilo";
 import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 const METODO: Record<string, string> = {
   efectivo: "Efectivo", transferencia: "Transferencia", tarjeta: "Tarjeta",
@@ -16,6 +17,8 @@ const metodoLabel = (m: string | null) => (m ? METODO[m] ?? m : "");
 
 /** GET /api/reportes/conciliacion/export?mes=YYYY-MM → XLSX (Resumen + Por método + Por entidad + Movimientos). */
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "conciliacion");
+  if (bloqueo) return bloqueo;
   const ctx = await getTenantSupabaseFromAuth(request);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
   try {

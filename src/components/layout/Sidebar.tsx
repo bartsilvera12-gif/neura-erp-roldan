@@ -35,6 +35,7 @@ import {
   Utensils,
   BarChart3,
   Banknote,
+  HandCoins,
   ArrowLeftRight,
   Briefcase,
   AlertTriangle,
@@ -203,14 +204,27 @@ const MENU_STRUCTURE: MenuItem[] = [
       { label: "Categorías", href: "/clientes/categorias" },
     ],
   },
+  // Cobranzas es un módulo aparte de Pagos (pedido del cliente, script 90):
+  // lo que deben los clientes de un lado, lo que se les paga a los
+  // proveedores del otro.
+  {
+    key: "cobranzas",
+    slug: "cobranzas",
+    label: "Cobranzas",
+    href: "/cobranzas",
+    icon: HandCoins,
+    children: [
+      { label: "Cuentas por cobrar", href: "/cobranzas", exactMatch: true },
+      { label: "Reporte de cobranzas", href: "/reportes/cobranzas" },
+    ],
+  },
   {
     key: "pagos",
     slug: "pagos",
     label: "Pagos",
-    href: "/pagos",
+    href: "/pagos/proveedores",
     icon: Banknote,
     children: [
-      { label: "Cobros a clientes", href: "/pagos", exactMatch: true },
       { label: "Pagos a proveedores", href: "/pagos/proveedores" },
       // La orden de pago (varias facturas en un cheque) está adentro de Pagos
       // a proveedores, en la pestaña "Armar pago": no lleva ítem propio.
@@ -393,7 +407,7 @@ const MENU_STRUCTURE: MenuItem[] = [
 const MENU_FAMILIES: { id: string; titulo: string; keys: string[] }[] = [
   { id: "inicio", titulo: "Inicio", keys: ["dashboard"] },
   { id: "comercial", titulo: "Comercial", keys: ["clientes", "crm", "gestion-clientes", "ventas", "ordenes_venta", "presupuestos", "comisiones", "planes"] },
-  { id: "finanzas", titulo: "Finanzas", keys: ["pagos", "gastos", "notas_credito", "contabilidad", "reportes", "cierres-caja", "productos-a-vencer"] },
+  { id: "finanzas", titulo: "Finanzas", keys: ["cobranzas", "pagos", "gastos", "notas_credito", "contabilidad", "reportes", "cierres-caja", "productos-a-vencer"] },
   { id: "operaciones", titulo: "Operaciones", keys: ["inventario", "reposicion", "notas_remision", "compras", "proveedores", "recetas", "proyectos"] },
   { id: "omnicanal", titulo: "Omnicanal", keys: ["conversaciones", "conversaciones-finalizadas", "historial-omnicanal", "monitoreo", "campanas"] },
   { id: "marketing", titulo: "Marketing y Automatización", keys: ["marketing", "marketing_ops", "sorteos"] },

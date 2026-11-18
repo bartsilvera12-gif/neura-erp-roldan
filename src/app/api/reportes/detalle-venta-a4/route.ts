@@ -3,6 +3,7 @@ import { traerTodas } from "@/lib/supabase/traer-todo";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { EMPRESA_DOC, membreteLinea } from "@/lib/documentos/membrete";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/detalle-venta-a4?desde=&hasta=
@@ -32,6 +33,8 @@ function fechaHoraPy(iso?: string | null): string {
 const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "historial-ventas");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return new NextResponse("No autorizado", { status: 401 });

@@ -6,12 +6,15 @@ import { API_ERRORS } from "@/lib/api/errors";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { getVentasAnual } from "@/lib/reportes/server/ventas-anual-pg";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/ventas-anual?anio=YYYY — Historial de ventas del año, mes
  * por mes. La utilidad y el costo solo van para quien puede ver costos.
  */
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "ventas");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

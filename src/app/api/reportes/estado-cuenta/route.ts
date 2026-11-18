@@ -6,9 +6,12 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { getEstadoCuenta } from "@/lib/reportes/server/reportes-pg";
 import { asuncionMesBoundsUtc, normalizarMes } from "@/lib/fechas/asuncion-bounds";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /** GET /api/reportes/estado-cuenta?mes=YYYY-MM */
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "estado-cuenta");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

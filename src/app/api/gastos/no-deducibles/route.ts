@@ -7,6 +7,7 @@ import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/fi
 import {
   clasificarGasto, reclamables, resumirNoDeducibles, type GastoParaRevisar,
 } from "@/lib/gastos/deducible";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/gastos/no-deducibles?desde=2026-10-01&hasta=2026-10-31
@@ -35,6 +36,8 @@ const fechaValida = (s: string | null): string | null =>
   s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "gastos-no-deducibles");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

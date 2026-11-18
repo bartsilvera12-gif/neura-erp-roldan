@@ -2,10 +2,18 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
+import { useRolErp } from "@/lib/auth/use-rol-erp";
+import { puedeVerReporte } from "@/lib/reportes/permisos-reportes";
 import { ArrowLeftRight, Banknote, FileArchive, FileWarning, HandCoins, History, Landmark, Package, ShieldAlert, ShoppingCart, Target, TrendingUp, Truck, Users, Wallet } from "lucide-react";
 
 /** Hub de reportería operativa (Fase 1: Estado de cuenta + Proveedores). */
 export default function ReportesPage() {
+  // Qué reportes ve este usuario (script 90): la administración, todos; el
+  // resto, los que le tildaron en su ficha. Los que no aparecen no se pueden
+  // abrir tampoco escribiendo la dirección.
+  const { reportes, loaded } = useRolErp();
+  const ver = (clave: string) => puedeVerReporte(clave, reportes);
+  const ninguno = loaded && reportes !== "todos" && reportes.length === 0;
   return (
     <div className="space-y-8">
       <PageHeader
@@ -14,7 +22,14 @@ export default function ReportesPage() {
         description="Panel de análisis y reportería operativa"
       />
 
+      {ninguno && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Tu usuario todavía no tiene reportes habilitados. Un administrador los asigna desde tu ficha de usuario.
+        </div>
+      )}
+
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+        {ver("paquete-mensual") && (
         <li>
           <ReportCard
             title="Paquete mensual"
@@ -24,6 +39,8 @@ export default function ReportesPage() {
             href="/reportes/paquete-mensual"
           />
         </li>
+        )}
+        {ver("historial-ventas") && (
         <li>
           <ReportCard
             title="Ventas"
@@ -33,6 +50,8 @@ export default function ReportesPage() {
             href="/reportes/historial-ventas"
           />
         </li>
+        )}
+        {ver("modificaciones") && (
         <li>
           <ReportCard
             title="Modificaciones administrativas"
@@ -42,6 +61,8 @@ export default function ReportesPage() {
             href="/reportes/modificaciones"
           />
         </li>
+        )}
+        {ver("ganancias") && (
         <li>
           <ReportCard
             title="Ganancias"
@@ -51,6 +72,8 @@ export default function ReportesPage() {
             href="/reportes/ganancias"
           />
         </li>
+        )}
+        {ver("rentabilidad") && (
         <li>
           <ReportCard
             title="Rentabilidad"
@@ -60,6 +83,8 @@ export default function ReportesPage() {
             href="/reportes/rentabilidad"
           />
         </li>
+        )}
+        {ver("vendedores") && (
         <li>
           <ReportCard
             title="Ventas por vendedor"
@@ -69,15 +94,8 @@ export default function ReportesPage() {
             href="/reportes/vendedores"
           />
         </li>
-        <li>
-          <ReportCard
-            title="Cobranzas"
-            subtitle="Qué se cobró y con qué comprobante"
-            icon={HandCoins}
-            description="Cliente, factura cobrada, fecha, importe, medio de pago y comprobante, con filtros por cliente, fecha y medio. Los anulados se muestran y no suman."
-            href="/reportes/cobranzas"
-          />
-        </li>
+        )}
+        {ver("flujo-caja") && (
         <li>
           <ReportCard
             title="Flujo de caja"
@@ -87,6 +105,8 @@ export default function ReportesPage() {
             href="/reportes/flujo-caja"
           />
         </li>
+        )}
+        {ver("estado-cuenta") && (
         <li>
           <ReportCard
             title="Estado de cuenta"
@@ -96,6 +116,8 @@ export default function ReportesPage() {
             href="/reportes/estado-cuenta"
           />
         </li>
+        )}
+        {ver("ventas") && (
         <li>
           <ReportCard
             title="Historial de ventas"
@@ -105,6 +127,8 @@ export default function ReportesPage() {
             href="/reportes/ventas"
           />
         </li>
+        )}
+        {ver("compras") && (
         <li>
           <ReportCard
             title="Compras"
@@ -114,6 +138,8 @@ export default function ReportesPage() {
             href="/reportes/compras"
           />
         </li>
+        )}
+        {ver("proveedores") && (
         <li>
           <ReportCard
             title="Proveedores"
@@ -123,6 +149,8 @@ export default function ReportesPage() {
             href="/reportes/proveedores"
           />
         </li>
+        )}
+        {ver("tesoreria") && (
         <li>
           <ReportCard
             title="Tesorería por cuenta"
@@ -132,6 +160,8 @@ export default function ReportesPage() {
             href="/reportes/tesoreria"
           />
         </li>
+        )}
+        {ver("conciliacion") && (
         <li>
           <ReportCard
             title="Conciliación bancaria"
@@ -141,6 +171,8 @@ export default function ReportesPage() {
             href="/reportes/conciliacion"
           />
         </li>
+        )}
+        {ver("ingresos-egresos") && (
         <li>
           <ReportCard
             title="Ingresos y egresos"
@@ -150,6 +182,8 @@ export default function ReportesPage() {
             href="/reportes/ingresos-egresos"
           />
         </li>
+        )}
+        {ver("gastos-no-deducibles") && (
         <li>
           <ReportCard
             title="Gastos sin factura"
@@ -159,6 +193,8 @@ export default function ReportesPage() {
             href="/reportes/gastos-no-deducibles"
           />
         </li>
+        )}
+        {ver("cajas") && (
         <li>
           <ReportCard
             title="Cierres de caja"
@@ -168,6 +204,7 @@ export default function ReportesPage() {
             href="/reportes/cajas"
           />
         </li>
+        )}
       </ul>
     </div>
   );

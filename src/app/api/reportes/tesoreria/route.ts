@@ -8,11 +8,14 @@ import { getTesoreria } from "@/lib/reportes/server/reportes-pg";
 import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
 import type { TesoreriaReporte } from "@/lib/reportes/tesoreria-types";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /** GET /api/reportes/tesoreria?tipo=...&(fecha|semana|mes|trimestre|anio|desde&hasta) */
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "tesoreria");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

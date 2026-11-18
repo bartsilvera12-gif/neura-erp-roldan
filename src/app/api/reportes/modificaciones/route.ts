@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 const FALTA_TABLA = "Falta correr 48_modificaciones_administrativas.sql.";
 const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,6 +16,8 @@ const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
  * control en material de pasillo.
  */
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "modificaciones");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

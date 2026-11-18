@@ -20,6 +20,7 @@ import { numeroDecimal } from "@/lib/numeros/decimal";
 
 import { BarChart3, Briefcase, KeyRound, MessageSquare, Package, ShieldCheck, User } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import { REPORTES } from "@/lib/reportes/permisos-reportes";
 
 type ModuloOpt = { id: string; nombre: string; slug: string };
 
@@ -47,6 +48,9 @@ type Usuario = {
   /** El perfil asignado y los que hay para elegir (script 63). */
   perfil_id?: string | null;
   perfiles_empresa?: { id: string; nombre: string }[];
+  /** Qué reportes ve (script 90). */
+  reportes_permitidos?: string[];
+  reportes_disponible?: boolean;
   puede_editar_rol?: boolean;
   es_admin_empresa?: boolean;
   omnicanal?: {
@@ -154,6 +158,8 @@ function UsuarioDetailContent() {
    * usuario se crea primero y se le asigna después, mirando la ficha.
    */
   const [perfilId, setPerfilId] = useState<string>("");
+  /** Los reportes tildados para este usuario (script 90). */
+  const [reportesSel, setReportesSel] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   // Auto-clear a 5s. Reemplaza setTimeout(() => setSuccessMessage(null), 5000) inseguro.
   const [successMessage, setSuccessMessage] = useAutoClearFlag<string>(5000);
@@ -187,6 +193,7 @@ function UsuarioDetailContent() {
         setUsuario(u);
         setForm(usuarioToForm(u));
         setPerfilId(u.perfil_id ?? "");
+        setReportesSel(Array.isArray(u.reportes_permitidos) ? u.reportes_permitidos : []);
         if (u.omnicanal) {
           setOmniAgent(Boolean(u.omnicanal.agent_enabled));
           setOmniScheduleId(u.omnicanal.work_schedule_id ?? "");
@@ -269,6 +276,8 @@ function UsuarioDetailContent() {
         // Vacío = sacarle el perfil, con lo cual vuelve a regirse por su
         // nivel. Es una decisión válida y distinta de "no se tocó".
         body.perfil_id = perfilId;
+        // Los reportes: solo si la base ya tiene dónde guardarlos.
+        if (usuario.reportes_disponible && !usuario.es_admin_empresa) body.reportes_permitidos = reportesSel;
       }
       if (usuario.puede_editar_modulos && !usuario.es_admin_empresa) {
         body.modulo_ids = form.modulo_ids;
@@ -659,6 +668,43 @@ function UsuarioDetailContent() {
                 Sin perfil, el usuario mantiene exactamente las facultades que le daba su nivel
                 hasta hoy. El perfil no se suma al nivel: lo reemplaza.
               </p>
+            </SectionCard>
+          )}
+
+          {usuario.reportes_disponible && (
+            <SectionCard title="Reportes que puede ver" icon={<BarChart3 className="h-4 w-4" />}>
+              {usuario.es_admin_empresa ? (
+                <p className="text-xs text-gray-500">Es administrador: ve todos los reportes.</p>
+              ) : (
+                <>
+                  <p className="mb-3 text-xs leading-snug text-gray-500">
+                    Ve solo los que estén tildados. Sin ninguno tildado, no ve reportes. Además tiene que
+                    tener el módulo Reportes.
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {REPORTES.map((r) => (
+                      <label key={r.clave} className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          disabled={!usuario.puede_editar_rol}
+                          checked={reportesSel.includes(r.clave)}
+                          onChange={(e) =>
+                            setReportesSel((prev) => (e.target.checked ? [...prev, r.clave] : prev.filter((x) => x !== r.clave)))
+                          }
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        {r.nombre}
+                      </label>
+                    ))}
+                  </div>
+                  {usuario.puede_editar_rol && (
+                    <div className="mt-2 flex gap-3 text-[11px]">
+                      <button type="button" onClick={() => setReportesSel(REPORTES.map((r) => r.clave))} className="text-sky-600 hover:underline">Tildar todos</button>
+                      <button type="button" onClick={() => setReportesSel([])} className="text-sky-600 hover:underline">Ninguno</button>
+                    </div>
+                  )}
+                </>
+              )}
             </SectionCard>
           )}
 

@@ -13,6 +13,7 @@ import {
 import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
 import type { GananciasReporte, GananciasPeriodo, Segmento } from "@/lib/reportes/ganancias-types";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/ganancias
@@ -33,6 +34,8 @@ function boundsDe(rango: { desde: string; hasta: string }): GananciasBounds {
 }
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "ganancias");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

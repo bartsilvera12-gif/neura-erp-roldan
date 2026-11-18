@@ -15,6 +15,7 @@ import {
   pathRequiresModuleSlug,
 } from "@/lib/modulos/route-slug-map";
 import { slugsEfectivosPorRol } from "@/lib/roles/erp-role-access";
+import { claveDeRutaReporte, puedeVerReporte } from "@/lib/reportes/permisos-reportes";
 
 const PUBLIC_ROUTES = ["/login"];
 /**
@@ -33,6 +34,8 @@ type ModuleAccess = {
   slugs: Set<string>;
   inactiveSlugs: Set<string>;
   strict: boolean;
+  /** Qué reportes ve (script 90). "todos" = administración o sin configurar. */
+  reportes: string[] | "todos";
 };
 
 /**
@@ -106,6 +109,8 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
       // externo y las órdenes de venta). Si la lectura falla queda vacío y
       // rige la veda del nivel, que es lo de siempre.
       let facultades: string[] = [];
+      // Si la lectura falla no se recorta: la API de cada reporte igual controla.
+      let reportes: string[] | "todos" = "todos";
       if (!superAdmin) {
         try {
           const cu = await getCurrentUser();
@@ -121,6 +126,11 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
             if (j?.success && Array.isArray(j.data?.facultades)) {
               facultades = j.data.facultades.filter((f: unknown): f is string => typeof f === "string");
             }
+            if (j?.success) {
+              const rp = j.data?.reportes;
+              if (rp === "todos") reportes = "todos";
+              else if (Array.isArray(rp)) reportes = rp.filter((x: unknown): x is string => typeof x === "string");
+            }
           } catch {
             /* sin facultades: rige el nivel */
           }
@@ -133,6 +143,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
         slugs: superAdmin ? new Set(slugs) : slugsEfectivosPorRol(new Set(slugs), rolErp, facultades),
         inactiveSlugs: new Set(inactiveSlugs),
         strict,
+        reportes,
       });
       setLoading(false);
     }
@@ -188,6 +199,14 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
         return;
       }
       setBlockedSlug(slug);
+      return;
+    }
+    // Un reporte que no le habilitaron (script 90): vuelve al índice, que
+    // muestra solo los suyos.
+    const claveReporte = claveDeRutaReporte(pathname);
+    if (claveReporte && !access.superAdmin && !puedeVerReporte(claveReporte, access.reportes)) {
+      router.replace("/reportes");
+      setBlockedSlug(null);
       return;
     }
     setBlockedSlug(null);

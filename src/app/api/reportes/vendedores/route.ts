@@ -8,6 +8,7 @@ import { getVentasPorVendedor } from "@/lib/reportes/server/vendedores-pg";
 import { resolverPeriodo } from "@/lib/reportes/periodos";
 import { boundsDeRangoYmd } from "@/lib/fechas/asuncion-bounds";
 import type { VendedoresReporte, AgruparVendedor } from "@/lib/reportes/vendedores-types";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/vendedores
@@ -24,6 +25,8 @@ export const dynamic = "force-dynamic";
 const ID_RE = /^[0-9a-fA-F-]{1,40}$|^sin-vendedor$/;
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "vendedores");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

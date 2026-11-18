@@ -7,8 +7,11 @@ import { asuncionMesBoundsUtc, normalizarMes, mesLabelLargo } from "@/lib/fechas
 import { xlsxResponseHeaders } from "@/lib/excel/export";
 import { buildXlsxEstiladoMulti, hoja, formatearGs } from "@/lib/excel/estilo";
 import { datosEmpresaInforme, nombreSucursal } from "@/lib/excel/encabezado";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "estado-cuenta");
+  if (bloqueo) return bloqueo;
   const ctx = await getTenantSupabaseFromAuth(request);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
   try {

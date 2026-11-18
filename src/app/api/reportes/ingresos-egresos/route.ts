@@ -4,6 +4,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { bloqueoReporte } from "@/lib/reportes/server/permisos-reportes";
 
 /**
  * GET /api/reportes/ingresos-egresos — toda la plata que entró y salió en un
@@ -68,6 +69,8 @@ const n = (v: unknown): number => Number(v) || 0;
 const txt = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 export async function GET(request: NextRequest) {
+  const bloqueo = await bloqueoReporte(request, "ingresos-egresos");
+  if (bloqueo) return bloqueo;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

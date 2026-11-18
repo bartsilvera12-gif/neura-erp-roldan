@@ -13,9 +13,11 @@ import { useEffect, useState } from "react";
  * perfil puede abrir una pantalla que el nivel esconde (ver
  * `puedeVerSidebarSlugPorRol`).
  */
-export function useRolErp(): { rol: string | null; facultades: string[]; loaded: boolean } {
+export function useRolErp(): { rol: string | null; facultades: string[]; reportes: string[] | "todos"; loaded: boolean } {
   const [rol, setRol] = useState<string | null>(null);
   const [facultades, setFacultades] = useState<string[]>([]);
+  /** Qué reportes ve (script 90). Mientras carga, ninguno. */
+  const [reportes, setReportes] = useState<string[] | "todos">([]);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let cancel = false;
@@ -29,6 +31,10 @@ export function useRolErp(): { rol: string | null; facultades: string[]; loaded:
         if (j?.success && Array.isArray(j.data?.facultades)) {
           setFacultades(j.data.facultades.filter((f: unknown): f is string => typeof f === "string"));
         }
+        if (j?.success) {
+          const r = j.data?.reportes;
+          setReportes(r === "todos" ? "todos" : Array.isArray(r) ? r.filter((x: unknown): x is string => typeof x === "string") : []);
+        }
         setLoaded(true);
       })
       .catch(() => {
@@ -38,5 +44,5 @@ export function useRolErp(): { rol: string | null; facultades: string[]; loaded:
       cancel = true;
     };
   }, []);
-  return { rol, facultades, loaded };
+  return { rol, facultades, reportes, loaded };
 }
