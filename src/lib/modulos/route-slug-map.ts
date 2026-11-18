@@ -84,6 +84,12 @@ export function isModuleSlugGranted(
    * a todos los que hoy entran.
    */
   if (routeSlug === "cierres-caja" && grantedSlugs.has("reportes")) return true;
+  /**
+   * Las cobranzas eran parte de Pagos y pasaron a su propio módulo (script
+   * 90). Quien tiene Pagos las sigue viendo, también en modo estricto: si no,
+   * hasta correr el script nadie podría registrar un cobro.
+   */
+  if (routeSlug === "cobranzas" && grantedSlugs.has("pagos") && !inactiveSlugs?.has("cobranzas")) return true;
   if (opts?.strict) return false;
   // Paquete legacy: un solo permiso para todo el stack dashboard omnicanal.
   if (grantedSlugs.has("omnicanal") && isOmnicanalDashboardSlug(routeSlug)) return true;
@@ -96,8 +102,6 @@ export function isModuleSlugGranted(
     return true;
   }
   if (routeSlug === "gestion-clientes" && grantedSlugs.has("clientes")) return true;
-  // Las cobranzas eran parte de Pagos: quien tiene Pagos las sigue viendo.
-  if (routeSlug === "cobranzas" && grantedSlugs.has("pagos")) return true;
   if (routeSlug === "notas_credito" && grantedSlugs.has("ventas")) return true;
   return false;
 }
