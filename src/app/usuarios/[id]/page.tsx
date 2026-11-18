@@ -21,6 +21,7 @@ import { numeroDecimal } from "@/lib/numeros/decimal";
 import { BarChart3, Briefcase, KeyRound, MessageSquare, Package, ShieldCheck, User } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import { REPORTES } from "@/lib/reportes/permisos-reportes";
+import IngresosUsuario from "@/components/usuarios/IngresosUsuario";
 
 type ModuloOpt = { id: string; nombre: string; slug: string };
 
@@ -668,6 +669,12 @@ function UsuarioDetailContent() {
                 Sin perfil, el usuario mantiene exactamente las facultades que le daba su nivel
                 hasta hoy. El perfil no se suma al nivel: lo reemplaza.
               </p>
+            </SectionCard>
+          )}
+
+          {usuario.puede_editar_rol && (
+            <SectionCard title="Ingresos: desde qué equipo entra" icon={<KeyRound className="h-4 w-4" />}>
+              <IngresosUsuario usuarioId={id} />
             </SectionCard>
           )}
 

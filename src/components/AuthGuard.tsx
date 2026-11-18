@@ -16,6 +16,7 @@ import {
 } from "@/lib/modulos/route-slug-map";
 import { slugsEfectivosPorRol } from "@/lib/roles/erp-role-access";
 import { claveDeRutaReporte, puedeVerReporte } from "@/lib/reportes/permisos-reportes";
+import { registrarIngresoUnaVez } from "@/lib/usuarios/registrar-ingreso";
 
 const PUBLIC_ROUTES = ["/login"];
 /**
@@ -81,6 +82,10 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       }
+
+      // Desde qué equipo entró (script 92): una vez por inicio de sesión, sin
+      // esperar la respuesta.
+      void registrarIngresoUnaVez(session.access_token);
 
       const { ok, data } = await getModuleAccessCached();
       if (cancelled) return;
