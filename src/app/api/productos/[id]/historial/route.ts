@@ -101,9 +101,12 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       ...(verCostos ? {
         costo_tipeado: c.costo_unitario_original == null ? null : n(c.costo_unitario_original),
         costo_gs: n(c.costo_unitario),
+        // En dólares: lo tipeado si la compra fue en dólares; si fue en
+        // guaraníes, solo cuando quedó guardado el cambio del día (las
+        // compras migradas tienen 1, que no es un cambio).
         costo_usd: String(c.moneda ?? "") === "USD"
           ? n(c.costo_unitario_original)
-          : (n(c.tipo_cambio) > 0 ? n(c.costo_unitario) / n(c.tipo_cambio) : null),
+          : (n(c.tipo_cambio) > 100 ? n(c.costo_unitario) / n(c.tipo_cambio) : null),
         precio_venta: c.precio_venta == null ? null : n(c.precio_venta),
         precio_venta_usd: c.precio_venta_usd == null ? null : n(c.precio_venta_usd),
       } : {}),
@@ -118,9 +121,13 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       : [];
     const cliIds = [...new Set(ventasCab.map((v) => t(v.cliente_id)).filter(Boolean) as string[])];
     const clientes = cliIds.length
-      ? await leer(sb.from("clientes").select("id, empresa, nombre_contacto").eq("empresa_id", emp).in("id", cliIds))
+      ? await leer(sb.from("clientes").select("*").eq("empresa_id", emp).in("id", cliIds))
       : [];
-    const nomCli = new Map(clientes.map((c) => [String(c.id), t(c.empresa) ?? t(c.nombre_contacto) ?? "Cliente"]));
+    // El mismo orden de nombres que el listado de ventas.
+    const nomCli = new Map(clientes.map((c) => [
+      String(c.id),
+      t(c.nombre_facturacion) ?? t(c.empresa) ?? t(c.nombre_contacto) ?? t(c.nombre) ?? "Cliente",
+    ]));
     const cabPorId = new Map(ventasCab.map((v) => [String(v.id), v]));
     const ventasOut = ventasIt
       .map((it) => {
