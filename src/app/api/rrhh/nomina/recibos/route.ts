@@ -87,9 +87,18 @@ type Supa = Awaited<ReturnType<typeof getTenantSupabaseFromAuth>> extends infer 
 async function traerEmpleados(supabase: Supa, empresaId: string, ids: string[]) {
   const con = await supabase
     .from("empleados")
-    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_ingreso_ips, salario_base, salario_ips, ips_sobre_minimo, tipo_periodo, tipo_contrato")
+    .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_ingreso_ips, salario_base, salario_ips, ips_sobre_minimo, tipo_periodo, tipo_contrato, aporta_ips")
     .eq("empresa_id", empresaId)
     .in("id", ids);
+  // Sin el script 94 (aporta_ips) se lee como antes.
+  if (con.error && /aporta_ips/.test(con.error.message ?? "")) {
+    const sin94 = await supabase
+      .from("empleados")
+      .select("id, nombre, documento, afiliacion_ips, categoria_ips, cargo, fecha_ingreso, fecha_ingreso_ips, salario_base, salario_ips, ips_sobre_minimo, tipo_periodo, tipo_contrato")
+      .eq("empresa_id", empresaId)
+      .in("id", ids);
+    if (!sin94.error) return sin94;
+  }
   if (!con.error || !/ips|42703|does not exist/i.test(con.error.message ?? "")) return con;
 
   return supabase
@@ -203,7 +212,7 @@ export async function POST(request: NextRequest) {
         (e.tipo_periodo as string | null) ?? null,
         baseDeclarada,
         // El facturador no aporta al IPS (pedido del cliente).
-        !aportaIps(e.tipo_contrato as string | null)
+        !aportaIps(e.tipo_contrato as string | null, e.aporta_ips as boolean | null | undefined)
       );
 
       const cabecera = {

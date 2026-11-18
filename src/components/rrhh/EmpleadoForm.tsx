@@ -11,7 +11,7 @@ import {
 } from "@/lib/rrhh/horario";
 import type { UsuarioParaVincular } from "@/lib/rrhh/empleado-vinculo";
 import Selector from "@/components/ui/Selector";
-import { TIPOS_CONTRATO, aportaIps } from "@/lib/rrhh/contrato";
+import { TIPOS_CONTRATO, situacionIps, type SituacionIps } from "@/lib/rrhh/contrato";
 
 /**
  * Formulario del empleado: el MISMO para el alta y para la ficha.
@@ -74,6 +74,8 @@ export const FORM_EMPLEADO_VACIO: Record<string, string> = {
   fecha_ingreso_ips: "",
   salario_ips: "",
   ips_sobre_minimo: "",
+  /** "false" = no aporta al IPS (script 94). */
+  aporta_ips: "",
   moneda: "PYG",
   banco: "",
   numero_cuenta: "",
@@ -103,6 +105,7 @@ export function cuerpoDesdeForm(form: Record<string, string>): Record<string, un
     // Vacío es "se le declara el salario real", que no es declarar cero.
     salario_ips: form.salario_ips.trim() === "" ? null : Number(form.salario_ips) || null,
     ips_sobre_minimo: form.ips_sobre_minimo === "true",
+    aporta_ips: form.aporta_ips !== "false",
     fecha_ingreso_ips: form.fecha_ingreso_ips || null,
     tolerancia_minutos: Number(form.tolerancia_minutos) || 0,
     usuario_id: form.usuario_id || null,
@@ -343,12 +346,44 @@ export default function EmpleadoForm({
             Va acá, pegado al salario, porque la pregunta que contesta es
             "de qué número sale el 9%" y esa comparación solo se puede
             hacer con los dos a la vista. */}
-        {!aportaIps(F("tipo_contrato")) ? (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-800">IPS</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-              Es <strong>facturador</strong>: no aporta al IPS. Su recibo sale sin el 9% del trabajador y sin el aporte
-              patronal.
+        {/* Aporta, facturador o sin IPS: a la vista, pegado al salario
+            (pedido del cliente). El facturador queda como tipo de contrato. */}
+        {(() => {
+          const sit = situacionIps(F("tipo_contrato"), F("aporta_ips") === "false" ? false : null);
+          const elegir = (s: SituacionIps) => {
+            if (s === "facturador") { setF("tipo_contrato", "facturador"); setF("aporta_ips", ""); return; }
+            if (F("tipo_contrato") === "facturador") setF("tipo_contrato", "");
+            setF("aporta_ips", s === "sin_ips" ? "false" : "");
+          };
+          return (
+            <div className="mt-4">
+              <label className={labelCls}>IPS</label>
+              <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                {([
+                  ["aporta", "Aporta al IPS", "Se le descuenta el 9% y se paga el patronal"],
+                  ["facturador", "Facturador", "Factura sus servicios: no aporta"],
+                  ["sin_ips", "Sin IPS", "No aporta por otro motivo"],
+                ] as const).map(([v, t, d]) => {
+                  const on = sit === v;
+                  return (
+                    <button key={v} type="button" onClick={() => elegir(v)} aria-pressed={on}
+                      className={`rounded-lg border px-4 py-2.5 text-left transition-colors ${
+                        on ? "border-[#4FAEB2] bg-[#4FAEB2]/10 ring-1 ring-[#4FAEB2]" : "border-slate-200 bg-white hover:border-[#4FAEB2]/50"
+                      }`}>
+                      <span className={`block text-sm font-semibold ${on ? "text-[#2F6E71]" : "text-slate-800"}`}>{t}</span>
+                      <span className="block text-xs text-slate-500">{d}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {situacionIps(F("tipo_contrato"), F("aporta_ips") === "false" ? false : null) !== "aporta" ? (
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[11px] leading-snug text-slate-500">
+              No aporta al IPS: su recibo sale sin el 9% del trabajador y sin el aporte patronal.
             </p>
           </div>
         ) : (

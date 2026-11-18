@@ -154,6 +154,8 @@ export async function POST(request: NextRequest) {
       fecha_ingreso_ips: date("fecha_ingreso_ips"),
       salario_ips: numn("salario_ips"),
       ips_sobre_minimo: bool("ips_sobre_minimo"),
+      // false = no aporta al IPS (script 94). Sin el dato, aporta.
+      aporta_ips: body.aporta_ips === undefined ? true : body.aporta_ips !== false,
       salario_complementario: numv("salario_complementario"),
       costo_hora: numv("costo_hora"),
       moneda,

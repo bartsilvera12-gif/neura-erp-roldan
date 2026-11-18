@@ -90,7 +90,7 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
     // que no es lo mismo que declarar cero.
     ["chofer_km","salario_ips"].forEach(setNumNull);
     ["tolerancia_minutos"].forEach(setNum);
-    ["participa_comisiones","cobrar_con_cheque","excluir_liquidaciones","activo","ips_sobre_minimo"].forEach(setBool);
+    ["participa_comisiones","cobrar_con_cheque","excluir_liquidaciones","activo","ips_sobre_minimo","aporta_ips"].forEach(setBool);
 
     if (body.estado !== undefined) {
       const e = String(body.estado);

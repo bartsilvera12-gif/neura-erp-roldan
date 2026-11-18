@@ -24,17 +24,21 @@ export async function ipsDelEmpleado(
   if (!empleadoId) return { sinIps: false, baseMensual: null };
   let e = await sb
     .from("empleados")
-    .select("salario_base, salario_ips, ips_sobre_minimo, tipo_contrato")
+    .select("salario_base, salario_ips, ips_sobre_minimo, tipo_contrato, aporta_ips")
     .eq("empresa_id", empresaId)
     .eq("id", empleadoId)
     .maybeSingle();
+  if (e.error && /aporta_ips/.test(e.error.message)) {
+    // Sin el script 94.
+    e = await sb.from("empleados").select("salario_base, salario_ips, ips_sobre_minimo, tipo_contrato").eq("empresa_id", empresaId).eq("id", empleadoId).maybeSingle();
+  }
   if (e.error) {
     // Sin las columnas del IPS (script 77) se declara lo que cobra, como antes.
     e = await sb.from("empleados").select("salario_base, tipo_contrato").eq("empresa_id", empresaId).eq("id", empleadoId).maybeSingle();
     if (e.error) return { sinIps: false, baseMensual: null };
   }
   const emp = (e.data ?? {}) as Record<string, unknown>;
-  if (!aportaIps(emp.tipo_contrato as string | null)) return { sinIps: true, baseMensual: null };
+  if (!aportaIps(emp.tipo_contrato as string | null, emp.aporta_ips as boolean | null | undefined)) return { sinIps: true, baseMensual: null };
 
   const pq = await sb.from("rrhh_parametros").select("salario_minimo").eq("empresa_id", empresaId).maybeSingle();
   const minimo = pq.error ? null : (pq.data as { salario_minimo?: number | null } | null)?.salario_minimo ?? null;

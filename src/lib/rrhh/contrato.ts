@@ -14,7 +14,20 @@ export const TIPOS_CONTRATO: ReadonlyArray<readonly [string, string]> = [
   ["facturador", "Facturador (sin IPS)"],
 ];
 
-/** ¿Aporta al IPS? Todos menos el facturador. */
-export function aportaIps(tipoContrato: string | null | undefined): boolean {
+/**
+ * ¿Aporta al IPS? No el facturador, ni quien tiene marcado «Sin IPS» en su
+ * ficha (script 94: `aporta_ips = false`).
+ */
+export function aportaIps(tipoContrato: string | null | undefined, aportaIpsFicha?: boolean | null): boolean {
+  if (aportaIpsFicha === false) return false;
   return String(tipoContrato ?? "").trim().toLowerCase() !== "facturador";
+}
+
+/** Cómo aporta, para el selector de la ficha. */
+export type SituacionIps = "aporta" | "facturador" | "sin_ips";
+
+export function situacionIps(tipoContrato: string | null | undefined, aportaIpsFicha?: boolean | null): SituacionIps {
+  if (String(tipoContrato ?? "").trim().toLowerCase() === "facturador") return "facturador";
+  if (aportaIpsFicha === false) return "sin_ips";
+  return "aporta";
 }
