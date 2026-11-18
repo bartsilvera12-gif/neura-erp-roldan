@@ -3,7 +3,8 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { conIpsRecalculado, totalesRecibo, type Descuento, type Ingreso } from "@/lib/rrhh/nomina-py";
-import { aportaIps } from "@/lib/rrhh/contrato";
+import { ipsDelEmpleado } from "@/lib/rrhh/server/ips-empleado";
+import { baseDelPeriodo } from "@/lib/rrhh/ips";
 
 const num = (v: unknown): number => {
   if (v === null || v === undefined || v === "") return 0;
@@ -37,7 +38,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (devQ.error) return NextResponse.json(errorResponse(devQ.error.message), { status: 400 });
     if (dedQ.error) return NextResponse.json(errorResponse(dedQ.error.message), { status: 400 });
 
+    // Sobre qué aporta (lo declarado, o nada si es facturador): la pantalla lo
+    // usa para la vista previa, igual que el servidor al guardar.
+    const ips = await ipsDelEmpleado(ctx.supabase, ctx.auth.empresa_id, (recQ.data as { empleado_id?: string }).empleado_id);
     return NextResponse.json(successResponse({
+      ips: { sin_ips: ips.sinIps, base_mensual: ips.baseMensual },
       recibo: recQ.data,
       devengos: devQ.data ?? [],
       deducciones: dedQ.data ?? [],
@@ -69,16 +74,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       importe_total: Math.round(num(d.importe_total)),
       es_salarial: d.es_salarial !== false,
     }));
-    // El facturador no aporta al IPS: al editar su recibo no se le agrega.
-    let sinIps = false;
-    {
-      const rq = await ctx.supabase.from("nomina_recibos").select("empleado_id").eq("empresa_id", ctx.auth.empresa_id).eq("id", id).maybeSingle();
-      const empId = (rq.data as { empleado_id?: string } | null)?.empleado_id;
-      if (empId) {
-        const eq = await ctx.supabase.from("empleados").select("tipo_contrato").eq("empresa_id", ctx.auth.empresa_id).eq("id", empId).maybeSingle();
-        sinIps = !eq.error && !aportaIps((eq.data as { tipo_contrato?: string | null } | null)?.tipo_contrato);
-      }
-    }
+    // El IPS se recalcula sobre lo mismo que al crear el recibo: lo declarado
+    // (el mínimo o un monto propio) por los días trabajados, o nada si es
+    // facturador. Antes usaba siempre lo que cobra.
+    const rq = await ctx.supabase.from("nomina_recibos").select("empleado_id, dias_trabajados").eq("empresa_id", ctx.auth.empresa_id).eq("id", id).maybeSingle();
+    const cabActual = (rq.data ?? {}) as { empleado_id?: string; dias_trabajados?: number | null };
+    const ips = await ipsDelEmpleado(ctx.supabase, ctx.auth.empresa_id, cabActual.empleado_id);
+    const diasIps = body.dias_trabajados !== undefined
+      ? Math.trunc(num(body.dias_trabajados)) || 30
+      : Number(cabActual.dias_trabajados) || 30;
+    const sinIps = ips.sinIps;
+    const baseDeclarada = ips.baseMensual != null ? baseDelPeriodo(ips.baseMensual, diasIps) : null;
     const deducciones: Descuento[] = conIpsRecalculado(
       devengos,
       descuentosRaw.map((d) => ({
@@ -88,7 +94,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         tipo_pct: numn(d.tipo_pct),
         importe: Math.round(num(d.importe)),
       })),
-      null,
+      baseDeclarada,
       sinIps
     );
     const t = totalesRecibo(devengos, deducciones);
