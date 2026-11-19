@@ -463,14 +463,27 @@ export async function GET(request: NextRequest) {
       }
 
       // El presupuesto que se cobró en cada venta.
-      const rpq = await porIds<{ id: string; numero_control: string; total: number | string; convertido_venta_id: string }>(
-        (ids) => ctx.supabase.from("presupuestos").select("id, numero_control, total, convertido_venta_id")
-          .eq("empresa_id", empresaId).in("convertido_venta_id", ids),
-        ventas.map((v) => v.id)
-      );
-      for (const pr of rpq.filas) {
-        const e = extra.get(pr.convertido_venta_id);
-        if (e) Object.assign(e, { presupuesto_id: pr.id, presupuesto_numero: pr.numero_control, presupuesto_total: num(pr.total) });
+      // La venta queda en convertido_pedido_id (y desde ahora también en
+      // convertido_venta_id): se busca por las dos.
+      type PresuOrigen = { id: string; numero_control: string; total: number | string; convertido_venta_id: string | null; convertido_pedido_id: string | null };
+      const idsVentas = ventas.map((v) => v.id);
+      const [rpqV, rpqP] = await Promise.all([
+        porIds<PresuOrigen>(
+          (ids) => ctx.supabase.from("presupuestos").select("id, numero_control, total, convertido_venta_id, convertido_pedido_id")
+            .eq("empresa_id", empresaId).in("convertido_venta_id", ids),
+          idsVentas
+        ),
+        porIds<PresuOrigen>(
+          (ids) => ctx.supabase.from("presupuestos").select("id, numero_control, total, convertido_venta_id, convertido_pedido_id")
+            .eq("empresa_id", empresaId).in("convertido_pedido_id", ids),
+          idsVentas
+        ),
+      ]);
+      for (const pr of [...rpqV.filas, ...rpqP.filas]) {
+        for (const vid of [pr.convertido_venta_id, pr.convertido_pedido_id]) {
+          const e = vid ? extra.get(vid) : undefined;
+          if (e && !e.presupuesto_id) Object.assign(e, { presupuesto_id: pr.id, presupuesto_numero: pr.numero_control, presupuesto_total: num(pr.total) });
+        }
       }
 
       const conExtra = ventas.map((v) => ({ ...v, ...(extra.get(v.id) ?? {}) }));

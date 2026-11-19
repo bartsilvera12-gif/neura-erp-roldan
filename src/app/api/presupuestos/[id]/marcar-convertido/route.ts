@@ -3,6 +3,8 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { avisarCambiosAlCobrar } from "@/lib/presupuestos/server/aviso-cambios";
+import { asignarCarteraPorPresupuesto } from "@/lib/comisiones/server/cartera-presupuesto";
+import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 
 /**
  * POST /api/presupuestos/[id]/marcar-convertido
@@ -34,6 +36,10 @@ export async function POST(
       .update({
         estado: "convertido",
         convertido_pedido_id: ventaId,
+        // También en convertido_venta_id: es la columna que leen el listado
+        // de Ventas (presupuesto de origen), las reservas y el detalle. Antes
+        // solo se llenaba la otra y la venta no encontraba su presupuesto.
+        convertido_venta_id: ventaId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -57,7 +63,18 @@ export async function POST(
       ventaId
     );
 
-    return NextResponse.json(successResponse({ ok: true, cambios }));
+    // El cliente pasa a la cartera del vendedor del presupuesto por los días
+    // de cartera (pedido del cliente). Si ya es de otro vendedor y está
+    // vigente, se queda donde está. Best-effort: el cobro ya está hecho.
+    let cartera: { asignado: boolean; motivo: string } | null = null;
+    try {
+      const sbCartera = await createServiceRoleClientForEmpresa(ctx.auth.empresa_id);
+      cartera = await asignarCarteraPorPresupuesto(sbCartera, ctx.auth.empresa_id, id, ventaId);
+    } catch (e) {
+      console.warn("[marcar-convertido] cartera:", e instanceof Error ? e.message : e);
+    }
+
+    return NextResponse.json(successResponse({ ok: true, cambios, cartera }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo marcar convertido.";
     console.error("[/api/presupuestos/[id]/marcar-convertido]", msg);
