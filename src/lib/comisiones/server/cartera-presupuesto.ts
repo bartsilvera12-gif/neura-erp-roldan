@@ -1,9 +1,9 @@
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 
 /**
- * Cuando se cobra en la caja un presupuesto, el cliente pasa a la cartera del
- * vendedor que lo hizo, por los días de cartera configurados (30 por
- * defecto). Pedido del cliente.
+ * Cuando se cobra en la caja un presupuesto, la venta (y su comisión) pasa a
+ * ser del vendedor que lo hizo, y el cliente pasa a su cartera por los días de
+ * cartera configurados (30 por defecto). Pedido del cliente.
  *
  * ── CUÁNDO SE ASIGNA Y CUÁNDO NO ──────────────────────────────────────────
  *   - Cliente libre en esa sucursal (sin fila, sin vendedor, liberado a mano
@@ -49,6 +49,16 @@ export async function asignarCarteraPorPresupuesto(
     }
   }
   if (!vendedor) return { asignado: false, motivo: "vendedor no encontrado" };
+
+  /**
+   * La venta y su comisión son del vendedor del presupuesto, no de quien la
+   * cobra en la caja (pedido del cliente). Las comisiones se calculan con
+   * `ventas.vendedor_usuario_id`; quién cobró sigue en `usuario_nombre`.
+   */
+  const uv = await sb.from("ventas")
+    .update({ vendedor_usuario_id: vendedor.id, vendedor_nombre: vendedor.nombre })
+    .eq("empresa_id", empresaId).eq("id", ventaId);
+  if (uv.error) console.warn("[cartera-presupuesto] vendedor de la venta:", uv.error.message);
 
   const cfg = await sb.from("comisiones_config").select("dias_cartera").eq("empresa_id", empresaId).maybeSingle();
   const dias = Number((cfg.data as { dias_cartera?: number } | null)?.dias_cartera) || 30;
