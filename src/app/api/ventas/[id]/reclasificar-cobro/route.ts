@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { MENSAJE_CAJA_CERRADA, ventaDeCajaCerrada } from "@/lib/caja/venta-caja-cerrada";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
@@ -116,13 +117,9 @@ export async function POST(
     const autorizadoPor = cajaCerrada
       ? (ctx.auth.nombre ?? ctx.auth.user?.email ?? "admin")
       : null;
-    if (cajaCerrada && !esAdmin(ctx.auth.rol)) {
-      return NextResponse.json(
-        errorResponse(
-          "El turno de caja de esta venta ya cerró. Solo un administrador puede reclasificar el cobro."
-        ),
-        { status: 403 }
-      );
+    // Caja cerrada: ni el administrador (pedido del cliente). Se reabre antes.
+    if (cajaCerrada) {
+      return NextResponse.json(errorResponse(MENSAJE_CAJA_CERRADA), { status: 409 });
     }
 
     // ── 1) El medio nuevo en la venta ─────────────────────────────────────

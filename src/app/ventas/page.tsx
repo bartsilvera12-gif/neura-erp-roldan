@@ -483,7 +483,12 @@ export default function VentasPage() {
                               Nota de remisión
                             </a>
                           )}
-                          {!isAnulada && isAdmin && (
+                          {v.caja_cerrada && !isAnulada && (
+                            <span className="text-[10.5px] text-slate-400" title="La caja de esta venta ya cerró: solo se reimprime. Para corregirla hay que reabrir la caja.">
+                              Caja cerrada
+                            </span>
+                          )}
+                          {!isAnulada && !v.caja_cerrada && isAdmin && (
                             <button
                               type="button"
                               onClick={() => setEditar(v)}
@@ -493,7 +498,7 @@ export default function VentasPage() {
                               Editar
                             </button>
                           )}
-                          {!isAnulada && (
+                          {!isAnulada && !v.caja_cerrada && (
                             <button
                               type="button"
                               onClick={() => setReclasificar(v)}
@@ -503,7 +508,7 @@ export default function VentasPage() {
                               Medio de cobro
                             </button>
                           )}
-                          {!isAnulada && (
+                          {!isAnulada && !v.caja_cerrada && (
                             <button
                               type="button"
                               onClick={() => setAnularTarget(v)}

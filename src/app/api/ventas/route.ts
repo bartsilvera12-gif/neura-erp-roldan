@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       let q = ctx.supabase
         .from("ventas")
         .select(
-          "id, empresa_id, numero_control, moneda, tipo_cambio, subtotal, monto_iva, total, tipo_venta, plazo_dias, metodo_pago, fecha, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, factura_id, cliente_id, origen, usuario_nombre, vendedor_nombre"
+          "id, empresa_id, numero_control, moneda, tipo_cambio, subtotal, monto_iva, total, tipo_venta, plazo_dias, metodo_pago, fecha, genera_nota_remision, nota_remision_numero, estado, anulada_at, anulacion_motivo, factura_id, cliente_id, origen, usuario_nombre, vendedor_nombre, caja_id"
         )
         .eq("empresa_id", empresaId)
         .eq("sucursal_id", exigirSucursal(ctx.auth.sucursal_id));
@@ -341,6 +341,19 @@ export async function GET(request: NextRequest) {
       for (const r of devQ.filas) conDevolucion.add(r.venta_id);
     }
 
+    // Qué ventas son de una caja ya cerrada: esas solo se reimprimen.
+    const cajasCerradas = new Set<string>();
+    {
+      const cajaIds = [...new Set(ventasRows.map((v) => (v as unknown as { caja_id?: string | null }).caja_id).filter((x): x is string => !!x))];
+      if (cajaIds.length > 0) {
+        const cq = await porIds<{ id: string; estado: string }>(
+          (ids) => ctx.supabase.from("cajas").select("id, estado").eq("empresa_id", empresaId).in("id", ids),
+          cajaIds
+        );
+        for (const c of cq.filas) if (c.estado === "cerrada") cajasCerradas.add(c.id);
+      }
+    }
+
     const ventas: Venta[] = ventasRows.map((r) => {
       const lineRows = byVenta.get(r.id) ?? [];
       return {
@@ -369,6 +382,7 @@ export async function GET(request: NextRequest) {
         // venta tuviera el vendedor guardado.
         usuario_nombre: (r as unknown as { usuario_nombre?: string | null }).usuario_nombre ?? null,
         editada: editadas.has(r.id),
+        caja_cerrada: cajasCerradas.has(String((r as unknown as { caja_id?: string | null }).caja_id ?? "")),
         tiene_devolucion: conDevolucion.has(r.id),
         vendedor_nombre: (r as unknown as { vendedor_nombre?: string | null }).vendedor_nombre ?? null,
         estado: ((): "pendiente" | "completada" | "anulada" => {

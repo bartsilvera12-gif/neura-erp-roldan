@@ -702,7 +702,11 @@ export async function getDetalleCaja(
   //   veces, y el cierre de hoy mostraría un faltante exactamente igual al
   //   sobrante de ayer. El sobrante entra por la apertura y nada más.
   const arrastrePrevio = await leerArrastre(sb, empresaId, caja.id);
-  const arrastreQueResta = Math.min(0, arrastrePrevio);
+  //   CAMBIO (pedido del cliente): el SOBRANTE también pasa, como positivo.
+  //   La caja de Roldán abre en cero —la plata del turno se retira toda—, así
+  //   que el sobrante de ayer no está en la apertura: tiene que aparecer en
+  //   la caja de hoy sumando, igual que el faltante aparece restando.
+  const arrastreQueResta = arrastrePrevio;
 
   const efectivoEsperado =
     caja.monto_apertura +
@@ -1077,7 +1081,9 @@ export async function registrarMovimiento(
       // Punto 5.7. Las columnas llegan con el script 25; si no está corrido,
       // el insert falla y se reintenta sin ellas (ver más abajo).
       ...(params.tipo === "egreso" && params.tipoEgreso ? { tipo_egreso: params.tipoEgreso } : {}),
-      ...(params.tipo === "egreso" && params.proveedor ? { proveedor: params.proveedor } : {}),
+      // En la retención, `proveedor` guarda el CLIENTE que retuvo: es la
+      // contraparte del movimiento, igual que el proveedor en un egreso.
+      ...((params.tipo === "egreso" || params.tipo === "retencion") && params.proveedor ? { proveedor: params.proveedor } : {}),
       ...(params.adjuntos && params.adjuntos.length > 0 ? { adjuntos: params.adjuntos } : {}),
     })
     .select(
@@ -1260,18 +1266,27 @@ async function computeResumen(
   // y el resumen sigue andando sin ese renglón.
   let totalAnticipos = 0;
   let anticiposEfectivo = 0;
+  const anticiposLista: NonNullable<CajaResumen["anticipos_lista"]> = [];
   {
-    const aQ = await sb
+    let aQ = await sb
       .from("anticipos")
-      .select("monto, medio_pago, estado")
+      .select("id, numero, cliente_nombre, monto, medio_pago, estado, created_at")
       .eq("empresa_id", empresaId)
       .eq("caja_id", caja.id)
       .neq("estado", "anulado");
+    if (aQ.error) {
+      aQ = await sb.from("anticipos").select("monto, medio_pago, estado")
+        .eq("empresa_id", empresaId).eq("caja_id", caja.id).neq("estado", "anulado") as typeof aQ;
+    }
     if (!aQ.error) {
-      for (const a of (aQ.data ?? []) as Array<{ monto: number | string; medio_pago: string | null }>) {
+      for (const a of (aQ.data ?? []) as Array<{ id?: string; numero?: string | null; cliente_nombre?: string | null; monto: number | string; medio_pago: string | null; created_at?: string | null }>) {
         const m = num(a.monto);
         totalAnticipos += m;
         if ((a.medio_pago ?? "efectivo") === "efectivo") anticiposEfectivo += m;
+        if (a.id) anticiposLista.push({
+          id: a.id, numero: a.numero ?? null, cliente_nombre: a.cliente_nombre ?? null,
+          monto: m, medio_pago: a.medio_pago, created_at: a.created_at ?? null,
+        });
       }
     }
   }
@@ -1290,7 +1305,8 @@ async function computeResumen(
     egresosEf -
     retirosEf +
     ajustesEf +
-    Math.min(0, arrastrePrevio);
+    // El sobrante suma y el faltante resta (ver `computeResumen`).
+    arrastrePrevio;
 
   // Lo que hay que entregar: todo menos el fondo con el que se abrió, que
   // queda para el turno siguiente.
@@ -1306,6 +1322,7 @@ async function computeResumen(
     anticipos_efectivo: anticiposEfectivo,
     dinero_a_rendir: dineroARendir,
     diferencia_arrastrada: arrastrePrevio,
+    anticipos_lista: anticiposLista,
     total_efectivo: totalEfectivo,
     total_tarjeta: totalTarjeta,
     total_transferencia: totalTransferencia,

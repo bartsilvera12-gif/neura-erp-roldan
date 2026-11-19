@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { MENSAJE_CAJA_CERRADA, ventaDeCajaCerrada } from "@/lib/caja/venta-caja-cerrada";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
@@ -94,6 +95,10 @@ export async function PUT(
     const empresaId = ctx.auth.empresa_id;
     const sucursalId = exigirSucursal(ctx.auth.sucursal_id);
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (await ventaDeCajaCerrada(ctx.supabase, empresaId, ventaId)) {
+      return NextResponse.json(errorResponse(MENSAJE_CAJA_CERRADA), { status: 409 });
+    }
 
     const motivo = String(body.motivo ?? "").trim();
     if (!motivo) {

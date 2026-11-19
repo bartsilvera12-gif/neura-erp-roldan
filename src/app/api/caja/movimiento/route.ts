@@ -14,7 +14,13 @@ import { contabilizarDiferenciaCaja, RE_CONCEPTO_DIFERENCIA } from "@/lib/contab
  *   Body: { tipo, concepto, monto, medio_pago?, observacion?, caja_id?, tipo_egreso?, proveedor? }
  *   Si caja_id no viene, se usa la caja abierta actual.
  */
-const TIPOS_VALIDOS = ["ingreso", "egreso", "retiro", "ajuste"] as const;
+/**
+ * `ajuste` ya no se ofrece en la pantalla (pedido del cliente), pero se sigue
+ * aceptando: lo usan los sobrantes y faltantes de una venta.
+ * `retencion`: el comprobante de retención del cliente (factura, monto y
+ * cliente). No es efectivo: va con medio «otro» y no entra al arqueo.
+ */
+const TIPOS_VALIDOS = ["ingreso", "egreso", "retiro", "ajuste", "retencion"] as const;
 const MEDIOS_VALIDOS = ["efectivo", "tarjeta", "transferencia", "otro"] as const;
 
 /** Tipos de papel que puede llevar un egreso. */
@@ -65,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (!(TIPOS_VALIDOS as readonly string[]).includes(tipo)) {
       return NextResponse.json(errorResponse("Tipo inválido."), { status: 400 });
     }
-    const medioPago = String(o.medio_pago ?? "efectivo");
+    const medioPago = tipo === "retencion" ? "otro" : String(o.medio_pago ?? "efectivo");
     if (!(MEDIOS_VALIDOS as readonly string[]).includes(medioPago)) {
       return NextResponse.json(errorResponse("Medio de pago inválido."), { status: 400 });
     }
@@ -97,6 +103,47 @@ export async function POST(request: NextRequest) {
         );
       }
       cajaId = abierta.id;
+    }
+
+    // Retención: cliente y factura obligatorios. El cliente va en `proveedor`
+    // (la contraparte) y la factura en el concepto.
+    let conceptoFinal = concepto;
+    let contraparte: string | null = null;
+    if (tipo === "retencion") {
+      const cliente = typeof o.cliente_nombre === "string" ? o.cliente_nombre.trim().slice(0, 200) : "";
+      const factura = typeof o.factura === "string" ? o.factura.trim().slice(0, 60) : "";
+      if (!cliente) return NextResponse.json(errorResponse("Elegí el cliente de la retención."), { status: 400 });
+      if (!factura) return NextResponse.json(errorResponse("Poné el número de factura de la retención."), { status: 400 });
+      contraparte = cliente;
+      conceptoFinal = `Retención · Fact. ${factura}`;
+    }
+
+    const base = {
+      empresaId: ctx.auth.empresa_id,
+      sucursalId,
+      cajaId,
+      concepto: conceptoFinal,
+      monto,
+      observacion,
+      usuarioId: ctx.auth.usuarioCatalogId ?? null,
+      usuarioEmail: ctx.auth.user?.email ?? null,
+    };
+    if (tipo === "retencion") {
+      let mov;
+      try {
+        mov = await registrarMovimiento(ctx.supabase, { ...base, tipo: "retencion", medioPago: "otro", proveedor: contraparte });
+      } catch (e) {
+        // Sin el script 95 la base no acepta el tipo: se guarda como una
+        // cobranza con medio «otro» (no toca el efectivo) y el concepto
+        // «Retención …», que la pantalla reconoce.
+        const msg = e instanceof Error ? e.message : "";
+        if (!/check|constraint|23514|tipo/i.test(msg)) throw e;
+        mov = await registrarMovimiento(ctx.supabase, {
+          ...base, tipo: "ingreso", medioPago: "otro",
+          concepto: `${conceptoFinal} · ${contraparte}`.slice(0, 200),
+        });
+      }
+      return NextResponse.json(successResponse({ movimiento: mov, asiento: null }));
     }
 
     const movimiento = await registrarMovimiento(ctx.supabase, {

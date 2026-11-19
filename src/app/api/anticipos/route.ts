@@ -179,7 +179,21 @@ export async function POST(request: NextRequest) {
 
     // Se ata al turno abierto para que entre en su arqueo. Sin turno abierto
     // igual se registra: el anticipo existe aunque la caja esté cerrada.
-    const caja = await getCajaAbierta(ctx.supabase, empresaId, sucursalId).catch(() => null);
+    // Desde la Caja («Movimiento → Anticipo») llega la caja elegida: se usa
+    // esa si está abierta y es de esta empresa, para que entre en SU arqueo
+    // cuando hay más de una caja abierta.
+    let caja: { id: string } | null = null;
+    if (typeof b.caja_id === "string" && b.caja_id.trim()) {
+      const cq = await ctx.supabase.from("cajas").select("id, estado")
+        .eq("empresa_id", empresaId).eq("id", b.caja_id.trim()).maybeSingle();
+      const c = cq.data as { id: string; estado: string } | null;
+      if (!c || c.estado !== "abierta") {
+        return NextResponse.json(errorResponse("Esa caja no está abierta."), { status: 409 });
+      }
+      caja = { id: c.id };
+    } else {
+      caja = await getCajaAbierta(ctx.supabase, empresaId, sucursalId).catch(() => null);
+    }
     const firma = await firmaUsuario(ctx.supabase, ctx.auth);
 
     const ins = await ctx.supabase

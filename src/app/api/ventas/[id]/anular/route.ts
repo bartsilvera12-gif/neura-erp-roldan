@@ -7,6 +7,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { anularVentaCore, ventaTieneCobrosAplicados } from "@/lib/ventas/server/anular-venta-core";
 import { marcarDesfacturadoPorAnulacion } from "@/lib/caja/facturacion";
+import { MENSAJE_CAJA_CERRADA, ventaDeCajaCerrada } from "@/lib/caja/venta-caja-cerrada";
 
 import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
@@ -103,6 +104,11 @@ export async function POST(
         .maybeSingle();
       if (!cj.error) {
         cajaAbierta = (cj.data as { estado?: string } | null)?.estado !== "cerrada";
+        // Caja cerrada: nadie la anula, tampoco el administrador (pedido del
+        // cliente). Se reabre la caja primero.
+        if (cajaAbierta === false) {
+          return NextResponse.json(errorResponse(MENSAJE_CAJA_CERRADA), { status: 409 });
+        }
       }
     } else {
       // Venta sin turno: no hay ninguna caja abierta que la contenga.

@@ -13,8 +13,6 @@ import {
   Lock,
   Unlock,
   Plus,
-  Minus,
-  ArrowUpRight,
   ArrowDownRight,
   Wallet,
   Loader2,
@@ -66,6 +64,8 @@ interface Props {
 
 import { TIPOS_EGRESO } from "@/lib/caja/tipos-egreso";
 import Selector from "@/components/ui/Selector";
+import BuscadorCliente, { type ClienteElegido } from "@/components/clientes/BuscadorCliente";
+import { claseMovimiento, ETIQUETA_CLASE, type ClaseMovimiento } from "@/lib/caja/clase-movimiento";
 
 export default function CajaControlPanel({ onStateChange }: Props) {
   const [cajas, setCajas] = useState<CajaResumen[]>([]);
@@ -163,6 +163,9 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     proveedor?: string | null;
     /** Punto 5.7: factura y recibo ya subidos, con su path. */
     adjuntos?: AdjuntoEgreso[] | null;
+    /** Retención: de qué cliente y qué factura. */
+    cliente_nombre?: string | null;
+    factura?: string | null;
   }) {
     if (!target) return;
     const r = await fetch("/api/caja/movimiento", {
@@ -177,6 +180,22 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     setTarget(null);
     await load();
     notifyOk("Movimiento registrado.");
+  }
+  /** Anticipo desde la caja: va a Anticipos, atado a ESTA caja. */
+  async function handleAnticipo(opts: { cliente_id: string; monto: number; medio_pago: string; observacion: string | null }) {
+    if (!target) return;
+    const r = await fetch("/api/anticipos", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caja_id: target.caja.id, ...opts }),
+    });
+    const j = await r.json();
+    if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
+    setModal(null);
+    setTarget(null);
+    await load();
+    notifyOk(`Anticipo ${j.data?.anticipo?.numero ?? ""} registrado. Ya figura en Anticipos.`);
   }
   async function handleEnCierre() {
     if (!target) return;
@@ -374,39 +393,21 @@ export default function CajaControlPanel({ onStateChange }: Props) {
             {cr.total_efectivo === 0 && cr.efectivo_esperado !== 0 && (
               <DesgloseEsperado resumen={cr} montoApertura={c.monto_apertura} />
             )}
-
-            {cr.movimientos.length > 0 && (
-              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/40">
-                <p className="text-[10.5px] uppercase tracking-wider font-bold text-slate-500 mb-2">Movimientos manuales</p>
-                <ul className="space-y-1">
-                  {cr.movimientos.slice(-5).reverse().map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="flex items-center gap-1.5 min-w-0">
-                        <MovIcon tipo={m.tipo} />
-                        <span className="truncate font-medium text-slate-700">{m.concepto}</span>
-                        {m.proveedor && (
-                          <>
-                            <span className="text-slate-400">·</span>
-                            <span className="truncate text-slate-500">{m.proveedor}</span>
-                          </>
-                        )}
-                        <span className="text-slate-400">·</span>
-                        <span className="text-slate-500 capitalize">{m.medio_pago}</span>
-                        {/* El comprobante que se acaba de subir, para poder
-                            confirmar que entró sin salir de la pantalla. */}
-                        {(m.adjuntos ?? []).some((a) => (a.path ?? "").trim() !== "") && (
-                          <ComprobantesMovimiento adjuntos={m.adjuntos} />
-                        )}
-                      </span>
-                      <span className={`tabular-nums font-bold ${m.tipo === "ingreso" ? "text-emerald-700" : m.tipo === "egreso" || m.tipo === "retiro" ? "text-red-600" : "text-amber-700"}`}>
-                        {m.tipo === "egreso" || m.tipo === "retiro" ? "−" : "+"}
-                        {fmtGs(Math.abs(m.monto))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+            {cr.total_efectivo !== 0 && (cr.diferencia_arrastrada ?? 0) !== 0 && (
+              <div className={`border-b px-5 py-2 text-[11px] font-medium ${
+                (cr.diferencia_arrastrada ?? 0) > 0
+                  ? "border-emerald-100 bg-emerald-50/60 text-emerald-800"
+                  : "border-red-100 bg-red-50/60 text-red-700"
+              }`}>
+                {(cr.diferencia_arrastrada ?? 0) > 0 ? "Sobrante" : "Faltante"} del turno anterior:{" "}
+                <span className="tabular-nums font-bold">
+                  {(cr.diferencia_arrastrada ?? 0) > 0 ? "+" : "−"}{fmtGs(Math.abs(cr.diferencia_arrastrada ?? 0))}
+                </span>{" "}
+                (ya está sumado en el esperado).
               </div>
             )}
+
+            <MovimientosAgrupados resumen={cr} />
           </div>
         );
       })}
@@ -428,7 +429,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
         />
       )}
       {modal === "mov" && target && (
-        <ModalMovimiento onClose={() => { setModal(null); setTarget(null); }} onConfirm={handleMov} />
+        <ModalMovimiento onClose={() => { setModal(null); setTarget(null); }} onConfirm={handleMov} onAnticipo={handleAnticipo} />
       )}
       {modal === "en_cierre" && target && (
         <ModalConfirmar
@@ -486,9 +487,8 @@ function DesgloseEsperado({
     { label: "Egresos", monto: -resumen.egresos_efectivo },
     { label: "Retiros", monto: -resumen.retiros_efectivo },
     { label: "Ajustes", monto: resumen.ajustes_efectivo },
-    // Solo el faltante. El sobrante de ayer quedó en el cajón y ya entró en
-    // el conteo de apertura: ponerlo también acá lo contaría dos veces.
-    { label: "Faltante arrastrado del turno anterior", monto: Math.min(0, arrastre) },
+    // Sobrante (+) o faltante (−) del turno anterior: pasa a esta caja.
+    { label: arrastre < 0 ? "Faltante del turno anterior" : "Sobrante del turno anterior", monto: arrastre },
   ].filter((r) => Math.round(r.monto) !== 0);
 
   const suma = renglones.reduce((a, r) => a + r.monto, 0);
@@ -520,13 +520,85 @@ function DesgloseEsperado({
           <span>Esperado en el cajón</span>
           <span className="tabular-nums">{fmtGs(resumen.efectivo_esperado)}</span>
         </li>
-        {arrastre > 0 && (
-          <li className="mt-1 text-[10.5px] leading-snug text-slate-500">
-            El turno anterior cerró con {fmtGs(arrastre)} de sobrante. Esa plata quedó en el
-            cajón y ya está contada en la apertura, así que no se suma de nuevo acá.
-          </li>
-        )}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Los movimientos del turno, una columna por tipo con su total y sus
+ * detalles abajo (pedido del cliente): Cobranzas, Egresos, Retiros,
+ * Retenciones y Anticipos —estos con el nombre del cliente—.
+ */
+function MovimientosAgrupados({ resumen }: { resumen: CajaResumen }) {
+  type Linea = { id: string; texto: string; detalle: string; monto: number; extra?: React.ReactNode };
+  const grupos = new Map<ClaseMovimiento | "anticipo", Linea[]>();
+  for (const m of resumen.movimientos) {
+    const clase = claseMovimiento(m);
+    const l = grupos.get(clase) ?? [];
+    l.push({
+      id: m.id,
+      texto: clase === "retencion" ? (m.proveedor || m.concepto) : m.concepto,
+      detalle: [clase === "retencion" ? m.concepto : m.proveedor, clase === "retencion" ? null : m.medio_pago].filter(Boolean).join(" · "),
+      monto: m.monto,
+      extra: (m.adjuntos ?? []).some((a) => (a.path ?? "").trim() !== "")
+        ? <ComprobantesMovimiento adjuntos={m.adjuntos} />
+        : undefined,
+    });
+    grupos.set(clase, l);
+  }
+  for (const a of resumen.anticipos_lista ?? []) {
+    const l = grupos.get("anticipo") ?? [];
+    l.push({
+      id: a.id,
+      texto: a.cliente_nombre ?? "—",
+      detalle: [a.numero, a.medio_pago].filter(Boolean).join(" · "),
+      monto: a.monto,
+    });
+    grupos.set("anticipo", l);
+  }
+  const orden: Array<[ClaseMovimiento | "anticipo", string, string]> = [
+    ["cobranza", ETIQUETA_CLASE.cobranza, "text-emerald-700"],
+    ["anticipo", "Anticipos", "text-emerald-700"],
+    ["retencion", ETIQUETA_CLASE.retencion, "text-sky-700"],
+    ["egreso", ETIQUETA_CLASE.egreso, "text-red-600"],
+    ["retiro", ETIQUETA_CLASE.retiro, "text-red-600"],
+    ["ajuste", ETIQUETA_CLASE.ajuste, "text-amber-700"],
+  ];
+  const visibles = orden.filter(([k]) => (grupos.get(k) ?? []).length > 0);
+  if (visibles.length === 0) return null;
+  const resta = (k: string) => k === "egreso" || k === "retiro";
+  return (
+    <div className="border-t border-slate-100 bg-slate-50/40 px-5 py-3">
+      <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Movimientos</p>
+      <div className={`grid gap-3 sm:grid-cols-2 ${visibles.length >= 3 ? "lg:grid-cols-3" : ""}`}>
+        {visibles.map(([k, titulo, color]) => {
+          const lineas = grupos.get(k)!;
+          const total = lineas.reduce((s, l) => s + Math.abs(l.monto), 0);
+          return (
+            <div key={k} className="rounded-lg border border-slate-200 bg-white">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-1.5">
+                <span className="text-xs font-bold text-slate-700">{titulo} <span className="font-normal text-slate-400">({lineas.length})</span></span>
+                <span className={`text-xs font-bold tabular-nums ${color}`}>{resta(k) ? "−" : ""}{fmtGs(total)}</span>
+              </div>
+              <ul className="max-h-48 divide-y divide-slate-50 overflow-y-auto">
+                {lineas.map((l) => (
+                  <li key={l.id} className="flex items-start justify-between gap-2 px-3 py-1.5 text-xs">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-slate-700">{l.texto}</span>
+                      {l.detalle && <span className="block truncate text-[11px] capitalize text-slate-400">{l.detalle}</span>}
+                      {l.extra}
+                    </span>
+                    <span className={`shrink-0 tabular-nums font-semibold ${color}`}>
+                      {resta(k) || l.monto < 0 ? "−" : ""}{fmtGs(Math.abs(l.monto))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -559,13 +631,6 @@ function Metric({
   );
 }
 
-function MovIcon({ tipo }: { tipo: TipoMovimientoCaja }) {
-  const cls = "h-3 w-3";
-  if (tipo === "ingreso") return <Plus className={`${cls} text-emerald-600`} />;
-  if (tipo === "egreso") return <Minus className={`${cls} text-red-600`} />;
-  if (tipo === "retiro") return <ArrowUpRight className={`${cls} text-red-600`} />;
-  return <Wallet className={`${cls} text-amber-600`} />;
-}
 
 function ToastOk({ msg }: { msg: string }) {
   return (
@@ -870,9 +935,8 @@ function ModalCerrar({
           {resumen.retiros_efectivo > 0 && (
             <Row label="− Retiros" value={`-${fmtGs(resumen.retiros_efectivo)}`} />
           )}
-          {/* El faltante que viene de atrás baja lo que se espera encontrar:
-              esa plata no está en el cajón y esperarla haría que el cajero de
-              hoy cargue con el error de ayer en su propio cierre. */}
+          {/* La diferencia que viene de atrás: el faltante baja lo que se
+              espera encontrar y el sobrante lo sube (pedido del cliente). */}
           {resumen.diferencia_arrastrada !== 0 && (
             <Row
               label={resumen.diferencia_arrastrada < 0
@@ -970,11 +1034,23 @@ function ModalCerrar({
   );
 }
 
+/** Lo que se elige arriba del modal. Cobranza = `ingreso`; Anticipo va a Anticipos. */
+type TipoPantalla = "ingreso" | "egreso" | "retiro" | "retencion" | "anticipo";
+const TIPOS_PANTALLA: Array<[TipoPantalla, string]> = [
+  ["ingreso", "Cobranza"],
+  ["egreso", "Egreso"],
+  ["retiro", "Retiro"],
+  ["retencion", "Retención"],
+  ["anticipo", "Anticipo"],
+];
+
 function ModalMovimiento({
   onClose,
   onConfirm,
+  onAnticipo,
 }: {
   onClose: () => void;
+  onAnticipo: (opts: { cliente_id: string; monto: number; medio_pago: string; observacion: string | null }) => Promise<void>;
   onConfirm: (opts: {
     tipo: TipoMovimientoCaja;
     concepto: string;
@@ -987,9 +1063,15 @@ function ModalMovimiento({
     proveedor?: string | null;
     /** Punto 5.7: factura y recibo que lo respaldan. */
     adjuntos?: AdjuntoEgreso[] | null;
+    cliente_nombre?: string | null;
+    factura?: string | null;
   }) => Promise<void>;
 }) {
-  const [tipo, setTipo] = useState<TipoMovimientoCaja>("ingreso");
+  const [tipo, setTipo] = useState<TipoPantalla>("ingreso");
+  /** Retención y anticipo: de qué cliente. */
+  const [cliente, setCliente] = useState<ClienteElegido | null>(null);
+  /** Retención: número de la factura retenida. */
+  const [factura, setFactura] = useState("");
   // Punto 5.7: qué clase de egreso es. Sin esto no se puede contestar
   // "¿cuánto se fue en fletes este mes?" sin leer los conceptos uno por uno.
   const [tipoEgreso, setTipoEgreso] = useState<string>("proveedor");
@@ -1055,18 +1137,36 @@ function ModalMovimiento({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const pideConcepto = tipo !== "retencion" && tipo !== "anticipo";
+  const pideCliente = tipo === "retencion" || tipo === "anticipo";
+
   async function submit() {
     const n = Number(monto);
-    if (!concepto.trim()) {
+    if (pideConcepto && !concepto.trim()) {
       setErr("Concepto requerido.");
       return;
     }
-    if (!Number.isFinite(n)) {
-      setErr("Monto inválido.");
+    if (!Number.isFinite(n) || n <= 0) {
+      setErr("El monto debe ser mayor a cero.");
       return;
     }
-    if (tipo !== "ajuste" && n <= 0) {
-      setErr("El monto debe ser > 0 (solo ajustes pueden ser negativos).");
+    if (pideCliente && !cliente) {
+      setErr("Elegí el cliente.");
+      return;
+    }
+    if (tipo === "retencion" && !factura.trim()) {
+      setErr("Poné el número de factura.");
+      return;
+    }
+    if (tipo === "anticipo") {
+      setBusy(true);
+      setErr(null);
+      try {
+        await onAnticipo({ cliente_id: cliente!.id, monto: n, medio_pago: medio === "otro" ? "cheque" : medio, observacion: obs.trim() || null });
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Error");
+        setBusy(false);
+      }
       return;
     }
     // "Otros" sin explicación es un egreso que nadie va a poder justificar
@@ -1080,7 +1180,9 @@ function ModalMovimiento({
     try {
       await onConfirm({
         tipo,
-        concepto: concepto.trim(),
+        concepto: tipo === "retencion" ? "Retención" : concepto.trim(),
+        cliente_nombre: tipo === "retencion" ? cliente!.nombre : null,
+        factura: tipo === "retencion" ? factura.trim() : null,
         monto: n,
         medio_pago: medio,
         observacion: obs.trim() || null,
@@ -1098,7 +1200,7 @@ function ModalMovimiento({
   return (
     <ModalBase
       title="Registrar movimiento"
-      subtitle="Ingresos/egresos manuales de la caja (no son ventas)."
+      subtitle="Cobranzas, egresos, retiros, retenciones y anticipos de la caja (no son ventas)."
       onClose={busy ? () => {} : onClose}
     >
       <div className="p-5 space-y-4">
@@ -1106,23 +1208,54 @@ function ModalMovimiento({
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
             Tipo
           </label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {(["ingreso", "egreso", "retiro", "ajuste"] as const).map((t) => (
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+            {TIPOS_PANTALLA.map(([t, label]) => (
               <button
                 key={t}
                 type="button"
-                onClick={() => setTipo(t)}
-                className={`rounded-lg py-1.5 text-xs font-bold border-2 transition-colors capitalize ${
+                onClick={() => { setTipo(t); setErr(null); }}
+                className={`rounded-lg py-1.5 text-xs font-bold border-2 transition-colors ${
                   tipo === t
                     ? "border-[#4FAEB2] bg-[#4FAEB2] text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {t}
+                {label}
               </button>
             ))}
           </div>
+          {tipo === "anticipo" && (
+            <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+              Queda registrado en <strong>Anticipos</strong> a nombre del cliente y entra en el arqueo de esta caja.
+            </p>
+          )}
+          {tipo === "retencion" && (
+            <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+              El comprobante de retención que deja el cliente. No es efectivo: no cambia lo que tiene que haber en el cajón.
+            </p>
+          )}
         </div>
+
+        {pideCliente && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Cliente</label>
+            <BuscadorCliente value={cliente} onChange={setCliente} disabled={busy} autoFocus />
+          </div>
+        )}
+
+        {tipo === "retencion" && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Factura</label>
+            <input
+              type="text"
+              value={factura}
+              onChange={(e) => setFactura(e.target.value)}
+              placeholder="Ej: 001-001-0001234"
+              maxLength={60}
+              className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#4FAEB2]"
+            />
+          </div>
+        )}
 
         {tipo === "egreso" && (
           <div>
@@ -1190,6 +1323,7 @@ function ModalMovimiento({
           </div>
         )}
 
+        {pideConcepto && (
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
             Concepto
@@ -1198,13 +1332,14 @@ function ModalMovimiento({
             type="text"
             value={concepto}
             onChange={(e) => setConcepto(e.target.value)}
-            placeholder="Ej: Pago de delivery, Vuelto, etc."
+            placeholder={tipo === "ingreso" ? "Ej: Cobro factura 1234 de Pérez" : "Ej: Pago de delivery, Vuelto, etc."}
             maxLength={200}
             className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none"
           />
         </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${tipo === "retencion" ? "grid-cols-1" : "grid-cols-2"}`}>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Monto (Gs.)
@@ -1216,6 +1351,7 @@ function ModalMovimiento({
               className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-semibold tabular-nums focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none"
             />
           </div>
+          {tipo !== "retencion" && (
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Medio de pago
@@ -1228,9 +1364,10 @@ function ModalMovimiento({
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="transferencia">Transferencia</option>
-              <option value="otro">Otro</option>
+              <option value="otro">{tipo === "anticipo" ? "Cheque" : "Otro"}</option>
             </Selector>
           </div>
+          )}
         </div>
 
         <div>

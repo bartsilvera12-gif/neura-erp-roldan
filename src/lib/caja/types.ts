@@ -18,7 +18,8 @@
 import type { ArqueoItem } from "./denominaciones";
 
 export type EstadoCaja = "abierta" | "en_cierre" | "cerrada";
-export type TipoMovimientoCaja = "ingreso" | "egreso" | "retiro" | "ajuste";
+/** `retencion`: comprobante de retención del cliente (script 95). No es efectivo. */
+export type TipoMovimientoCaja = "ingreso" | "egreso" | "retiro" | "ajuste" | "retencion";
 export type MedioPagoCaja = "efectivo" | "tarjeta" | "transferencia" | "otro";
 
 export type { ArqueoItem, TipoDenominacion, Denominacion } from "./denominaciones";
@@ -112,6 +113,11 @@ export interface CajaResumen {
   dinero_a_rendir: number;
   /** Diferencia que viene arrastrada del turno anterior (punto 5.5). */
   diferencia_arrastrada: number;
+  /** Los anticipos cobrados en el turno, con el nombre del cliente. */
+  anticipos_lista?: Array<{
+    id: string; numero: string | null; cliente_nombre: string | null;
+    monto: number; medio_pago: string | null; created_at: string | null;
+  }>;
 }
 
 /**

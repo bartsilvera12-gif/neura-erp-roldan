@@ -65,6 +65,8 @@ export interface Venta {
   /** La venta fue editada al menos una vez (tabla `ventas_ediciones`). El
    *  detalle —quién, cuándo, por qué— se pide aparte, al abrirla. */
   editada?: boolean;
+  /** Es de una caja ya cerrada: no se edita ni se anula, solo se reimprime. */
+  caja_cerrada?: boolean;
   /** La venta tiene al menos una devolución registrada. */
   tiene_devolucion?: boolean;
   plazo_dias?: number;       // solo si tipo_venta === "CREDITO"
