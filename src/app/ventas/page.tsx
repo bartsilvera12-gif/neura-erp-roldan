@@ -14,6 +14,8 @@ import CajaControlPanel from "@/components/caja/CajaControlPanel";
 import DevolucionWizard from "@/components/devoluciones/DevolucionWizard";
 import { productoMatchesQuery } from "@/lib/productos/token-search";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import { useRolErp } from "@/lib/auth/use-rol-erp";
+import { esUsuarioLimitadoErp } from "@/lib/roles/erp-role-access";
 import EditarVentaModal from "./EditarVentaModal";
 import type { Venta, TipoVenta, TipoIvaVenta } from "@/lib/ventas/types";
 
@@ -115,6 +117,13 @@ export default function VentasPage() {
   // Edición de una venta emitida (punto 2.2). Solo admin.
   const [editar, setEditar] = useState<Venta | null>(null);
   const { isAdmin } = useIsAdmin();
+  /**
+   * El listado de ventas («Órdenes de venta») no lo ve el usuario normal
+   * (pedido del cliente): la cajera cobra en la Caja, no revisa lo vendido.
+   * Hasta saber el rol no se muestra, para que no aparezca y desaparezca.
+   */
+  const { rol, loaded: rolCargado } = useRolErp();
+  const verListado = isAdmin || (rolCargado && !esUsuarioLimitadoErp(rol));
   const [reloadKey, setReloadKey] = useState(0);
   const [devolucionesOn, setDevolucionesOn] = useState(false);
   const [devolverVentaId, setDevolverVentaId] = useState<string | null>(null);
@@ -212,6 +221,7 @@ export default function VentasPage() {
 
 
       {/* ── Tabla de ventas ───────────────────────────────────────────────────── */}
+      {verListado && (
       <div className="rounded-xl border border-slate-200 bg-white p-4 ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -518,6 +528,7 @@ export default function VentasPage() {
         </EdgeScrollArea>
 
       </div>
+      )}
 
       {/* FAB mobile: acceso 1-tap a "+ Nueva venta" desde cualquier scroll position */}
       <MobileFab href="/ventas/nueva" label="Nueva venta" />
