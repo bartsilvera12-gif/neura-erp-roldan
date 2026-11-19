@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, CheckCircle2, ChevronDown, ImageIcon, Minus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import EditarProductoRapido, { type ProductoEditable } from "@/components/productos/EditarProductoRapido";
+import FinalizarVentaModal, { type FormaPago } from "./FinalizarVentaModal";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
 import { precioListaGs, precioEnDolares } from "@/lib/precios/ficha";
@@ -153,6 +154,9 @@ const tipoPrecioLabel: Record<TipoPrecioVenta, string> = {
 };
 
 // ── Estilos ────────────────────────────────────────────────────────────────────
+
+/** El cobro pasó al modal «Finalizar venta» (estilo JM). */
+const COBRO_EN_PANTALLA = false as boolean;
 
 const inputClass =
   "w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#4FAEB2] focus:outline-none bg-white text-sm";
@@ -1797,8 +1801,44 @@ export default function NuevaVentaPage() {
     e.preventDefault();
     setErrorVenta(null);
     if (!ventaValida) return;
-    await enviarVenta();
+    // El cobro se termina en «Finalizar venta» (estilo JM).
+    setFinalizarOpen(true);
   }
+
+  // ── Finalizar venta (estilo JM, pedido del cliente) ───────────────────────
+  const [finalizarOpen, setFinalizarOpen] = useState(false);
+  const formaPago: FormaPago =
+    tipoVenta === "CREDITO" ? "credito"
+    : pagoMixto ? "mixto"
+    : metodoPago === "transferencia" || metodoPago === "tarjeta" ? metodoPago
+    : "efectivo";
+  function elegirForma(f: FormaPago) {
+    if (f === "credito") {
+      setTipoVenta("CREDITO");
+      setPagoMixto(false);
+      if (!plazoDias) setPlazoDias(String(credito?.dias ?? 30));
+      return;
+    }
+    setTipoVenta("CONTADO");
+    setPlazoDias("");
+    if (f === "mixto") { setPagoMixto(true); return; }
+    setPagoMixto(false);
+    handleSelectMetodo(f);
+  }
+  // Si la venta vuelve pidiendo confirmar la falta de stock, ese aviso tiene
+  // que quedar a la vista: se cierra el cobro.
+  useEffect(() => { if (faltantes.length > 0) setFinalizarOpen(false); }, [faltantes]);
+  // F9 abre el cobro desde cualquier lugar de la pantalla.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        e.preventDefault();
+        if (items.length > 0) setFinalizarOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [items.length]);
 
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -2721,7 +2761,8 @@ export default function NuevaVentaPage() {
                     )}
                   </div>
 
-                  {tipoVenta === "CONTADO" && (
+                  {/* El cobro se hace en «Finalizar venta» (F9), estilo JM. */}
+                  {COBRO_EN_PANTALLA && tipoVenta === "CONTADO" && (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cobro</p>
@@ -2904,7 +2945,8 @@ export default function NuevaVentaPage() {
               Cancelar
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={() => { setErrorVenta(null); setFinalizarOpen(true); }}
               disabled={!ventaValida || guardando}
               aria-busy={guardando}
               title={
@@ -2916,7 +2958,7 @@ export default function NuevaVentaPage() {
               }
               className="bg-[#4FAEB2] hover:bg-[#3F8E91] text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] w-full sm:w-auto"
             >
-              {guardando ? "Guardando…" : "Confirmar venta"}
+              {guardando ? "Guardando…" : <>Finalizar venta <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[10px]">F9</span></>}
             </button>
           </div>
 
@@ -2964,6 +3006,50 @@ export default function NuevaVentaPage() {
       )}
 
       {/* Modal de cobro (transferencia / tarjeta-débito) */}
+      {finalizarOpen && (
+        <FinalizarVentaModal
+          total={tipoVenta === "CREDITO" ? totalGeneral : aPagar}
+          cantidadItems={items.length}
+          forma={formaPago}
+          onForma={elegirForma}
+          puedeFacturar={modoSifen || modoAutoimpresor}
+          tipoDocumento={tipoDocumento}
+          onTipoDocumento={setTipoDocumento}
+          clienteNombre={clienteSel?.label ?? null}
+          montoRecibido={montoRecibido}
+          onMontoRecibido={setMontoRecibido}
+          registrarDiferencia={registrarDiferencia}
+          onRegistrarDiferencia={setRegistrarDiferencia}
+          resumenPago={entidadSel || pagoReferencia.trim()
+            ? [entidadSel?.nombre, pagoReferencia.trim() ? `Comp. ${pagoReferencia.trim()}` : null].filter(Boolean).join(" · ")
+            : null}
+          onEditarPago={() => { setEntidadQuery(""); setCobroModalOpen(true); }}
+          plazoDias={plazoDias}
+          onPlazoDias={setPlazoDias}
+          creditoAviso={credito
+            ? credito.limite === 0
+              ? "Este cliente no tiene crédito habilitado."
+              : credito.disponible != null
+                ? `Crédito disponible: ${formatGs(credito.disponible)}${credito.dias != null ? ` · plazo acordado ${credito.dias} días` : ""}.`
+                : null
+            : null}
+          editorMixto={
+            <PagosMixtoEditor
+              pagos={pagosMixto}
+              onChange={setPagosMixto}
+              total={aPagar}
+              entidades={entidades}
+              formatGs={formatGs}
+            />
+          }
+          puedeConfirmar={ventaValida}
+          guardando={guardando}
+          error={errorVenta}
+          onConfirmar={() => { setErrorVenta(null); void enviarVenta(); }}
+          onClose={() => setFinalizarOpen(false)}
+        />
+      )}
+
       {cobroModalOpen && (metodoPago === "transferencia" || metodoPago === "tarjeta") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCobroModalOpen(false)}>
           <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl space-y-3" onClick={(e) => e.stopPropagation()}>
