@@ -87,6 +87,12 @@ interface Props {
    *  se busca su precio por rubro en /api/productos/[id]/precio-para-cliente
    *  y sobrescribe el precio inicial (silencioso si no hay match). */
   clienteId?: string | null;
+  /**
+   * Si puede escribir el precio (administrador). El resto solo elige la
+   * cantidad: el precio sale del tipo de precio del cliente (pedido del
+   * cliente). El IVA sale siempre del producto, para todos.
+   */
+  precioEditable?: boolean;
 }
 
 function formatGs(v: number): string {
@@ -95,13 +101,16 @@ function formatGs(v: number): string {
 
 export default function ProductPickerModal({
   open, onClose, onAgregar, excludeIds = [], moneda = "GS", tipoCambio = 1, ivaDefault = "10%",
-  tipoPrecioDefault = "minorista", clienteId = null,
+  tipoPrecioDefault = "minorista", clienteId = null, precioEditable = true,
 }: Props) {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<ProductoPickerItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cantidadRef = useRef<HTMLInputElement>(null);
+  /** El renglón marcado con las flechas, para elegir con Enter. */
+  const [marcado, setMarcado] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Panel detalle
@@ -158,6 +167,7 @@ export default function ProductPickerModal({
           setItems([]);
         } else {
           setItems((json.data?.items ?? []) as ProductoPickerItem[]);
+          setMarcado(0);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error de red");
@@ -175,6 +185,8 @@ export default function ProductPickerModal({
     setPrecio(precioEnMonedaStr(precioPorTipoPicker(p, tipoPrecioDefault)));
     setIva(p.tipo_iva === "EXENTA" || p.tipo_iva === "5%" || p.tipo_iva === "10%" ? p.tipo_iva : ivaDefault);
     setFeedback(null);
+    // Todo por teclado: elegido el producto, el foco va a la cantidad.
+    setTimeout(() => cantidadRef.current?.select(), 30);
 
     // Si el cliente tiene categoria_cliente_id y hay precio cargado para este
     // producto en ese rubro, sobrescribimos el precio con ese valor.
@@ -245,6 +257,11 @@ export default function ProductPickerModal({
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") { e.preventDefault(); setMarcado((m) => Math.min(m + 1, items.length - 1)); }
+                else if (e.key === "ArrowUp") { e.preventDefault(); setMarcado((m) => Math.max(m - 1, 0)); }
+                else if (e.key === "Enter" && items[marcado]) { e.preventDefault(); void selectProducto(items[marcado]); }
+              }}
               placeholder="Buscar por nombre, SKU, código, rubro o ubicación..."
               className="flex-1 bg-transparent outline-none text-base text-slate-800 placeholder:text-slate-400"
               autoComplete="off"
@@ -256,7 +273,7 @@ export default function ProductPickerModal({
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-400">
-            Tokens en cualquier orden. Mínimo 2 letras por palabra. Esc para cerrar.
+            Tokens en cualquier orden. ↑↓ para moverse, Enter elige, Enter en la cantidad agrega. Esc para cerrar.
           </p>
         </div>
 
@@ -280,7 +297,7 @@ export default function ProductPickerModal({
             )}
             {!loading && !error && items.length > 0 && (
               <ul className="divide-y divide-slate-100">
-                {items.map((p) => {
+                {items.map((p, iFila) => {
                   const enCarro = excludeIds.filter((id) => id === p.id).length;
                   const disp = p.stock_actual - enCarro;
                   // Menú preparado_al_vender: sin stock propio (badge Menú).
@@ -288,7 +305,7 @@ export default function ProductPickerModal({
                   const manejaStk = manejaStock(p);
                   const sinStock = manejaStk && disp <= 0;
                   const isMenu = !manejaStk;
-                  const isSel = sel?.id === p.id;
+                  const isSel = sel?.id === p.id || (!sel && iFila === marcado);
                   return (
                     <li
                       key={p.id}
@@ -406,7 +423,9 @@ export default function ProductPickerModal({
                   <div>
                     <label className="block text-[11px] uppercase text-slate-400 mb-1">Tipo de precio</label>
                     <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-                      {(["minorista", "mayorista", "distribuidor"] as const).map((t) => (
+                      {/* Solo el tipo de precio del cliente (pedido del
+                          cliente): un minorista ve solo el minorista. */}
+                      {([tipoPrecioDefault] as const).map((t) => (
                         <button
                           key={t}
                           type="button"
@@ -429,9 +448,11 @@ export default function ProductPickerModal({
                     <div>
                       <label className="block text-[11px] uppercase text-slate-400 mb-1">Cantidad</label>
                       <input
+                        ref={cantidadRef}
                         type="number" min={1}
                         value={cantidad}
                         onChange={(e) => setCantidad(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAgregar(); } }}
                         className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
                       />
                     </div>
@@ -442,8 +463,11 @@ export default function ProductPickerModal({
                       <input
                         type="number" min={0}
                         value={precio}
-                        onChange={(e) => setPrecio(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
+                        readOnly={!precioEditable}
+                        tabIndex={precioEditable ? undefined : -1}
+                        onChange={(e) => { if (precioEditable) setPrecio(e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAgregar(); } }}
+                        className={`w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm ${precioEditable ? "" : "bg-slate-50 text-slate-600"}`}
                       />
                       {moneda === "USD" && (parseFloat(precio) || 0) > 0 && (
                         <p className="mt-1 text-[11px] text-slate-400">≈ {formatGs(precioGsEquiv)}</p>
@@ -453,16 +477,9 @@ export default function ProductPickerModal({
 
                   <div>
                     <label className="block text-[11px] uppercase text-slate-400 mb-1">IVA</label>
-                    <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-                      {(["EXENTA", "5%", "10%"] as const).map((opt) => (
-                        <button
-                          key={opt} type="button"
-                          onClick={() => setIva(opt)}
-                          className={`flex-1 py-1.5 text-xs font-medium ${iva === opt ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
+                    {/* El IVA sale del producto: no se cambia desde la caja. */}
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold text-slate-600">
+                      {iva === "EXENTA" ? "Exenta" : iva}
                     </div>
                   </div>
 

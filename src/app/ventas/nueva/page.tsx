@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ImageIcon, Minus, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ImageIcon, Minus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import EditarProductoRapido, { type ProductoEditable } from "@/components/productos/EditarProductoRapido";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
 import { precioListaGs, precioEnDolares } from "@/lib/precios/ficha";
@@ -287,7 +288,11 @@ export default function NuevaVentaPage() {
   const [modoAutoimpresor, setModoAutoimpresor] = useState(false);
 
   // Cliente (opcional). Si se selecciona, se envía cliente_id al crear la venta.
-  type ClienteLite = { id: string; label: string; ruc: string | null; telefono: string | null; usa_nota_remision: boolean };
+  type ClienteLite = {
+    id: string; label: string; ruc: string | null; telefono: string | null; usa_nota_remision: boolean;
+    /** Minorista, mayorista o distribuidor: el único precio que se le ofrece. */
+    nivel_precio?: "minorista" | "mayorista" | "distribuidor";
+  };
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [clienteQuery, setClienteQuery] = useState("");
@@ -754,6 +759,7 @@ export default function NuevaVentaPage() {
           ruc: s(r.ruc) || null,
           telefono: s(r.telefono) || null,
           usa_nota_remision: r.usa_nota_remision === true,
+          nivel_precio: r.nivel_precio === "mayorista" || r.nivel_precio === "distribuidor" ? r.nivel_precio : "minorista",
         }));
         setClientes(lite);
       })
@@ -1243,6 +1249,45 @@ export default function NuevaVentaPage() {
   // usuario normal no los ve en Caja, aunque su perfil tenga "ver costos").
   void tieneFacultad;
   const verMargenes = esAdminCaja;
+  /** El producto que se está editando desde la caja (solo administradores). */
+  const [editandoProd, setEditandoProd] = useState<ProductoEditable | null>(null);
+  function abrirEdicionProducto(productoId: string) {
+    if (!esAdminCaja || productoId.startsWith("manual:")) return;
+    const p = productos.find((x) => x.id === productoId);
+    if (!p) return;
+    setEditandoProd({
+      id: p.id,
+      nombre: p.nombre,
+      precio_venta: Number(p.precio_venta) || 0,
+      precio_mayorista: (p as { precio_mayorista?: number | null }).precio_mayorista ?? null,
+      precio_distribuidor: (p as { precio_distribuidor?: number | null }).precio_distribuidor ?? null,
+      tipo_iva: (p.tipo_iva as ProductoEditable["tipo_iva"]) ?? "10%",
+    });
+  }
+  /** Guardado el producto: la ficha local y las líneas de esta venta toman lo nuevo. */
+  function productoEditado(np: ProductoEditable) {
+    const actualizado = (p: Producto): Producto => ({
+      ...p,
+      nombre: np.nombre,
+      precio_venta: np.precio_venta,
+      tipo_iva: (np.tipo_iva ?? p.tipo_iva) as Producto["tipo_iva"],
+      ...({ precio_mayorista: np.precio_mayorista, precio_distribuidor: np.precio_distribuidor } as Partial<Producto>),
+    });
+    setProductos((prev) => prev.map((p) => (p.id === np.id ? actualizado(p) : p)));
+    setItems((prev) => prev.map((it) => {
+      if (it.producto_id !== np.id) return it;
+      const prod = productos.find((p) => p.id === np.id);
+      const lista = prod ? precioPorTipo(actualizado(prod), it.tipo_precio ?? "minorista", tcVenta) : np.precio_venta;
+      return recomputeLinea({
+        ...it,
+        producto_nombre: np.nombre,
+        tipo_iva: (np.tipo_iva ?? it.tipo_iva) as TipoIvaVenta,
+        precio_venta_original: lista,
+        precio_venta: lista,
+      });
+    }));
+    setEditandoProd(null);
+  }
 
   /**
    * Rentabilidad de la venta, SIN IVA.
@@ -1514,7 +1559,9 @@ export default function NuevaVentaPage() {
   /** Agrega un producto directo desde el autocomplete: si ya está (sin presentación)
    *  suma +1; si no, crea la línea. Luego limpia el input y devuelve el foco. */
   function agregarProductoRapido(p: Producto) {
-    const { lista, final: precio } = preciosDe(p, "minorista");
+    // El precio del tipo del cliente (minorista si no hay cliente).
+    const nivel: TipoPrecioVenta = clienteSel?.nivel_precio ?? "minorista";
+    const { lista, final: precio } = preciosDe(p, nivel);
     setItems((prev) => {
       const idx = prev.findIndex((it) => it.producto_id === p.id);
       if (idx >= 0) {
@@ -1529,8 +1576,10 @@ export default function NuevaVentaPage() {
           cantidad: 1,
           precio_venta_original: lista,
           precio_venta: precio,
-          tipo_iva: "10%",
-          tipo_precio: "minorista",
+          // El IVA del producto: ya no se cambia a mano en la caja, así que
+          // tiene que venir bien de entrada (antes salía siempre 10%).
+          tipo_iva: (p.tipo_iva === "EXENTA" || p.tipo_iva === "5%" || p.tipo_iva === "10%" ? p.tipo_iva : "10%") as TipoIvaVenta,
+          tipo_precio: nivel,
           subtotal: 0,
           monto_iva: 0,
           total_linea: 0,
@@ -2278,7 +2327,17 @@ export default function NuevaVentaPage() {
                       const topeLinea = topeDeArticulo(item.producto_id);
                       const topeEfectivo = topeAplicable(descuentoMaximo, topeLinea.pct);
                       return (
-                        <tr key={idx} className="align-middle transition-colors hover:bg-[#4FAEB2]/5">
+                        <tr
+                          key={idx}
+                          className="align-middle transition-colors hover:bg-[#4FAEB2]/5"
+                          onDoubleClick={(e) => {
+                            // Doble clic en la línea: editar el producto (admin).
+                            // No sobre los campos, que usan el doble clic para seleccionar.
+                            if ((e.target as HTMLElement).closest("input,button")) return;
+                            abrirEdicionProducto(item.producto_id);
+                          }}
+                          title={esAdminCaja && !esManual ? "Doble clic para editar el producto" : undefined}
+                        >
                           {/* Producto + SKU */}
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-3">
@@ -2351,17 +2410,12 @@ export default function NuevaVentaPage() {
                           </td>
                           {/* IVA */}
                           <td className="hidden px-3 py-2.5 md:table-cell">
-                            <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
-                              {(["EXENTA", "5%", "10%"] as const).map((iva) => {
-                                const sel = item.tipo_iva === iva;
-                                return (
-                                  <button key={iva} type="button" onClick={() => updateItemCampo(idx, { tipo_iva: iva })}
-                                    className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${sel ? "bg-[#4FAEB2] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
-                                    {iva === "EXENTA" ? "Ex" : iva}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            {/* El IVA sale del producto y no se cambia desde la
+                                caja, sea quien sea (pedido del cliente). Para
+                                corregirlo: editar el producto (doble clic). */}
+                            <span className="inline-flex rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
+                              {item.tipo_iva === "EXENTA" ? "Exenta" : item.tipo_iva}
+                            </span>
                           </td>
                           {/* Cantidad */}
                           <td className="px-3 py-2.5">
@@ -2382,8 +2436,13 @@ export default function NuevaVentaPage() {
                             <input
                               type="text"
                               inputMode="numeric"
+                              // El usuario normal solo cambia la cantidad (y el
+                              // descuento con su tope); el precio no.
+                              readOnly={!esAdminCaja}
+                              tabIndex={esAdminCaja ? undefined : -1}
                               value={item.precio_venta === 0 ? "" : String(item.precio_venta)}
                               onChange={(e) => {
+                                if (!esAdminCaja) return;
                                 // Solo dígitos: se puede editar libremente (subir, bajar, retipear)
                                 // SIN forzar el mínimo en cada tecla.
                                 const soloDigitos = e.target.value.replace(/[^\d]/g, "");
@@ -2495,7 +2554,17 @@ export default function NuevaVentaPage() {
                             <span className="text-sm font-bold tabular-nums text-slate-900">{formatGs(item.total_linea)}</span>
                           </td>
                           {/* Quitar */}
-                          <td className="px-2 py-2.5 text-center">
+                          <td className="px-2 py-2.5 text-center whitespace-nowrap">
+                            {esAdminCaja && !esManual && (
+                              <button
+                                type="button"
+                                onClick={() => abrirEdicionProducto(item.producto_id)}
+                                className="rounded p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                                title="Editar el producto"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleEliminarLinea(idx)}
@@ -2863,7 +2932,18 @@ export default function NuevaVentaPage() {
         moneda={moneda}
         tipoCambio={tipoCambioNum}
         ivaDefault="10%"
+        tipoPrecioDefault={clienteSel?.nivel_precio ?? "minorista"}
+        clienteId={clienteSel?.id ?? null}
+        precioEditable={esAdminCaja}
       />
+
+      {editandoProd && (
+        <EditarProductoRapido
+          producto={editandoProd}
+          onClose={() => setEditandoProd(null)}
+          onGuardado={productoEditado}
+        />
+      )}
 
       {verHistorial && clienteSel && (
         <HistorialClienteModal
