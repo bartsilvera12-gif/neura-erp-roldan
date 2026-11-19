@@ -145,13 +145,24 @@ export default function DetalleCierreCajaPage() {
             {c.fecha_cierre && ` — Cerró ${fechaHora(c.fecha_cierre)} · ${c.cerrada_por_nombre || "—"}`}
           </p>
         </div>
-        <a
-          href={`/api/cajas/${id}/arqueo-a4`}
-          target="_blank" rel="noopener"
-          className="rounded-lg border-2 border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
-        >
-          Arqueo A4 para firmar
-        </a>
+        <div className="flex flex-wrap gap-2">
+          {!abiertaAun && (
+            <a
+              href={`/api/cajas/${id}/lista-ventas`}
+              target="_blank" rel="noopener"
+              className="rounded-lg border-2 border-[#4FAEB2] bg-[#4FAEB2]/10 px-3 py-2 text-xs font-semibold text-[#2F6E71] hover:bg-[#4FAEB2]/20"
+            >
+              Imprimir lista de ventas
+            </a>
+          )}
+          <a
+            href={`/api/cajas/${id}/arqueo-a4`}
+            target="_blank" rel="noopener"
+            className="rounded-lg border-2 border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2] hover:text-[#4FAEB2]"
+          >
+            Arqueo A4 para firmar
+          </a>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

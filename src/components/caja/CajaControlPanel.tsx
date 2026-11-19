@@ -74,6 +74,8 @@ export default function CajaControlPanel({ onStateChange }: Props) {
   const [modal, setModal] = useState<ModalKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
+  /** La última caja que se cerró acá: queda el botón para imprimir su lista de ventas. */
+  const [recienCerrada, setRecienCerrada] = useState<{ id: string; numero: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -148,6 +150,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     setModal(null);
     setTarget(null);
     await load();
+    setRecienCerrada({ id: target.caja.id, numero: target.caja.numero_caja });
     notifyOk(`Caja ${target.caja.numero_caja} cerrada correctamente.`);
     onStateChange?.();
   }
@@ -260,6 +263,18 @@ export default function CajaControlPanel({ onStateChange }: Props) {
           />
         )}
 
+        {recienCerrada && (
+          <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-[#4FAEB2]/40 bg-white px-4 py-2.5 text-sm">
+            <span className="text-slate-700">Caja {recienCerrada.numero} cerrada.</span>
+            <span className="flex items-center gap-2">
+              <a href={`/api/cajas/${recienCerrada.id}/lista-ventas`} target="_blank" rel="noopener"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#3F8E91]">
+                <FileText className="h-3.5 w-3.5" /> Imprimir lista de ventas
+              </a>
+              <button type="button" onClick={() => setRecienCerrada(null)} className="text-xs text-slate-400 hover:text-slate-600">Cerrar aviso</button>
+            </span>
+          </div>
+        )}
         {okMsg && <ToastOk msg={okMsg} />}
       </div>
     );
@@ -268,6 +283,18 @@ export default function CajaControlPanel({ onStateChange }: Props) {
   // === Cajas activas (una o varias) ===
   return (
     <div className="space-y-3">
+      {recienCerrada && (
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-[#4FAEB2]/40 bg-white px-4 py-2.5 text-sm">
+          <span className="text-slate-700">Caja {recienCerrada.numero} cerrada.</span>
+          <span className="flex items-center gap-2">
+            <a href={`/api/cajas/${recienCerrada.id}/lista-ventas`} target="_blank" rel="noopener"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#3F8E91]">
+            <FileText className="h-3.5 w-3.5" /> Imprimir lista de ventas
+            </a>
+            <button type="button" onClick={() => setRecienCerrada(null)} className="text-xs text-slate-400 hover:text-slate-600">Cerrar aviso</button>
+          </span>
+        </div>
+      )}
       {/* Barra superior: título + abrir otra caja */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
@@ -334,6 +361,17 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                   <FileText className="h-3.5 w-3.5" />
                   Vista previa del arqueo
                 </a>
+                )}
+                {enCierre && (
+                  <a
+                    href={`/api/cajas/${c.id}/lista-ventas`}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#4FAEB2] bg-[#4FAEB2]/10 text-[#2F6E71] text-xs font-semibold px-3 py-2 hover:bg-[#4FAEB2]/20 transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Imprimir lista de ventas
+                  </a>
                 )}
                 {!enCierre && (
                   <>

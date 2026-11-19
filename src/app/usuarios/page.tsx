@@ -10,6 +10,8 @@ type UsuarioRow = {
   email: string;
   telefono: string | null;
   rol: string | null;
+  /** El perfil (Cajero, Vendedor…), si tiene uno asignado. */
+  perfil_nombre?: string | null;
   estado: string | null;
   created_at: string;
 };
@@ -136,7 +138,7 @@ export default function UsuariosPage() {
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Usuario</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Email</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden md:table-cell">Teléfono</th>
-                <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Rol</th>
+                <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Puesto</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Empleado</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden md:table-cell">Estado</th>
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Acciones</th>
@@ -161,7 +163,16 @@ export default function UsuariosPage() {
                   <td className="px-4 py-3 text-gray-600 truncate max-w-[180px]">{usr.email}</td>
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{usr.telefono ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className="text-xs font-medium text-gray-600 capitalize">{usr.rol ?? "—"}</span>
+                    {usr.perfil_nombre ? (
+                      <>
+                        <span className="inline-flex rounded-full bg-[#4FAEB2]/10 px-2 py-0.5 text-xs font-semibold text-[#2F6E71]">
+                          {usr.perfil_nombre}
+                        </span>
+                        <span className="mt-0.5 block text-[10.5px] capitalize text-gray-400">{usr.rol ?? ""}</span>
+                      </>
+                    ) : (
+                      <span className="text-xs font-medium text-gray-600 capitalize">{usr.rol ?? "—"}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {(() => {

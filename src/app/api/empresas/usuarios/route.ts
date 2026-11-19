@@ -33,7 +33,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ usuarios: usuarios ?? [] });
+    /**
+     * El perfil de cada uno (Cajero, Vendedor, Administrativo…), para que el
+     * listado diga qué puesto tiene y no solo el nivel (pedido del cliente).
+     * Sin el script 63 no hay perfiles y la columna sigue mostrando el nivel.
+     */
+    const perfilDe = new Map<string, string>();
+    if (empresaId) {
+      const pu = await supabaseSr.from("usuarios").select("id, perfil_id").eq("empresa_id", empresaId);
+      const pf = await supabaseSr.from("perfiles_usuario").select("id, nombre").eq("empresa_id", empresaId);
+      if (!pu.error && !pf.error) {
+        const nombre = new Map(((pf.data ?? []) as Array<{ id: string; nombre: string }>).map((p) => [p.id, p.nombre]));
+        for (const u of (pu.data ?? []) as Array<{ id: string; perfil_id: string | null }>) {
+          const n = u.perfil_id ? nombre.get(u.perfil_id) : null;
+          if (n) perfilDe.set(u.id, n);
+        }
+      }
+    }
+
+    return NextResponse.json({
+      usuarios: ((usuarios ?? []) as Array<Record<string, unknown>>).map((u) => ({
+        ...u,
+        perfil_nombre: perfilDe.get(String(u.id)) ?? null,
+      })),
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error";
     return NextResponse.json({ error: msg }, { status: 500 });
