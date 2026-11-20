@@ -5,6 +5,8 @@ import { membreteA4, EMPRESA_DOC } from "@/lib/documentos/membrete";
 import { hojaSobria } from "@/lib/documentos/hoja-sobria";
 import { htmlConSucursal } from "@/lib/documentos/server/membrete-sucursal";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { remisionPreimpresaHtml } from "@/lib/documentos/remision-preimpresa";
+import { lugarDeSucursal, hoyPyCorta } from "@/lib/documentos/server/lugar-sucursal";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,38 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   const filas = items.filter((it) => cant(it) > 0);
   const totalUnidades = filas.reduce((s, it) => s + cant(it), 0);
   const numero = String(cab.numero_remision ?? "") || String(cab.numero ?? "");
+
+  // Sobre el formulario preimpreso de Aceros (23,5 × 32 cm, pedido del
+  // cliente). La hoja de antes sigue con ?formato=hoja.
+  if (new URL(request.url).searchParams.get("formato") !== "hoja") {
+    const sb = (await getTenantSupabaseFromAuth(request))?.supabase;
+    const vacio = { nombre: null, direccion: null, ciudad: null, departamento: null };
+    const origen = sb ? await lugarDeSucursal(sb, String(cab.sucursal_origen_id ?? "") || null) : vacio;
+    const destino = sb ? await lugarDeSucursal(sb, String(cab.sucursal_destino_id ?? "") || null) : vacio;
+    const html = remisionPreimpresaHtml({
+      titulo: `Nota de remisión · Transferencia ${String(cab.numero ?? "")}`,
+      fecha_emision: hoyPyCorta(),
+      // Entre locales de la misma empresa: el destinatario es la empresa.
+      destinatario: {
+        nombre: `ACEROS METAL ROLDÁN E HIJOS · ${String(cab.sucursal_destino_nombre ?? "")}`,
+        ruc: "4538617-0",
+        direccion: destino.direccion,
+      },
+      comprobante_nro: null,
+      motivo: "traslado_locales",
+      otro_motivo: `Transferencia ${String(cab.numero ?? "")}`,
+      fecha_expedicion: hoyPyCorta(String(cab.despachada_at ?? cab.aprobada_at ?? cab.solicitada_at ?? "") || null),
+      fecha_inicio: hoyPyCorta(String(cab.despachada_at ?? "") || null),
+      partida: { direccion: origen.direccion, ciudad: origen.ciudad ?? String(cab.sucursal_origen_nombre ?? ""), departamento: origen.departamento },
+      llegada: { direccion: destino.direccion, ciudad: destino.ciudad ?? String(cab.sucursal_destino_nombre ?? ""), departamento: destino.departamento },
+      items: filas.map((it) => ({
+        codigo: (it.sku as string) ?? null,
+        cantidad: num(cant(it)),
+        descripcion: `${String(it.nombre ?? "")}${it.unidad && it.unidad !== "UNIDAD" ? ` (${String(it.unidad)})` : ""}`,
+      })),
+    });
+    return new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  }
 
   const copia = (tag: string) => `
   <section class="copia">

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { membreteA4, membreteTicket } from "@/lib/documentos/membrete";
 import { htmlConSucursal } from "@/lib/documentos/server/membrete-sucursal";
+import { remisionPreimpresaHtml } from "@/lib/documentos/remision-preimpresa";
+import { lugarDeSucursal, hoyPyCorta } from "@/lib/documentos/server/lugar-sucursal";
 
 /**
  * GET /api/ventas/[id]/ticket?w=58|80&mode=comandas&auto=1
@@ -519,6 +521,49 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       }
     }
     const itemsRem = itemsRaw.map((it) => ({ ...it, unidad: unidadByProd.get(it.producto_id) ?? "UNIDAD" }));
+
+    // Sobre el formulario preimpreso de Aceros (23,5 × 32 cm), que es lo que
+    // usa el cliente. La hoja de antes sigue con ?formato=hoja.
+    if (url.searchParams.get("formato") !== "hoja") {
+      const fq = await ctx.supabase.from("ventas").select("factura_id").eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+      const facturaId = (fq.data as { factura_id?: string | null } | null)?.factura_id ?? null;
+      let numeroFactura: string | null = null;
+      let timbrado: string | null = null;
+      if (facturaId) {
+        const f = await ctx.supabase.from("facturas").select("numero_factura").eq("id", facturaId).eq("empresa_id", empresaId).maybeSingle();
+        numeroFactura = (f.data as { numero_factura?: string | null } | null)?.numero_factura ?? null;
+        const c = await ctx.supabase.from("empresa_autoimpresor_config").select("timbrado_numero").eq("empresa_id", empresaId).maybeSingle();
+        timbrado = (c.data as { timbrado_numero?: string | null } | null)?.timbrado_numero ?? null;
+      }
+      const partida = await lugarDeSucursal(ctx.supabase, venta.sucursal_id);
+      const fechaVenta = hoyPyCorta(venta.fecha);
+      const html = remisionPreimpresaHtml({
+        titulo: `Nota de remisión · Venta ${venta.numero_control}`,
+        fecha_emision: hoyPyCorta(),
+        destinatario: {
+          nombre: clienteRem?.nombre ?? "SIN NOMBRE",
+          ruc: clienteRem?.ruc ?? clienteRem?.documento ?? null,
+          direccion: clienteRem?.direccion ?? null,
+        },
+        comprobante_nro: numeroFactura ?? venta.numero_control,
+        tipo_comprobante: numeroFactura ? "Factura" : "Ticket",
+        timbrado,
+        motivo: "venta",
+        fecha_expedicion: fechaVenta,
+        fecha_inicio: hoyPyCorta(),
+        partida: { direccion: partida.direccion, ciudad: partida.ciudad, departamento: partida.departamento },
+        llegada: { direccion: clienteRem?.direccion ?? null, ciudad: clienteRem?.ciudad ?? null },
+        vehiculo: { marca: venta.nr_transporte_marca, rua: venta.nr_transporte_chapa },
+        conductor: { nombre: venta.nr_chofer_nombre, ci: venta.nr_chofer_ci },
+        items: itemsRem.map((it) => ({
+          codigo: it.sku ?? null,
+          cantidad: (Number(it.cantidad) || 0).toLocaleString("es-PY", { maximumFractionDigits: 3 }),
+          descripcion: `${it.producto_nombre ?? ""}${it.unidad && it.unidad !== "UNIDAD" ? ` (${it.unidad})` : ""}`,
+        })),
+      });
+      return new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+
     const htmlRem = renderNotaRemision({ negocio, venta, items: itemsRem, cliente: clienteRem });
     return new NextResponse(await htmlConSucursal(ctx.supabase, venta.sucursal_id, htmlRem), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
   }

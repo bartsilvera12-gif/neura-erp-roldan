@@ -39,10 +39,12 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
     }
     const msg = err instanceof Error ? err.message : "";
     console.error("[/api/ventas/[id]/factura-autoimpresor POST]", msg);
+    // Con el motivo de la base: «no está configurado» a secas no dejaba saber
+    // qué faltaba (pedido del cliente: «dice que no está configurado»).
     if (/empresa_autoimpresor_config/.test(msg) && /does not exist/i.test(msg)) {
-      return NextResponse.json(errorResponse("El autoimpresor no está configurado en esta base."), { status: 503 });
+      return NextResponse.json(errorResponse(`Falta algo en la base para facturar: ${msg}`), { status: 503 });
     }
-    return NextResponse.json(errorResponse("No se pudo emitir la factura."), { status: 500 });
+    return NextResponse.json(errorResponse(`No se pudo emitir la factura: ${msg || "error desconocido"}`), { status: 500 });
   }
 }
 
