@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, CheckCircle2, ChevronDown, History, ImageIcon, Minus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import MovimientosProductoModal from "@/components/inventario/MovimientosProductoModal";
-import EditarProductoRapido, { type ProductoEditable } from "@/components/productos/EditarProductoRapido";
+import { type ProductoEditable } from "@/components/productos/EditarProductoRapido";
+import EditarProductoForm from "@/components/inventario/EditarProductoForm";
 import FinalizarVentaModal, { type FormaPago } from "./FinalizarVentaModal";
 import MontoInput from "@/components/ui/MontoInput";
 import ProductPickerModal, { type ProductoPickerItem, type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
@@ -2996,11 +2997,27 @@ export default function NuevaVentaPage() {
       {verMovs && <MovimientosProductoModal productoId={verMovs.id} nombre={verMovs.nombre} onClose={() => setVerMovs(null)} />}
 
       {editandoProd && (
-        <EditarProductoRapido
-          producto={editandoProd}
-          onClose={() => setEditandoProd(null)}
-          onGuardado={productoEditado}
-        />
+        // La ficha COMPLETA del producto, la misma de Inventario (pedido del
+        // cliente). Al guardar, las líneas de esta venta toman lo nuevo.
+        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditandoProd(null); }}>
+          <div className="relative my-6 w-full max-w-4xl rounded-xl bg-slate-50 p-4 shadow-2xl">
+            <button type="button" onClick={() => setEditandoProd(null)} aria-label="Cerrar"
+              className="absolute right-3 top-3 z-10 rounded p-1 text-slate-400 hover:bg-slate-200"><X className="h-5 w-5" /></button>
+            <EditarProductoForm
+              productoId={editandoProd.id}
+              onCancelar={() => setEditandoProd(null)}
+              onGuardado={(p) => productoEditado({
+                id: p.id,
+                nombre: p.nombre,
+                precio_venta: Number(p.precio_venta) || 0,
+                precio_mayorista: (p as { precio_mayorista?: number | null }).precio_mayorista ?? null,
+                precio_distribuidor: (p as { precio_distribuidor?: number | null }).precio_distribuidor ?? null,
+                tipo_iva: (p.tipo_iva as ProductoEditable["tipo_iva"]) ?? "10%",
+              })}
+            />
+          </div>
+        </div>
       )}
 
       {verHistorial && clienteSel && (
