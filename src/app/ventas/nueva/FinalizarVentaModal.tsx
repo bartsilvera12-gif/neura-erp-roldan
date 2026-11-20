@@ -127,14 +127,14 @@ export default function FinalizarVentaModal(props: {
                     {sinNombre ? "Factura sin nombre" : "Factura con nombre"}
                   </span>
                   <span className="block truncate text-[11px] text-slate-500">
-                    {sinNombre ? "consumidor final · va a la SET" : `${p.clienteNombre} · va a la SET`}
+                    {sinNombre ? "consumidor final · talonario" : `${p.clienteNombre} · talonario`}
                   </span>
                 </button>
               )}
               <button type="button" onClick={() => p.onTipoDocumento("ticket")}
                 className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${p.puedeFacturar ? "" : "col-span-2"} ${p.tipoDocumento === "ticket" || !p.puedeFacturar ? "border-[#4FAEB2] bg-[#4FAEB2]/10" : "border-slate-200 hover:border-[#4FAEB2]/50"}`}>
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800"><Receipt className="h-4 w-4" /> Ticket</span>
-                <span className="block text-[11px] text-slate-500">interno · no va a la SET</span>
+                <span className="block text-[11px] text-slate-500">interno · sin factura</span>
               </button>
             </div>
             {sinNombre && p.puedeFacturar && (

@@ -73,7 +73,7 @@ export async function emitirFacturaAutoimpresor(params: {
     const cq = await client.query(`SELECT * FROM ${tCfg} WHERE empresa_id = $1::uuid FOR UPDATE`, [params.empresaId]);
     const cfg = cq.rows[0] as Record<string, unknown> | undefined;
     if (!cfg || cfg.activo !== true) {
-      throw new AutoimpresorError(409, "El autoimpresor no está activo. Se configura en Configuración → Facturación.");
+      throw new AutoimpresorError(409, "La factura con talonario no está activa. Se configura en Configuración → Facturación.");
     }
     const est = String(cfg.establecimiento_codigo ?? "").trim();
     const pto = String(cfg.punto_expedicion_codigo ?? "").trim();

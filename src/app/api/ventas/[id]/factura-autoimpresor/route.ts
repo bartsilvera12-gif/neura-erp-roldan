@@ -42,7 +42,7 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
     // Con el motivo de la base: «no está configurado» a secas no dejaba saber
     // qué faltaba (pedido del cliente: «dice que no está configurado»).
     if (/empresa_autoimpresor_config/.test(msg) && /does not exist/i.test(msg)) {
-      return NextResponse.json(errorResponse(`Falta algo en la base para facturar: ${msg}`), { status: 503 });
+      return NextResponse.json(errorResponse(`No se pudo registrar la factura del talonario: ${msg}`), { status: 503 });
     }
     return NextResponse.json(errorResponse(`No se pudo emitir la factura: ${msg || "error desconocido"}`), { status: 500 });
   }
