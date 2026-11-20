@@ -21,7 +21,16 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const txt = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "") || null;
     const ua = request.headers.get("user-agent") ?? "";
-    const ip = (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || request.headers.get("x-real-ip") || null;
+    // La IP real del usuario. El sistema está detrás de Cloudflare: en
+    // x-forwarded-for llegaba la IP de Cloudflare (172.69.x.x) y todos los
+    // ingresos figuraban desde el mismo lugar. Cloudflare manda la del
+    // usuario en cf-connecting-ip.
+    const ip =
+      request.headers.get("cf-connecting-ip")?.trim() ||
+      request.headers.get("true-client-ip")?.trim() ||
+      (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
+      request.headers.get("x-real-ip") ||
+      null;
     const { sistema, navegador } = describirAgente(ua);
     const firma = await firmaUsuario(ctx.supabase, ctx.auth).catch(() => ({ nombre: null as string | null }));
 
