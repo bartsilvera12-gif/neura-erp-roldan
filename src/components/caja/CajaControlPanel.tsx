@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Lock,
   Unlock,
@@ -21,6 +22,7 @@ import {
   AlertTriangle,
   Clock,
   FileText,
+  ShoppingCart,
 } from "lucide-react";
 import ComprobantesMovimiento from "@/components/caja/ComprobantesMovimiento";
 import MontoInput from "@/components/ui/MontoInput";
@@ -375,6 +377,15 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                 )}
                 {!enCierre && (
                   <>
+                    {/* Acceso rápido a facturar (pedido del cliente): es lo
+                        que más se usa, así que va más grande que el resto. */}
+                    <Link
+                      href="/ventas/nueva"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#4FAEB2] px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-[#4FAEB2]/30 transition-colors hover:bg-[#3F8E91]"
+                    >
+                      <ShoppingCart className="h-5 w-5" />
+                      Nueva venta
+                    </Link>
                     <button
                       type="button"
                       onClick={() => { setTarget(cr); setModal("mov"); }}
