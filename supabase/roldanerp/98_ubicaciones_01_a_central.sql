@@ -27,7 +27,7 @@
 --
 -- Para mirar antes qué se va a mover, correr solo esta consulta:
 --   SELECT id, nombre, codigo, activo FROM roldanerp.inventario_ubicaciones
---    WHERE btrim(nombre) = '01' OR btrim(coalesce(codigo,'')) = '01' OR nombre ILIKE '%central%';
+--    WHERE btrim(nombre) ~* '(^|[^0-9])01$' OR btrim(coalesce(codigo,'')) ~* '(^|[^0-9])01$' OR nombre ILIKE '%central%';
 -- ============================================================================
 
 BEGIN;
@@ -58,7 +58,8 @@ BEGIN
     SELECT coalesce(array_agg(id), ARRAY[]::uuid[]) INTO ids
       FROM roldanerp.inventario_ubicaciones
      WHERE empresa_id = emp AND id <> central
-       AND (btrim(nombre) = '01' OR btrim(coalesce(codigo, '')) = '01');
+       -- «01», «DEP-01», «DEPOSITO 01»…: termina en 01 (no en 101, 201).
+       AND (btrim(nombre) ~* '(^|[^0-9])01$' OR btrim(coalesce(codigo, '')) ~* '(^|[^0-9])01$');
     IF array_length(ids, 1) IS NULL THEN
       RAISE NOTICE 'Empresa %: no hay ubicaciones «01».', emp;
       CONTINUE;
