@@ -125,6 +125,22 @@ export default function VentasPage() {
   const { rol, loaded: rolCargado } = useRolErp();
   const verListado = isAdmin || (rolCargado && !esUsuarioLimitadoErp(rol));
   const [reloadKey, setReloadKey] = useState(0);
+  /** Venta a la que se le está emitiendo la factura del talonario. */
+  const [facturando, setFacturando] = useState<string | null>(null);
+  async function emitirFactura(ventaId: string) {
+    setFacturando(ventaId);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/ventas/${ventaId}/factura-autoimpresor`, { method: "POST" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.success) throw new Error(j?.error ?? `Error ${r.status}`);
+      window.open(`/api/ventas/${ventaId}/factura-autoimpresor?auto=1`, "_blank", "noopener");
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      window.alert(`No se pudo emitir la factura: ${e instanceof Error ? e.message : "error"}`);
+    } finally {
+      setFacturando(null);
+    }
+  }
   const [devolucionesOn, setDevolucionesOn] = useState(false);
   const [devolverVentaId, setDevolverVentaId] = useState<string | null>(null);
 
@@ -459,7 +475,34 @@ export default function VentasPage() {
                           </a>
                           {/* Puente venta→factura: si la venta tiene factura ERP, link al
                               detalle /facturas/[id] (panel SIFEN: firma/envío/KUDE). */}
-                          {v.factura_id && (
+                          {/* Venta que salió solo con ticket (o cuya factura no
+                              se emitió): se factura acá, con el talonario,
+                              mientras su caja siga abierta. */}
+                          {!v.factura_id && !isAnulada && !v.caja_cerrada && (
+                            <button
+                              type="button"
+                              disabled={facturando === v.id}
+                              onClick={() => void emitirFactura(v.id)}
+                              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 transition-colors"
+                              title="Registrar la factura con el próximo número del talonario e imprimirla"
+                            >
+                              {facturando === v.id ? "Emitiendo…" : "Emitir factura"}
+                            </button>
+                          )}
+                          {/* Factura de talonario (sin estado SIFEN): reimprime la
+                              hoja sobre el talonario. La electrónica va a su panel. */}
+                          {v.factura_id && !v.factura_estado_sifen && (
+                            <a
+                              href={`/api/ventas/${v.id}/factura-autoimpresor`}
+                              target="_blank"
+                              rel="noopener"
+                              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                              title="Volver a imprimir la factura sobre el talonario"
+                            >
+                              {v.numero_factura ? `Factura ${v.numero_factura}` : "Factura"}
+                            </a>
+                          )}
+                          {v.factura_id && !!v.factura_estado_sifen && (
                             <Link
                               href={`/facturas/${v.factura_id}`}
                               className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"

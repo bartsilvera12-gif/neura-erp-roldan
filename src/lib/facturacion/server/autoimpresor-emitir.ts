@@ -27,6 +27,28 @@ export class AutoimpresorError extends Error {
 export const SIN_NOMBRE = { razon_social: "SIN NOMBRE", ruc: "44444401-7" };
 
 const hoyPy = () => new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+
+/**
+ * Una fecha de la base como AAAA-MM-DD (día de Paraguay).
+ *
+ * El driver devuelve las columnas de fecha como objetos Date, y
+ * `String(fecha).slice(0, 10)` daba «Fri Nov 20»: la factura no se emitía
+ * («invalid input syntax for type date»). Un texto ya en AAAA-MM-DD queda
+ * como está.
+ */
+function fechaPy(v: unknown, esFechaSola = false): string | null {
+  if (v == null || v === "") return null;
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && (esFechaSola || v.length <= 10)) return v.slice(0, 10);
+  const d = v instanceof Date ? v : new Date(String(v).replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"));
+  if (Number.isNaN(d.getTime())) return null;
+  // Una columna DATE llega como medianoche local: se toma tal cual. Una con
+  // hora (timestamptz) se pasa al día de Paraguay.
+  if (esFechaSola) {
+    const p = (x: number) => String(x).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  return new Date(d.getTime() - 3 * 3_600_000).toISOString().slice(0, 10);
+}
 const n = (v: unknown) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
 
 export function formatoNumeroFactura(est: string, pto: string, numero: number): string {
@@ -81,8 +103,8 @@ export async function emitirFacturaAutoimpresor(params: {
       throw new AutoimpresorError(409, "Falta cargar el timbrado, el establecimiento o el punto de expedición en Configuración → Facturación.");
     }
     const hoy = hoyPy();
-    const ini = cfg.timbrado_inicio_vigencia ? String(cfg.timbrado_inicio_vigencia).slice(0, 10) : null;
-    const fin = cfg.timbrado_fin_vigencia ? String(cfg.timbrado_fin_vigencia).slice(0, 10) : null;
+    const ini = fechaPy(cfg.timbrado_inicio_vigencia, true);
+    const fin = fechaPy(cfg.timbrado_fin_vigencia, true);
     if ((ini && hoy < ini) || (fin && hoy > fin)) {
       throw new AutoimpresorError(409, `El timbrado ${cfg.timbrado_numero} no está vigente hoy (${ini ?? "?"} a ${fin ?? "?"}).`);
     }
@@ -109,7 +131,7 @@ export async function emitirFacturaAutoimpresor(params: {
 
     const esCredito = String(v.tipo_venta ?? "").toUpperCase() === "CREDITO";
     const total = n(v.total);
-    const fecha = String(v.fecha ?? hoy).slice(0, 10);
+    const fecha = fechaPy(v.fecha) ?? hoy;
 
     const fi = await client.query(
       `INSERT INTO ${tF} (empresa_id, sucursal_id, cliente_id, numero_factura, fecha, fecha_vencimiento,
