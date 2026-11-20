@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { RE_NUMERO_FACTURA, RE_TIMBRADO } from "@/lib/formato/numero-factura";
@@ -48,8 +49,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
+/**
+ * Editar, pagar y anular compras (y cargarles notas de crédito) es de la
+ * administración (pedido del cliente): el administrativo ve y carga compras,
+ * nada más.
+ */
+async function soloAdministracion(request: NextRequest): Promise<NextResponse | null> {
+  const ctx = await getTenantSupabaseFromAuthWithRol(request);
+  if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+  if (!isAdmin(ctx.auth)) {
+    return NextResponse.json(
+      errorResponse("Editar, pagar o anular una compra lo hace un administrador."),
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const bloqueo = await soloAdministracion(request);
+    if (bloqueo) return bloqueo;
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
 

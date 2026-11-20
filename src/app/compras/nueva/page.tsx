@@ -263,6 +263,67 @@ export default function NuevaCompraPage() {
   }
   useEffect(() => { recargarProveedores(); recargarProductos(); recargarUbicaciones(); }, []);
 
+  // ── «Cargar factura» desde una orden de compra (?orden=) ─────────────────
+  // Pedido del cliente: la orden pasa a compra con sus datos (proveedor,
+  // condición y productos con su costo estimado). Al guardar, la orden queda
+  // facturada con el número de esta compra.
+  const [ordenId, setOrdenId] = useState<string | null>(null);
+  const [avisoOrden, setAvisoOrden] = useState<string | null>(null);
+  useEffect(() => {
+    let id: string | null = null;
+    try { id = new URLSearchParams(window.location.search).get("orden"); } catch { id = null; }
+    if (!id) return;
+    setOrdenId(id);
+    (async () => {
+      try {
+        const r = await fetch(`/api/ordenes-compra?id=${encodeURIComponent(id!)}`, { credentials: "include" });
+        const j = await r.json();
+        if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo leer la orden.");
+        const o = j.data.orden as Record<string, unknown>;
+        const usd = o.moneda === "USD";
+        setCab((prev) => ({
+          ...prev,
+          proveedor_id: o.proveedor_id ? String(o.proveedor_id) : prev.proveedor_id,
+          moneda: (usd ? "USD" : "PYG") as Moneda,
+          tipo_pago: o.condicion === "credito" ? "credito" : "contado",
+        }));
+        const prods = await getProductos();
+        const items = (Array.isArray(o.items) ? o.items : []) as Array<Record<string, unknown>>;
+        const sinProducto: string[] = [];
+        const nuevas: LineaCompra[] = [];
+        for (const it of items) {
+          const pid = it.producto_id ? String(it.producto_id) : "";
+          const prod = pid ? prods.find((p) => p.id === pid) : undefined;
+          if (!prod) { sinProducto.push(String(it.descripcion ?? "")); continue; }
+          const iva: TipoIva = prod.tipo_iva === "EXENTA" ? "exenta" : prod.tipo_iva === "5%" ? "5" : "10";
+          const cant = Number(it.cantidad) || 0;
+          // En dólares el costo se escribe con la factura: sin cotización no se
+          // puede pasar a guaraníes bien.
+          const costo = usd ? 0 : Number(it.precio_unitario) || 0;
+          const total = cant * costo;
+          const montoIva = ivaMonto(total, iva);
+          const pv = Number(prod.precio_venta) || 0;
+          nuevas.push({
+            producto_id: prod.id, producto_nombre: prod.nombre, sku: prod.sku ?? "",
+            cantidad: cant, costo_unitario_input: costo, costo_unitario_pyg: costo, iva_tipo: iva,
+            precio_venta: pv, subtotal: total - montoIva, monto_iva: montoIva, total,
+            margen_venta: pv > 0 && costo > 0 ? ((pv - costo) / pv) * 100 : null,
+            controla_lote: false, lote_numero: "", lote_fecha_vencimiento: "",
+          });
+        }
+        setLineas(nuevas);
+        setAvisoOrden(
+          `Cargando la factura de la orden ${o.numero_control ?? ""}${o.proveedor_id ? "" : " (sin proveedor: elegilo abajo)"}. ` +
+          "Revisá cantidades y costos contra la factura." +
+          (usd ? " Es en dólares: cargá el costo de cada línea." : "") +
+          (sinProducto.length > 0 ? ` No se pasaron ${sinProducto.length} ítems escritos a mano: ${sinProducto.slice(0, 3).join(", ")}.` : "")
+        );
+      } catch (e) {
+        setErrorSubmit(e instanceof Error ? e.message : "No se pudo leer la orden de compra.");
+      }
+    })();
+  }, []);
+
   // Cargar la compra si estamos editando (?numero=). Prefill de cabecera + líneas.
   useEffect(() => {
     let numero: string | null = null;
@@ -561,6 +622,15 @@ export default function NuevaCompraPage() {
       );
       if (!res.success) { setErrorSubmit(res.error); return; }
       if (res.warning) alert(res.warning);
+      // La orden de la que salió queda facturada con esta compra.
+      if (ordenId) {
+        await fetch("/api/ordenes-compra", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: ordenId, compra_numero: res.numero_control || "cargada" }),
+        }).catch(() => { /* la compra ya está: la orden se marca a mano */ });
+      }
       router.push("/compras");
     } finally {
       setSubmitting(false);
@@ -654,6 +724,10 @@ export default function NuevaCompraPage() {
             : "Una compra puede tener varios productos del mismo proveedor."}
         </p>
       </div>
+
+      {avisoOrden && (
+        <div className="max-w-3xl rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">{avisoOrden}</div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <form className="space-y-8" onSubmit={handleSubmit}>

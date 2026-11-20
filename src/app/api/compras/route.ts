@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enlazarConCaja } from "@/lib/caja/enlace-movimientos";
 import { normalizarMedioCompra } from "@/lib/compras/pago-caja";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
+import { isAdmin } from "@/lib/middleware/auth";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
@@ -106,8 +107,28 @@ function costoEnGuaranies(
  * filas del numero_control y reinserta con el MISMO número. NO recalcula costos de
  * productos (edición administrativa; evita drift del costo_promedio).
  */
+
+/**
+ * Editar, pagar y anular compras (y cargarles notas de crédito) es de la
+ * administración (pedido del cliente): el administrativo ve y carga compras,
+ * nada más.
+ */
+async function soloAdministracion(request: NextRequest): Promise<NextResponse | null> {
+  const ctx = await getTenantSupabaseFromAuthWithRol(request);
+  if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
+  if (!isAdmin(ctx.auth)) {
+    return NextResponse.json(
+      errorResponse("Editar, pagar o anular una compra lo hace un administrador."),
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
 export async function PUT(request: NextRequest) {
   try {
+    const bloqueo = await soloAdministracion(request);
+    if (bloqueo) return bloqueo;
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const empresaId = ctx.auth.empresa_id;
@@ -440,6 +461,8 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    const bloqueo = await soloAdministracion(request);
+    if (bloqueo) return bloqueo;
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const empresaId = ctx.auth.empresa_id;

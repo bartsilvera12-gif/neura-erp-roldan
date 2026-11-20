@@ -9,6 +9,9 @@ import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
 import EnviarOrdenModal from "@/components/compras/EnviarOrdenModal";
 import { Printer, Plus, Check, X, Mail } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import Link from "next/link";
+import { estadoOrden, ETIQUETA_ESTADO_ORDEN, type EstadoOrden } from "@/lib/compras/orden-estado";
+import { FileInput, Truck } from "lucide-react";
 
 /**
  * Órdenes de compra: el PEDIDO que se le manda al proveedor.
@@ -36,6 +39,10 @@ type Orden = {
   estado: string;
   observaciones: string | null;
   items: Item[];
+  /** Script 97. */
+  fecha_entrega?: string | null;
+  condicion?: string | null;
+  compra_numero?: string | null;
 };
 
 const gs = (v: number) => Math.round(v).toLocaleString("es-PY");
@@ -46,9 +53,10 @@ const fmtFecha = (iso: string | null) => {
 const totalDe = (o: Orden) =>
   (o.items ?? []).reduce((s, i) => s + (Number(i.cantidad) || 0) * (Number(i.precio_unitario) || 0), 0);
 
-const TONO: Record<string, string> = {
-  pendiente: "bg-violet-100 text-violet-800",
+const TONO: Record<EstadoOrden, string> = {
+  en_transito: "bg-violet-100 text-violet-800",
   recibida: "bg-emerald-100 text-emerald-800",
+  facturada: "bg-sky-100 text-sky-800",
   anulada: "bg-slate-100 text-slate-500 line-through",
 };
 
@@ -103,7 +111,7 @@ export default function OrdenesCompraPage() {
   const filtradas = useMemo(() => {
     const s = q.trim().toLowerCase();
     return ordenes.filter((o) => {
-      if (estado && o.estado !== estado) return false;
+      if (estado && estadoOrden(o) !== estado) return false;
       if (!s) return true;
       return (
         o.proveedor_nombre.toLowerCase().includes(s) ||
@@ -115,14 +123,14 @@ export default function OrdenesCompraPage() {
 
   const filasExport = useMemo(
     () => filtradas.map((o) => [
-      o.numero_control, fmtFecha(o.fecha), o.proveedor_nombre, o.estado,
+      o.numero_control, fmtFecha(o.fecha), o.proveedor_nombre, ETIQUETA_ESTADO_ORDEN[estadoOrden(o)],
       (o.items ?? []).length, o.moneda, Math.round(totalDe(o)),
     ]),
     [filtradas]
   );
 
   const totalPendiente = filtradas
-    .filter((o) => o.estado === "pendiente")
+    .filter((o) => estadoOrden(o) === "en_transito" || estadoOrden(o) === "recibida")
     .reduce((s, o) => s + totalDe(o), 0);
 
   return (
@@ -132,12 +140,12 @@ export default function OrdenesCompraPage() {
         title="Órdenes de compra"
         description="El pedido que se le manda al proveedor. No es una compra: no toca stock ni cuentas por pagar"
         actions={
-          <button
-            type="button" onClick={() => setNueva(true)}
+          <Link
+            href="/ordenes-compra/nueva"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
           >
             <Plus className="h-4 w-4" /> Nueva orden
-          </button>
+          </Link>
         }
       />
 
@@ -156,8 +164,9 @@ export default function OrdenesCompraPage() {
             className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="">Todas</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="recibida">Recibidas</option>
+            <option value="en_transito">En tránsito</option>
+            <option value="recibida">Recibidas (sin factura)</option>
+            <option value="facturada">Facturadas</option>
             <option value="anulada">Anuladas</option>
           </Selector>
         </label>
@@ -216,6 +225,7 @@ export default function OrdenesCompraPage() {
                   <th className="px-3 py-2 text-left font-semibold">N°</th>
                   <th className="px-3 py-2 text-left font-semibold">Fecha</th>
                   <th className="px-3 py-2 text-left font-semibold">Proveedor</th>
+                  <th className="px-3 py-2 text-left font-semibold">Llega</th>
                   <th className="px-3 py-2 text-center font-semibold">Ítems</th>
                   <th className="px-3 py-2 text-right font-semibold">Total</th>
                   <th className="px-3 py-2 text-left font-semibold">Estado</th>
@@ -238,14 +248,16 @@ export default function OrdenesCompraPage() {
                         <td className="px-3 py-2.5 font-mono text-slate-700">{o.numero_control}</td>
                         <td className="px-3 py-2.5 text-slate-600">{fmtFecha(o.fecha)}</td>
                         <td className="px-3 py-2.5 font-medium text-slate-800">{o.proveedor_nombre}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{o.fecha_entrega ? fmtFecha(o.fecha_entrega) : "—"}</td>
                         <td className="px-3 py-2.5 text-center text-slate-600">{(o.items ?? []).length}</td>
                         <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-800">
                           {o.moneda === "USD" ? "US$ " : ""}{gs(totalDe(o))}
                         </td>
                         <td className="px-3 py-2.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO[o.estado] ?? ""}`}>
-                            {o.estado}
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO[estadoOrden(o)]}`}>
+                            {ETIQUETA_ESTADO_ORDEN[estadoOrden(o)]}
                           </span>
+                          {o.compra_numero && <span className="ml-1 font-mono text-[10px] text-slate-400">{o.compra_numero}</span>}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
                           {o.estado !== "anulada" && (
@@ -266,15 +278,25 @@ export default function OrdenesCompraPage() {
                           >
                             <Printer className="h-3.5 w-3.5" /> Imprimir
                           </a>
-                          {o.estado === "pendiente" && (
+                          {(estadoOrden(o) === "en_transito" || estadoOrden(o) === "recibida") && (
                             <>
+                              {/* Pedido del cliente: en vez de «Recibida», cargar
+                                  la factura: arma la compra con esta orden. */}
+                              <Link
+                                href={`/compras/nueva?orden=${o.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mr-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"
+                                title="Cargar la factura del proveedor: arma la compra con los datos de esta orden"
+                              >
+                                <FileInput className="h-3.5 w-3.5" /> Cargar factura
+                              </Link>
                               <button
                                 type="button" disabled={ocupada === o.id}
-                                onClick={(e) => { e.stopPropagation(); void cambiarEstado(o, "recibida"); }}
-                                className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:underline disabled:opacity-50"
-                                title="Marcar que llegó la mercadería. La compra se carga aparte, con su factura"
+                                onClick={(e) => { e.stopPropagation(); void cambiarEstado(o, estadoOrden(o) === "recibida" ? "pendiente" : "recibida"); }}
+                                className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:underline disabled:opacity-50"
+                                title="Marcar si la mercadería ya llegó o sigue en tránsito"
                               >
-                                <Check className="h-3.5 w-3.5" /> Recibida
+                                {estadoOrden(o) === "recibida" ? <><Truck className="h-3.5 w-3.5" /> En tránsito</> : <><Check className="h-3.5 w-3.5" /> Recibido</>}
                               </button>
                               <button
                                 type="button" disabled={ocupada === o.id}
@@ -291,7 +313,7 @@ export default function OrdenesCompraPage() {
                       {open && (
                         <tr className="bg-slate-50/60">
                           <td />
-                          <td colSpan={7} className="px-3 py-3">
+                          <td colSpan={8} className="px-3 py-3">
                             {o.observaciones && (
                               <p className="mb-2 text-[11px] italic text-slate-500">{o.observaciones}</p>
                             )}

@@ -6,7 +6,6 @@ import { htmlConSucursal } from "@/lib/documentos/server/membrete-sucursal";
 export const dynamic = "force-dynamic";
 
 function n(v: unknown): number { const x = Number(v); return Number.isFinite(x) ? x : 0; }
-function money(v: unknown, m?: string): string { return (m === "USD" ? "USD " : "Gs. ") + Math.round(n(v)).toLocaleString("es-PY"); }
 function esc(v: unknown): string { return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function fecha(v: unknown): string { const s = String(v ?? "").slice(0, 10); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m ? `${m[3]}/${m[2]}/${m[1]}` : (s || "—"); }
 
@@ -28,7 +27,8 @@ export async function GET(request: NextRequest) {
   const o = data as Record<string, unknown>;
   const moneda = String(o.moneda ?? "PYG");
   const items = (Array.isArray(o.items) ? o.items : []) as Item[];
-  const total = items.reduce((a, it) => a + n(it.cantidad) * n(it.precio_unitario), 0);
+  // Sin montos (pedido del cliente): la orden le dice al proveedor QUÉ
+  // mandar, no cuánto pensamos pagar. Los precios los pone su factura.
 
   let ruc = "";
   if (o.proveedor_id) {
@@ -42,8 +42,6 @@ export async function GET(request: NextRequest) {
       <td>${esc(it.descripcion)}</td>
       <td style="text-align:right;">${n(it.cantidad).toLocaleString("es-PY")}</td>
       <td>${esc(it.unidad)}</td>
-      <td style="text-align:right;">${n(it.precio_unitario) > 0 ? money(it.precio_unitario, moneda) : "—"}</td>
-      <td style="text-align:right;">${n(it.precio_unitario) > 0 ? money(n(it.cantidad) * n(it.precio_unitario), moneda) : "—"}</td>
     </tr>`;
 
   const html = `<!doctype html>
@@ -76,15 +74,14 @@ export async function GET(request: NextRequest) {
     <div><span>Proveedor:</span> <strong>${esc(o.proveedor_nombre)}</strong></div>
     <div><span>RUC:</span> ${esc(ruc) || "—"}</div>
     <div><span>Moneda:</span> ${moneda === "USD" ? "Dólares (USD)" : "Guaraníes"}</div>
-    <div><span>Estado:</span> ${esc(o.estado)}</div>
+    <div><span>Entrega esperada:</span> ${o.fecha_entrega ? fecha(o.fecha_entrega) : "—"}</div>
   </div>
 
   <p style="font-size:12.5px;color:#374151;margin:0 0 8px;">Solicitamos el despacho de los siguientes productos:</p>
   <table>
-    <thead><tr><th>Descripción</th><th style="text-align:right;">Cant.</th><th>Unidad</th><th style="text-align:right;">Precio unit.</th><th style="text-align:right;">Importe</th></tr></thead>
+    <thead><tr><th>Descripción</th><th style="text-align:right;">Cant.</th><th>Unidad</th></tr></thead>
     <tbody>${items.map(fila).join("")}</tbody>
   </table>
-  ${total > 0 ? `<div class="tot"><span>TOTAL ESTIMADO</span><span>${money(total, moneda)}</span></div>` : ""}
 
   ${o.observaciones ? `<div class="obs"><strong>Observaciones:</strong> ${esc(o.observaciones)}</div>` : ""}
 

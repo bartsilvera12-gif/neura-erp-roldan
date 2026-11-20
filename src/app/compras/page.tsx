@@ -13,6 +13,7 @@ import PagarCompraModal from "./PagarCompraModal";
 import { useModoPersistido } from "@/components/ui/ToggleNutricionConsig";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import OrdenesEnCompras from "@/components/compras/OrdenesEnCompras";
 import type { Compra, TipoPago, Moneda } from "@/lib/compras/types";
 import NotaCreditoCompraModal from "@/components/compras/NotaCreditoCompraModal";
 
@@ -256,7 +257,7 @@ function VistaNutricion() {
             />
             </span>
             <Link
-              href="/compras/pedidos"
+              href="/ordenes-compra"
               className="rounded-lg border border-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-[#3F8E91] transition-colors hover:bg-[#4FAEB2]/10"
             >
               <FileText className="h-4 w-4" /> Órdenes de compra
@@ -269,6 +270,9 @@ function VistaNutricion() {
             </Link>
           </div>
         </div>
+
+        {/* Pedido del cliente: las órdenes sin factura, acá mismo. */}
+        <OrdenesEnCompras />
 
         <div className="flex flex-wrap items-center gap-3 mb-5 pb-5 border-b border-gray-100">
           <input
@@ -421,7 +425,8 @@ function VistaNutricion() {
                           {/* Una compra anulada ya revirtió su stock: editarla
                               volvería a aplicar las cantidades sobre un
                               documento que no existe más. */}
-                          {isAdmin && !g.anulada && (
+                          {/* «Editar» se sacó para todos (pedido del cliente). */}
+                          {false && isAdmin && !g.anulada && (
                             <Link
                               href={`/compras/nueva?numero=${encodeURIComponent(g.numero_control)}`}
                               onClick={(e) => e.stopPropagation()}
@@ -431,7 +436,8 @@ function VistaNutricion() {
                               Editar
                             </Link>
                           )}
-                          {!g.anulada && g.tipo_pago === "credito" && (
+                          {/* Nota de crédito, pagar y anular: solo administración. */}
+                          {isAdmin && !g.anulada && g.tipo_pago === "credito" && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -444,7 +450,7 @@ function VistaNutricion() {
                               Nota de crédito
                             </button>
                           )}
-                          {!g.anulada && !g.pagada && (
+                          {isAdmin && !g.anulada && !g.pagada && (
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setPagarTarget(g); }}
@@ -454,7 +460,7 @@ function VistaNutricion() {
                               Pagar
                             </button>
                           )}
-                          {!g.anulada && (
+                          {isAdmin && !g.anulada && (
                             <button
                               type="button"
                               onClick={(e) => {
