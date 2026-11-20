@@ -2150,7 +2150,8 @@ export default function NuevaVentaPage() {
 
             {/* Documento a emitir (solo cuando la empresa está en modo SIFEN):
                 Factura electrónica (puente a SIFEN) vs Solo ticket. */}
-            {modoAutoimpresor && !modoSifen && (
+            {/* Con talonario solo se factura: el ticket no se usa (pedido del cliente). */}
+            {false && modoAutoimpresor && !modoSifen && (
               <div>
                 <label className={labelClass}>Documento</label>
                 <SegmentedControl<"factura" | "ticket">

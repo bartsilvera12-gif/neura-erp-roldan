@@ -74,6 +74,12 @@ export default function FinalizarVentaModal(props: {
   const recibido = parseFloat(p.montoRecibido) || 0;
   const vuelto = recibido - p.total;
 
+  // Con talonario siempre es factura: si quedó «ticket» de antes, se corrige.
+  useEffect(() => {
+    if (p.puedeFacturar && p.tipoDocumento !== "factura") p.onTipoDocumento("factura");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.puedeFacturar, p.tipoDocumento]);
+
   useEffect(() => {
     if (p.forma === "efectivo") setTimeout(() => pagaConRef.current?.focus(), 50);
   }, [p.forma]);
@@ -118,7 +124,9 @@ export default function FinalizarVentaModal(props: {
             <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px]">1</span> Comprobante
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            {/* Con talonario solo se factura: el ticket no se usa (pedido del
+                cliente). Sin talonario configurado queda el ticket. */}
+            <div className="grid grid-cols-1 gap-2">
               {p.puedeFacturar && (
                 <button type="button" onClick={() => p.onTipoDocumento("factura")}
                   className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${p.tipoDocumento === "factura" ? "border-[#4FAEB2] bg-[#4FAEB2]/10" : "border-slate-200 hover:border-[#4FAEB2]/50"}`}>
@@ -131,11 +139,13 @@ export default function FinalizarVentaModal(props: {
                   </span>
                 </button>
               )}
+              {!p.puedeFacturar && (
               <button type="button" onClick={() => p.onTipoDocumento("ticket")}
                 className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${p.puedeFacturar ? "" : "col-span-2"} ${p.tipoDocumento === "ticket" || !p.puedeFacturar ? "border-[#4FAEB2] bg-[#4FAEB2]/10" : "border-slate-200 hover:border-[#4FAEB2]/50"}`}>
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800"><Receipt className="h-4 w-4" /> Ticket</span>
                 <span className="block text-[11px] text-slate-500">interno · sin factura</span>
               </button>
+              )}
             </div>
             {sinNombre && p.puedeFacturar && (
               <p className="mt-1.5 text-[11px] text-slate-400">Para facturar con nombre, elegí el cliente arriba, en «Datos de la venta».</p>
