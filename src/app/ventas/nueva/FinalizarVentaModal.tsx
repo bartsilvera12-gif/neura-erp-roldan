@@ -97,9 +97,9 @@ export default function FinalizarVentaModal(props: {
   const sinNombre = !p.clienteNombre;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-3 pt-6 backdrop-blur-sm sm:pt-12"
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-3 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget && !p.guardando) p.onClose(); }}>
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onKeyDown={onKeyDown}>
+      <div className="my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onKeyDown={onKeyDown}>
         <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h3 className="text-xl font-semibold text-slate-900">Finalizar venta · {fmt(p.total)}</h3>
