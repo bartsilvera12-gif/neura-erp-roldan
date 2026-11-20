@@ -15,7 +15,8 @@ function fmtGs(n: number) {
 
 const ANTICIPO_RETIRAR = "Anticipo del {anticipo}% y saldo al retirar";
 const ANTICIPO_ENTREGA = "Anticipo del {anticipo}% y saldo contra entrega";
-const PORCENTAJES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+/** Hasta 50% (pedido del cliente). */
+const PORCENTAJES = [10, 20, 30, 40, 50];
 
 /**
  * La forma de pago y el anticipo (pedido del cliente).
