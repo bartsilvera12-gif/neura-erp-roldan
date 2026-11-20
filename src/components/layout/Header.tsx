@@ -12,6 +12,7 @@ import { diasRestantes, nivelPorDias, type NivelVencimiento } from "@/lib/lotes/
 import { nombreUsuarioDisplay } from "@/lib/usuarios/hweber";
 import SucursalSwitcher from "@/components/layout/SucursalSwitcher";
 import AutorizacionesDescuento from "./AutorizacionesDescuento";
+import CampanaAvisos from "./CampanaAvisos";
 import { getModuleAccessCached } from "@/lib/modulos/module-access-cache";
 import { isModuleSlugGranted } from "@/lib/modulos/route-slug-map";
 
@@ -291,6 +292,9 @@ export default function Header() {
         {/* Pedidos de descuento esperando respuesta. Se muestra solo a quien
             puede autorizarlos y solo cuando hay alguno. */}
         <AutorizacionesDescuento />
+
+        {/* Avisos por puesto: cajero, vendedor, administrativo y administrador. */}
+        <CampanaAvisos />
 
         {/* Notificaciones — lotes próximos a vencer (≤15 días).
             Solo visible si la empresa tiene el módulo "Productos a vencer". */}
