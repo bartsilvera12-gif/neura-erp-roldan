@@ -458,17 +458,7 @@ export default function PresupuestoDetallePage() {
       {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
       {ok && <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700"><Check className="h-4 w-4" /> {ok}</div>}
 
-      {presu.estado === "convertido" && presu.convertido_pedido_id && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-violet-50 border border-violet-200 p-3 text-sm text-violet-800">
-          <span>Este presupuesto ya fue convertido en pedido.</span>
-          <Link
-            href={`/dashboard/proyectos/${presu.convertido_pedido_id}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"
-          >
-            <FileCheck2 className="h-3.5 w-3.5" /> Abrir pedido
-          </Link>
-        </div>
-      )}
+      {/* «Ya fue convertido en pedido» se sacó: en este ERP el presupuesto se cobra en la caja, no pasa a pedido. */}
 
       {/* Lo que se le cambió en la caja. Va arriba, antes de los ítems: los
           ítems de abajo son lo que se presupuestó, no lo que se cobró, y sin
