@@ -8,7 +8,7 @@ import AccionesTabla from "@/components/ui/AccionesTabla";
 import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import {
-  faltante, severidad, valorFaltante, lineasParaOrden,
+  faltante, minimoEntero, severidad, valorFaltante, lineasParaOrden,
   type ArticuloBajoMinimo, type GrupoRubro, type ResumenBajoMinimo,
 } from "@/lib/inventario/bajo-minimo";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
@@ -121,7 +121,7 @@ export default function BajoMinimoPage() {
         a.nombre,
         a.unidad ?? "",
         a.stock_actual,
-        a.stock_minimo,
+        minimoEntero(a.stock_minimo),
         faltante(a),
         Math.round(a.costo_promedio),
         Math.round(valorFaltante(a)),
@@ -343,7 +343,7 @@ export default function BajoMinimoPage() {
                               <td className={`px-3 py-2 text-right tabular-nums ${cero ? "font-semibold text-rose-600" : "text-slate-700"}`}>
                                 {cero ? "0" : uni(a.stock_actual)}
                               </td>
-                              <td className="px-3 py-2 text-right tabular-nums text-slate-500">{uni(a.stock_minimo)}</td>
+                              <td className="px-3 py-2 text-right tabular-nums text-slate-500">{uni(minimoEntero(a.stock_minimo))}</td>
                               <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-800">
                                 {uni(faltante(a))}
                                 {a.unidad && <span className="ml-1 text-[10px] font-normal text-slate-400">{a.unidad}</span>}

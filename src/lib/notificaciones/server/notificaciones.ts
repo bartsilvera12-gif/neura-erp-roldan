@@ -211,8 +211,8 @@ export async function notificacionesDe(
           clave: `stock:${hoyPy()}:${bajo}`,
           tipo: "stock",
           titulo: `Falta de stock: ${bajo} ${bajo === 1 ? "producto" : "productos"} bajo el mínimo`,
-          detalle: "Ver la reposición sugerida",
-          href: "/inventario/reposicion",
+          detalle: "Ver qué reponer (Bajo mínimo)",
+          href: "/inventario/bajo-minimo",
           fecha: null,
         });
       }

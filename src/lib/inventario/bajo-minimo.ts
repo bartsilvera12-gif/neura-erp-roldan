@@ -59,9 +59,19 @@ export function estaBajoMinimo(a: { stock_actual: unknown; stock_minimo: unknown
   return min > 0 && n(a.stock_actual) < min;
 }
 
-/** Cuántas unidades faltan para llegar al mínimo. Nunca negativo. */
+/**
+ * Cuántas unidades faltan para llegar al mínimo. Nunca negativo.
+ *
+ * Redondeado al entero de ARRIBA (pedido del cliente): no se compran 0,42
+ * unidades. El mínimo también se muestra redondeado (ver `minimoEntero`).
+ */
 export function faltante(a: { stock_actual: unknown; stock_minimo: unknown }): number {
-  return Math.max(0, n(a.stock_minimo) - n(a.stock_actual));
+  return Math.max(0, Math.ceil(minimoEntero(a.stock_minimo) - n(a.stock_actual) - 1e-9));
+}
+
+/** El mínimo, redondeado al entero de arriba: 0,42 → 1. */
+export function minimoEntero(v: unknown): number {
+  return Math.ceil(n(v) - 1e-9);
 }
 
 export function severidad(a: { stock_actual: unknown }): Severidad {

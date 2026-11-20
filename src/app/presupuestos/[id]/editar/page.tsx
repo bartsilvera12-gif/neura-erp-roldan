@@ -6,7 +6,7 @@ import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla"
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { FileText, ArrowLeft, Plus, Trash2, Loader2, History } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
@@ -15,6 +15,7 @@ import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/pr
 import { FORMAS_PAGO, pideAnticipo } from "@/lib/presupuestos/formas-pago";
 import ObraSelector, { type ObraLite } from "@/components/presupuestos/ObraSelector";
 import CondicionPago from "@/components/presupuestos/CondicionPago";
+import MovimientosProductoModal from "@/components/inventario/MovimientosProductoModal";
 import { usePedidosDescuento, AvisoTopeDescuento } from "@/components/presupuestos/DescuentoConTope";
 import CreditoCliente from "@/components/presupuestos/CreditoCliente";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
@@ -105,6 +106,8 @@ export default function EditarPresupuestoPage() {
   /** El descuento lo ve quien puede darlo (igual que en Nuevo presupuesto). */
   // Todos pueden descontar, hasta su tope (ver «Descuento con tope» más abajo).
   const puedeDescontar = true;
+  /** El historial de cantidades de un producto, en un modal (pedido del cliente). */
+  const [verMovs, setVerMovs] = useState<{ id: string; nombre: string } | null>(null);
   // Cotizar por más de lo que hay: facultad, no nivel.
   const { tiene: tieneFacultad } = useFacultades();
   // Cotizar sin stock: solo administración.
@@ -842,6 +845,12 @@ export default function EditarPresupuestoPage() {
                         })()}
                       </td>
                       <td className="py-2 pl-2 text-right">
+                        {it.producto_id && (
+                          <button type="button" onClick={() => setVerMovs({ id: it.producto_id!, nombre: it.producto_nombre })}
+                            className="mr-2 text-slate-400 hover:text-sky-700" aria-label="Movimientos del producto" title="Lo que entró y salió de este producto">
+                            <History className="h-4 w-4" />
+                          </button>
+                        )}
                         <button onClick={() => delItem(i)} className="text-red-600 hover:text-red-700" aria-label="Eliminar"><Trash2 className="h-4 w-4" /></button>
                       </td>
                     </tr>
@@ -973,6 +982,7 @@ export default function EditarPresupuestoPage() {
           {guardando ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar cambios"}
         </button>
       </div>
+      {verMovs && <MovimientosProductoModal productoId={verMovs.id} nombre={verMovs.nombre} onClose={() => setVerMovs(null)} />}
     </div>
   );
 }

@@ -23,6 +23,7 @@ import { getSession } from "@/lib/auth";
 import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
 import ObraSelector, { type ObraLite } from "@/components/presupuestos/ObraSelector";
 import CondicionPago from "@/components/presupuestos/CondicionPago";
+import MovimientosProductoModal from "@/components/inventario/MovimientosProductoModal";
 import { usePedidosDescuento, AvisoTopeDescuento } from "@/components/presupuestos/DescuentoConTope";
 import CreditoCliente from "@/components/presupuestos/CreditoCliente";
 import VistaPreviaPdf from "@/components/presupuestos/VistaPreviaPdf";
@@ -216,6 +217,8 @@ export default function NuevoPresupuestoPage() {
    */
   // Todos pueden descontar, hasta su tope (ver «Descuento con tope» más abajo).
   const puedeDescontar = true;
+  /** El historial de cantidades de un producto, en un modal (pedido del cliente). */
+  const [verMovs, setVerMovs] = useState<{ id: string; nombre: string } | null>(null);
   /**
    * Cotizar por más de lo que hay: facultad `cotizar_sin_stock`.
    *
@@ -1433,6 +1436,12 @@ export default function NuevoPresupuestoPage() {
                         })()}
                       </td>
                       <td className="py-2 pl-2 text-right">
+                        {it.producto_id && (
+                          <button type="button" onClick={() => setVerMovs({ id: it.producto_id!, nombre: it.producto_nombre })}
+                            className="mr-2 text-slate-400 hover:text-sky-700" aria-label="Movimientos del producto" title="Lo que entró y salió de este producto">
+                            <History className="h-4 w-4" />
+                          </button>
+                        )}
                         <button onClick={() => delItem(i)} className="text-red-600 hover:text-red-700" aria-label="Eliminar"><Trash2 className="h-4 w-4" /></button>
                       </td>
                     </tr>
@@ -1681,6 +1690,7 @@ export default function NuevoPresupuestoPage() {
           onCreado={clienteReciénCreado}
         />
       )}
+      {verMovs && <MovimientosProductoModal productoId={verMovs.id} nombre={verMovs.nombre} onClose={() => setVerMovs(null)} />}
     </div>
   );
 }

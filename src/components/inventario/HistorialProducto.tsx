@@ -62,17 +62,25 @@ const ORIGEN: Record<string, string> = {
   devolucion_venta: "Devolución", remision: "Remisión", transferencia: "Transferencia",
 };
 
-type Pestana = "compras" | "ventas" | "transferencias" | "movimientos" | "precios";
+type Pestana = "general" | "compras" | "ventas" | "transferencias" | "movimientos" | "precios";
 
 const th = "px-3 py-2 text-left font-semibold";
 const thR = "px-3 py-2 text-right font-semibold";
 const td = "px-3 py-2";
 const tdR = "px-3 py-2 text-right tabular-nums";
 
-export default function HistorialProducto({ productoId }: { productoId: string }) {
-  const [d, setD] = useState<Datos | null>(null);
+/**
+ * `soloGeneral`: la vista corta que se abre desde presupuestos y la caja
+ * (pedido del cliente): solo lo que mueve la cantidad, con filtro de fechas.
+ */
+export default function HistorialProducto({ productoId, soloGeneral = false }: { productoId: string; soloGeneral?: boolean }) {
+  const [dCrudo, setD] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pestana, setPestana] = useState<Pestana>("compras");
+  const [pestana, setPestana] = useState<Pestana>("general");
+  // Filtros (pedido del cliente: «faltan filtros de fecha»): valen para todas las pestañas.
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [buscar, setBuscar] = useState("");
 
   useEffect(() => {
     let vivo = true;
@@ -88,9 +96,95 @@ export default function HistorialProducto({ productoId }: { productoId: string }
   }, [productoId]);
 
   if (error) return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
-  if (!d) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400 animate-pulse">Armando el historial del producto…</div>;
+  if (!dCrudo) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400 animate-pulse">Armando el historial del producto…</div>;
+
+  const enRango = (iso: string | null) => {
+    const f = String(iso ?? "").slice(0, 10);
+    if (desde && (!f || f < desde)) return false;
+    if (hasta && (!f || f > hasta)) return false;
+    return true;
+  };
+  const q = buscar.trim().toLowerCase();
+  const tiene = (...v: Array<string | null | undefined>) => !q || v.some((x) => String(x ?? "").toLowerCase().includes(q));
+  const d: Datos = {
+    ...dCrudo,
+    compras: dCrudo.compras.filter((c) => enRango(c.fecha) && tiene(c.proveedor, c.numero_compra, c.numero_factura, c.usuario)),
+    ventas: dCrudo.ventas.filter((v) => enRango(v.fecha) && tiene(v.cliente, v.numero_venta, v.vendedor)),
+    transferencias: dCrudo.transferencias.filter((t) => enRango(t.fecha) && tiene(t.numero, t.de, t.a, t.pidio)),
+    remisiones: dCrudo.remisiones.filter((t) => enRango(t.fecha) && tiene(t.numero, t.de, t.a, t.quien)),
+    movimientos: dCrudo.movimientos.filter((m) => enRango(m.fecha) && tiene(m.referencia, m.usuario, m.origen, m.tipo)),
+    cambios_precio: dCrudo.cambios_precio.filter((c) => enRango(c.fecha) && tiene(c.usuario, c.como)),
+  };
+
+  const filtros = (
+    <div className="flex flex-wrap items-end gap-2 px-3 pt-3">
+      <label className="flex flex-col text-[11px] text-slate-500">Desde
+        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+      </label>
+      <label className="flex flex-col text-[11px] text-slate-500">Hasta
+        <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+      </label>
+      <label className="flex flex-1 flex-col text-[11px] text-slate-500">Buscar
+        <input value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Cliente, proveedor, número, persona…" className="min-w-[180px] rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+      </label>
+      {(desde || hasta || buscar) && (
+        <button type="button" onClick={() => { setDesde(""); setHasta(""); setBuscar(""); }} className="pb-1 text-xs text-sky-700 hover:underline">Limpiar</button>
+      )}
+    </div>
+  );
+
+  /**
+   * General: solo lo que movió la cantidad, del más nuevo al más viejo
+   * (entradas por compra, salidas por venta, transferencias, remisiones y
+   * ajustes). Sale del kardex: es el registro de cada movimiento de stock.
+   */
+  const general = (
+    d.movimientos.length === 0 ? <Vacio /> : (
+      <table className="w-full min-w-[36rem] text-sm">
+        <thead className="bg-slate-50 text-xs text-slate-500">
+          <tr>
+            <th className={th}>Fecha</th><th className={th}>Qué fue</th><th className={thR}>Entra</th><th className={thR}>Sale</th>
+            <th className={th}>Referencia</th><th className={th}>Quién</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {d.movimientos.map((m, i) => {
+            const sale = m.tipo === "SALIDA" || (m.tipo === "AJUSTE" && m.cantidad < 0);
+            return (
+              <tr key={i}>
+                <td className={td}>{fecha(m.fecha)}</td>
+                <td className={td}>{ORIGEN[m.origen ?? ""] ?? m.origen ?? m.tipo ?? "—"}</td>
+                <td className={`${tdR} font-semibold text-emerald-700`}>{sale ? "" : cant(Math.abs(m.cantidad))}</td>
+                <td className={`${tdR} font-semibold text-rose-600`}>{sale ? cant(Math.abs(m.cantidad)) : ""}</td>
+                <td className={`${td} text-xs text-slate-500`}>{m.referencia ?? "—"}</td>
+                <td className={td}>{m.usuario ?? "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot className="border-t border-slate-200 bg-slate-50 text-xs">
+          <tr>
+            <td className={td} colSpan={2}>Total del período</td>
+            <td className={`${tdR} font-bold text-emerald-700`}>{cant(d.movimientos.filter((m) => !(m.tipo === "SALIDA" || (m.tipo === "AJUSTE" && m.cantidad < 0))).reduce((s, m) => s + Math.abs(m.cantidad), 0))}</td>
+            <td className={`${tdR} font-bold text-rose-600`}>{cant(d.movimientos.filter((m) => m.tipo === "SALIDA" || (m.tipo === "AJUSTE" && m.cantidad < 0)).reduce((s, m) => s + Math.abs(m.cantidad), 0))}</td>
+            <td colSpan={2} />
+          </tr>
+        </tfoot>
+      </table>
+    )
+  );
+
+  if (soloGeneral) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white">
+        {filtros}
+        <div className="overflow-x-auto p-3">{general}</div>
+      </div>
+    );
+  }
 
   const pestanas: { id: Pestana; label: string; n: number }[] = [
+    { id: "general", label: "General", n: d.movimientos.length },
     { id: "compras", label: "Compras", n: d.compras.length },
     { id: "ventas", label: "Ventas", n: d.ventas.length },
     { id: "transferencias", label: "Transferencias y remisiones", n: d.transferencias.length + d.remisiones.length },
@@ -162,7 +256,9 @@ export default function HistorialProducto({ productoId }: { productoId: string }
             </button>
           ))}
         </div>
+        {filtros}
         <div className="overflow-x-auto p-3">
+          {pestana === "general" && general}
           {pestana === "compras" && (
             d.compras.length === 0 ? <Vacio /> : (
               <table className="w-full min-w-[56rem] text-sm">

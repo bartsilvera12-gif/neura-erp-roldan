@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ImageIcon, Minus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, History, ImageIcon, Minus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import MovimientosProductoModal from "@/components/inventario/MovimientosProductoModal";
 import EditarProductoRapido, { type ProductoEditable } from "@/components/productos/EditarProductoRapido";
 import FinalizarVentaModal, { type FormaPago } from "./FinalizarVentaModal";
 import MontoInput from "@/components/ui/MontoInput";
@@ -1255,6 +1256,8 @@ export default function NuevaVentaPage() {
   const verMargenes = esAdminCaja;
   /** El producto que se está editando desde la caja (solo administradores). */
   const [editandoProd, setEditandoProd] = useState<ProductoEditable | null>(null);
+  /** Lo que entró y salió de un producto, sin salir de la caja (pedido del cliente). */
+  const [verMovs, setVerMovs] = useState<{ id: string; nombre: string } | null>(null);
   function abrirEdicionProducto(productoId: string) {
     if (!esAdminCaja || productoId.startsWith("manual:")) return;
     const p = productos.find((x) => x.id === productoId);
@@ -2595,6 +2598,16 @@ export default function NuevaVentaPage() {
                           </td>
                           {/* Quitar */}
                           <td className="px-2 py-2.5 text-center whitespace-nowrap">
+                            {!esManual && (
+                              <button
+                                type="button"
+                                onClick={() => setVerMovs({ id: item.producto_id, nombre: item.producto_nombre })}
+                                className="rounded p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                                title="Lo que entró y salió de este producto"
+                              >
+                                <History className="h-4 w-4" />
+                              </button>
+                            )}
                             {esAdminCaja && !esManual && (
                               <button
                                 type="button"
@@ -2978,6 +2991,8 @@ export default function NuevaVentaPage() {
         clienteId={clienteSel?.id ?? null}
         precioEditable={esAdminCaja}
       />
+
+      {verMovs && <MovimientosProductoModal productoId={verMovs.id} nombre={verMovs.nombre} onClose={() => setVerMovs(null)} />}
 
       {editandoProd && (
         <EditarProductoRapido
