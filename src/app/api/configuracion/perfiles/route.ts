@@ -135,8 +135,9 @@ export async function POST(request: NextRequest) {
     await guardarFacultades(ctx.supabase, perfilId, soloFacultadesConocidas(b.facultades as unknown[]));
     return NextResponse.json(successResponse({ id: perfilId }));
   } catch (err) {
-    console.error("[/api/configuracion/perfiles POST]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo crear el perfil."), { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[/api/configuracion/perfiles POST]", msg);
+    return NextResponse.json(errorResponse(`No se pudo crear el perfil: ${msg}`), { status: 500 });
   }
 }
 
@@ -188,8 +189,10 @@ export async function PUT(request: NextRequest) {
     }
     return NextResponse.json(successResponse({ ok: true }));
   } catch (err) {
-    console.error("[/api/configuracion/perfiles PUT]", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo guardar el perfil."), { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[/api/configuracion/perfiles PUT]", msg);
+    // Con el motivo: «no se pudo guardar» a secas no deja saber qué pasó.
+    return NextResponse.json(errorResponse(`No se pudo guardar el perfil: ${msg}`), { status: 500 });
   }
 }
 

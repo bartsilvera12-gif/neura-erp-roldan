@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { leerSolicitud, resolverSolicitud } from "@/lib/descuentos/server/solicitudes";
 
 /**
@@ -19,8 +20,10 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
     const { id } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuthWithRol(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
-    if (!isAdmin(ctx.auth)) {
-      return NextResponse.json(errorResponse("Solo un administrador puede autorizar descuentos."), { status: 403 });
+    // El administrador, o un perfil con «Autorizar descuentos» (pedido del
+    // cliente: el administrativo también los acepta).
+    if (!isAdmin(ctx.auth) && !(await tieneFacultad(ctx.supabase, ctx.auth, "autorizar_descuentos"))) {
+      return NextResponse.json(errorResponse("Autorizar descuentos necesita esa facultad en el perfil."), { status: 403 });
     }
 
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;

@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { isAdmin } from "@/lib/middleware/auth";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { descuentoMaximoDe } from "@/lib/ventas/server/descuento-maximo";
 import { crearSolicitud, listarPendientes } from "@/lib/descuentos/server/solicitudes";
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     // Contestar un pedido de descuento es la decisión que el tope quería
     // reservar: la lista es solo para quien puede tomarla.
-    if (!isAdmin(ctx.auth)) {
+    if (!isAdmin(ctx.auth) && !(await tieneFacultad(ctx.supabase, ctx.auth, "autorizar_descuentos"))) {
       return NextResponse.json(successResponse({ solicitudes: [], puede_autorizar: false }));
     }
     const solicitudes = await listarPendientes(ctx.supabase, ctx.auth.empresa_id);

@@ -44,6 +44,22 @@ export default function PerfilesPage() {
   const [guardando, setGuardando] = useState<string | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [nuevoNombre, setNuevoNombre] = useState("");
+  /**
+   * Lo que se está editando de cada perfil, sin guardar todavía. Antes cada
+   * casilla se guardaba sola al tocarla y no había botón: el cliente buscaba
+   * «Guardar» y no aparecía (punto 42). Ahora se tilda, se cambia el nombre o
+   * el nivel, y se guarda con el botón.
+   */
+  const [borrador, setBorrador] = useState<Record<string, { nombre: string; descripcion: string; nivel: Perfil["nivel"]; facultades: string[] }>>({});
+  const editado = (p: Perfil) => borrador[p.id] ?? { nombre: p.nombre, descripcion: p.descripcion ?? "", nivel: p.nivel, facultades: p.facultades };
+  const cambiado = (p: Perfil) => {
+    const b = borrador[p.id];
+    if (!b) return false;
+    return b.nombre !== p.nombre || b.descripcion !== (p.descripcion ?? "") || b.nivel !== p.nivel ||
+      [...b.facultades].sort().join() !== [...p.facultades].sort().join();
+  };
+  const tocar = (p: Perfil, cambio: Partial<{ nombre: string; descripcion: string; nivel: Perfil["nivel"]; facultades: string[] }>) =>
+    setBorrador((prev) => ({ ...prev, [p.id]: { ...editado(p), ...cambio } }));
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -77,6 +93,7 @@ export default function PerfilesPage() {
       const j = await r.json();
       if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo guardar.");
       setAviso(`"${cambios.nombre ?? p.nombre}" guardado.`);
+      setBorrador((prev) => { const n = { ...prev }; delete n[p.id]; return n; });
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red.");
@@ -109,9 +126,9 @@ export default function PerfilesPage() {
   }
 
   function alternar(p: Perfil, clave: string) {
-    const tiene = p.facultades.includes(clave);
-    const next = tiene ? p.facultades.filter((f) => f !== clave) : [...p.facultades, clave];
-    void guardar(p, { facultades: next });
+    const actuales = editado(p).facultades;
+    const next = actuales.includes(clave) ? actuales.filter((f) => f !== clave) : [...actuales, clave];
+    tocar(p, { facultades: next });
   }
 
   const grupos = [...new Set(catalogo.map((f) => f.grupo))];
@@ -179,6 +196,27 @@ export default function PerfilesPage() {
 
                 {abiertoEste && (
                   <div className="space-y-4 border-t border-slate-100 px-5 py-4">
+                    {puedeEditar && (
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <label className="block">
+                          <span className="text-[11px] font-medium text-slate-400">Nombre</span>
+                          <input value={editado(p).nombre} onChange={(e) => tocar(p, { nombre: e.target.value })}
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+                        </label>
+                        <label className="block">
+                          <span className="text-[11px] font-medium text-slate-400">Nivel</span>
+                          <select value={editado(p).nivel} onChange={(e) => tocar(p, { nivel: e.target.value as Perfil["nivel"] })}
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                            {NIVELES.map((n) => <option key={n.v} value={n.v}>{n.label}</option>)}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-[11px] font-medium text-slate-400">Descripción</span>
+                          <input value={editado(p).descripcion} onChange={(e) => tocar(p, { descripcion: e.target.value })}
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:outline-none" />
+                        </label>
+                      </div>
+                    )}
                     {grupos.map((g) => (
                       <div key={g}>
                         <p className="text-[11px] font-medium text-slate-400">{g}</p>
@@ -187,7 +225,7 @@ export default function PerfilesPage() {
                             <label key={f.clave} className="flex cursor-pointer items-start gap-2.5">
                               <input
                                 type="checkbox"
-                                checked={p.facultades.includes(f.clave)}
+                                checked={editado(p).facultades.includes(f.clave)}
                                 disabled={!puedeEditar || guardando === p.id}
                                 onChange={() => alternar(p, f.clave)}
                                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
@@ -202,6 +240,23 @@ export default function PerfilesPage() {
                       </div>
                     ))}
 
+                    {puedeEditar && (
+                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                        {cambiado(p) && <span className="text-xs text-amber-700">Hay cambios sin guardar.</span>}
+                        {cambiado(p) && (
+                          <button type="button" onClick={() => setBorrador((prev) => { const n = { ...prev }; delete n[p.id]; return n; })}
+                            className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Descartar</button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={!cambiado(p) || guardando === p.id}
+                          onClick={() => { const b = editado(p); void guardar(p, { nombre: b.nombre.trim() || p.nombre, descripcion: b.descripcion, nivel: b.nivel, facultades: b.facultades }); }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-40"
+                        >
+                          {guardando === p.id && <Loader2 className="h-4 w-4 animate-spin" />} Guardar cambios
+                        </button>
+                      </div>
+                    )}
                     {p.usuarios > 0 && (
                       <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
                         Lo que cambies acá le cambia a {p.usuarios === 1 ? "la persona" : `las ${p.usuarios} personas`} que

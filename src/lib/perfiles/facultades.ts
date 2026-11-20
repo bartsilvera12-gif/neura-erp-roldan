@@ -26,7 +26,9 @@ export type Facultad =
   | "ver_costos"
   | "cotizar_sin_stock"
   | "ver_ordenes_venta"
-  | "reabrir_caja";
+  | "reabrir_caja"
+  | "autorizar_descuentos"
+  | "ver_todos_presupuestos";
 
 export interface FacultadInfo {
   clave: Facultad;
@@ -111,6 +113,22 @@ export const FACULTADES: readonly FacultadInfo[] = [
     descripcion:
       "El compromiso comercial previo a la factura: quién le prometió qué, a " +
       "qué precio y con qué plazo.",
+    grupo: "Comercial",
+  },
+  {
+    clave: "autorizar_descuentos",
+    label: "Autorizar descuentos",
+    descripcion:
+      "Contestar los pedidos de descuento por encima del tope (caja y " +
+      "presupuestos). Le llegan a la campana. Nadie autoriza su propio pedido.",
+    grupo: "Comercial",
+  },
+  {
+    clave: "ver_todos_presupuestos",
+    label: "Ver todos los presupuestos",
+    descripcion:
+      "Ver los presupuestos de todos los vendedores, no solo los propios, y " +
+      "filtrarlos por persona.",
     grupo: "Comercial",
   },
 ] as const;

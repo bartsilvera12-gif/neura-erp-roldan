@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
     const estado = sp.get("estado");
     // Cada vendedor ve sus presupuestos y nada más. El administrador ve todos,
     // y puede filtrar por persona con ?vendedor=.
-    const esAdminLista = isAdmin(ctx.auth);
+    // O un perfil con «Ver todos los presupuestos» (pedido del cliente).
+    const esAdminLista = isAdmin(ctx.auth) || (await tieneFacultad(ctx.supabase, ctx.auth, "ver_todos_presupuestos"));
     const propioId = ctx.auth.usuarioCatalogId ?? ctx.auth.user?.id ?? null;
     const vendedorFiltro = esAdminLista ? (sp.get("vendedor") || "").trim() : "";
     // Solo los mandados a la caja y sin cobrar: es la cola del cajero.
