@@ -27,7 +27,7 @@ type Resumen = {
 };
 type Detalle = {
   cotizacion: Cotizacion;
-  items: { id: string; descripcion: string; cantidad: number; unidad: string }[];
+  items: { id: string; descripcion: string; cantidad: number; unidad: string; sku?: string | null; costo_sistema?: number | null }[];
   proveedores: { id: string; nombre: string }[];
   filas: FilaComparativo[];
   resumen: Resumen[];
@@ -212,6 +212,9 @@ export default function CotizacionesPage() {
                   <tr className="border-b border-slate-200 text-xs text-slate-500">
                     <th className="px-3 py-2 text-left font-semibold">Artículo</th>
                     <th className="px-2 py-2 text-right font-semibold">Cant.</th>
+                    <th className="px-3 py-2 text-right font-semibold" title="Costo promedio ponderado del producto en el sistema">
+                      Precio sistema
+                    </th>
                     {detalle.proveedores.map((p) => (
                       <th key={p.id} className="px-3 py-2 text-right font-semibold">{p.nombre}</th>
                     ))}
@@ -234,6 +237,9 @@ export default function CotizacionesPage() {
                       <td className="px-2 py-2 text-right tabular-nums text-slate-500">
                         {f.item.cantidad} {f.item.unidad}
                       </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-500">
+                        {f.item.costo_sistema ? gs(f.item.costo_sistema) : "—"}
+                      </td>
                       {detalle.proveedores.map((p) => {
                         const precio = f.precios[p.id];
                         const gana = f.mejores.includes(p.id);
@@ -242,10 +248,13 @@ export default function CotizacionesPage() {
                             key={p.id}
                             className={`px-3 py-2 text-right tabular-nums ${
                               precio == null ? "text-slate-300"
-                              : gana ? "bg-emerald-50 font-semibold text-emerald-800"
+                              // Amarillo el más barato; si hay otro a menos
+                              // del 1%, los dos (pedido del cliente).
+                              : gana ? "bg-yellow-200 font-semibold text-slate-900"
                               : "text-slate-700"
                             }`}
-                            title={precio != null ? `Subtotal: Gs. ${gs(f.subtotales[p.id] ?? 0)}` : "No lo cotizó"}
+                            title={precio == null ? "No lo cotizó"
+                              : `Subtotal: Gs. ${gs(f.subtotales[p.id] ?? 0)}${gana && f.mejores.length > 1 ? " · menos de 1% de diferencia con el más barato: elegí" : ""}${f.item.costo_sistema ? ` · ${(((precio - f.item.costo_sistema) / f.item.costo_sistema) * 100).toFixed(1)}% contra el sistema` : ""}`}
                           >
                             {precio == null ? "—" : gs(precio)}
                           </td>
@@ -257,7 +266,7 @@ export default function CotizacionesPage() {
                 <tfoot>
                   {/* El total NUNCA va solo: al lado, cuántos cotizó. */}
                   <tr className="border-t-2 border-slate-300 bg-slate-50">
-                    <td className="px-3 py-2 font-semibold text-slate-700" colSpan={2}>Total cotizado</td>
+                    <td className="px-3 py-2 font-semibold text-slate-700" colSpan={3}>Total cotizado</td>
                     {detalle.resumen.map((r) => (
                       <td key={r.proveedor_id} className="px-3 py-2 text-right">
                         <span className="block font-bold tabular-nums text-slate-900">{gs(r.total)}</span>
@@ -270,7 +279,7 @@ export default function CotizacionesPage() {
                     ))}
                   </tr>
                   <tr className="bg-slate-50">
-                    <td className="px-3 py-2 text-[11px] text-slate-500" colSpan={2}>Mejor precio en</td>
+                    <td className="px-3 py-2 text-[11px] text-slate-500" colSpan={3}>Mejor precio en</td>
                     {detalle.resumen.map((r) => (
                       <td key={r.proveedor_id} className="px-3 py-2 text-right text-[11px] text-slate-600">
                         {r.gana_en} de {detalle.items.length}
@@ -278,7 +287,7 @@ export default function CotizacionesPage() {
                     ))}
                   </tr>
                   <tr className="bg-white">
-                    <td className="px-3 py-2" colSpan={2} />
+                    <td className="px-3 py-2" colSpan={3} />
                     {detalle.resumen.map((r) => (
                       <td key={r.proveedor_id} className="px-3 py-2 text-right">
                         <button

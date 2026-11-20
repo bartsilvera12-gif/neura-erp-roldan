@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { leerExcelCotizacion } from "@/lib/compras/excel-cotizacion";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
 
@@ -18,7 +19,7 @@ import Selector from "@/components/ui/Selector";
  *   realidad nunca ofreció.
  */
 
-type Item = { id: string; descripcion: string; cantidad: number; unidad: string };
+type Item = { id: string; descripcion: string; cantidad: number; unidad: string; sku?: string | null };
 type Prov = { id: string; nombre: string };
 
 const gs = (v: number) => Math.round(v).toLocaleString("es-PY");
@@ -47,6 +48,31 @@ export default function CargarPreciosModal({
   const [observacion, setObservacion] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Lo que se leyó del Excel del proveedor (pedido del cliente). */
+  const [avisoExcel, setAvisoExcel] = useState<string | null>(null);
+  const archivoRef = useRef<HTMLInputElement>(null);
+
+  async function subirExcel(file: File) {
+    setError(null);
+    setAvisoExcel(null);
+    try {
+      const r = await leerExcelCotizacion(file, items);
+      if (r.cruzados === 0) throw new Error(`Leí ${r.filas} precios del archivo pero ninguno coincide con los artículos de la cotización.`);
+      setPrecios((prev) => {
+        const next = { ...prev };
+        for (const [id, v] of Object.entries(r.precios)) next[id] = String(v);
+        return next;
+      });
+      setAvisoExcel(
+        `Se cargaron ${r.cruzados} de ${items.length} precios desde «${file.name}».` +
+        (r.sinCruzar.length > 0 ? ` Sin encontrar: ${r.sinCruzar.slice(0, 4).join(", ")}${r.sinCruzar.length > 4 ? "…" : ""}. Revisalos y guardá.` : " Revisalos y guardá.")
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo leer el Excel.");
+    } finally {
+      if (archivoRef.current) archivoRef.current.value = "";
+    }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -177,6 +203,19 @@ export default function CargarPreciosModal({
               className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-slate-500">Lista del proveedor</span>
+            <input ref={archivoRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirExcel(f); }} />
+            <button type="button" disabled={!proveedorId} onClick={() => archivoRef.current?.click()}
+              title={proveedorId ? "Leer los precios desde el Excel que mandó el proveedor" : "Primero elegí el proveedor"}
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
+              Subir Excel
+            </button>
+          </div>
+          {avisoExcel && (
+            <p className="w-full rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] leading-snug text-emerald-800">{avisoExcel}</p>
+          )}
           {yaContesto > 0 && (
             <p className="w-full text-[10px] leading-snug text-slate-500">
               Este proveedor ya tenía {yaContesto} {yaContesto === 1 ? "precio" : "precios"} cargados: están abajo

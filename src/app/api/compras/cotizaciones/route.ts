@@ -84,12 +84,30 @@ async function comparativo(ctx: Ctx, id: string) {
       .order("orden", { ascending: true })
       .range(d, h)
   );
-  const items: ItemCotizado[] = itemsRaw.map((r) => ({
-    id: String(r.id),
-    descripcion: String(r.descripcion ?? ""),
-    cantidad: num(r.cantidad),
-    unidad: String(r.unidad ?? "UNIDAD"),
-  }));
+  // El «precio sistema» (costo promedio ponderado) y el código de cada
+  // artículo del inventario.
+  const prodIds = [...new Set(itemsRaw.map((r) => (r.producto_id ? String(r.producto_id) : "")).filter(Boolean))];
+  const prodDe = new Map<string, { sku: string | null; costo: number }>();
+  for (let i = 0; i < prodIds.length; i += 100) {
+    const pq = await ctx.supabase.from("productos").select("id, sku, costo_promedio")
+      .eq("empresa_id", empresaId).in("id", prodIds.slice(i, i + 100));
+    for (const p of (pq.data ?? []) as Array<Record<string, unknown>>) {
+      prodDe.set(String(p.id), { sku: (p.sku as string) ?? null, costo: num(p.costo_promedio) });
+    }
+  }
+  const items: ItemCotizado[] = itemsRaw.map((r) => {
+    const pid = r.producto_id ? String(r.producto_id) : null;
+    const p = pid ? prodDe.get(pid) : undefined;
+    return {
+      id: String(r.id),
+      descripcion: String(r.descripcion ?? ""),
+      cantidad: num(r.cantidad),
+      unidad: String(r.unidad ?? "UNIDAD"),
+      producto_id: pid,
+      sku: p?.sku ?? null,
+      costo_sistema: p && p.costo > 0 ? p.costo : null,
+    };
+  });
 
   const preciosRaw = await traerTodas<Record<string, unknown>>((d, h) =>
     ctx.supabase

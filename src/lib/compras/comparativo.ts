@@ -25,6 +25,11 @@ export interface ItemCotizado {
   descripcion: string;
   cantidad: number;
   unidad: string;
+  /** Del inventario: para el precio del sistema y para cruzar el Excel por código. */
+  producto_id?: string | null;
+  sku?: string | null;
+  /** Costo promedio ponderado del producto (el «precio sistema»). */
+  costo_sistema?: number | null;
 }
 
 export interface PrecioCotizado {
@@ -72,6 +77,9 @@ export interface FilaComparativo {
   dispersion_pct: number | null;
 }
 
+/** Diferencia bajo la cual dos precios cuentan como empatados (1%). */
+export const TOLERANCIA_EMPATE = 0.01;
+
 export function armarFilas(
   items: ItemCotizado[],
   proveedores: ProveedorCotiza[],
@@ -92,7 +100,11 @@ export function armarFilas(
       item,
       precios: porProv,
       subtotales: sub,
-      mejores: mejor == null ? [] : proveedores.filter((p) => porProv[p.id] === mejor).map((p) => p.id),
+      // Pedido del cliente: si otro está a menos del 1% del más barato, se
+      // marcan los dos, para elegir entre ellos.
+      mejores: mejor == null ? [] : proveedores
+        .filter((p) => porProv[p.id] != null && (porProv[p.id] as number) <= mejor * (1 + TOLERANCIA_EMPATE))
+        .map((p) => p.id),
       mejor_precio: mejor,
       dispersion_pct: mejor != null && peor != null && mejor > 0 ? ((peor - mejor) / mejor) * 100 : null,
     };
