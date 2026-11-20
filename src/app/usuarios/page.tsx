@@ -97,6 +97,14 @@ export default function UsuariosPage() {
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">Usuarios</h1>
           <p className="text-sm text-gray-500 mt-0.5">Usuarios de tu empresa</p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {/* Reporte de ingresos: IP y equipo de todos (pedido del cliente). */}
+        <Link
+          href="/usuarios/ingresos"
+          className="inline-flex items-center gap-2 rounded-lg border border-[#4FAEB2] px-4 py-2 text-sm font-semibold text-[#3F8E91] hover:bg-[#4FAEB2]/10"
+        >
+          Ingresos (IP y equipos)
+        </Link>
         <Link
           href="/usuarios/nuevo"
           className="inline-flex items-center gap-2 bg-[#4FAEB2] hover:bg-[#3F8E91] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
@@ -106,6 +114,7 @@ export default function UsuariosPage() {
           </svg>
           Nuevo usuario
         </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 p-4">

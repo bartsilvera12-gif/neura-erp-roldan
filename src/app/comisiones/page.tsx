@@ -289,14 +289,14 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
                     {v.minimo_ventas == null ? (
                       <span className="text-slate-400">sin mínimo</span>
                     ) : v.llego_al_minimo === false ? (
-                      <span className="font-medium text-amber-700" title={`No llegó al mínimo de ${gs(v.minimo_ventas)}: cobra la mitad de su comisión.`}>
+                      <span className="font-medium text-amber-700" title={`No llegó al mínimo de ${gs(v.minimo_ventas)}: cobra su porcentaje, sin duplicar.`}>
                         {gs(v.minimo_ventas)}
-                        <span className="block font-normal">no llegó · mitad</span>
+                        <span className="block font-normal">no llegó</span>
                       </span>
                     ) : (
-                      <span className="text-emerald-700" title={`Llegó al mínimo de ${gs(v.minimo_ventas)}.`}>
+                      <span className="text-emerald-700" title={`Llegó al mínimo de ${gs(v.minimo_ventas)}: la comisión se duplica.`}>
                         {gs(v.minimo_ventas)}
-                        <span className="block text-slate-400">llegó</span>
+                        <span className="block text-slate-400">llegó · comisión ×2</span>
                       </span>
                     )}
                   </td>
@@ -393,7 +393,7 @@ function TabInforme({ onError }: { onError: (e: string | null) => void }) {
         <p className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs leading-snug text-amber-900">
           <strong>Este informe está filtrado por rubro,</strong> así que el mínimo de ventas no se
           está teniendo en cuenta: lo que figura como vendido es solo lo de ese rubro y compararlo
-          contra el mínimo daría cualquier cosa. Las comisiones de acá son las enteras. Para ver lo
+          contra el mínimo daría cualquier cosa. Las comisiones de acá son sin duplicar. Para ver lo
           que se va a pagar de verdad, sacá el filtro de rubro.
         </p>
       )}
@@ -407,6 +407,8 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
   const [data, setData] = useState<Cartera | null>(null);
   const [cfg, setCfg] = useState<Config | null>(null);
   const [soloLibres, setSoloLibres] = useState(false);
+  /** Ver la cartera de un vendedor (pedido del cliente). "" = todos; "__sin__" = sin vendedor. */
+  const [filtroVendedor, setFiltroVendedor] = useState("");
   // Con 21.000 clientes no se listan todos: se busca el que se quiere asignar.
   const [busqueda, setBusqueda] = useState("");
   const [buscar, setBuscar] = useState("");
@@ -469,7 +471,16 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
     }
   }
 
-  const r = data?.resumen;
+  const clientes = (data?.clientes ?? []).filter((c) =>
+    !filtroVendedor ? true : filtroVendedor === "__sin__" ? !c.vendedor_id : c.vendedor_id === filtroVendedor
+  );
+  // Con un vendedor elegido, las tarjetas cuentan su cartera.
+  const r = !data ? undefined : !filtroVendedor ? data.resumen : {
+    total: clientes.length,
+    en_cartera: clientes.filter((c) => c.en_cartera).length,
+    libres: clientes.filter((c) => c.vendedor_id && !c.en_cartera).length,
+    sin_vendedor: clientes.filter((c) => !c.vendedor_id).length,
+  };
 
   return (
     <div className="space-y-5">
@@ -495,6 +506,18 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
           placeholder="Buscar cliente por nombre o RUC…"
           className="ml-auto w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
         />
+        <Selector
+          value={filtroVendedor}
+          onChange={(e) => setFiltroVendedor(e.target.value)}
+          className="w-52 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+          aria-label="Ver la cartera de un vendedor"
+        >
+          <option value="">Todos los vendedores</option>
+          {(cfg?.vendedores ?? []).map((u) => (
+            <option key={u.id} value={u.id}>{u.nombre || u.email}</option>
+          ))}
+          <option value="__sin__">Sin vendedor</option>
+        </Selector>
         <label className="flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={soloLibres} onChange={(e) => setSoloLibres(e.target.checked)} />
           Ver solo los libres
@@ -532,11 +555,11 @@ function TabCartera({ onError }: { onError: (e: string | null) => void }) {
             <tbody className="divide-y divide-slate-100">
               {cargando ? (
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-400">Cargando…</td></tr>
-              ) : (data?.clientes.length ?? 0) === 0 ? (
+              ) : clientes.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-400">
-                  {soloLibres ? "No hay clientes libres." : "No hay clientes."}
+                  {filtroVendedor ? "Este vendedor no tiene clientes con estos filtros." : soloLibres ? "No hay clientes libres." : "No hay clientes."}
                 </td></tr>
-              ) : data!.clientes.map((c) => (
+              ) : clientes.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-2.5 font-medium text-slate-800">{c.nombre}</td>
                   <td className="px-4 py-2.5">
@@ -755,7 +778,7 @@ function TabConfig({ onError }: { onError: (e: string | null) => void }) {
 
       {/* Tipos de vendedor */}
       <Caja titulo="Tipos de vendedor"
-        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El mínimo de ventas es lo que tiene que facturar en el período para cobrar la comisión entera: si no llega, cobra la mitad (vacío = sin mínimo). El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. La excepción de una persona se carga abajo, en “Tipo de cada vendedor”, y le gana a esto.">
+        ayuda="El % base es lo que cobra de comisión cuando ninguna regla por rubro aplica. El mínimo de ventas es lo que tiene que facturar en el período para que su comisión se duplique (por ejemplo 0,25% pasa a 0,5%); si no llega, cobra su porcentaje (vacío = sin mínimo). El tope de descuento es cuánto puede bajar el precio en Caja: vacío = sin tope, 0 = no puede descontar nada. La excepción de una persona se carga abajo, en “Tipo de cada vendedor”, y le gana a esto.">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">

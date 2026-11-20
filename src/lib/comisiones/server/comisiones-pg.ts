@@ -360,7 +360,10 @@ export async function informeComisiones(
       : 1;
     factorPorVendedor.set(clave, factor);
     vd.factor_minimo = factor;
-    vd.llego_al_minimo = factor === 1;
+    // Llegó si tenía mínimo y lo alcanzó (ahí la comisión se duplica).
+    vd.llego_al_minimo = vd.minimo_ventas == null || !minimoAplicado
+      ? true
+      : (Number(vd.facturado) || 0) >= Number(vd.minimo_ventas);
     vd.comision *= factor;
   }
   for (const v of porVenta.values()) {

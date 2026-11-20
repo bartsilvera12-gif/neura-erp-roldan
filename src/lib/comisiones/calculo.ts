@@ -290,18 +290,21 @@ export function comisionDeLinea(
 }
 
 /**
- * Lo que cobra el que no llegó a su mínimo de ventas: la mitad.
+ * CAMBIO (punto 5 del cliente, nov. 2026): al llegar al mínimo de ventas la
+ * comisión se DUPLICA —el 0,25% pasa a 0,5%—. El que no llega cobra su
+ * porcentaje, sin recorte. (Antes: llegaba → entero, no llegaba → la mitad.)
  *
- * Está acá y no escrito en medio de una cuenta para que se vea de dónde sale
- * el número, y para que cambiarlo sea cambiar una línea.
+ * Están acá y no escritos en medio de una cuenta para que se vea de dónde
+ * salen los números, y para que cambiarlos sea cambiar una línea.
  */
-export const PROPORCION_BAJO_MINIMO = 0.5;
+export const PROPORCION_BAJO_MINIMO = 1;
+export const PROPORCION_SOBRE_MINIMO = 2;
 
 /**
- * Cuánto de su comisión cobra el vendedor según si llegó al mínimo del período.
+ * Por cuánto se multiplica la comisión según si llegó al mínimo del período.
  *
- *   Llegó       → 1   (cobra el porcentaje que tenga cargado)
- *   No llegó    → 0,5 (la mitad)
+ *   Llegó       → 2 (el doble del porcentaje cargado)
+ *   No llegó    → 1 (el porcentaje cargado)
  *   Sin mínimo  → 1
  *
  * ── DETALLES QUE IMPORTAN ─────────────────────────────────────────────────
@@ -318,7 +321,7 @@ export function factorPorMinimo(
 ): number {
   const m = Number(minimo);
   if (minimo == null || !Number.isFinite(m) || m <= 0) return 1;
-  return (Number(facturadoDelPeriodo) || 0) >= m ? 1 : PROPORCION_BAJO_MINIMO;
+  return (Number(facturadoDelPeriodo) || 0) >= m ? PROPORCION_SOBRE_MINIMO : PROPORCION_BAJO_MINIMO;
 }
 
 /**

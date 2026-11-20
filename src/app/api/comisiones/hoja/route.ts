@@ -184,9 +184,9 @@ export async function GET(request: NextRequest) {
       <tr><td>Descuentos otorgados</td><td class="m">${gs(informe.totales.descuento)}</td></tr>
       ${vd && vd.minimo_ventas != null ? (
         vd.llego_al_minimo === false
-          ? `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — no alcanzado</td></tr>
-             <tr><td colspan="2" class="nota-minimo">Por no haber llegado al mínimo, la comisión liquidada es la mitad de la que surge de los porcentajes.</td></tr>`
-          : `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — alcanzado</td></tr>`
+          ? `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — no alcanzado</td></tr>`
+          : `<tr><td>Mínimo de ventas del período</td><td class="m">${gs(vd.minimo_ventas)} — alcanzado</td></tr>
+             <tr><td colspan="2" class="nota-minimo">Por haber llegado al mínimo, la comisión liquidada es el doble de la que surge de los porcentajes.</td></tr>`
       ) : ""}
       <tr class="destacada"><td>TOTAL A LIQUIDAR</td><td class="m">Gs. ${gs(informe.totales.comision)}</td></tr>
     </tbody>
