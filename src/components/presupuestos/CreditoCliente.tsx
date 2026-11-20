@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { clienteTieneCredito } from "@/lib/presupuestos/formas-pago";
+import DatosClienteModal from "@/components/clientes/DatosClienteModal";
+import HistorialClienteModal from "@/components/clientes/HistorialClienteModal";
 
 function fmtGs(n: number) {
   return "Gs. " + (Number(n) || 0).toLocaleString("es-PY", { maximumFractionDigits: 0 });
@@ -17,6 +19,11 @@ export default function CreditoCliente({ clienteId }: { clienteId: string | null
   const [dato, setDato] = useState<{
     credito: boolean; limite: number | null; dias: number | null; anticipos: number | null;
   } | null>(null);
+  /** Pedido del cliente: los datos (y el límite) y el historial, sin salir del presupuesto. */
+  const [verDatos, setVerDatos] = useState(false);
+  const [verHistorial, setVerHistorial] = useState(false);
+  const [recarga, setRecarga] = useState(0);
+  const [nombre, setNombre] = useState("Cliente");
 
   useEffect(() => {
     if (!clienteId) { setDato(null); return; }
@@ -29,6 +36,7 @@ export default function CreditoCliente({ clienteId }: { clienteId: string | null
       ]);
       if (!vivo) return;
       const c = (rc?.data?.cliente ?? rc?.data ?? null) as Record<string, unknown> | null;
+      setNombre(String(c?.nombre_facturacion ?? c?.empresa ?? c?.nombre_contacto ?? c?.nombre ?? "Cliente"));
       const limite = c?.limite_credito == null ? null : Number(c.limite_credito);
       const dias = c?.dias_credito == null ? null : Number(c.dias_credito);
       setDato({
@@ -39,7 +47,7 @@ export default function CreditoCliente({ clienteId }: { clienteId: string | null
       });
     })();
     return () => { vivo = false; };
-  }, [clienteId]);
+  }, [clienteId, recarga]);
 
   if (!clienteId || !dato) return null;
   return (
@@ -55,6 +63,22 @@ export default function CreditoCliente({ clienteId }: { clienteId: string | null
         <span>
           Anticipos a favor: <strong className={`tabular-nums ${dato.anticipos > 0 ? "text-emerald-700" : "text-slate-800"}`}>{fmtGs(dato.anticipos)}</strong>
         </span>
+      )}
+      <span className="ml-auto flex gap-2">
+        <button type="button" onClick={() => setVerDatos(true)}
+          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:border-[#4FAEB2]">
+          Datos del cliente
+        </button>
+        <button type="button" onClick={() => setVerHistorial(true)}
+          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:border-[#4FAEB2]">
+          Historial de compras
+        </button>
+      </span>
+      {verDatos && (
+        <DatosClienteModal clienteId={clienteId} onClose={() => setVerDatos(false)} onGuardado={() => setRecarga((n) => n + 1)} />
+      )}
+      {verHistorial && (
+        <HistorialClienteModal clienteId={clienteId} clienteNombre={nombre} onClose={() => setVerHistorial(false)} />
       )}
     </div>
   );
