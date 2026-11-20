@@ -71,6 +71,9 @@ export default function CondicionPago({
   function tildarAnticipo(si: boolean) {
     if (si) {
       setFormaPago(base === "Contado contra entrega" ? ANTICIPO_ENTREGA : ANTICIPO_RETIRAR);
+      // Sin anticipo de la casa cargado (0%), se propone el 50%: un anticipo
+      // de cero no es un anticipo.
+      if (anticipoPct.trim() === "" && !(anticipoCasa > 0)) setAnticipoPct("50");
     } else {
       setFormaPago(base || FORMA_PAGO_CONTADO);
       setAnticipoPct("");
@@ -114,8 +117,8 @@ export default function CondicionPago({
           Con anticipo
         </label>
         {conAnticipo && (
-          <div className="mt-2 flex flex-wrap items-end gap-3">
-            <label className="w-32">
+          <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
+            <label className="w-44">
               <span className={labelClass}>Anticipo</span>
               <Selector
                 value={String(pct)}
@@ -123,12 +126,13 @@ export default function CondicionPago({
                 className={`${inputClass} bg-white`}
               >
                 {opcionesPct.map((p) => (
-                  <option key={p} value={String(p)}>{p}%{p === anticipoCasa ? " (de la casa)" : ""}</option>
+                  <option key={p} value={String(p)}>{p}%{p === anticipoCasa && p > 0 ? " (de la casa)" : ""}</option>
                 ))}
               </Selector>
             </label>
-            <div className="text-sm text-slate-700">
-              Anticipo <strong className="tabular-nums">{fmtGs(anticipo)}</strong>
+            {/* A la altura del selector, no de su etiqueta. */}
+            <div className="flex h-[38px] items-center text-sm text-slate-700">
+              Anticipo&nbsp;<strong className="tabular-nums">{fmtGs(anticipo)}</strong>
               <span className="mx-2 text-slate-300">·</span>
               Saldo <strong className="tabular-nums">{fmtGs(total - anticipo)}</strong>
             </div>
