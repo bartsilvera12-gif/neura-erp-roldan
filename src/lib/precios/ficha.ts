@@ -100,7 +100,15 @@ export function precioConDescuento(
 /**
  * Precio de lista en guaraníes de un producto.
  *
- * ── EL GUARANÍ QUEDA FIJO DESDE QUE SE CARGA ──────────────────────────────
+ * ── CAMBIO (punto 21 del cliente, nov. 2026): SIGUE AL DÓLAR ──────────────
+ *   Un producto con precio en dólares vale el dólar × la cotización de HOY:
+ *   si se compró con el dólar a 6.400 y hoy está a 6.500, el precio sube. Los
+ *   productos en guaraníes no cambian (a esos los mueve la remarcación). Sin
+ *   cotización cargada, vale el guaraní guardado.
+ *
+ *   Lo de abajo es la regla ANTERIOR, que el cliente pidió cambiar:
+ *
+ * ── EL GUARANÍ QUEDA FIJO DESDE QUE SE CARGA (ya no) ──────────────────────
  *   Un producto con precio en dólares guarda también su equivalente en
  *   guaraníes (`precio_venta`), calculado con la cotización del momento en que
  *   se cargó o se cambió el precio. Ese es el precio de venta.
@@ -118,7 +126,6 @@ export function precioListaGs(
   cotizacionVenta: number | null | undefined
 ): number {
   const gs = num(p.precio_venta);
-  if (gs !== null && gs > 0) return Math.round(gs);
   const usd = num(p.precio_usd);
   const tc = num(cotizacionVenta);
   if (usd !== null && usd > 0 && tc !== null && tc > 0) {

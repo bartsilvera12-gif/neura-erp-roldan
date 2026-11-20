@@ -9,6 +9,7 @@ import { idsPorCodigoAnterior, codigosAnterioresDe } from "@/lib/productos/codig
 import { preciosDeDeposito, stockDeDeposito, aplicarDeposito } from "@/lib/precios/server/precio-deposito";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { cotizacionVentaUsd } from "@/lib/precios/server/precio-para-cliente";
+import { conPrecioDelDolar } from "@/lib/precios/server/precio-dolar";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
 import { applyTokenSearch } from "@/lib/productos/token-search";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
@@ -215,7 +216,9 @@ export async function GET(request: NextRequest) {
     };
 
     /** Pisa precio y stock con los del depósito, si se pidió uno. */
-    const conDeposito = async (filas: Record<string, unknown>[]) => {
+    const conDeposito = async (filasCrudas: Record<string, unknown>[]) => {
+      // Punto 21: los productos en dólares, al dólar de hoy.
+      const filas = await conPrecioDelDolar(ctx.supabase, ctx.auth.empresa_id, filasCrudas);
       if (!depositoId || filas.length === 0) return filas;
       const [precios, stock] = await Promise.all([
         preciosDeDeposito(ctx.supabase, ctx.auth.empresa_id, depositoId),

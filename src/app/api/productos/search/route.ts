@@ -1,3 +1,4 @@
+import { conPrecioDelDolar } from "@/lib/precios/server/precio-dolar";
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
       .from("productos")
       .select(
         "id, nombre, sku, codigo_barras, codigo_barras_interno, " +
-          "precio_venta, precio_mayorista, precio_distribuidor, costo_promedio, stock_actual, stock_minimo, " +
+          "precio_venta, precio_usd, precio_mayorista, precio_distribuidor, costo_promedio, stock_actual, stock_minimo, " +
           "unidad_medida, metodo_valuacion, imagen_path, imagen_url, " +
           "categoria_principal_id, proveedor_principal_id, ubicacion_principal_id, " +
           "es_vendible, controla_stock, modo_receta, tipo_iva, activo"
@@ -94,7 +95,9 @@ export async function GET(request: NextRequest) {
     if (error) throw new Error(error.message);
 
     type Row = Record<string, unknown>;
-    const rows = ((data ?? []) as unknown as Row[]).map((r) => ({
+    // Punto 21: los productos en dólares, al dólar de hoy.
+    const crudas = await conPrecioDelDolar(supabase, empresaId, (data ?? []) as unknown as Row[]);
+    const rows = crudas.map((r) => ({
       id: String(r.id),
       nombre: String(r.nombre ?? ""),
       sku: String(r.sku ?? ""),
