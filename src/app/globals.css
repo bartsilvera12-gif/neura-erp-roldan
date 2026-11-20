@@ -207,10 +207,17 @@ body {
    sombra hacia abajo.
    ============================================================================= */
 .zentra-sidebar-bg {
-  background:
-    radial-gradient(ellipse 120% 60% at 100% 0%, rgba(255, 255, 255, 0.06), transparent 55%),
-    radial-gradient(ellipse 120% 60% at 0% 0%, rgba(255, 255, 255, 0.04), transparent 55%),
-    linear-gradient(180deg, #104A4E 0%, #0B3A3D 35%, #082A2D 100%);
+  /* Igual al menú de neura-erp-gimnasio-jose-gomez (pedido del cliente,
+     nov. 2026): el color de marca #01AEFD mezclado con azul noche (#065D86)
+     y el acento celeste. Las variables se redefinen acá adentro para no
+     cambiar el resto del sistema. */
+  --zentra-sidebar-border: rgba(255, 255, 255, 0.08);
+  --zentra-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --zentra-sidebar-active: rgba(255, 255, 255, 0.07);
+  --zentra-sidebar-accent: color-mix(in srgb, #01AEFD 55%, white);
+  --zentra-accent-sb: color-mix(in srgb, #01AEFD 55%, white);
+  background-color: color-mix(in srgb, #01AEFD 45%, #0b1a24);
+  color: #cbd5e1;
 }
 
 /* =============================================================================

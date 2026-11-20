@@ -18,8 +18,6 @@ import {
   ChevronRight,
   Star,
   Sparkles,
-  PanelLeftClose,
-  PanelLeft,
   Search,
   Receipt,
   Megaphone,
@@ -42,8 +40,17 @@ import {
   Truck,
   BookOpen,
   Wallet,
+  LayoutGrid,
+  Landmark,
+  Inbox,
+  MessagesSquare,
+  Contact,
+  Dumbbell,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
+import type { LucideIcon } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { getCurrentUser } from "@/lib/auth";
 import { isBootstrapSuperAdminEmail } from "@/lib/auth/super-admin-bootstrap-email";
@@ -404,15 +411,24 @@ const MENU_STRUCTURE: MenuItem[] = [
  * MENU_STRUCTURE; no cambia slugs, rutas, acceso ni permisos. Cada `keys` referencia
  * `MenuItem.key`. Los ítems sin familia caen en "Otros" (no se ocultan).
  */
-const MENU_FAMILIES: { id: string; titulo: string; keys: string[] }[] = [
-  { id: "inicio", titulo: "Inicio", keys: ["dashboard"] },
-  { id: "comercial", titulo: "Comercial", keys: ["clientes", "crm", "gestion-clientes", "ventas", "ordenes_venta", "presupuestos", "comisiones", "planes"] },
-  { id: "finanzas", titulo: "Finanzas", keys: ["cobranzas", "pagos", "gastos", "notas_credito", "contabilidad", "reportes", "cierres-caja", "productos-a-vencer"] },
-  { id: "operaciones", titulo: "Operaciones", keys: ["inventario", "reposicion", "notas_remision", "compras", "proveedores", "recetas", "proyectos"] },
-  { id: "omnicanal", titulo: "Omnicanal", keys: ["conversaciones", "conversaciones-finalizadas", "historial-omnicanal", "monitoreo", "campanas"] },
-  { id: "marketing", titulo: "Marketing y Automatización", keys: ["marketing", "marketing_ops", "sorteos"] },
-  { id: "rrhh", titulo: "Recursos Humanos", keys: ["rrhh"] },
-  { id: "administracion", titulo: "Administración", keys: ["usuarios", "sucursales", "configuracion"] },
+/**
+ * Cada familia es un renglón con su ícono que se despliega (diseño pedido
+ * por el cliente: Inicio, Comercial, Caja, Asistencia, Finanzas, Gastos
+ * empresariales, Inventario, Reportes, Omnicanal, RR HH). Una familia con un
+ * solo ítem sin submenú (Inicio, Gastos, Reportes) va directo a su pantalla.
+ */
+const MENU_FAMILIES: { id: string; titulo: string; icon: LucideIcon; keys: string[] }[] = [
+  { id: "inicio", titulo: "Inicio", icon: LayoutGrid, keys: ["dashboard"] },
+  { id: "comercial", titulo: "Comercial", icon: Briefcase, keys: ["clientes", "crm", "gestion-clientes", "presupuestos", "ordenes_venta", "comisiones", "planes"] },
+  { id: "caja", titulo: "Caja", icon: Wallet, keys: ["ventas", "cierres-caja"] },
+  { id: "asistencia", titulo: "Asistencia", icon: Dumbbell, keys: ["asistencia"] },
+  { id: "finanzas", titulo: "Finanzas", icon: Landmark, keys: ["cobranzas", "pagos", "notas_credito", "contabilidad", "productos-a-vencer"] },
+  { id: "gastos", titulo: "Gastos empresariales", icon: Inbox, keys: ["gastos"] },
+  { id: "inventario", titulo: "Inventario", icon: Package, keys: ["inventario", "reposicion", "notas_remision", "compras", "proveedores", "recetas", "proyectos"] },
+  { id: "reportes", titulo: "Reportes", icon: BarChart3, keys: ["reportes"] },
+  { id: "omnicanal", titulo: "Omnicanal", icon: MessagesSquare, keys: ["conversaciones", "conversaciones-finalizadas", "historial-omnicanal", "monitoreo", "campanas", "marketing", "marketing_ops", "sorteos"] },
+  { id: "rrhh", titulo: "RR HH", icon: Contact, keys: ["rrhh"] },
+  { id: "administracion", titulo: "Administración", icon: Settings, keys: ["usuarios", "sucursales", "configuracion"] },
 ];
 
 function modulosSyntheticFromMenu(): ModuloEmpresa[] {
@@ -596,6 +612,17 @@ export default function Sidebar() {
   const { rol: rolErp, facultades: facultadesErp } = useRolErp();
   /** Filtro visual del menú (no altera permisos ni rutas). */
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
+  // «/» enfoca el buscador del menú (como en la captura del cliente).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.key !== "/" || !t || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || t.isContentEditable) return;
+      const el = document.getElementById("sidebar-menu-search") as HTMLInputElement | null;
+      if (el) { e.preventDefault(); el.focus(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const { setSidebarReady, mobileSidebarOpen, setMobileSidebarOpen } = useBoot();
 
   const updateScrollIndicator = useCallback(() => {
@@ -817,22 +844,30 @@ export default function Sidebar() {
   const seccionesMenu = useMemo(() => {
     const byKey = new Map(mainItemsFiltered.map((it) => [it.key, it]));
     const usados = new Set<string>();
-    const secciones: { id: string; titulo: string; items: MenuItem[] }[] = [];
+    const secciones: { id: string; titulo: string; icon: LucideIcon; items: MenuItem[] }[] = [];
     for (const fam of MENU_FAMILIES) {
       const items = fam.keys
         .map((k) => byKey.get(k))
         .filter((it): it is MenuItem => it !== undefined);
       items.forEach((it) => usados.add(it.key));
-      if (items.length > 0) secciones.push({ id: fam.id, titulo: fam.titulo, items });
+      if (items.length > 0) secciones.push({ id: fam.id, titulo: fam.titulo, icon: fam.icon, items });
     }
     const otros = mainItemsFiltered.filter((it) => !usados.has(it.key));
-    if (otros.length > 0) secciones.push({ id: "otros", titulo: "Otros", items: otros });
+    if (otros.length > 0) secciones.push({ id: "otros", titulo: "Otros", icon: LayoutDashboard, items: otros });
     return secciones;
   }, [mainItemsFiltered]);
 
-  const familiaExpandida = (id: string) => expandedFamilies[id] ?? true; // abiertas por defecto
+  /** La familia de la pantalla en la que se está: arranca abierta. */
+  const familiaActiva = useMemo(() => {
+    for (const sec of seccionesMenu) {
+      if (sec.items.some((it) => isActive(it.slug, it.href) || it.children?.some((c) => menuChildPathActive(pathname ?? "", c.href, c.exactMatch)))) return sec.id;
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seccionesMenu, pathname]);
+  const familiaExpandida = (id: string) => expandedFamilies[id] ?? id === familiaActiva;
   const toggleFamilia = (id: string) =>
-    setExpandedFamilies((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
+    setExpandedFamilies((prev) => ({ ...prev, [id]: !(prev[id] ?? id === familiaActiva) }));
   const forzarExpandirFamilias = normalizeMenuSearch(menuSearchQuery).length > 0;
 
   const anyMenuVisible =
@@ -894,7 +929,7 @@ export default function Sidebar() {
       <motion.aside
         id="neura-sidebar"
         initial={false}
-        animate={{ width: collapsed ? 80 : 260 }}
+        animate={{ width: collapsed ? 72 : 236 }}
         transition={{ duration: 0.2 }}
         className={`zentra-sidebar-bg flex h-svh min-h-0 shrink-0 flex-col border-r border-[color:var(--zentra-sidebar-border)] lg:relative lg:z-auto lg:translate-x-0 lg:shadow-none ${
           mobileSidebarOpen
@@ -903,7 +938,7 @@ export default function Sidebar() {
         }`}
       >
       {/* Logo oficial ZENTRA (blanco sobre azul marca) */}
-      <div className="flex h-[7.25rem] shrink-0 items-center justify-between gap-2 border-b border-[color:var(--zentra-sidebar-border)] bg-[color:var(--zentra-sidebar-elevated)]/35 px-3 py-2.5">
+      <div className={`relative flex shrink-0 items-center justify-center border-b border-[color:var(--zentra-sidebar-border)] ${collapsed ? "h-16 px-1" : "h-28 px-3"}`} style={{ backgroundColor: "color-mix(in srgb, #01AEFD 22%, transparent)" }}>
         <Link href="/" className={`flex items-center justify-center min-w-0 flex-1 overflow-hidden`}>
           <div
             className={`relative flex items-center justify-center ${collapsed ? "h-11 w-11" : "h-[4.5rem] w-full max-w-[200px]"}`}
@@ -922,32 +957,33 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-[color:var(--zentra-sidebar-hover)] hover:text-white"
+          className={`shrink-0 rounded-md text-slate-400 transition-colors hover:bg-white/10 hover:text-white ${collapsed ? "p-1" : "absolute right-3 top-3 p-1.5"}`}
           aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
         >
-          {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          {collapsed ? <ChevronsRight className="h-[18px] w-[18px]" /> : <ChevronsLeft className="h-[18px] w-[18px]" />}
         </button>
       </div>
 
       {!collapsed && (
-        <div className="shrink-0 border-b border-[color:var(--zentra-sidebar-border)] px-3 py-2.5">
+        <div className="shrink-0 px-3 pt-3">
           <label htmlFor="sidebar-menu-search" className="sr-only">
             Buscar en el menú
           </label>
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
               aria-hidden
             />
             <input
               id="sidebar-menu-search"
               type="search"
               autoComplete="off"
-              placeholder="Buscar en el menú…"
+              placeholder="Buscar…"
               value={menuSearchQuery}
               onChange={(e) => setMenuSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-white/15 bg-white/10 py-2 pl-8 pr-2.5 text-xs text-white outline-none transition-[border-color,box-shadow] placeholder:text-slate-400 focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/35"
+              className="w-full rounded-lg border border-white/[0.08] bg-black/20 py-2 pl-9 pr-9 text-[13px] text-white outline-none transition placeholder:text-slate-500 focus:bg-black/30"
             />
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-white/10 px-1.5 py-0.5 text-[11px] text-slate-500">/</kbd>
           </div>
         </div>
       )}
@@ -1007,39 +1043,74 @@ export default function Sidebar() {
             ))}
           </div>
         ) : (
-          seccionesMenu.map((seccion) => {
+          <div className="space-y-0.5">
+          {seccionesMenu.map((seccion) => {
+            // Igual al menú de referencia (neura-erp-gimnasio-jose-gomez): cada
+            // familia es un renglón con su ícono; sus pantallas se despliegan
+            // abajo como texto, con una línea a la izquierda.
             const abierta = familiaExpandida(seccion.id) || forzarExpandirFamilias;
+            const FamIcon = seccion.icon;
+            const activa = seccion.id === familiaActiva;
+            // Las pantallas de la familia: un ítem con submenú aporta sus hijos.
+            const links: { href: string; label: string; exact?: boolean }[] = [];
+            for (const it of seccion.items) {
+              if (it.children?.length) for (const c of it.children) links.push({ href: c.href, label: c.label, exact: c.exactMatch });
+              else links.push({ href: it.href, label: it.label });
+            }
+            const unico = links.length === 1 ? links[0]! : null;
+            const p = pathname ?? "";
+            const coincide = (l: { href: string; exact?: boolean }) =>
+              l.href === "/" ? p === "/" : l.exact ? p === l.href : p === l.href || p.startsWith(`${l.href}/`);
+            const mejor = links.filter(coincide).sort((a, b) => b.href.length - a.href.length)[0];
+            const fila = `group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] transition-colors ${
+              activa ? "text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
+            }`;
+            const estiloFila = activa ? { backgroundColor: "rgba(255,255,255,0.07)" } : undefined;
+            const icono = <FamIcon className="h-[18px] w-[18px] shrink-0 transition-colors" style={{ color: activa ? "var(--zentra-accent-sb)" : "#ffffff" }} />;
+            if (unico) {
+              return (
+                <Link key={seccion.id} href={unico.href} prefetch={false} className={fila} style={estiloFila} title={seccion.titulo}>
+                  {icono}
+                  <span className="flex-1 truncate text-left">{seccion.titulo}</span>
+                </Link>
+              );
+            }
             return (
-              <div key={seccion.id} className="mb-3">
-                <button
-                  type="button"
-                  onClick={() => toggleFamilia(seccion.id)}
-                  className="mb-1.5 flex w-full items-center justify-between rounded px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-slate-100 transition-colors hover:text-white"
-                >
-                  <span>{seccion.titulo}</span>
-                  {abierta ? <ChevronDown className="h-4 w-4 text-slate-300" /> : <ChevronRight className="h-4 w-4 text-slate-300" />}
+              <div key={seccion.id}>
+                <button type="button" onClick={() => toggleFamilia(seccion.id)} className={fila} style={estiloFila} aria-expanded={abierta} title={seccion.titulo}>
+                  {icono}
+                  <span className="flex-1 truncate text-left">{seccion.titulo}</span>
+                  <ChevronRight className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ${abierta ? "rotate-90" : ""}`} />
                 </button>
-                {abierta && (
-                  <div className="space-y-0.5">
-                    {seccion.items.map((item) => (
-                      <NavItem
-                        key={item.key}
-                        item={item}
-                        itemId={slugToId(item.slug)}
-                        isActive={isActive(item.slug, item.href)}
-                        isFavorito={favoritos.includes(slugToId(item.slug))}
-                        onToggleFavorito={handleToggleFavorito}
-                        hasAccess={hasAccess(item.slug)}
-                        collapsed={collapsed}
-                        expanded={expandedItems[item.key] ?? false}
-                        onToggleExpand={() => toggleExpand(item.key)}
-                      />
-                    ))}
+                <div className="overflow-hidden transition-[grid-template-rows] duration-200" style={{ display: "grid", gridTemplateRows: abierta ? "1fr" : "0fr" }}>
+                  <div className="min-h-0" inert={!abierta}>
+                    <div className="relative ml-[30px] mt-1 space-y-1 pl-3">
+                      <span className="absolute bottom-1 left-0 top-1 w-px bg-white/10" />
+                      {links.map((l) => {
+                        const ca = mejor?.href === l.href;
+                        return (
+                          <Link
+                            key={l.href}
+                            href={l.href}
+                            prefetch={false}
+                            aria-current={ca ? "page" : undefined}
+                            className={`relative flex items-center rounded-lg px-3 py-2 text-[13px] transition-all ${ca ? "font-medium text-white" : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"}`}
+                            style={ca ? { backgroundColor: "rgba(125,207,210,0.14)" } : undefined}
+                          >
+                            {ca ? (
+                              <span className="absolute -left-[13px] top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full" style={{ backgroundColor: "var(--zentra-accent-sb)", boxShadow: "0 0 8px var(--zentra-accent-sb)" }} />
+                            ) : null}
+                            <span className="min-w-0 truncate">{l.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
-          })
+          })}
+          </div>
         )}
 
         {/* Admin */}
