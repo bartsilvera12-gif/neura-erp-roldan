@@ -13,7 +13,7 @@ import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/pr
 import { FORMA_PAGO_CONTADO, clienteTieneCredito, formasPagoPermitidas, pideAnticipo } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
-import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
+import { useExistencias, ExistenciaLinea, ExistenciaPendiente, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
 
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
@@ -23,6 +23,7 @@ import { getSession } from "@/lib/auth";
 import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla";
 import ObraSelector, { type ObraLite } from "@/components/presupuestos/ObraSelector";
 import CondicionPago from "@/components/presupuestos/CondicionPago";
+import { usePedidosDescuento, AvisoTopeDescuento } from "@/components/presupuestos/DescuentoConTope";
 import CreditoCliente from "@/components/presupuestos/CreditoCliente";
 import VistaPreviaPdf from "@/components/presupuestos/VistaPreviaPdf";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, etiquetaTipoPrecio, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
@@ -189,7 +190,8 @@ export default function NuevoPresupuestoPage() {
 
   // Condiciones
   const [formaPago, setFormaPago] = useState("");
-  const [plazoEntrega, setPlazoEntrega] = useState("");
+  // 2 por defecto (pedido del cliente): sale impreso como el plazo de procesamiento.
+  const [plazoEntrega, setPlazoEntrega] = useState("2");
   const [observaciones, setObservaciones] = useState("");
   const [notaInterna, setNotaInterna] = useState("");
   const [faltaMaterial, setFaltaMaterial] = useState(false);
@@ -212,7 +214,8 @@ export default function NuevoPresupuestoPage() {
    * El descuento lo ve quien puede darlo: administración o un perfil con
    * descuento máximo cargado. Al usuario normal no se le muestra la columna.
    */
-  const puedeDescontar = isAdmin || (descuentoMaximo ?? 0) > 0;
+  // Todos pueden descontar, hasta su tope (ver «Descuento con tope» más abajo).
+  const puedeDescontar = true;
   /**
    * Cotizar por más de lo que hay: facultad `cotizar_sin_stock`.
    *
@@ -318,7 +321,7 @@ export default function NuevoPresupuestoPage() {
           setClienteProfesion(txt("clienteProfesion"));
           if (Array.isArray(b.items)) setItems(b.items as Item[]);
           if (txt("formaPago")) setFormaPago(txt("formaPago"));
-          setPlazoEntrega(txt("plazoEntrega"));
+          setPlazoEntrega(txt("plazoEntrega") || "2");
           setObservaciones(txt("observaciones"));
           setNotaInterna(txt("notaInterna"));
           setFaltaMaterial(b.faltaMaterial === true);
@@ -625,7 +628,8 @@ export default function NuevoPresupuestoPage() {
     if (cantidad <= 0) { cantPendRef.current?.focus(); return; }
     // Precio vacío o en cero: vale el de lista, igual que en la tabla.
     const precio = pend.precio > 0 ? pend.precio : pend.precioLista;
-    const pct = Math.min(100, Math.max(0, Number(String(pend.descPct).replace(",", ".")) || 0));
+    // Hasta el tope de quien cotiza; si quiere más, lo pide desde la tabla.
+    const pct = Math.min(topeDescuento ?? 100, Math.max(0, Number(String(pend.descPct).replace(",", ".")) || 0));
 
     const nueva: Item = aplicarCambio(
       {
@@ -695,11 +699,41 @@ export default function NuevoPresupuestoPage() {
   }
   function delItem(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
+    pedidosDesc.quitarLinea(i);
+    setPidioDescuento({});
   }
+
+  // ── Descuento con tope y pedido de autorización (pedido del cliente: igual
+  // que en la caja). El administrador no tiene tope. El resto, el de su
+  // perfil; sin tope cargado es 0 y todo descuento se pide.
+  const topeDescuento: number | null = isAdmin ? null : (descuentoMaximo ?? 0);
+  const [pidioDescuento, setPidioDescuento] = useState<Record<number, number>>({});
+  const olvidarPidio = (i: number) => setPidioDescuento((p) => { const n = { ...p }; delete n[i]; return n; });
+  const pedidosDesc = usePedidosDescuento((idx, pct) => { updItem(idx, { descuento_pct: pct }); olvidarPidio(idx); });
+  function cambiarDescuentoPct(i: number, pct: number) {
+    if (topeDescuento != null && pct > topeDescuento) {
+      updItem(i, { descuento_pct: topeDescuento });
+      setPidioDescuento((p) => ({ ...p, [i]: pct }));
+      return;
+    }
+    updItem(i, { descuento_pct: pct });
+    olvidarPidio(i);
+  }
+  function cambiarDescuentoGs(i: number, monto: number) {
+    const it = items[i];
+    if (!it) return;
+    const bruto = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+    const pct = bruto > 0 ? (monto / bruto) * 100 : 0;
+    if (topeDescuento != null && pct > topeDescuento) { cambiarDescuentoPct(i, Math.round(pct * 100) / 100); return; }
+    updItem(i, { descuento: monto });
+    olvidarPidio(i);
+  }
+
 
   // La reserva la calcula el servidor desde los presupuestos aprobados
   // vigentes; acá solo se muestra (puntos 9.1 y 9.2).
-  const existencias = useExistencias(items.map((it) => it.producto_id));
+  // Con el producto que se está por agregar, para mostrar su stock antes.
+  const existencias = useExistencias([...items.map((it) => it.producto_id), pendiente?.p.id ?? null]);
 
   const totales = useMemo(() => {
     let subtotal = 0,
@@ -1202,6 +1236,7 @@ export default function NuevoPresupuestoPage() {
               <p className="text-[11px] text-slate-500">
                 {pendiente.p.sku ? `${pendiente.p.sku} · ` : ""}Precio: {pendiente.tipoPrecio}
               </p>
+              <ExistenciaPendiente existencia={existencias[pendiente.p.id]} />
             </div>
             <label className="w-28">
               <span className={labelClass}>Cantidad</span>
@@ -1277,7 +1312,9 @@ export default function NuevoPresupuestoPage() {
                   return (
                     <tr key={i} className="align-top">
                       <td className="py-2 pr-2">
-                        <input value={it.producto_nombre} onChange={(e) => updItem(i, { producto_nombre: e.target.value })} className={inputClass} placeholder="Descripción" />
+                        {/* Del inventario, la descripción no se toca (solo administración):
+                            el usuario normal solo cambia la cantidad. */}
+                        <input value={it.producto_nombre} readOnly={!isAdmin && !!it.producto_id} onChange={(e) => updItem(i, { producto_nombre: e.target.value })} className={`${inputClass} ${!isAdmin && it.producto_id ? "bg-slate-50 text-slate-700" : ""}`} placeholder="Descripción" />
                         {it.tipo_precio === "mayorista" ? (
                           <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Mayorista</span>
                         ) : it.producto_id && it.tipo_precio_label ? (
@@ -1349,7 +1386,7 @@ export default function NuevoPresupuestoPage() {
                           <input
                             type="number" min="0" max="100" step="0.01"
                             value={it.descuento_pct || ""}
-                            onChange={(e) => updItem(i, { descuento_pct: Number(e.target.value) })}
+                            onChange={(e) => cambiarDescuentoPct(i, Number(e.target.value))}
                             className={`${inputClass} px-2 tabular-nums`}
                             placeholder="%"
                             aria-label="Descuento en porcentaje"
@@ -1359,10 +1396,19 @@ export default function NuevoPresupuestoPage() {
                         <input
                           type="number" min="0" step="1"
                           value={it.descuento || ""}
-                          onChange={(e) => updItem(i, { descuento: Number(e.target.value) })}
+                          onChange={(e) => cambiarDescuentoGs(i, Number(e.target.value))}
                           className={`${inputClass} mt-1 px-2 tabular-nums`}
                           placeholder="Gs."
                           aria-label="Descuento en guaraníes"
+                        />
+                        <AvisoTopeDescuento
+                          pidio={pidioDescuento[i] ?? null}
+                          tope={topeDescuento}
+                          pedido={pedidosDesc.pedidos[i]}
+                          onPedir={() => void pedidosDesc.pedir(i, {
+                            producto_id: it.producto_id, producto_nombre: it.producto_nombre, sku: it.sku,
+                            cantidad: it.cantidad, precio_unitario: it.precio_unitario, pct_actual: it.descuento_pct || 0,
+                          }, pidioDescuento[i]!, borradorNumero)}
                         />
                       </td>}
                       <td className="py-2 px-2 text-right tabular-nums font-medium">

@@ -171,12 +171,13 @@ async function formaPagoNoPermitida(
   clienteId: unknown
 ): Promise<string | null> {
   const fp = typeof formaPago === "string" ? formaPago.trim() : "";
-  if (esAdmin || !fp || fp === FORMA_PAGO_CONTADO) return null;
+  // Solo el crédito necesita que el cliente lo tenga en su ficha.
+  if (esAdmin || !fp || fp === FORMA_PAGO_CONTADO || !/cr[eé]dito/i.test(fp)) return null;
   if (typeof clienteId === "string" && clienteId.trim()) {
     const r = await sb.from("clientes").select("*").eq("empresa_id", empresaId).eq("id", clienteId.trim()).maybeSingle();
     if (!r.error && clienteTieneCredito(r.data as Record<string, unknown> | null)) return null;
   }
-  return "Este cliente no tiene crédito: el presupuesto solo puede ser al contado. Para darle crédito, se marca en su ficha.";
+  return "Este cliente no tiene crédito: el presupuesto no puede ser a crédito. Para darle crédito, se marca en su ficha.";
 }
 
 export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{ id: string }> }) {

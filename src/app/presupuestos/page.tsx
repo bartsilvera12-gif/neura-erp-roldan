@@ -97,7 +97,7 @@ const FILTROS: { id: FiltroPresupuesto; label: string }[] = [
   { id: "borrador", label: "Borradores" },
   { id: "creado", label: "Creados" },
   { id: "enviado", label: "Enviados" },
-  { id: "pendientes", label: "Pendientes" },
+  // «Pendientes» se sacó a pedido del cliente.
   { id: "aprobado", label: "Aprobados" },
   { id: "rechazado", label: "Rechazados" },
   { id: "convertido", label: "Convertidos" },

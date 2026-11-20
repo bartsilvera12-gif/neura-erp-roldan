@@ -33,6 +33,8 @@ interface Solicitud {
   precio_pedido: number;
   descuento_pct: number;
   tope_pct: number | null;
+  /** Desde un presupuesto: «Presupuesto PRE-000017: quiere ponerle 8% y ya tiene 5%». */
+  motivo?: string | null;
   created_at: string;
   expira_at: string;
 }
@@ -140,6 +142,9 @@ export default function AutorizacionesDescuento() {
                   <strong className="text-amber-700">{s.descuento_pct}%</strong> de descuento
                   {s.tope_pct != null && <> (su tope es {s.tope_pct}%)</>}.
                 </p>
+                {s.motivo && (
+                  <p className="mt-0.5 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">{s.motivo}</p>
+                )}
                 <p className="mt-0.5 text-xs text-slate-600">
                   {s.cantidad} × {s.producto_nombre}
                   {s.sku && <span className="font-mono text-[11px] text-slate-400"> · {s.sku}</span>}

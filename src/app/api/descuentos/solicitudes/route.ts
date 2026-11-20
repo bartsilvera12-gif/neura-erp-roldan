@@ -54,9 +54,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse("El descuento tiene que estar entre 0 y 100."), { status: 400 });
     }
 
-    const tope = await descuentoMaximoDe(ctx.supabase, ctx.auth.empresa_id, ctx.auth.usuarioCatalogId);
-    // Sin tope no hay nada que autorizar, y pedirlo igual llenaría la campana
-    // del administrador de pedidos que el vendedor ya podía hacer solo.
+    const topeUsuario = await descuentoMaximoDe(ctx.supabase, ctx.auth.empresa_id, ctx.auth.usuarioCatalogId);
+    // Desde un presupuesto, quien no tiene tope cargado tiene 0: todo
+    // descuento se pide (pedido del cliente). En la caja sigue la regla de
+    // siempre: sin tope no hay nada que autorizar, y pedirlo igual llenaría la
+    // campana del administrador de pedidos que el vendedor ya podía hacer solo.
+    const desdePresupuesto = /^Presupuesto/.test(txt(b.motivo) ?? "");
+    const tope = topeUsuario ?? (desdePresupuesto ? 0 : null);
     if (tope == null) {
       return NextResponse.json(
         errorResponse("Tu usuario no tiene tope de descuento: podés aplicarlo sin pedir autorización."),

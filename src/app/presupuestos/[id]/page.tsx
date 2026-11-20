@@ -449,14 +449,9 @@ export default function PresupuestoDetallePage() {
               </button>
             )
           )}
-          {presu.estado === "aprobado" && (
-            <Link
-              href={`/ventas/nueva?presupuesto_id=${presu.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F8E91]"
-            >
-              <FileCheck2 className="h-4 w-4" /> Cobrar en Caja
-            </Link>
-          )}
+          {/* «Cobrar en Caja» se sacó a pedido del cliente: el presupuesto
+              llega a la caja por la cola (Mandar a caja) y lo cobra el cajero. */}
+          
         </div>
       </div>
 

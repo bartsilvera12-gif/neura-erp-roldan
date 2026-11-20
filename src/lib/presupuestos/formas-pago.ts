@@ -87,5 +87,7 @@ export function pideAnticipo(valor: string | null | undefined): boolean {
 
 /** Las formas de pago que puede elegir quien cotiza para ese cliente. */
 export function formasPagoPermitidas(puedeTodo: boolean, conCredito: boolean): readonly FormaPagoOpcion[] {
-  return puedeTodo || conCredito ? FORMAS_PAGO : FORMAS_PAGO.filter((f) => f.valor === FORMA_PAGO_CONTADO);
+  // Lo que no es crédito (contado, contra entrega, con anticipo, transferencia,
+  // cheque) lo elige cualquiera: el anticipo lo pidió el cliente para todos.
+  return puedeTodo || conCredito ? FORMAS_PAGO : FORMAS_PAGO.filter((f) => !esFormaCredito(f.valor));
 }

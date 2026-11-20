@@ -15,10 +15,11 @@ import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/pr
 import { FORMAS_PAGO, pideAnticipo } from "@/lib/presupuestos/formas-pago";
 import ObraSelector, { type ObraLite } from "@/components/presupuestos/ObraSelector";
 import CondicionPago from "@/components/presupuestos/CondicionPago";
+import { usePedidosDescuento, AvisoTopeDescuento } from "@/components/presupuestos/DescuentoConTope";
 import CreditoCliente from "@/components/presupuestos/CreditoCliente";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
-import { useExistencias, ExistenciaLinea, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
+import { useExistencias, ExistenciaLinea, ExistenciaPendiente, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
 import Selector from "@/components/ui/Selector";
 
 type ProductoLite = {
@@ -102,7 +103,8 @@ export default function EditarPresupuestoPage() {
   // Las condiciones comerciales las cambia solo un administrador.
   const { isAdmin, descuentoMaximo } = useIsAdmin();
   /** El descuento lo ve quien puede darlo (igual que en Nuevo presupuesto). */
-  const puedeDescontar = isAdmin || (descuentoMaximo ?? 0) > 0;
+  // Todos pueden descontar, hasta su tope (ver «Descuento con tope» más abajo).
+  const puedeDescontar = true;
   // Cotizar por más de lo que hay: facultad, no nivel.
   const { tiene: tieneFacultad } = useFacultades();
   // Cotizar sin stock: solo administración.
@@ -357,6 +359,8 @@ export default function EditarPresupuestoPage() {
   const lleno = items.length >= MAX_ITEMS_PRESUPUESTO;
   const buscadorProductoRef = useRef<SearchableSelectHandle>(null);
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
+  /** El stock del producto que se está por agregar (reservado y disponible). */
+  const existenciaPend = useExistencias([pendiente?.p.id ?? null]);
   const cantPendRef = useRef<HTMLInputElement>(null);
 
   function prepararLinea(pid: string | null) {
@@ -375,7 +379,8 @@ export default function EditarPresupuestoPage() {
     const cantidad = Number(String(pend.cantidad).replace(",", ".")) || 0;
     if (cantidad <= 0) { cantPendRef.current?.focus(); return; }
     const lista = precioParaProducto(p);
-    const pct = Math.min(100, Math.max(0, Number(String(pend.descPct).replace(",", ".")) || 0));
+    // Hasta el tope de quien cotiza; si quiere más, lo pide desde la tabla.
+    const pct = Math.min(topeDescuento ?? 100, Math.max(0, Number(String(pend.descPct).replace(",", ".")) || 0));
     const nueva: Item = aplicarCambio(
       {
         producto_id: p.id,
@@ -425,6 +430,34 @@ export default function EditarPresupuestoPage() {
   }
   function delItem(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
+    pedidosDesc.quitarLinea(i);
+    setPidioDescuento({});
+  }
+
+  // ── Descuento con tope y pedido de autorización (pedido del cliente: igual
+  // que en la caja). El administrador no tiene tope. El resto, el de su
+  // perfil; sin tope cargado es 0 y todo descuento se pide.
+  const topeDescuento: number | null = isAdmin ? null : (descuentoMaximo ?? 0);
+  const [pidioDescuento, setPidioDescuento] = useState<Record<number, number>>({});
+  const olvidarPidio = (i: number) => setPidioDescuento((p) => { const n = { ...p }; delete n[i]; return n; });
+  const pedidosDesc = usePedidosDescuento((idx, pct) => { updItem(idx, { descuento_pct: pct }); olvidarPidio(idx); });
+  function cambiarDescuentoPct(i: number, pct: number) {
+    if (topeDescuento != null && pct > topeDescuento) {
+      updItem(i, { descuento_pct: topeDescuento });
+      setPidioDescuento((p) => ({ ...p, [i]: pct }));
+      return;
+    }
+    updItem(i, { descuento_pct: pct });
+    olvidarPidio(i);
+  }
+  function cambiarDescuentoGs(i: number, monto: number) {
+    const it = items[i];
+    if (!it) return;
+    const bruto = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+    const pct = bruto > 0 ? (monto / bruto) * 100 : 0;
+    if (topeDescuento != null && pct > topeDescuento) { cambiarDescuentoPct(i, Math.round(pct * 100) / 100); return; }
+    updItem(i, { descuento: monto });
+    olvidarPidio(i);
   }
 
   const totales = useMemo(() => {
@@ -685,6 +718,7 @@ export default function EditarPresupuestoPage() {
             <div className="min-w-[200px] flex-1">
               <p className="text-sm font-semibold text-slate-800">{pendiente.p.nombre}</p>
               {pendiente.p.sku && <p className="text-[11px] text-slate-500">{pendiente.p.sku}</p>}
+              <ExistenciaPendiente existencia={existenciaPend[pendiente.p.id]} />
             </div>
             <label className="w-28">
               <span className={labelClass}>Cantidad</span>
@@ -693,8 +727,8 @@ export default function EditarPresupuestoPage() {
             </label>
             <label className="w-36">
               <span className={labelClass}>Precio unit.</span>
-              <input type="number" min="0" step="1" value={pendiente.precio || ""}
-                onChange={(e) => setPendiente({ ...pendiente, precio: Number(e.target.value) })}
+              <input type="number" min="0" step="1" value={pendiente.precio || ""} readOnly={!isAdmin}
+                onChange={(e) => { if (isAdmin) setPendiente({ ...pendiente, precio: Number(e.target.value) }); }}
                 onBlur={() => { if (!(pendiente.precio > 0)) setPendiente({ ...pendiente, precio: precioParaProducto(pendiente.p) }); }}
                 className={inputClass} />
             </label>
@@ -733,7 +767,9 @@ export default function EditarPresupuestoPage() {
                   return (
                     <tr key={i} className="align-top">
                       <td className="py-2 pr-2">
-                        <input value={it.producto_nombre} onChange={(e) => updItem(i, { producto_nombre: e.target.value })} className={inputClass} placeholder="Descripción" />
+                        {/* Del inventario, la descripción no se toca (solo administración):
+                            el usuario normal solo cambia la cantidad. */}
+                        <input value={it.producto_nombre} readOnly={!isAdmin && !!it.producto_id} onChange={(e) => updItem(i, { producto_nombre: e.target.value })} className={`${inputClass} ${!isAdmin && it.producto_id ? "bg-slate-50 text-slate-700" : ""}`} placeholder="Descripción" />
                       </td>
                       <td className="py-2 px-2">
                         <input type="number" min="0" step="0.01" value={it.cantidad || ""} onChange={(e) => updItem(i, { cantidad: Number(e.target.value) })} className={inputClass} />
@@ -743,7 +779,7 @@ export default function EditarPresupuestoPage() {
                         />
                       </td>
                       <td className="py-2 px-2">
-                        <input type="number" min="0" step="1" value={it.precio_unitario || ""} onChange={(e) => updItem(i, { precio_unitario: Number(e.target.value) })} onBlur={() => restaurarPrecioSiVacio(i)} className={inputClass} />
+                        <input type="number" min="0" step="1" value={it.precio_unitario || ""} readOnly={!isAdmin} tabIndex={isAdmin ? undefined : -1} onChange={(e) => { if (isAdmin) updItem(i, { precio_unitario: Number(e.target.value) }); }} onBlur={() => restaurarPrecioSiVacio(i)} className={`${inputClass} ${!isAdmin ? "cursor-not-allowed bg-slate-50 text-slate-700" : ""}`} title={!isAdmin ? "El precio sale de la lista. Para cambiarlo, pedíselo a un administrador." : undefined} />
                         {(() => {
                           const d = descuentoPorPrecio(it.precio_lista, it.precio_unitario, it.cantidad);
                           if (!d) return null;
@@ -755,16 +791,20 @@ export default function EditarPresupuestoPage() {
                         })()}
                       </td>
                       <td className="py-2 px-2">
-                        <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
-                          {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
-                        </Selector>
+                        {isAdmin ? (
+                          <Selector value={it.iva_tipo} onChange={(e) => updItem(i, { iva_tipo: e.target.value as IvaTipoPresupuesto })} className={`${inputClass} bg-white`}>
+                            {IVAS.map((iv) => <option key={iv} value={iv}>{iv}</option>)}
+                          </Selector>
+                        ) : (
+                          <div className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-700`} title="El IVA sale del producto.">{it.iva_tipo}</div>
+                        )}
                       </td>
                       {puedeDescontar && <td className="py-2 px-2">
                         <div className="flex items-center gap-1">
                           <input
                             type="number" min="0" max="100" step="0.01"
                             value={it.descuento_pct || ""}
-                            onChange={(e) => updItem(i, { descuento_pct: Number(e.target.value) })}
+                            onChange={(e) => cambiarDescuentoPct(i, Number(e.target.value))}
                             className={`${inputClass} px-2 tabular-nums`}
                             placeholder="%"
                             aria-label="Descuento en porcentaje"
@@ -774,10 +814,19 @@ export default function EditarPresupuestoPage() {
                         <input
                           type="number" min="0" step="1"
                           value={it.descuento || ""}
-                          onChange={(e) => updItem(i, { descuento: Number(e.target.value) })}
+                          onChange={(e) => cambiarDescuentoGs(i, Number(e.target.value))}
                           className={`${inputClass} mt-1 px-2 tabular-nums`}
                           placeholder="Gs."
                           aria-label="Descuento en guaraníes"
+                        />
+                        <AvisoTopeDescuento
+                          pidio={pidioDescuento[i] ?? null}
+                          tope={topeDescuento}
+                          pedido={pedidosDesc.pedidos[i]}
+                          onPedir={() => void pedidosDesc.pedir(i, {
+                            producto_id: it.producto_id, producto_nombre: it.producto_nombre, sku: it.sku,
+                            cantidad: it.cantidad, precio_unitario: it.precio_unitario, pct_actual: it.descuento_pct || 0,
+                          }, pidioDescuento[i]!, numero || null)}
                         />
                       </td>}
                       <td className="py-2 px-2 text-right tabular-nums font-medium">

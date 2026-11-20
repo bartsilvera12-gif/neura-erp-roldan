@@ -74,9 +74,9 @@ export function ExistenciaLinea({
   const falta = (Number(cantidad) || 0) - existencia.disponible;
   const hayReserva = existencia.reservado > 0;
 
-  const resumen = hayReserva
-    ? `Disp. ${existencia.disponible} de ${existencia.fisico}`
-    : `Stock ${existencia.fisico}`;
+  // Pedido del cliente: el reservado y el disponible, siempre a la vista.
+  void hayReserva;
+  const resumen = `Disp. ${existencia.disponible} · Res. ${existencia.reservado}`;
 
   const detalle =
     `Físico ${existencia.fisico} · reservado ${existencia.reservado} · ` +
@@ -98,6 +98,23 @@ export function ExistenciaLinea({
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * Las existencias del producto que se está por agregar: físico, reservado y
+ * disponible, para decidir la cantidad antes de agregarlo (pedido del cliente).
+ */
+export function ExistenciaPendiente({ existencia }: { existencia: Existencia | undefined }) {
+  if (!existencia) return <p className="text-[11px] text-slate-400">Consultando stock…</p>;
+  return (
+    <p className="text-[11px] text-slate-600">
+      Stock <strong className="tabular-nums">{existencia.fisico}</strong>
+      <span className="mx-1.5 text-slate-300">·</span>
+      Reservado <strong className="tabular-nums text-amber-700">{existencia.reservado}</strong>
+      <span className="mx-1.5 text-slate-300">·</span>
+      Disponible <strong className={`tabular-nums ${existencia.disponible > 0 ? "text-emerald-700" : "text-red-600"}`}>{existencia.disponible}</strong>
+    </p>
   );
 }
 
