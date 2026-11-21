@@ -1617,7 +1617,7 @@ export default function NuevoPresupuestoPage() {
           apilamiento) se dibujaban por encima o la barra tapaba la última fila
           sin que se notara (BUG-06). En el celular va arriba de la barra de
           navegación de abajo. */}
-      <div className="sticky bottom-0 z-20 -mx-4 mt-2 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] max-lg:bottom-16 sm:-mx-6 sm:px-6">
+      <div className="sticky bottom-0 z-20 -mx-4 mt-2 lg:-bottom-6 lg:-mb-6 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] max-lg:bottom-16 sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Administración ve el desglose (pedido del cliente); los demás,
               solo el total. */}
