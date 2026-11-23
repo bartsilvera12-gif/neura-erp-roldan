@@ -1385,7 +1385,8 @@ export default function NuevaVentaPage() {
     [pedidos]
   );
 
-  const ventaValida   = items.length > 0 && creditoValido && pagoMixtoValido
+  // La venta lleva cliente siempre (pedido del cliente): sin él no se confirma.
+  const ventaValida   = items.length > 0 && !!clienteId && creditoValido && pagoMixtoValido
                         && lineasEsperando.length === 0
                         // Un presupuesto sin stock no se factura: facturar es
                         // entregar, y no se entrega lo que no está.
@@ -1657,6 +1658,10 @@ export default function NuevaVentaPage() {
     // Guard duro contra doble submit: si ya hay una confirmación en vuelo, cortar
     // inmediatamente. El ref se evalúa de forma síncrona (no espera al re-render de React),
     // así que un segundo click/Enter casi simultáneo no puede disparar otra venta.
+    if (!clienteId) {
+      setErrorVenta("Elegí el cliente antes de confirmar la venta.");
+      return;
+    }
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     setGuardando(true);
@@ -1843,12 +1848,14 @@ export default function NuevaVentaPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "F9") {
         e.preventDefault();
-        if (items.length > 0) setFinalizarOpen(true);
+        if (items.length === 0) return;
+        if (!clienteId) { setErrorVenta("Elegí el cliente antes de finalizar la venta."); return; }
+        setFinalizarOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [items.length]);
+  }, [items.length, clienteId]);
 
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -2070,7 +2077,7 @@ export default function NuevaVentaPage() {
                 </div>
               )}
               <p className="mt-1 text-[11px] text-gray-400">
-                Si no seleccionás cliente, la venta se registra sin cliente.
+                El cliente es obligatorio: sin cliente la venta no se confirma.
               </p>
 
               {/* Nota de remisión: solo con cliente. Si el cliente la usa, viene activada. */}
@@ -2171,7 +2178,7 @@ export default function NuevaVentaPage() {
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
                   {tipoDocumento === "factura"
-                    ? "Al confirmar se registra la factura con el próximo número del talonario y se imprimen los datos sobre la hoja preimpresa. Sin cliente sale a nombre de SIN NOMBRE."
+                    ? "Al confirmar se registra la factura con el próximo número del talonario y se imprimen los datos sobre la hoja preimpresa."
                     : "Solo se registra la venta y se imprime el ticket."}
                 </p>
               </div>
@@ -2972,7 +2979,9 @@ export default function NuevaVentaPage() {
               disabled={!ventaValida || guardando}
               aria-busy={guardando}
               title={
-                presuSinStock
+                !clienteId
+                  ? "Elegí el cliente para poder finalizar la venta."
+                  : presuSinStock
                   ? "Falta stock para entregar este presupuesto: no se puede facturar."
                   : lineasEsperando.length > 0
                     ? "Hay un descuento esperando la autorización del administrador."
