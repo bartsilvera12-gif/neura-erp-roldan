@@ -3,6 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ajustarStockProducto } from "@/lib/inventario/server/lote-stock-sync";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 /**
  * GET /api/productos/[id]/lotes — lista lotes activos con cantidad > 0.
@@ -56,6 +57,9 @@ export async function POST(
   request: NextRequest,
   ctxParams: { params: Promise<{ id: string }> }
 ) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const { id } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuth(request);

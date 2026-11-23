@@ -5,11 +5,15 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { updateUbicacion, deleteUbicacion, ubicacionDuplicada } from "@/lib/inventario/server/catalogos-pg";
 import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 export async function PATCH(
   request: NextRequest,
   ctxParams: { params: Promise<{ id: string }> }
 ) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const { id } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -50,6 +54,9 @@ export async function DELETE(
   request: NextRequest,
   ctxParams: { params: Promise<{ id: string }> }
 ) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const { id } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuth(request);

@@ -7,6 +7,7 @@ import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import Selector from "@/components/ui/Selector";
+import { usePuedeModificarInventario, AVISO_SOLO_LECTURA } from "@/lib/inventario/use-puede-modificar-inventario";
 
 interface Ubicacion {
   id: string;
@@ -23,6 +24,7 @@ interface Sucursal { id: string; nombre: string }
 const TIPOS = ["deposito","salon","pasillo","gondola","estante","zona","otro"] as const;
 
 export default function UbicacionesPage() {
+  const { puede: puedeInv, loaded: loadedInv } = usePuedeModificarInventario();
   const { isAdmin } = useIsAdmin();
   const [items, setItems] = useState<Ubicacion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,6 +176,10 @@ export default function UbicacionesPage() {
         </div>
       </div>
 
+      {!puedeInv && loadedInv && (
+        <p className="max-w-3xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{AVISO_SOLO_LECTURA}</p>
+      )}
+      {puedeInv && (
       <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
           Nueva ubicación
@@ -247,6 +253,7 @@ export default function UbicacionesPage() {
         </form>
         {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
       </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         {loading ? (
@@ -285,6 +292,7 @@ export default function UbicacionesPage() {
                       )}
                     </td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {puedeInv && <>
                       <button
                         onClick={() => void editar(u)}
                         className="text-xs text-sky-700 underline hover:text-sky-900"
@@ -303,6 +311,7 @@ export default function UbicacionesPage() {
                       >
                         Eliminar
                       </button>
+                      </>}
                     </td>
                   </tr>
                 );

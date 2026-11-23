@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize";
 import { aplicarFiltroSucursal, exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 /**
  * GET/POST de rubros de productos vía PostgREST (cliente Supabase).
@@ -72,6 +73,9 @@ function slugifyCodigo(nombre: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

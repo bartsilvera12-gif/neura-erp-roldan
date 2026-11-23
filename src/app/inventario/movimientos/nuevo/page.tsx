@@ -7,10 +7,12 @@ import { getProductos } from "@/lib/inventario/storage";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { Producto, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
 import Selector from "@/components/ui/Selector";
+import { usePuedeModificarInventario, AVISO_SOLO_LECTURA } from "@/lib/inventario/use-puede-modificar-inventario";
 
 type UbicacionRow = { id: string; nombre: string; codigo: string | null; tipo: string };
 
 export default function NuevoMovimientoPage() {
+  const puedeInv = usePuedeModificarInventario();
   const router = useRouter();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [ubicaciones, setUbicaciones] = useState<UbicacionRow[]>([]);
@@ -274,6 +276,14 @@ export default function NuevoMovimientoPage() {
   const inputClass =
     "w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-gray-500 transition-colors text-sm";
   const labelClass = "block text-sm font-medium text-gray-700 mb-2";
+
+  if (puedeInv.loaded && !puedeInv.puede) {
+    return (
+      <div className="mx-auto max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        {AVISO_SOLO_LECTURA}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

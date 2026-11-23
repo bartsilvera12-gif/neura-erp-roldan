@@ -5,6 +5,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { listUbicaciones, insertUbicacion, ubicacionDuplicada } from "@/lib/inventario/server/catalogos-pg";
 import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,6 +30,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

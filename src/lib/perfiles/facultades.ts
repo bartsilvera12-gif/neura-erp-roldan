@@ -28,14 +28,15 @@ export type Facultad =
   | "ver_ordenes_venta"
   | "reabrir_caja"
   | "autorizar_descuentos"
-  | "ver_todos_presupuestos";
+  | "ver_todos_presupuestos"
+  | "modificar_inventario";
 
 export interface FacultadInfo {
   clave: Facultad;
   label: string;
   /** Qué habilita, en una frase, y por qué importa. Se muestra al configurar. */
   descripcion: string;
-  grupo: "Caja y ventas" | "Clientes" | "Información" | "Comercial";
+  grupo: "Caja y ventas" | "Clientes" | "Información" | "Comercial" | "Inventario";
 }
 
 export const FACULTADES: readonly FacultadInfo[] = [
@@ -132,6 +133,17 @@ export const FACULTADES: readonly FacultadInfo[] = [
       "filtrarlos por persona.",
     grupo: "Comercial",
   },
+  {
+    clave: "modificar_inventario",
+    label: "Modificar inventario",
+    descripcion:
+      "Cargar movimientos y ajustes de stock, transferir entre depósitos, " +
+      "cambiar rubros y ubicaciones, importar desde Excel, y tocar lotes, " +
+      "imágenes y precios de un producto. Sin esta casilla, el módulo " +
+      "Inventario queda para consultar e imprimir. (Crear o editar la ficha " +
+      "de un producto sigue siendo del administrador.)",
+    grupo: "Inventario",
+  },
 ] as const;
 
 const CLAVES = new Set<string>(FACULTADES.map((f) => f.clave));
@@ -162,6 +174,9 @@ export function soloFacultadesConocidas(valores: readonly unknown[] | null | und
  */
 export function facultadesDeNivel(nivel: "administrador" | "supervisor" | "usuario"): Facultad[] {
   if (nivel === "administrador") return FACULTADES.map((f) => f.clave);
-  if (nivel === "supervisor") return ["anular_venta", "autorizar_devolucion", "reabrir_caja"];
-  return [];
+  // «modificar_inventario» va en todos los niveles: antes de esta casilla
+  // cualquiera con el módulo podía, y quien no tiene perfil sigue igual. Para
+  // dejar a alguien solo mirando, se le asigna un perfil sin la casilla.
+  if (nivel === "supervisor") return ["anular_venta", "autorizar_devolucion", "reabrir_caja", "modificar_inventario"];
+  return ["modificar_inventario"];
 }

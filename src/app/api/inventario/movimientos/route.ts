@@ -6,6 +6,7 @@ import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/fi
 import { ajustarStockUbicacion } from "@/lib/multideposito/server";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { guardarDelta } from "@/lib/inventario/server/movimiento-delta";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 /**
  * GET /api/inventario/movimientos — lista movimientos via PostgREST (compat Hostinger sin pool PG).
@@ -92,6 +93,9 @@ type PostBody = {
  * lee stock desde ahí.
  */
 export async function POST(request: NextRequest) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const ctx = await getTenantSupabaseFromAuth(request);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });

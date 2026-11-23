@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 /**
  * PATCH /api/productos/[id]/proveedores-costos/[proveedorId]
@@ -24,6 +25,9 @@ export async function PATCH(
   request: NextRequest,
   ctxParams: { params: Promise<{ id: string; proveedorId: string }> }
 ) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const { id: productoId, proveedorId } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuth(request);

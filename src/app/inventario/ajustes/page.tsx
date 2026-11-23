@@ -5,6 +5,7 @@ import Link from "next/link";
 import AccionesTabla from "@/components/ui/AccionesTabla";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import Selector from "@/components/ui/Selector";
+import { usePuedeModificarInventario } from "@/lib/inventario/use-puede-modificar-inventario";
 
 /**
  * Historial de ajustes de stock (punto 1.4).
@@ -66,6 +67,7 @@ function haceDiasPy(dias: number): string {
 }
 
 export default function AjustesPage() {
+  const { puede: puedeInv } = usePuedeModificarInventario();
   // Arranca en el último mes: el historial completo de entrada no deja ver
   // nada, y lo que se revisa casi siempre es lo reciente.
   const [desde, setDesde] = useState(() => haceDiasPy(30));
@@ -139,6 +141,7 @@ export default function AjustesPage() {
         {/* Dos botones y no uno: el sentido del ajuste es la decisión que
             más se equivoca, así que se toma acá, con la cabeza en lo que se
             vino a hacer, y el formulario abre ya puesto. */}
+        {puedeInv && <>
         <Link
           href="/inventario/movimientos/nuevo?tipo=AJUSTE&signo=restar"
           className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
@@ -151,6 +154,7 @@ export default function AjustesPage() {
         >
           + Sobró stock
         </Link>
+        </>}
         {/* Requisito 11.1: lo que se ve se puede sacar a Excel. */}
         <AccionesTabla
           titulo="Ajustes de stock"

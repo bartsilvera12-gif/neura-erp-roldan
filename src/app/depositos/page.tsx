@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Package, PackageOpen, X } from "lucide-react";
 import { fetchDepositos, fetchStockDeposito, type Deposito, type StockItem } from "@/lib/multideposito/client";
 import Selector from "@/components/ui/Selector";
+import { usePuedeModificarInventario } from "@/lib/inventario/use-puede-modificar-inventario";
 
 function fmt(n: number) { return n.toLocaleString("es-PY"); }
 
 export default function DepositosPage() {
+  const { puede: puedeInv } = usePuedeModificarInventario();
   const [depositos, setDepositos] = useState<Deposito[]>([]);
   const [ubicacionActiva, setUbicacionActiva] = useState<string>("");
   const [items, setItems] = useState<StockItem[]>([]);
@@ -206,7 +208,7 @@ export default function DepositosPage() {
                       </td>
                       <td className="px-5 py-3 text-slate-600 text-xs">{p.unidad || "—"}</td>
                       <td className="px-5 py-3 text-right">
-                        <button
+                        {puedeInv && <button
                           type="button"
                           disabled={p.stock <= 0 || depositos.length < 2}
                           onClick={() => setTransferir(p)}
@@ -214,7 +216,7 @@ export default function DepositosPage() {
                           className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900 disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline"
                         >
                           Transferir
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                   ))}

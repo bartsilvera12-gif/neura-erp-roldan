@@ -11,6 +11,7 @@ import ImprimirTablaButton from "@/components/ui/ImprimirTablaButton";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
 import Selector from "@/components/ui/Selector";
+import { usePuedeModificarInventario, AVISO_SOLO_LECTURA } from "@/lib/inventario/use-puede-modificar-inventario";
 
 interface Categoria {
   id: string;
@@ -88,6 +89,7 @@ function ValorDelPadre({
 }
 
 export default function CategoriasProductosPage() {
+  const { puede: puedeInv, loaded: loadedInv } = usePuedeModificarInventario();
   const { isAdmin } = useIsAdmin();
   const [items, setItems] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState("");
@@ -461,7 +463,11 @@ export default function CategoriasProductosPage() {
         </div>
       </div>
 
+      {!puedeInv && loadedInv && (
+        <p className="max-w-3xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{AVISO_SOLO_LECTURA}</p>
+      )}
       {/* Alta */}
+      {puedeInv && (
       <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
         <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
           Nuevo rubro
@@ -513,6 +519,7 @@ export default function CategoriasProductosPage() {
           <p className="mt-2 text-xs text-red-700">{error}</p>
         )}
       </div>
+      )}
 
       {/* Lista */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -669,6 +676,7 @@ export default function CategoriasProductosPage() {
                         />
                       ) : (
                       <button
+                        disabled={!puedeInv}
                         onClick={() => editarRemarcacionRubro(c)}
                         className="group inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
                         title="Clic para cambiar la remarcación de referencia del rubro. No cambia los precios ya cargados."
@@ -702,6 +710,7 @@ export default function CategoriasProductosPage() {
                         />
                       ) : (
                       <button
+                        disabled={!puedeInv}
                         onClick={() => editarDescuentoRubro(c)}
                         className="group inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
                         title="Clic para cambiar el descuento que se aplica a todos los artículos de este rubro"
@@ -725,7 +734,7 @@ export default function CategoriasProductosPage() {
                       )}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <div className="inline-flex gap-3">
+                      {puedeInv && <div className="inline-flex gap-3">
                         <button
                           onClick={() => startEdit(c)}
                           className="text-xs text-sky-700 hover:text-sky-900 underline"
@@ -744,7 +753,7 @@ export default function CategoriasProductosPage() {
                         >
                           Borrar
                         </button>
-                      </div>
+                      </div>}
                     </td>
                   </tr>
                 );

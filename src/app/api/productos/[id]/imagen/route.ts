@@ -12,6 +12,7 @@ import {
   signProductoImagen,
 } from "@/lib/inventario/imagen-storage";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 /**
  * Imagen de producto — usa Storage de Supabase + PostgREST (no pool PG).
@@ -64,6 +65,9 @@ export async function POST(
   request: NextRequest,
   ctxParams: { params: Promise<{ id: string }> }
 ) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const { id: productoId } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuth(request);
@@ -148,6 +152,9 @@ export async function DELETE(
   request: NextRequest,
   ctxParams: { params: Promise<{ id: string }> }
 ) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   try {
     const { id: productoId } = await ctxParams.params;
     const ctx = await getTenantSupabaseFromAuth(request);

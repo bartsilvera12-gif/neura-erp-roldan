@@ -9,6 +9,7 @@ import Selector from "@/components/ui/Selector";
 import PageHeader from "@/components/ui/PageHeader";
 import BarraFiltros, { CampoFiltro, campoClase } from "@/components/ui/BarraFiltros";
 import { Plus, Undo2 } from "lucide-react";
+import { usePuedeModificarInventario } from "@/lib/inventario/use-puede-modificar-inventario";
 
 const tipoBadge: Record<TipoMovimiento, string> = {
   ENTRADA: "bg-green-100 text-green-700",
@@ -66,6 +67,7 @@ function formatFecha(iso: string) {
 }
 
 export default function MovimientosPage() {
+  const { puede: puedeInv } = usePuedeModificarInventario();
   const [todos, setTodos] = useState<MovimientoInventario[]>([]);
 
   // Filtros (punto 8.2: se saca el de tipo, se agrega el de usuario y se
@@ -147,6 +149,7 @@ export default function MovimientosPage() {
                 m.usuario_nombre ?? "",
               ])}
             />
+            {puedeInv && <>
             <Link
               href="/inventario/devoluciones-proveedor"
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
@@ -161,6 +164,7 @@ export default function MovimientosPage() {
             >
               <Plus className="h-4 w-4" /> Nuevo movimiento
             </Link>
+            </>}
           </>
         }
       />

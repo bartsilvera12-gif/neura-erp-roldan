@@ -3,8 +3,12 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { leerArchivoYAuth } from "@/lib/imports/import-helpers";
 import { parseProductosRows, buildResolverMaps, buildPreview, commitProductos } from "@/lib/imports/productos-importer";
 import { registrarImportAudit } from "@/lib/excel/imports-audit-pg";
+import { bloqueoModificarInventario } from "@/lib/inventario/server/guard-modificar";
 
 export async function POST(request: NextRequest) {
+  // Solo con la casilla «Modificar inventario» del perfil (o administrador).
+  const bloqueoInv = await bloqueoModificarInventario(request);
+  if (bloqueoInv) return bloqueoInv;
   const res = await leerArchivoYAuth(request);
   if (!res.ok) return NextResponse.json(errorResponse(res.error), { status: res.status });
   try {

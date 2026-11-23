@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Loader2, PackageX, Plus, Printer, Trash2 } from "luci
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatFecha as fmtFecha } from "@/lib/fecha/asuncion";
+import { usePuedeModificarInventario, AVISO_SOLO_LECTURA } from "@/lib/inventario/use-puede-modificar-inventario";
 
 type ProductoLite = { id: string; nombre: string; sku: string; costo: number; stock: number; unidad: string };
 type ProveedorLite = { id: string; nombre: string };
@@ -25,6 +26,7 @@ const labelClass = "block text-xs font-medium text-gray-600 mb-1";
 
 
 export default function DevolucionesProveedorPage() {
+  const puedeInv = usePuedeModificarInventario();
   const [productos, setProductos] = useState<ProductoLite[]>([]);
   const [proveedores, setProveedores] = useState<ProveedorLite[]>([]);
   const [rows, setRows] = useState<DevRow[]>([]);
@@ -166,6 +168,14 @@ export default function DevolucionesProveedorPage() {
     } finally {
       setGuardando(false);
     }
+  }
+
+  if (puedeInv.loaded && !puedeInv.puede) {
+    return (
+      <div className="mx-auto max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        {AVISO_SOLO_LECTURA}
+      </div>
+    );
   }
 
   return (
