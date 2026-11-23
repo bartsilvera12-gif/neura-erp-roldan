@@ -17,6 +17,9 @@ import { canalesQrCaidos, textoEstadoQr } from "@/lib/chat/baileys-health";
  * desvinculado: el número deja de recibir y contestar chats, y antes eso solo
  * se notaba entrando a la pantalla de conexión del canal.
  *
+ * Solo el administrador recibe las órdenes de compra marcadas «Recibido» que
+ * esperan su «Aceptar»: la recepción la confirman dos personas (script 100).
+ *
  * «Cerca del límite» = le quedan 5.000.000 o menos de crédito disponible.
  *
  * Cada aviso tiene una CLAVE estable. Cuando la persona entra a verlo, la
@@ -29,7 +32,7 @@ export type Puesto = "admin" | "cajero" | "vendedor" | "administrativo";
 
 export interface Notificacion {
   clave: string;
-  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento" | "whatsapp";
+  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento" | "whatsapp" | "recepcion";
   titulo: string;
   detalle: string | null;
   href: string | null;
@@ -279,8 +282,38 @@ export async function notificacionesDe(
     })());
   }
 
+  // ── Solo administrador: recepciones de compra esperando su «Aceptar» ─────
+  // La mercadería se da por recibida con DOS confirmaciones: alguien marca
+  // «Recibido» y el administrador acepta. Sin este aviso, la primera
+  // confirmación quedaba esperando sin que nadie se enterara.
+  if (todo) {
+    tareas.push((async () => {
+      const q = await sb.from("ordenes_compra")
+        .select("id, numero_control, proveedor_nombre, recibida_por_1_nombre, recibida_por_1_at")
+        .eq("empresa_id", empresaId)
+        .not("recibida_por_1_at", "is", null)
+        .is("recibida_por_2_at", null)
+        .neq("estado", "anulada")
+        .order("recibida_por_1_at", { ascending: false })
+        .limit(50);
+      // Sin el script 100 las columnas no existen y esto falla: no hay doble
+      // confirmación todavía, así que no hay nada que avisar.
+      if (q.error) return;
+      for (const o of (q.data ?? []) as Array<Record<string, unknown>>) {
+        out.push({
+          clave: `recepcion:${o.id}:${hoyPy()}`,
+          tipo: "recepcion",
+          titulo: `Aceptar recepción de la orden ${o.numero_control ?? ""}`,
+          detalle: `${o.proveedor_nombre ?? "Proveedor"}${o.recibida_por_1_nombre ? ` · lo marcó ${o.recibida_por_1_nombre}` : ""}`,
+          href: "/compras",
+          fecha: (o.recibida_por_1_at as string) ?? null,
+        });
+      }
+    })());
+  }
+
   await Promise.all(tareas);
-  const orden: Record<Notificacion["tipo"], number> = { whatsapp: -1, descuento: 0, cobrar: 1, cambio: 2, vence: 3, limite: 4, sobrepedido: 5, stock: 6 };
+  const orden: Record<Notificacion["tipo"], number> = { whatsapp: -1, recepcion: 0, descuento: 0, cobrar: 1, cambio: 2, vence: 3, limite: 4, sobrepedido: 5, stock: 6 };
   return out.sort((a, b) => orden[a.tipo] - orden[b.tipo] || String(b.fecha ?? "").localeCompare(String(a.fecha ?? "")));
 }
 

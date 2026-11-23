@@ -8,6 +8,7 @@ import type { Proveedor } from "@/lib/proveedores/types";
 
 import { Pencil, Printer } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import { estadoOrden, ETIQUETA_ESTADO_ORDEN, type EstadoOrden } from "@/lib/compras/orden-estado";
 
 type Item = { descripcion: string; cantidad: string; unidad: string; precio_unitario: string };
 type Orden = {
@@ -19,6 +20,21 @@ type Orden = {
   estado: string;
   observaciones: string | null;
   items: { descripcion?: string; cantidad?: number; unidad?: string; precio_unitario?: number }[];
+  /** Script 97/100. */
+  compra_numero?: string | null;
+  recibida_por_1_at?: string | null;
+  recibida_por_2_at?: string | null;
+  /** Qué botones de recepción le tocan a quien mira (lo decide el servidor). */
+  _recepcion?: { confirmar: boolean; aceptar: boolean; deshacer: boolean; esperandoOtro: boolean };
+};
+
+/** Mismo criterio de colores que el resto de Compras. */
+const TONO_ESTADO: Record<EstadoOrden, string> = {
+  en_transito: "bg-amber-100 text-amber-700",
+  por_confirmar: "bg-amber-100 text-amber-900",
+  recibida: "bg-emerald-100 text-emerald-700",
+  facturada: "bg-sky-100 text-sky-800",
+  anulada: "bg-rose-100 text-rose-700",
 };
 
 const UNIDADES = ["UNIDAD", "BOLSA", "KG", "G", "LT", "ML", "CAJA", "PAQUETE", "DOCENA", "LATA", "BOTELLA", "PORCION", "COMBO"];
@@ -153,14 +169,23 @@ export default function OrdenesDeCompraPage() {
     } catch (e) { alert(e instanceof Error ? e.message : "No se pudo eliminar."); }
   }
 
-  async function marcarRecibida(o: Orden) {
+  /**
+   * Recepción con DOS personas (pedido del cliente): quien recibe marca
+   * «Recibido» y un administrador «Aceptar». La regla la aplica el servidor;
+   * acá solo se muestra lo que contesta.
+   */
+  async function recepcion(o: Orden, confirmar: boolean) {
     try {
       const res = await fetchWithSupabaseSession("/api/ordenes-compra", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: o.id, estado: o.estado === "recibida" ? "pendiente" : "recibida" }),
+        body: JSON.stringify(
+          confirmar ? { id: o.id, confirmar_recepcion: true } : { id: o.id, deshacer_recepcion: true }
+        ),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.success) throw new Error(j?.error ?? "Error");
+      const msg = typeof j?.data?.aviso === "string" ? j.data.aviso : typeof j?.data?.mensaje === "string" ? j.data.mensaje : null;
+      if (msg) alert(msg);
       await cargar();
     } catch (e) { alert(e instanceof Error ? e.message : "Error"); }
   }
@@ -297,15 +322,25 @@ export default function OrdenesDeCompraPage() {
                     <td className="px-3 py-2.5 text-slate-600">{(o.items ?? []).length}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{tot > 0 ? fmt(tot, o.moneda) : "—"}</td>
                     <td className="px-3 py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                        o.estado === "recibida" ? "bg-emerald-100 text-emerald-700"
-                          : o.estado === "anulada" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
-                      }`}>{o.estado}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO_ESTADO[estadoOrden(o)]}`}>
+                        {ETIQUETA_ESTADO_ORDEN[estadoOrden(o)]}
+                      </span>
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       <button onClick={() => imprimir(o.id)} className="mr-3 text-xs font-medium text-sky-700 hover:underline"><Printer className="h-4 w-4" /> Imprimir</button>
                       <button onClick={() => editar(o)} className="mr-3 text-xs font-medium text-slate-700 hover:underline"><Pencil className="h-4 w-4" /> Editar</button>
-                      <button onClick={() => marcarRecibida(o)} className="mr-3 text-xs font-medium text-emerald-700 hover:underline">{o.estado === "recibida" ? "Reabrir" : "Recibida"}</button>
+                      {(o._recepcion?.confirmar ?? estadoOrden(o) === "en_transito") && (
+                        <button onClick={() => void recepcion(o, true)} className="mr-3 text-xs font-medium text-emerald-700 hover:underline">Recibido</button>
+                      )}
+                      {o._recepcion?.aceptar && (
+                        <button onClick={() => void recepcion(o, true)} className="mr-3 text-xs font-semibold text-amber-700 hover:underline">Aceptar</button>
+                      )}
+                      {o._recepcion?.esperandoOtro && !o._recepcion?.aceptar && (
+                        <span className="mr-3 text-[11px] text-amber-800">Espera al administrador</span>
+                      )}
+                      {o._recepcion?.deshacer && (
+                        <button onClick={() => void recepcion(o, false)} className="mr-3 text-xs font-medium text-slate-600 hover:underline">En tránsito</button>
+                      )}
                       <button onClick={() => eliminar(o)} className="text-xs font-medium text-rose-600 hover:underline">Eliminar</button>
                     </td>
                   </tr>

@@ -7,7 +7,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 
 type Aviso = {
   clave: string;
-  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento" | "whatsapp";
+  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento" | "whatsapp" | "recepcion";
   titulo: string;
   detalle: string | null;
   href: string | null;
@@ -24,6 +24,9 @@ const COLOR: Record<Aviso["tipo"], string> = {
   descuento: "bg-sky-500",
   // Rojo: el número de WhatsApp desvinculado deja la atención cortada.
   whatsapp: "bg-red-600",
+  // Ámbar: una orden de compra marcada «Recibido» esperando que el
+  // administrador la acepte (la recepción la confirman dos personas).
+  recepcion: "bg-amber-600",
 };
 
 const LS = "neura-avisos-leidos";

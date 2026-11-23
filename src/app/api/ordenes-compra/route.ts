@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
+import { getTenantSupabaseFromAuth, getTenantSupabaseFromAuthWithRol } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { isAdmin } from "@/lib/middleware/auth";
 import { SIN_PROVEEDOR } from "@/lib/compras/orden-estado";
+import {
+  accionesRecepcion,
+  confirmarRecepcion,
+  deshacerRecepcion,
+  type ActorRecepcion,
+  type OrdenRecepcion,
+} from "@/lib/compras/recepcion";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +22,9 @@ export const dynamic = "force-dynamic";
  * GET  /api/ordenes-compra            → lista
  * GET  /api/ordenes-compra?id=...     → una
  * POST /api/ordenes-compra            → crear
- * PATCH  { id, estado }               → cambiar estado (pendiente|recibida|anulada)
+ * PATCH  { id, estado }               → cambiar estado (pendiente|anulada)
+ * PATCH  { id, confirmar_recepcion }  → «Recibido» / «Aceptar» (doble confirmación)
+ * PATCH  { id, deshacer_recepcion }   → volver a «En tránsito»
  * DELETE ?id=...                      → eliminar
  */
 
@@ -29,6 +39,23 @@ const RE_FALTA_97 = /fecha_entrega|condicion|compra_numero|recibida_at/;
 function sin97(o: Record<string, unknown>): Record<string, unknown> {
   const c = { ...o };
   delete c.fecha_entrega; delete c.condicion; delete c.compra_numero; delete c.recibida_at;
+  return c;
+}
+
+/**
+ * Columnas del script 100 (quién confirmó la recepción). Si todavía no se
+ * corrió el script no hay dónde anotar las dos confirmaciones: «Recibido»
+ * vuelve a ser un solo click, como antes, y la respuesta lo avisa en
+ * `recepcion_doble: false` para que la pantalla lo diga.
+ */
+const RE_FALTA_100 = /recibida_por_1|recibida_por_2/;
+const COLUMNAS_100 = [
+  "recibida_por_1", "recibida_por_1_nombre", "recibida_por_1_at",
+  "recibida_por_2", "recibida_por_2_nombre", "recibida_por_2_at",
+] as const;
+function sin100(o: Record<string, unknown>): Record<string, unknown> {
+  const c = { ...o };
+  for (const k of COLUMNAS_100) delete c[k];
   return c;
 }
 const fechaValida = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
@@ -50,7 +77,9 @@ function normItems(raw: unknown): Item[] {
 
 export async function GET(req: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(req);
+    // Con rol: hace falta saber si es administrador para decir qué botón de
+    // recepción le toca a cada orden.
+    const ctx = await getTenantSupabaseFromAuthWithRol(req);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const id = (new URL(req.url).searchParams.get("id") ?? "").trim();
     if (id) {
@@ -67,7 +96,22 @@ export async function GET(req: NextRequest) {
       .order("fecha", { ascending: false })
       .order("numero_control", { ascending: false });
     if (error) return NextResponse.json(errorResponse(error.message), { status: 500 });
-    return NextResponse.json(successResponse({ ordenes: data ?? [] }));
+
+    // Qué botón de recepción le toca a quien pregunta. Se calcula en el
+    // servidor para no mandarle al navegador los ids de los usuarios ni
+    // dejarle decidir quién puede aceptar.
+    const actor = actorDe(ctx);
+    const filas = (data ?? []) as Record<string, unknown>[];
+    const ordenes = filas.map((o) => ({
+      ...o,
+      _recepcion: accionesRecepcion(o as OrdenRecepcion, actor),
+    }));
+    return NextResponse.json(successResponse({
+      ordenes,
+      recepcion_doble: filas.length === 0
+        ? true
+        : Object.prototype.hasOwnProperty.call(filas[0]!, "recibida_por_1_at"),
+    }));
   } catch (e) {
     return NextResponse.json(errorResponse(e instanceof Error ? e.message : "Error"), { status: 500 });
   }
@@ -123,13 +167,96 @@ export async function POST(req: NextRequest) {
   }
 }
 
+type CtxConRol = NonNullable<Awaited<ReturnType<typeof getTenantSupabaseFromAuthWithRol>>>;
+
+function actorDe(ctx: CtxConRol): ActorRecepcion {
+  return {
+    usuarioId: ctx.auth.user?.id ?? ctx.auth.usuarioCatalogId ?? null,
+    nombre: ctx.auth.nombre ?? null,
+    esAdmin: isAdmin(ctx.auth),
+  };
+}
+
+/**
+ * «Recibido» (1ª confirmación), «Aceptar» (2ª, administrador) y volver a
+ * tránsito. Lee la orden, aplica la regla de `lib/compras/recepcion.ts` y
+ * guarda. Si faltan las columnas del script 100, cae al comportamiento de
+ * antes (un solo click) y lo avisa.
+ */
+async function recepcion(ctx: CtxConRol, id: string, confirmar: boolean) {
+  const empresaId = ctx.auth.empresa_id;
+  const actor = actorDe(ctx);
+
+  const sel = await ctx.supabase
+    .from("ordenes_compra").select("*")
+    .eq("empresa_id", empresaId).eq("id", id).maybeSingle();
+  if (sel.error) return NextResponse.json(errorResponse(sel.error.message), { status: 500 });
+  if (!sel.data) return NextResponse.json(errorResponse("Orden no encontrada."), { status: 404 });
+
+  const fila = sel.data as Record<string, unknown>;
+  // Sin script 100 la tabla no tiene las columnas: no hay doble confirmación.
+  const hayColumnas = Object.prototype.hasOwnProperty.call(fila, "recibida_por_1_at");
+  if (!hayColumnas) {
+    const patch = confirmar
+      ? { estado: "recibida", recibida_at: new Date().toISOString() }
+      : { estado: "pendiente", recibida_at: null };
+    const { error } = await ctx.supabase
+      .from("ordenes_compra").update(patch)
+      .eq("empresa_id", empresaId).eq("id", id);
+    if (error) return NextResponse.json(errorResponse(error.message), { status: 500 });
+    return NextResponse.json(successResponse({
+      ok: true,
+      recepcion_doble: false,
+      aviso: "Falta correr el script 100: por ahora «Recibido» lo marca una sola persona.",
+    }));
+  }
+
+  const orden = fila as OrdenRecepcion;
+  const r = confirmar ? confirmarRecepcion(orden, actor) : deshacerRecepcion(orden, actor);
+  if (!r.ok) return NextResponse.json(errorResponse(r.error), { status: r.status });
+
+  let { error } = await ctx.supabase
+    .from("ordenes_compra").update(r.patch)
+    .eq("empresa_id", empresaId).eq("id", id);
+  if (error && RE_FALTA_100.test(error.message)) {
+    const resto = sin100(r.patch);
+    if (Object.keys(resto).length > 0) {
+      ({ error } = await ctx.supabase.from("ordenes_compra").update(resto)
+        .eq("empresa_id", empresaId).eq("id", id));
+    } else error = null;
+  }
+  if (error) return NextResponse.json(errorResponse(error.message), { status: 500 });
+
+  return NextResponse.json(successResponse({
+    ok: true,
+    recepcion_doble: true,
+    paso: r.paso,
+    // Lo que la pantalla le dice a la persona.
+    mensaje: confirmar
+      ? r.paso === 1
+        ? "Marcada como recibida. Falta que un administrador la acepte."
+        : "Recepción confirmada por dos personas."
+      : "La orden volvió a «En tránsito».",
+  }));
+}
+
 export async function PATCH(req: NextRequest) {
   try {
-    const ctx = await getTenantSupabaseFromAuth(req);
+    const ctx = await getTenantSupabaseFromAuthWithRol(req);
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const id = String(body.id ?? "").trim();
     if (!id) return NextResponse.json(errorResponse("Falta id."), { status: 400 });
+
+    // ── «Recibido» / «Aceptar» / volver a tránsito ────────────────────────
+    // Van por su propio camino porque la regla es de dos personas y hay que
+    // leer la orden antes de decidir. `estado: "recibida"` entra acá también:
+    // así un cliente viejo no se saltea el control marcándola de una.
+    const quiereConfirmar = body.confirmar_recepcion === true || body.estado === "recibida";
+    const quiereDeshacer = body.deshacer_recepcion === true;
+    if (quiereConfirmar || quiereDeshacer) {
+      return await recepcion(ctx, id, quiereConfirmar);
+    }
 
     // PATCH acepta ahora dos modos:
     //  - Solo cambio de estado (compatibilidad con "marcarRecibida").
@@ -137,16 +264,16 @@ export async function PATCH(req: NextRequest) {
     // Se detecta por presencia de campos editables.
     const patch: Record<string, unknown> = {};
     if (body.estado !== undefined) {
-      patch.estado = ["pendiente", "recibida", "anulada"].includes(String(body.estado)) ? String(body.estado) : "pendiente";
-      // Recibida a mano / de vuelta en tránsito.
-      patch.recibida_at = patch.estado === "recibida" ? new Date().toISOString() : null;
+      // «recibida» ya se manejó arriba (doble confirmación).
+      patch.estado = String(body.estado) === "anulada" ? "anulada" : "pendiente";
     }
     if (body.fecha_entrega !== undefined) patch.fecha_entrega = fechaValida(body.fecha_entrega);
     if (body.condicion !== undefined) patch.condicion = body.condicion === "credito" ? "credito" : "contado";
-    // «Cargar factura»: la compra que la facturó. Queda recibida.
+    // «Cargar factura»: la compra que la facturó. Ya NO la da por recibida
+    // (pedido del cliente): la recepción se confirma aparte, entre dos
+    // personas, y cargar la factura salteaba ese control.
     if (typeof body.compra_numero === "string" && body.compra_numero.trim()) {
       patch.compra_numero = body.compra_numero.trim();
-      patch.estado = "recibida";
     }
     if (typeof body.proveedor_nombre === "string" && body.proveedor_nombre.trim() !== "") {
       patch.proveedor_nombre = body.proveedor_nombre.trim();
