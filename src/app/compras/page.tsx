@@ -30,6 +30,32 @@ function formatGs(valor: number) {
   return `Gs. ${Math.round(valor).toLocaleString("es-PY")}`;
 }
 
+/** Solo la hora de carga, como en el listado del sistema viejo. */
+function soloHora(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * Cuántos dólares fue la compra.
+ *
+ * El total se guarda SIEMPRE en guaraníes, y `tipo_cambio` es el que se usó al
+ * registrarla. Para una compra hecha en dólares eso devuelve los dólares
+ * reales de la factura. Para una compra en guaraníes no hay monto en dólares:
+ * no se guardó ninguna cotización, y convertirla con la del día sería un
+ * número inventado, así que va vacía.
+ */
+function montoEnDolares(g: { moneda: Moneda; total: number; tipo_cambio: number }): number | null {
+  if (g.moneda !== "USD") return null;
+  const tc = Number(g.tipo_cambio) || 0;
+  if (tc <= 0) return null;
+  return g.total / tc;
+}
+
+const formatUsd = (v: number) => `U$ ${v.toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 function formatFecha(iso: string) {
   try {
     const d = new Date(iso);
@@ -73,10 +99,17 @@ type GrupoCompra = {
   plazo_dias?: number;
   moneda: Moneda;
   items: Compra[];
+  /** Siempre en guaraníes: el costo se convierte al registrar la compra. */
   total: number;
   comprobante: boolean;
   anulada: boolean;
   pagada: boolean;
+  /** Columnas del listado del sistema viejo (pedido del cliente). */
+  numero_factura: string | null;
+  /** El tipo de cambio CON EL QUE SE REGISTRÓ la compra. 1 si fue en guaraníes. */
+  tipo_cambio: number;
+  /** Para la hora de carga. */
+  created_at: string | null;
 };
 
 function agrupar(rows: Compra[]): GrupoCompra[] {
@@ -100,6 +133,9 @@ function agrupar(rows: Compra[]): GrupoCompra[] {
         comprobante: false,
         anulada: c.estado === "anulada",
         pagada: c.estado === "pagada",
+        numero_factura: c.numero_factura ?? null,
+        tipo_cambio: Number(c.tipo_cambio) || 1,
+        created_at: c.created_at ?? null,
       };
       map.set(key, g);
     }
@@ -330,13 +366,22 @@ function VistaNutricion() {
             <thead>
               <tr className="border-b text-gray-500">
                 <th className="py-3 pr-4 font-medium">N° Control</th>
+                {/* Columnas pedidas por el cliente (las del sistema viejo):
+                    N° de factura, hora de carga, estado, y el monto en las dos
+                    monedas con el tipo de cambio de la compra. */}
+                <th className="hidden py-3 pr-4 font-medium xl:table-cell">N° Factura</th>
                 <th className="py-3 pr-4 font-medium">Proveedor</th>
                 <th className="py-3 pr-4 font-medium">Productos</th>
                 <th className="py-3 pr-4 font-medium text-right">Cant.</th>
-                <th className="py-3 pr-4 font-medium text-right">Total</th>
+                <th className="hidden py-3 pr-4 font-medium xl:table-cell">Estado</th>
+                <th className="hidden py-3 pr-4 font-medium text-right xl:table-cell">M. Dólar</th>
+                <th className="py-3 pr-4 font-medium text-right">Total Gs.</th>
+                <th className="hidden py-3 pr-4 font-medium xl:table-cell">Moneda</th>
+                <th className="hidden py-3 pr-4 font-medium text-right xl:table-cell">TC</th>
                 <th className="hidden py-3 pr-4 font-medium lg:table-cell">Pago</th>
                 <th className="hidden py-3 pr-4 font-medium lg:table-cell">Método</th>
                 <th className="py-3 pr-4 font-medium">Fecha</th>
+                <th className="hidden py-3 pr-4 font-medium xl:table-cell">Hora</th>
                 <th className="hidden py-3 pr-4 font-medium lg:table-cell">Fecha factura</th>
                 <th className="py-3 font-medium text-right"></th>
               </tr>
@@ -344,7 +389,7 @@ function VistaNutricion() {
             <tbody>
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-gray-400">
+                  <td colSpan={16} className="py-12 text-center text-gray-400">
                     {grupos.length === 0 ? "No hay compras registradas" : "Ninguna compra coincide con los filtros"}
                   </td>
                 </tr>
@@ -361,6 +406,9 @@ function VistaNutricion() {
                         <td className={`py-4 pr-4 font-mono text-xs ${g.anulada ? "line-through text-gray-400" : "text-gray-500"}`}>
                           {multi && <span className="mr-1 inline-block text-gray-400">{abierto ? "▾" : "▸"}</span>}
                           {g.numero_control}
+                        </td>
+                        <td className="hidden py-4 pr-4 font-mono text-xs text-gray-600 xl:table-cell">
+                          {g.numero_factura || "—"}
                         </td>
                         <td className="py-4 pr-4 font-medium text-gray-800">
                           <div className="flex items-center gap-2">
@@ -389,6 +437,17 @@ function VistaNutricion() {
                         <td className="py-4 pr-4 text-right tabular-nums text-gray-700" title={`${g.items.length} producto(s)`}>
                           {g.items.reduce((s, it) => s + (Number(it.cantidad) || 0), 0)}
                         </td>
+                        <td className="hidden py-4 pr-4 xl:table-cell">
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${g.anulada ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+                            {g.anulada ? "Anulado" : "Activo"}
+                          </span>
+                        </td>
+                        <td className="hidden py-4 pr-4 text-right tabular-nums text-gray-700 xl:table-cell">
+                          {(() => {
+                            const usd = montoEnDolares(g);
+                            return usd == null ? <span className="text-gray-300">—</span> : formatUsd(usd);
+                          })()}
+                        </td>
                         <td className={`py-4 pr-4 text-right tabular-nums font-semibold ${g.anulada ? "line-through text-gray-500" : "text-gray-800"}`}>
                           {(() => {
                             const nc = g.tipo_pago === "credito" && !g.anulada ? (ncMap.get(g.numero_control) ?? 0) : 0;
@@ -402,6 +461,12 @@ function VistaNutricion() {
                               </div>
                             );
                           })()}
+                        </td>
+                        <td className="hidden py-4 pr-4 text-xs text-gray-600 xl:table-cell">
+                          {g.moneda === "USD" ? "Dólar" : "Gs."}
+                        </td>
+                        <td className="hidden py-4 pr-4 text-right text-xs tabular-nums text-gray-600 xl:table-cell">
+                          {(Number(g.tipo_cambio) || 1).toLocaleString("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className="hidden py-4 pr-4 lg:table-cell">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${g.tipo_pago ? tipoPagoBadge[g.tipo_pago] : "bg-gray-100 text-gray-500"}`}>
@@ -418,6 +483,9 @@ function VistaNutricion() {
                           )}
                         </td>
                         <td className="py-4 pr-4 text-gray-500 text-xs tabular-nums">{formatFecha(g.fecha)}</td>
+                        <td className="hidden py-4 pr-4 text-gray-500 text-xs tabular-nums xl:table-cell">
+                          {soloHora(g.created_at)}
+                        </td>
                         <td className="hidden py-4 pr-4 text-gray-500 text-xs tabular-nums lg:table-cell">
                           {formatFechaDate(g.fecha_factura)}
                         </td>
@@ -477,18 +545,27 @@ function VistaNutricion() {
                       </tr>
 
                       {abierto && multi && g.items.map((it) => (
+                        // Las celdas vacías acompañan a las columnas de la
+                        // cabecera: el nombre cae bajo «Productos», la cantidad
+                        // bajo «Cant.» y el importe bajo «Total Gs.».
                         <tr key={it.id} className="border-b border-slate-100 bg-slate-50/50 text-xs">
                           <td className="py-2 pr-4" />
+                          <td className="hidden xl:table-cell" />
                           <td className="py-2 pr-4" />
                           <td className="py-2 pr-4 text-gray-700">
                             <span className="font-medium">{it.producto_nombre}</span>
                             <span className="ml-2 font-mono text-gray-400">{formatGs(it.costo_unitario)}/u</span>
                           </td>
                           <td className="py-2 pr-4 text-right tabular-nums text-gray-600">{it.cantidad}</td>
+                          <td className="hidden xl:table-cell" />
+                          <td className="hidden xl:table-cell" />
                           <td className="py-2 pr-4 text-right tabular-nums text-gray-700">{formatGs(it.total)}</td>
+                          <td className="hidden xl:table-cell" />
+                          <td className="hidden xl:table-cell" />
                           <td className="hidden lg:table-cell" />
                           <td className="hidden lg:table-cell" />
                           <td />
+                          <td className="hidden xl:table-cell" />
                           <td className="hidden lg:table-cell" />
                           <td />
                         </tr>
@@ -498,6 +575,50 @@ function VistaNutricion() {
                 })
               )}
             </tbody>
+            {/* Totales de lo que se está viendo (con los filtros aplicados),
+                como en el listado del sistema viejo. Las compras anuladas no
+                suman: revirtieron su stock y su plata.
+
+                Una celda por columna, con las mismas clases de visibilidad que
+                la cabecera, en vez de colSpan: con colSpan el pie se corre de
+                lugar en las pantallas donde se ocultan columnas. */}
+            {filtrados.length > 0 && (() => {
+              const vivas = filtrados.filter((g) => !g.anulada);
+              const totalGs = vivas.reduce((s, g) => s + (Number(g.total) || 0), 0);
+              const totalUsd = vivas.reduce((s, g) => s + (montoEnDolares(g) ?? 0), 0);
+              const hayAnuladas = filtrados.length > vivas.length;
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-amber-50/60 font-semibold text-slate-800">
+                    <td className="whitespace-nowrap py-3 pr-4 text-xs uppercase tracking-wide text-slate-500">
+                      Totales
+                    </td>
+                    <td className="hidden xl:table-cell" />
+                    <td className="py-3 pr-4 text-xs font-normal text-slate-500">
+                      {vivas.length} compra{vivas.length === 1 ? "" : "s"}
+                      {hayAnuladas ? " (sin las anuladas)" : ""}
+                    </td>
+                    <td className="py-3 pr-4" />
+                    <td className="py-3 pr-4 text-right tabular-nums">
+                      {vivas.reduce((s, g) => s + g.items.reduce((t, it) => t + (Number(it.cantidad) || 0), 0), 0)}
+                    </td>
+                    <td className="hidden xl:table-cell" />
+                    <td className="hidden py-3 pr-4 text-right tabular-nums xl:table-cell" title="Suma de las compras hechas en dólares">
+                      {totalUsd > 0 ? formatUsd(totalUsd) : <span className="font-normal text-gray-300">—</span>}
+                    </td>
+                    <td className="py-3 pr-4 text-right tabular-nums">{formatGs(totalGs)}</td>
+                    <td className="hidden xl:table-cell" />
+                    <td className="hidden xl:table-cell" />
+                    <td className="hidden lg:table-cell" />
+                    <td className="hidden lg:table-cell" />
+                    <td />
+                    <td className="hidden xl:table-cell" />
+                    <td className="hidden lg:table-cell" />
+                    <td />
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         </EdgeScrollArea>
       </div>

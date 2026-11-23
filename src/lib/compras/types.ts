@@ -40,6 +40,9 @@ export interface Compra {
   plazo_dias?: number;           // solo si tipo_pago === "credito"
 
   nro_timbrado: string;
+  /** N° de la factura del proveedor (003-001-0000008569). Nullable: hay
+   *  compras históricas cargadas sin él. Lo devuelve el listado. */
+  numero_factura?: string | null;
 
   // Comprobante/factura del proveedor (compartido por todas las líneas del numero_control).
   comprobante_storage_path?: string | null;
@@ -57,6 +60,8 @@ export interface Compra {
   metodo_pago?: MetodoPago | null;
 
   estado?: "registrada" | "pendiente" | "pagada" | "anulada";
+  /** Cuándo se cargó la compra en el sistema (para la hora del listado). */
+  created_at?: string | null;
   anulada_at?: string | null;
   anulacion_motivo?: string | null;
 }
