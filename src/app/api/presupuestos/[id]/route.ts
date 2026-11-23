@@ -9,6 +9,7 @@ import { isAdmin } from "@/lib/middleware/auth";
 import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
+import { estadoLiberaReserva } from "@/lib/presupuestos/reserva-estado";
 import { ESTADOS_PRESUPUESTO, type EstadoPresupuesto } from "@/lib/presupuestos/types";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems } from "@/lib/presupuestos/carga-rapida";
 import { guardarExtras89, leerExtras89 } from "@/lib/presupuestos/server/extras-89";
@@ -510,23 +511,61 @@ export async function PATCH(request: NextRequest, ctxParams: { params: Promise<{
       );
     }
 
-    const upd = await leerPresupuestosConFallback<Record<string, unknown>>((cols) =>
-      ctx.supabase
-        .from("presupuestos")
-        .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
-        .eq("empresa_id", ctx.auth.empresa_id)
-        .eq("id", id)
-        .select(cols)
-        .maybeSingle() as unknown as PromiseLike<{
-          data: Record<string, unknown> | null;
-          error: { message: string } | null;
-        }>
-    );
+    /**
+     * RECHAZADO ⇒ SE LIBERA LA RESERVA (pedido del cliente).
+     *
+     * La mercadería se podía apartar con «Reservar» (script 86), y la marca
+     * solo la quitaba un administrador a mano. Si el cliente rechazaba el
+     * presupuesto, la marca quedaba puesta y el presupuesto seguía
+     * mostrándose reservado: mercadería apartada para algo que ya no va.
+     *
+     * Las unidades del stock disponible ya se liberaban solas —
+     * `reservasPorProducto` no cuenta los rechazados— así que esto no cambia
+     * ningún número de stock: saca la marca, que es lo que quedaba colgado.
+     */
+    const liberaReserva = estadoLiberaReserva(nuevoEstado);
+    const base = { estado: nuevoEstado, updated_at: new Date().toISOString() };
+    /**
+     * De más a menos columnas de reserva, por si faltan los scripts 86/89: sin
+     * ellos no hay reserva que liberar, pero el cambio de estado tiene que
+     * entrar igual. El fallback de la lectura (`leerPresupuestosConFallback`)
+     * cubre el `select`, no el `update`.
+     */
+    const intentos: Record<string, unknown>[] = liberaReserva
+      ? [
+          { ...base, reservado: false, reservado_at: null, reservado_por: null, reservado_hasta: null },
+          { ...base, reservado: false, reservado_at: null, reservado_por: null },
+          base,
+        ]
+      : [base];
+
+    let upd!: Awaited<ReturnType<typeof leerPresupuestosConFallback<Record<string, unknown>>>>;
+    for (let i = 0; i < intentos.length; i++) {
+      upd = await leerPresupuestosConFallback<Record<string, unknown>>((cols) =>
+        ctx.supabase
+          .from("presupuestos")
+          .update(intentos[i]!)
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .eq("id", id)
+          .select(cols)
+          .maybeSingle() as unknown as PromiseLike<{
+            data: Record<string, unknown> | null;
+            error: { message: string } | null;
+          }>
+      );
+      if (!upd.error) break;
+      const faltaColumnaDeReserva = /reservado/.test(upd.error.message) && i < intentos.length - 1;
+      if (!faltaColumnaDeReserva) break;
+      console.warn("[presupuestos]", "reserva_sin_columna", upd.error.message);
+    }
     if (upd.error) throw new Error(upd.error.message);
     if (!upd.data) return NextResponse.json(errorResponse(API_ERRORS.NOT_FOUND), { status: 404 });
 
     return NextResponse.json(
-      successResponse({ presupuesto: conCamposScript38(upd.data, upd.script38) })
+      successResponse({
+        presupuesto: conCamposScript38(upd.data, upd.script38),
+        reserva_liberada: liberaReserva,
+      })
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error";

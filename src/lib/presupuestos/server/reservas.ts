@@ -1,4 +1,5 @@
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
+import { noApartaPorEstado } from "@/lib/presupuestos/reserva-estado";
 
 /**
  * Stock físico, reservado y disponible (punto 9.2).
@@ -119,8 +120,7 @@ export async function reservasPorProducto(
     // Sin el script 86 la columna no existe: solo cuentan los aprobados.
     if (!r.error) {
       idsReservados = ((r.data ?? []) as unknown as Array<Record<string, unknown>>)
-        .filter((p) => p.convertido_venta_id == null)
-        .filter((p) => !["rechazado", "convertido", "anulado"].includes(String(p.estado ?? "")))
+        .filter((p) => !noApartaPorEstado(p.estado as string | null, p.convertido_venta_id as string | null))
         .filter((p) => {
           const h = p.reservado_hasta == null ? "" : String(p.reservado_hasta).slice(0, 10);
           return h === "" || h >= hoy;

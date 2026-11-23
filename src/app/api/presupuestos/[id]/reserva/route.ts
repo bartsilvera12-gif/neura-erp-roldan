@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/middleware/auth";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { faltantesDeStock, mensajeFaltantes } from "@/lib/presupuestos/server/stock-presupuesto";
 import { hoyPy, reservaHastaPorDefecto, reservaVigente } from "@/lib/presupuestos/reserva-vencimiento";
+import { noApartaPorEstado } from "@/lib/presupuestos/reserva-estado";
 
 /**
  * POST   /api/presupuestos/[id]/reserva — reserva la mercadería del presupuesto.
@@ -50,21 +51,29 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     .eq("empresa_id", ctx.auth.empresa_id)
     .eq("id", id)
     .maybeSingle();
-  let r = await leer("reservado, reservado_at, reservado_por, reservado_hasta");
-  if (r.error && /reservado_hasta/.test(r.error.message)) r = await leer("reservado, reservado_at, reservado_por");
+  let r = await leer("estado, convertido_venta_id, reservado, reservado_at, reservado_por, reservado_hasta");
+  if (r.error && /reservado_hasta/.test(r.error.message)) r = await leer("estado, convertido_venta_id, reservado, reservado_at, reservado_por");
   if (r.error) {
     // Sin el script 86: no hay reservas, y se dice por qué.
     return NextResponse.json(successResponse({ disponible: false, aviso: AVISO_86, reservado: false, puede_quitar: false }));
   }
   const d = (r.data ?? {}) as unknown as {
+    estado?: string | null; convertido_venta_id?: string | null;
     reservado?: boolean; reservado_at?: string | null; reservado_por?: string | null; reservado_hasta?: string | null;
   };
+  /**
+   * Un presupuesto rechazado, anulado o ya cobrado no aparta nada, tenga la
+   * marca puesta o no. Al rechazarlo la marca se saca (ver PATCH de
+   * `presupuestos/[id]`), pero esto cubre los que quedaron con la marca
+   * puesta de antes, sin tener que tocarles los datos.
+   */
+  const estadoNoReserva = noApartaPorEstado(d.estado, d.convertido_venta_id);
   return NextResponse.json(successResponse({
     disponible: true,
     // Una reserva vencida ya no aparta nada: para la pantalla, no está reservado.
-    reservado: reservaVigente(d.reservado, d.reservado_hasta),
+    reservado: !estadoNoReserva && reservaVigente(d.reservado, d.reservado_hasta),
     reservado_hasta: d.reservado_hasta ?? null,
-    vencida: d.reservado === true && !reservaVigente(d.reservado, d.reservado_hasta),
+    vencida: !estadoNoReserva && d.reservado === true && !reservaVigente(d.reservado, d.reservado_hasta),
     reservado_at: d.reservado_at ?? null,
     reservado_por: d.reservado_por ?? null,
     puede_quitar: isAdmin(ctx.auth),
