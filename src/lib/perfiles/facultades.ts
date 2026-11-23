@@ -30,7 +30,8 @@ export type Facultad =
   | "autorizar_descuentos"
   | "ver_todos_presupuestos"
   | "modificar_inventario"
-  | "crear_transferencias";
+  | "crear_transferencias"
+  | "solo_imprimir_inventario";
 
 export interface FacultadInfo {
   clave: Facultad;
@@ -151,6 +152,16 @@ export const FACULTADES: readonly FacultadInfo[] = [
     descripcion:
       "Pedir o mandar mercadería a otra sucursal. Sin esta casilla se ven las " +
       "transferencias y se pueden despachar o recibir, pero no crearlas.",
+    grupo: "Inventario",
+  },
+  {
+    clave: "solo_imprimir_inventario",
+    label: "Inventario: solo imprimir",
+    descripcion:
+      "Con el módulo Inventario, el menú muestra únicamente Productos (con la " +
+      "planilla de conteo ciego para imprimir) y Bajo mínimo. Sin movimientos, " +
+      "ajustes, valoración, reposición ni nada para modificar. Si el perfil " +
+      "también tiene «Modificar inventario», esa casilla manda.",
     grupo: "Inventario",
   },
 ] as const;

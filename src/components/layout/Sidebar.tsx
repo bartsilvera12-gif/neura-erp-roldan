@@ -67,7 +67,7 @@ type MenuItem = {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   /** `facultad`: el hijo se ve solo con esa casilla del perfil (o administrador). */
-  children?: { label: string; href: string; exactMatch?: boolean; facultad?: string }[];
+  children?: { label: string; href: string; exactMatch?: boolean; facultad?: string; imprimible?: boolean }[];
   showWhen?: string;
 };
 
@@ -84,8 +84,17 @@ function esRolAdminSidebar(rol: string | null | undefined): boolean {
 }
 
 function filtrarHijosPorFacultad(item: MenuItem, esAdmin: boolean, facultades: readonly string[]): MenuItem {
-  if (esAdmin || !item.children?.some((c) => c.facultad)) return item;
-  return { ...item, children: item.children.filter((c) => !c.facultad || facultades.includes(c.facultad)) };
+  if (esAdmin || !item.children?.some((c) => c.facultad || c.imprimible)) return item;
+  // «Inventario: solo imprimir» (sin «Modificar inventario»): quedan solo las
+  // entradas marcadas `imprimible`.
+  const soloImprimir =
+    facultades.includes("solo_imprimir_inventario") && !facultades.includes("modificar_inventario");
+  return {
+    ...item,
+    children: item.children.filter((c) =>
+      soloImprimir ? !!c.imprimible : !c.facultad || facultades.includes(c.facultad)
+    ),
+  };
 }
 
 
@@ -182,7 +191,7 @@ const MENU_STRUCTURE: MenuItem[] = [
     { label: "Nueva receta", href: "/dashboard/recetas/nueva" },
   ]},
   { key: "inventario", slug: "inventario", label: "Inventario", href: "/inventario", icon: Package, children: [
-    { label: "Productos", href: "/inventario" },
+    { label: "Productos", href: "/inventario", imprimible: true },
     { label: "Movimientos", href: "/inventario/movimientos" },
     { label: "Ajustes", href: "/inventario/ajustes", facultad: "modificar_inventario" },
     { label: "Valoración", href: "/inventario/valoracion" },
@@ -200,7 +209,7 @@ const MENU_STRUCTURE: MenuItem[] = [
     // —qué bajó de donde dijimos que no debía bajar— y "Reposición" mira el
     // consumo —cuánto conviene comprar—. Un artículo que no se vende hace
     // meses no aparece en la segunda y sí en la primera.
-    { label: "Bajo mínimo", href: "/inventario/bajo-minimo" },
+    { label: "Bajo mínimo", href: "/inventario/bajo-minimo", imprimible: true },
     { label: "Reposición", href: "/inventario/sugerencias" },
   ]},
   // Módulo propio (no hijo de Inventario): un `usuario` puede tener acceso a
