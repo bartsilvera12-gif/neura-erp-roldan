@@ -81,6 +81,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(successResponse({ ultima: (data ?? [])[0] ?? null }));
     }
 
+    /**
+     * ?ultima_de_producto=<producto_id> → la última compra DE ESE ARTÍCULO,
+     * para proponerla al armar una orden de compra (pedido del cliente: «que
+     * extraiga todo de la última compra que tuviste»).
+     *
+     * Distinto de `ultima_de`, que es la última compra a un PROVEEDOR y sirve
+     * para las condiciones (contado/crédito, método de pago). Acá interesa el
+     * artículo: a qué precio y en qué moneda se compró la última vez.
+     *
+     * `costo_unitario_original` es el precio en la moneda de esa compra (el
+     * que se tipeó); `costo_unitario` es el mismo pasado a guaraníes. Para
+     * proponer «20 dólares como la vez pasada» hace falta el original.
+     */
+    const ultimaDeProducto = (new URL(request.url).searchParams.get("ultima_de_producto") ?? "").trim();
+    if (ultimaDeProducto) {
+      const { data, error } = await ctx.supabase
+        .from("compras")
+        .select(
+          "producto_id, producto_nombre, moneda, tipo_cambio, costo_unitario_original, costo_unitario, cantidad, fecha, proveedor_id, proveedor_nombre, numero_factura, numero_control"
+        )
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("producto_id", ultimaDeProducto)
+        .neq("estado", "anulada")
+        .order("fecha", { ascending: false })
+        .limit(1);
+      if (error) return NextResponse.json(errorResponse(error.message), { status: 500 });
+      return NextResponse.json(successResponse({ ultima: (data ?? [])[0] ?? null }));
+    }
+
     const schema = await fetchDataSchemaForEmpresaId(ctx.auth.empresa_id);
     const rows = await listCompras(schema, ctx.auth.empresa_id, exigirSucursal(ctx.auth.sucursal_id));
     return NextResponse.json(successResponse({ compras: rows }));

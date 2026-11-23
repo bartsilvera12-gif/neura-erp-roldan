@@ -5,8 +5,12 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Search } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import {
+  descuentoValido, totalLinea, totalOrden, totalDescuento,
+  propuestaDesdeUltimaCompra, type UltimaCompraProducto,
+} from "@/lib/compras/orden-linea";
 
 /**
  * Armar una orden de compra.
@@ -29,9 +33,36 @@ export type ItemOrden = {
   cantidad: number;
   unidad: string;
   precio_unitario: number;
+  /** Descuento de la línea en % (pedido del cliente). */
+  descuento_pct?: number;
+  /** Si se eligió del catálogo: con esto «Cargar factura» arma la compra. */
+  producto_id?: string | null;
+  sku?: string | null;
 };
 
-const vacio = (): ItemOrden => ({ descripcion: "", cantidad: 1, unidad: "UNIDAD", precio_unitario: 0 });
+const vacio = (): ItemOrden => ({ descripcion: "", cantidad: 1, unidad: "UNIDAD", precio_unitario: 0, descuento_pct: 0 });
+
+/** Un artículo del catálogo, como lo devuelve /api/productos/search. */
+type HitProducto = {
+  id: string; nombre: string; sku: string;
+  stock_actual: number; unidad_medida: string; costo_promedio: number;
+};
+
+/**
+ * Lo que se sabe de un artículo elegido: el stock que hay y cómo fue su
+ * última compra. Se guarda por línea, aparte de los datos que se mandan.
+ */
+type DatosArticulo = {
+  stock: number;
+  ultima: UltimaCompraProducto | null;
+  /** Mientras se busca la última compra. */
+  cargando: boolean;
+};
+
+const fmtFechaCorta = (iso?: string | null) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ""));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+};
 
 export default function NuevaOrdenCompraModal({
   itemsIniciales, origen, onClose, onCreada,
@@ -53,6 +84,10 @@ export default function NuevaOrdenCompraModal({
   );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Stock y última compra de cada línea que eligió un artículo del catálogo. */
+  const [datos, setDatos] = useState<Record<number, DatosArticulo>>({});
+  /** En qué línea se está buscando, y qué devolvió la búsqueda. */
+  const [buscando, setBuscando] = useState<{ i: number; texto: string; hits: HitProducto[] } | null>(null);
 
   useEffect(() => { void getProveedores().then(setProveedores); }, []);
 
@@ -62,19 +97,105 @@ export default function NuevaOrdenCompraModal({
   );
   const proveedor = proveedores.find((p) => p.id === proveedorId) ?? null;
 
-  const total = items.reduce(
-    (s, i) => s + (Number(i.cantidad) || 0) * (Number(i.precio_unitario) || 0), 0
-  );
+  const total = totalOrden(items);
+  const descontado = totalDescuento(items);
   const conDescripcion = items.filter((i) => i.descripcion.trim() !== "");
 
   function cambiar(i: number, campo: keyof ItemOrden, valor: string) {
     setItems((prev) => prev.map((it, k) => {
       if (k !== i) return it;
-      if (campo === "cantidad" || campo === "precio_unitario") {
-        return { ...it, [campo]: Number(valor.replace(/[^\d.,-]/g, "").replace(",", ".")) || 0 };
+      if (campo === "cantidad" || campo === "precio_unitario" || campo === "descuento_pct") {
+        const n = Number(valor.replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
+        return { ...it, [campo]: campo === "descuento_pct" ? descuentoValido(n) : n };
       }
       return { ...it, [campo]: valor };
     }));
+    // Lo que se escribe a mano deja de ser el artículo del catálogo.
+    if (campo === "descripcion") {
+      setItems((prev) => prev.map((it, k) => (k === i ? { ...it, producto_id: null, sku: null } : it)));
+      setDatos((d) => { const c = { ...d }; delete c[i]; return c; });
+    }
+  }
+
+  /**
+   * Saca una línea. `datos` va por índice, así que hay que correrlo: si no, el
+   * stock y la última compra de una línea pasarían a mostrarse en otra.
+   */
+  function quitarLinea(i: number) {
+    setItems((p) => p.filter((_, k) => k !== i));
+    setDatos((d) => {
+      const out: Record<number, DatosArticulo> = {};
+      for (const [k, v] of Object.entries(d)) {
+        const n = Number(k);
+        if (n === i) continue;
+        out[n > i ? n - 1 : n] = v;
+      }
+      return out;
+    });
+    setBuscando(null);
+  }
+
+  /** Busca el texto de la línea en el inventario y abre la lista para elegir. */
+  async function buscarArticulo(i: number, texto: string) {
+    const q = texto.trim();
+    if (q.length < 2) {
+      setError("Escribí al menos dos letras del artículo para buscarlo.");
+      return;
+    }
+    setError(null);
+    setBuscando({ i, texto: q, hits: [] });
+    try {
+      const r = await apiFetch(`/api/productos/search?q=${encodeURIComponent(q)}&limit=20`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.success) {
+        setBuscando(null);
+        setError(j?.error ?? `No se pudo buscar el artículo (${r.status}).`);
+        return;
+      }
+      // /api/productos/search devuelve { items, count, q }.
+      const hits = (j.data?.items ?? []) as HitProducto[];
+      setBuscando({ i, texto: q, hits: Array.isArray(hits) ? hits : [] });
+    } catch {
+      setBuscando(null);
+      setError("No se pudo buscar el artículo. Probá de nuevo.");
+    }
+  }
+
+  /**
+   * ── TRAER TODO DE LA ÚLTIMA COMPRA (pedido del cliente) ────────────────
+   * Al elegir un artículo del catálogo se busca su última compra y se propone
+   * el mismo precio en la misma moneda («si fue 20 dólares, que salga 20
+   * dólares»), y se muestra el stock que hay.
+   *
+   * La moneda de la orden se cambia sola solo si TODAVÍA NO SE CARGÓ NINGÚN
+   * precio a mano: cambiarla con líneas ya cargadas convertiría los números de
+   * las otras líneas en otra cosa sin avisar.
+   */
+  async function elegirArticulo(i: number, p: HitProducto) {
+    setItems((prev) => prev.map((it, k) => (
+      k === i
+        ? { ...it, descripcion: p.nombre, unidad: p.unidad_medida || it.unidad, producto_id: p.id, sku: p.sku || null }
+        : it
+    )));
+    setBuscando(null);
+    setDatos((d) => ({ ...d, [i]: { stock: Number(p.stock_actual) || 0, ultima: null, cargando: true } }));
+    try {
+      const r = await apiFetch(`/api/compras?ultima_de_producto=${encodeURIComponent(p.id)}`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      const u = (j?.data?.ultima ?? null) as UltimaCompraProducto | null;
+      setDatos((d) => ({ ...d, [i]: { stock: Number(p.stock_actual) || 0, ultima: u, cargando: false } }));
+      const prop = propuestaDesdeUltimaCompra(u);
+      if (prop) {
+        setItems((prev) => {
+          const sinPrecios = prev.every((it, k) => k === i || !(Number(it.precio_unitario) > 0));
+          if (sinPrecios && prop.moneda !== moneda) setMoneda(prop.moneda);
+          return prev.map((it, k) => (k === i ? { ...it, precio_unitario: prop.precio } : it));
+        });
+      }
+    } catch {
+      // Sin la última compra el artículo igual queda elegido, con precio a mano.
+      setDatos((d) => ({ ...d, [i]: { stock: Number(p.stock_actual) || 0, ultima: null, cargando: false } }));
+    }
   }
 
   async function guardar() {
@@ -152,8 +273,15 @@ export default function NuevaOrdenCompraModal({
             </Selector>
           </label>
           <span className="ml-auto text-sm text-slate-500">
+            {descontado > 0 && (
+              <span className="mr-3 text-[11px] text-violet-600">
+                Descuentos: −{moneda === "USD" ? "US$ " : "Gs. "}
+                {descontado.toLocaleString("es-PY", { maximumFractionDigits: 2 })}
+              </span>
+            )}
             Total: <strong className="tabular-nums text-slate-800">
-              {moneda === "USD" ? "US$ " : "Gs. "}{Math.round(total).toLocaleString("es-PY")}
+              {moneda === "USD" ? "US$ " : "Gs. "}
+              {total.toLocaleString("es-PY", { maximumFractionDigits: 2 })}
             </strong>
           </span>
         </div>
@@ -163,21 +291,71 @@ export default function NuevaOrdenCompraModal({
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-2 py-1.5 text-left font-semibold">Artículo</th>
+                <th className="w-20 px-2 py-1.5 text-right font-semibold">Stock</th>
                 <th className="w-24 px-2 py-1.5 text-right font-semibold">Cantidad</th>
                 <th className="w-24 px-2 py-1.5 text-left font-semibold">Unidad</th>
                 <th className="w-28 px-2 py-1.5 text-right font-semibold">Precio</th>
+                <th className="w-20 px-2 py-1.5 text-right font-semibold">Desc. %</th>
+                <th className="w-28 px-2 py-1.5 text-right font-semibold">Subtotal</th>
                 <th className="w-8" />
               </tr>
             </thead>
             <tbody>
               {items.map((it, i) => (
                 <tr key={i} className="border-t border-slate-100">
-                  <td className="px-2 py-1">
-                    <input
-                      value={it.descripcion} onChange={(e) => cambiar(i, "descripcion", e.target.value)}
-                      placeholder="Qué se pide"
-                      className="w-full rounded border border-transparent px-1.5 py-1 hover:border-slate-200 focus:border-[#4FAEB2] focus:outline-none"
-                    />
+                  <td className="relative px-2 py-1">
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={it.descripcion} onChange={(e) => cambiar(i, "descripcion", e.target.value)}
+                        placeholder="Qué se pide"
+                        className="w-full rounded border border-transparent px-1.5 py-1 hover:border-slate-200 focus:border-[#4FAEB2] focus:outline-none"
+                      />
+                      {/* Elegir del catálogo trae stock, precio y moneda de la
+                          última compra. Escribir a mano sigue valiendo: hay
+                          cosas que se piden y no están en el inventario. */}
+                      <button
+                        type="button"
+                        onClick={() => void buscarArticulo(i, it.descripcion)}
+                        title="Buscar el artículo en el inventario"
+                        className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-[#3F8E91]"
+                      >
+                        <Search className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {buscando?.i === i && (
+                      <div className="absolute left-2 right-2 top-full z-20 mt-0.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                        {buscando.hits.length === 0 ? (
+                          <p className="px-3 py-2 text-[11px] text-slate-500">
+                            No se encontró «{buscando.texto}» en el inventario. Se puede dejar escrito a mano.
+                          </p>
+                        ) : (
+                          buscando.hits.map((h) => (
+                            <button
+                              key={h.id} type="button" onClick={() => void elegirArticulo(i, h)}
+                              className="block w-full px-3 py-1.5 text-left hover:bg-slate-50"
+                            >
+                              <span className="block font-medium text-slate-800">{h.nombre}</span>
+                              <span className="block text-[10px] text-slate-500">
+                                {h.sku ? `${h.sku} · ` : ""}stock {Number(h.stock_actual) || 0} {h.unidad_medida}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    {/* De dónde salió el precio que se propuso. */}
+                    {datos[i] && (
+                      <span className="mt-0.5 block text-[10px] text-slate-500">
+                        {datos[i].cargando
+                          ? "Buscando la última compra…"
+                          : datos[i].ultima
+                            ? `Última compra: ${datos[i].ultima?.moneda === "USD" ? "US$ " : "Gs. "}${(Number(datos[i].ultima?.costo_unitario_original) || Number(datos[i].ultima?.costo_unitario) || 0).toLocaleString("es-PY")} · ${fmtFechaCorta(datos[i].ultima?.fecha)}${datos[i].ultima?.proveedor_nombre ? ` · ${datos[i].ultima?.proveedor_nombre}` : ""}`
+                            : "Nunca se compró este artículo: el precio va a mano."}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums text-slate-600">
+                    {datos[i] ? (Number(datos[i].stock) || 0).toLocaleString("es-PY") : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-2 py-1">
                     <input
@@ -197,10 +375,19 @@ export default function NuevaOrdenCompraModal({
                       className="w-full rounded border border-transparent px-1.5 py-1 text-right tabular-nums hover:border-slate-200 focus:border-[#4FAEB2] focus:outline-none"
                     />
                   </td>
+                  <td className="px-2 py-1">
+                    <input
+                      value={it.descuento_pct ?? 0} onChange={(e) => cambiar(i, "descuento_pct", e.target.value)}
+                      className="w-full rounded border border-transparent px-1.5 py-1 text-right tabular-nums hover:border-slate-200 focus:border-[#4FAEB2] focus:outline-none"
+                    />
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums font-medium text-slate-700">
+                    {totalLinea(it).toLocaleString("es-PY", { maximumFractionDigits: 2 })}
+                  </td>
                   <td className="px-1 py-1 text-center">
                     {items.length > 1 && (
                       <button
-                        type="button" onClick={() => setItems((p) => p.filter((_, k) => k !== i))}
+                        type="button" onClick={() => quitarLinea(i)}
                         className="text-slate-300 hover:text-rose-600"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

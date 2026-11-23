@@ -32,6 +32,8 @@ type Item = {
   descripcion: string; cantidad: number; unidad: string; precio_unitario: number;
   /** Del inventario: con esto «Cargar factura» arma la compra con el producto. */
   producto_id?: string | null; sku?: string | null;
+  /** Descuento de la línea, en % (pedido del cliente). 0 si no tiene. */
+  descuento_pct?: number;
 };
 
 /** Columnas del script 97: si faltan, se guarda sin ellas. */
@@ -71,6 +73,8 @@ function normItems(raw: unknown): Item[] {
       precio_unitario: Number(o.precio_unitario) || 0,
       producto_id: o.producto_id != null && String(o.producto_id).trim() !== "" ? String(o.producto_id) : null,
       sku: o.sku != null && String(o.sku).trim() !== "" ? String(o.sku) : null,
+      // Entre 0 y 100: un descuento negativo o de 300% no es un descuento.
+      descuento_pct: Math.min(100, Math.max(0, Number(o.descuento_pct) || 0)),
     };
   }).filter((i) => i.descripcion !== "");
 }

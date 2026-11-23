@@ -11,6 +11,7 @@ import { Printer, Plus, Check, X, Mail } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import Link from "next/link";
 import { estadoOrden, ETIQUETA_ESTADO_ORDEN, textoConfirmaciones, confirmacionesHechas, type EstadoOrden } from "@/lib/compras/orden-estado";
+import { totalLinea, totalOrden } from "@/lib/compras/orden-linea";
 import { FileInput, Truck, CheckCheck } from "lucide-react";
 
 /**
@@ -28,7 +29,7 @@ import { FileInput, Truck, CheckCheck } from "lucide-react";
  *   pegarle a la API a mano.
  */
 
-type Item = { descripcion: string; cantidad: number; unidad: string; precio_unitario: number };
+type Item = { descripcion: string; cantidad: number; unidad: string; precio_unitario: number; descuento_pct?: number };
 type Orden = {
   id: string;
   numero_control: string;
@@ -57,8 +58,8 @@ const fmtFecha = (iso: string | null) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
   return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso ?? "—");
 };
-const totalDe = (o: Orden) =>
-  (o.items ?? []).reduce((s, i) => s + (Number(i.cantidad) || 0) * (Number(i.precio_unitario) || 0), 0);
+// Con el descuento de cada línea aplicado (pedido del cliente).
+const totalDe = (o: Orden) => totalOrden(o.items ?? []);
 
 const TONO: Record<EstadoOrden, string> = {
   en_transito: "bg-violet-100 text-violet-800",
@@ -417,6 +418,7 @@ export default function OrdenesCompraPage() {
                                   <th className="py-1 text-right font-medium">Cantidad</th>
                                   <th className="py-1 text-left font-medium">Unidad</th>
                                   <th className="py-1 text-right font-medium">Precio</th>
+                                  <th className="py-1 text-right font-medium">Desc. %</th>
                                   <th className="py-1 text-right font-medium">Subtotal</th>
                                 </tr>
                               </thead>
@@ -431,8 +433,11 @@ export default function OrdenesCompraPage() {
                                     <td className="py-1.5 text-right tabular-nums text-slate-500">
                                       {gs(Number(i.precio_unitario) || 0)}
                                     </td>
+                                    <td className="py-1.5 text-right tabular-nums text-slate-500">
+                                      {Number(i.descuento_pct) > 0 ? `${Number(i.descuento_pct)}%` : "—"}
+                                    </td>
                                     <td className="py-1.5 text-right tabular-nums font-medium text-slate-800">
-                                      {gs((Number(i.cantidad) || 0) * (Number(i.precio_unitario) || 0))}
+                                      {gs(totalLinea(i))}
                                     </td>
                                   </tr>
                                 ))}
