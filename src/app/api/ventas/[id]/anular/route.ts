@@ -7,6 +7,8 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { anularVentaCore, ventaTieneCobrosAplicados } from "@/lib/ventas/server/anular-venta-core";
 import { marcarDesfacturadoPorAnulacion } from "@/lib/caja/facturacion";
+import { anularDiferenciasDeVenta } from "@/lib/caja/server/diferencias-venta";
+import { fetchDataSchemaForEmpresaId as esquemaDe } from "@/lib/supabase/empresa-data-schema";
 import { MENSAJE_CAJA_CERRADA, ventaDeCajaCerrada } from "@/lib/caja/venta-caja-cerrada";
 
 import { registrarModificacionAdministrativa } from "@/lib/auditoria/server/modificaciones";
@@ -309,8 +311,25 @@ export async function POST(
       });
     }
 
+    // Su sobrante o faltante de caja también se anula (pedido del cliente):
+    // si la venta se deshace, esa diferencia de vuelto ya no existe.
+    let diferencias_anuladas = 0;
+    if (!res.alreadyAnulada && res.numeroControl) {
+      try {
+        const r = await anularDiferenciasDeVenta({
+          schemaRaw: await esquemaDe(empresaId),
+          empresaId,
+          ventaNumero: String(res.numeroControl),
+          motivo: `Anulación de la venta ${res.numeroControl}`,
+          usuarioId: ctx.auth.usuarioCatalogId ?? null,
+        });
+        diferencias_anuladas = r.anuladas;
+      } catch { /* best-effort */ }
+    }
+
     return NextResponse.json(
       successResponse({
+        diferencias_anuladas,
         venta: { id: ventaId, estado: "anulada", numero_control: res.numeroControl },
         stock_reintegrado: res.stockReintegrado,
         anticipo_devuelto: res.anticipoDevuelto ?? 0,

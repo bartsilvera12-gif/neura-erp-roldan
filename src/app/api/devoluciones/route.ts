@@ -8,6 +8,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { devolucionesEnabled } from "@/lib/devoluciones/feature-flag";
 import { crearDevolucion, listarDevoluciones } from "@/lib/devoluciones/server/devoluciones-pg";
+import { anularDiferenciasDeVenta } from "@/lib/caja/server/diferencias-venta";
 import { DevolucionBloqueadaError, type CrearDevolucionInput } from "@/lib/devoluciones/types";
 
 /** Motivos de bloqueo que son culpa del pedido (400) vs conflicto de estado (409). */
@@ -100,6 +101,24 @@ export async function POST(request: NextRequest) {
       { id: auth.usuarioCatalogId ?? null, nombre: auth.user?.email ?? null },
       input
     );
+    // Devuelta entera: su sobrante o faltante de caja también se anula, como
+    // en la anulación (pedido del cliente). Con una devolución parcial la
+    // venta sigue en pie y la diferencia queda.
+    try {
+      const sbDev = await createServiceRoleClientForEmpresa(auth.empresa_id);
+      const vq = await sbDev.from("ventas").select("estado, numero_control").eq("empresa_id", auth.empresa_id).eq("id", input.venta_id).maybeSingle();
+      const v = vq.data as { estado?: string; numero_control?: string } | null;
+      if (v?.estado === "devuelta_total" && v.numero_control) {
+        await anularDiferenciasDeVenta({
+          schemaRaw: schema,
+          empresaId: auth.empresa_id,
+          ventaNumero: v.numero_control,
+          motivo: `Devolución total de la venta ${v.numero_control}`,
+          usuarioId: auth.usuarioCatalogId ?? null,
+        });
+      }
+    } catch { /* best-effort: la devolución ya está hecha */ }
+
     return NextResponse.json(successResponse({ devolucion }));
   } catch (err) {
     if (err instanceof DevolucionBloqueadaError) {
