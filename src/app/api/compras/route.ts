@@ -66,6 +66,21 @@ export async function GET(request: NextRequest) {
       }));
     }
 
+    // ?ultima_de=<proveedor_id> → la última compra a ese proveedor, para
+    // proponer en la compra nueva las mismas condiciones (pedido del cliente).
+    const ultimaDe = (new URL(request.url).searchParams.get("ultima_de") ?? "").trim();
+    if (ultimaDe) {
+      const { data } = await ctx.supabase
+        .from("compras")
+        .select("tipo_pago, plazo_dias, moneda, metodo_pago, ubicacion_id, created_at")
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .eq("proveedor_id", ultimaDe)
+        .neq("estado", "anulada")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      return NextResponse.json(successResponse({ ultima: (data ?? [])[0] ?? null }));
+    }
+
     const schema = await fetchDataSchemaForEmpresaId(ctx.auth.empresa_id);
     const rows = await listCompras(schema, ctx.auth.empresa_id, exigirSucursal(ctx.auth.sucursal_id));
     return NextResponse.json(successResponse({ compras: rows }));

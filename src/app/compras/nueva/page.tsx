@@ -194,6 +194,81 @@ export default function NuevaCompraPage() {
   // Modo edición: ?numero=COMP-XXXXXX en la URL.
   const [numeroEdit, setNumeroEdit] = useState<string | null>(null);
   const editando = numeroEdit !== null;
+
+  /**
+   * Tipo de cambio FIJO (pedido del cliente): es la cotización vigente y no se
+   * edita acá. Si no hay cotización cargada, se puede escribir (si no, no se
+   * podría comprar en dólares). En una compra que se está editando queda el
+   * que se guardó con ella.
+   */
+  const tcFijo = !!tcVigente && tcVigente.venta > 0;
+  useEffect(() => {
+    if (tcFijo && cab.moneda === "USD" && numeroEdit === null && cab.tipo_cambio !== String(tcVigente!.venta)) {
+      setCab((p) => ({ ...p, tipo_cambio: String(tcVigente!.venta) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tcFijo, cab.moneda, numeroEdit]);
+
+  /** A crédito, el pago es siempre con cheque (pedido del cliente). */
+  useEffect(() => {
+    if (cab.tipo_pago === "credito" && cab.metodo_pago !== "cheque") {
+      setCab((p) => ({ ...p, metodo_pago: "cheque" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cab.tipo_pago]);
+
+  /**
+   * Elegido el proveedor, se proponen las condiciones de la ÚLTIMA compra que
+   * se le hizo (pedido del cliente): contado o crédito y su plazo, guaraníes o
+   * dólares, el medio de pago y el depósito. Se pueden cambiar.
+   */
+  async function traerCompraAnterior(proveedorId: string) {
+    if (!proveedorId || numeroEdit !== null) return;
+    try {
+      const r = await fetch(`/api/compras?ultima_de=${encodeURIComponent(proveedorId)}`, { credentials: "include", cache: "no-store" });
+      const j = await r.json();
+      const u = j?.data?.ultima as { tipo_pago?: string; plazo_dias?: number | null; moneda?: string; metodo_pago?: string | null; ubicacion_id?: string | null } | null;
+      if (!u) return;
+      setCab((p) => {
+        const credito = u.tipo_pago === "credito";
+        const usd = u.moneda === "USD";
+        return {
+          ...p,
+          tipo_pago: credito ? "credito" : "contado",
+          plazo_dias: credito && u.plazo_dias ? String(u.plazo_dias) : p.plazo_dias,
+          moneda: (usd ? "USD" : "PYG") as Moneda,
+          tipo_cambio: usd ? (tcVigente ? String(tcVigente.venta) : p.tipo_cambio) : "",
+          metodo_pago: credito ? "cheque" : (normalizarMedioCompra(u.metodo_pago) ?? p.metodo_pago),
+          ubicacion_id: u.ubicacion_id ?? p.ubicacion_id,
+        };
+      });
+    } catch { /* sin la anterior quedan las condiciones del proveedor */ }
+  }
+
+  /**
+   * Todo por teclado (pedido del cliente): Enter pasa al campo siguiente en
+   * vez de mandar el formulario. En un botón, Enter lo aprieta como siempre.
+   */
+  function enterAlSiguiente(e: React.KeyboardEvent<HTMLFormElement>) {
+    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const t = e.target as HTMLElement;
+    if (t instanceof HTMLButtonElement || t instanceof HTMLTextAreaElement) return;
+    if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
+    if (t instanceof HTMLInputElement && t.type === "file") return;
+    const yaManejado = e.defaultPrevented; // p. ej. el buscador eligió una opción
+    e.preventDefault();
+    const campos = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>("input:not([disabled]):not([type=hidden]):not([type=file]), select:not([disabled]), button:not([disabled])")
+    ).filter((el) => el.offsetParent !== null && !(el as HTMLInputElement).readOnly && el.tabIndex !== -1);
+    const i = campos.indexOf(t);
+    const sig = i >= 0 ? campos[i + 1] : undefined;
+    if (!sig) return;
+    window.setTimeout(() => {
+      sig.focus();
+      if (sig instanceof HTMLInputElement) sig.select();
+    }, yaManejado ? 30 : 0);
+  }
+
   const [estadoEdit, setEstadoEdit] = useState<"registrada" | "anulada">("registrada");
 
   // Editor de la línea en curso
@@ -730,7 +805,7 @@ export default function NuevaCompraPage() {
       )}
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl">
-        <form className="space-y-8" onSubmit={handleSubmit}>
+        <form className="space-y-8" onSubmit={handleSubmit} onKeyDown={enterAlSiguiente}>
 
           {/* ── Cabecera ─────────────────────────────────────────────────────── */}
           <section className="space-y-4">
@@ -781,6 +856,7 @@ export default function NuevaCompraPage() {
                           : p.plazo_dias,
                     }));
                     setProveedorCreado(null);
+                    void traerCompraAnterior(id);
                   }}
                   options={proveedores.map((p) => ({
                     id: String(p.id),
@@ -865,10 +941,11 @@ export default function NuevaCompraPage() {
                 <label className={labelClass}>Método de pago <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <Selector
                   value={cab.metodo_pago}
+                  disabled={cab.tipo_pago === "credito"}
                   onChange={(e) =>
                     setCab((p) => ({ ...p, metodo_pago: normalizarMedioCompra(e.target.value) ?? "" }))
                   }
-                  className={inputClass}
+                  className={`${inputClass} ${cab.tipo_pago === "credito" ? "bg-slate-50 text-slate-600" : ""}`}
                 >
                   <option value="">Sin especificar</option>
                   {MEDIOS_PAGO_COMPRA.map((m) => (
@@ -876,7 +953,9 @@ export default function NuevaCompraPage() {
                   ))}
                 </Selector>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Cómo se hizo el pago. Solo el efectivo baja el efectivo esperado del arqueo.
+                  {cab.tipo_pago === "credito"
+                    ? "A crédito se paga con cheque."
+                    : "Cómo se hizo el pago. Solo el efectivo baja el efectivo esperado del arqueo."}
                 </p>
               </div>
               <div>
@@ -918,9 +997,15 @@ export default function NuevaCompraPage() {
               {cab.moneda === "USD" && (
                 <div>
                   <label className={labelClass}>Tipo de cambio (USD → Gs.) <span className="text-red-500">*</span></label>
-                  <MontoInput value={cab.tipo_cambio}
-                    onChange={(n) => { setTcEditado(true); setCab((p) => ({ ...p, tipo_cambio: String(n) })); }}
-                    placeholder="Ej: 7500" className={inputClass} decimals={false} />
+                  {tcFijo || editando ? (
+                    <div className={`${inputClass} cursor-not-allowed bg-slate-50 tabular-nums text-slate-700`} title="Es la cotización vigente: no se cambia en la compra.">
+                      {Number(cab.tipo_cambio || 0).toLocaleString("es-PY")}
+                    </div>
+                  ) : (
+                    <MontoInput value={cab.tipo_cambio}
+                      onChange={(n) => { setTcEditado(true); setCab((p) => ({ ...p, tipo_cambio: String(n) })); }}
+                      placeholder="Ej: 7500" className={inputClass} decimals={false} />
+                  )}
                   {tcVigente ? (
                     <p className="mt-1 text-[11px] leading-snug text-slate-500">
                       Cotización vigente: vendedor {tcVigente.venta.toLocaleString("es-PY")} ·
