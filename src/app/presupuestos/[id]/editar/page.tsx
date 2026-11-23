@@ -6,7 +6,7 @@ import { cargarPlantillaPresupuesto } from "@/lib/presupuestos/cargar-plantilla"
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, ArrowLeft, Plus, Trash2, Loader2, History } from "lucide-react";
+import { FileText, ArrowLeft, Plus, Trash2, Loader2, History, X } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { MAX_ITEMS_PRESUPUESTO, mensajeTopeItems, enterPasaAlSiguiente } from "@/lib/presupuestos/carga-rapida";
@@ -744,6 +744,15 @@ export default function EditarPresupuestoPage() {
             )}
             <button type="button" onClick={agregarProducto} className="inline-flex h-[38px] items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 text-sm font-medium text-white hover:bg-[#3F8E91]">
               <Plus className="h-4 w-4" /> Agregar <span className="text-[11px] font-normal opacity-80">(Enter)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPendiente(null); setSelProd(""); }}
+              className="inline-flex h-[38px] items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600"
+              title="Descartar este producto (Esc)"
+              aria-label="Descartar"
+            >
+              <X className="h-4 w-4" /> Quitar
             </button>
           </div>
         )}

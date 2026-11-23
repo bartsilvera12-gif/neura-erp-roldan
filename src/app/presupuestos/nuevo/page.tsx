@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Trash2, Loader2, History, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, History, Eye, X } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import SeccionForm from "@/components/ui/SeccionForm";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -1286,6 +1286,15 @@ export default function NuevoPresupuestoPage() {
               className="inline-flex h-[38px] items-center gap-1 rounded-lg bg-[#4FAEB2] px-3 text-sm font-medium text-white hover:bg-[#3F8E91]"
             >
               <Plus className="h-4 w-4" /> Agregar <span className="text-[11px] font-normal opacity-80">(Enter)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPendiente(null); setSelProd(""); }}
+              className="inline-flex h-[38px] items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600"
+              title="Descartar este producto (Esc)"
+              aria-label="Descartar"
+            >
+              <X className="h-4 w-4" /> Quitar
             </button>
           </div>
         )}
