@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import ZentraLoader from "@/components/ZentraLoader";
@@ -58,6 +58,11 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
   const [access, setAccess] = useState<ModuleAccess | null>(null);
   const [blockedSlug, setBlockedSlug] = useState<string | null>(null);
   const { sidebarReady } = useBoot();
+  const embebido = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get("embebido") === "1",
+    () => false
+  );
 
   const isPublic = useMemo(
     () => !!(pathname && (PUBLIC_ROUTES.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)))),
@@ -224,7 +229,9 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
   // Las pantallas sin Sidebar (la app del asesor, /m/asesor) no tienen a nadie
   // que avise "sidebarReady": si se lo esperara, el loader no se iría nunca y la
   // app quedaría cargando para siempre. Ahí alcanza con que termine la auth.
-  const sinSidebar = !!pathname && pathname.startsWith("/m/asesor");
+  // Lo mismo con una pantalla abierta dentro de un modal (?embebido=1, ver
+  // AppShell): no lleva menú, así que no hay quién avise.
+  const sinSidebar = (!!pathname && pathname.startsWith("/m/asesor")) || embebido;
   const showLoader = !isPublic && (loading || (!sinSidebar && !sidebarReady));
 
   if (blockedSlug && access) {
