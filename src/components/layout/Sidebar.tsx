@@ -66,9 +66,28 @@ type MenuItem = {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  children?: { label: string; href: string; exactMatch?: boolean }[];
+  /** `facultad`: el hijo se ve solo con esa casilla del perfil (o administrador). */
+  children?: { label: string; href: string; exactMatch?: boolean; facultad?: string }[];
   showWhen?: string;
 };
+
+/**
+ * Saca del submenú las entradas que piden una casilla del perfil que el
+ * usuario no tiene. Pedido del cliente: con el módulo Inventario y sin
+ * «Modificar inventario», el menú queda para ver e imprimir (productos y la
+ * planilla de conteo ciego, movimientos, valoración, bajo mínimo,
+ * reposición), sin ajustes, precios, rubros, ubicaciones ni depósitos.
+ */
+function esRolAdminSidebar(rol: string | null | undefined): boolean {
+  const r = String(rol ?? "").trim().toLowerCase();
+  return r === "administrador" || r === "admin" || r === "super_admin";
+}
+
+function filtrarHijosPorFacultad(item: MenuItem, esAdmin: boolean, facultades: readonly string[]): MenuItem {
+  if (esAdmin || !item.children?.some((c) => c.facultad)) return item;
+  return { ...item, children: item.children.filter((c) => !c.facultad || facultades.includes(c.facultad)) };
+}
+
 
 function menuChildPathActive(path: string, childHref: string, exactMatch?: boolean): boolean {
   if (path === childHref) return true;
@@ -165,17 +184,17 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "inventario", slug: "inventario", label: "Inventario", href: "/inventario", icon: Package, children: [
     { label: "Productos", href: "/inventario" },
     { label: "Movimientos", href: "/inventario/movimientos" },
-    { label: "Ajustes", href: "/inventario/ajustes" },
+    { label: "Ajustes", href: "/inventario/ajustes", facultad: "modificar_inventario" },
     { label: "Valoración", href: "/inventario/valoracion" },
     // Punto 10.5. Vive en Inventario y no en Reportes porque no es un informe
     // que se lee: es la pantalla donde se cambian los precios.
-    { label: "Estudio de precios", href: "/inventario/estudio-precios" },
+    { label: "Estudio de precios", href: "/inventario/estudio-precios", facultad: "modificar_inventario" },
     // Al lado del estudio de precios y no en Configuración: es la misma
     // tarea —poner precios— solo que acotada a un depósito.
-    { label: "Precios por depósito", href: "/inventario/precios-deposito" },
-    { label: "Rubros", href: "/inventario/categorias" },
-    { label: "Ubicaciones", href: "/inventario/ubicaciones" },
-    { label: "Depósitos", href: "/depositos" },
+    { label: "Precios por depósito", href: "/inventario/precios-deposito", facultad: "modificar_inventario" },
+    { label: "Rubros", href: "/inventario/categorias", facultad: "modificar_inventario" },
+    { label: "Ubicaciones", href: "/inventario/ubicaciones", facultad: "modificar_inventario" },
+    { label: "Depósitos", href: "/depositos", facultad: "modificar_inventario" },
     // Dos pantallas de reposición que contestan preguntas distintas y no se
     // reemplazan: "Bajo mínimo" compara el stock contra el mínimo de la ficha
     // —qué bajó de donde dijimos que no debía bajar— y "Reposición" mira el
@@ -799,7 +818,7 @@ export default function Sidebar() {
         !esAtajoRedundante(item.slug, slugs, esSuperAdmin, inactiveSlugsSet, { strict: strictAllowlist }) &&
         puedeVerSidebarSlugPorRol(item.slug, rolErp, facultadesErp) &&
         menuItemMatchesQuery(item, menuSearchQuery)
-    );
+    ).map((item) => filtrarHijosPorFacultad(item, esSuperAdmin || esRolAdminSidebar(rolErp), facultadesErp));
   }, [favoritos, menuSearchQuery, modulos, esSuperAdmin, inactiveSlugsSet, strictAllowlist, rolErp, facultadesErp]);
 
   const mainItemsFiltered = useMemo(() => {
@@ -814,7 +833,7 @@ export default function Sidebar() {
         !esAtajoRedundante(item.slug, slugs, esSuperAdmin, inactiveSlugsSet, { strict: strictAllowlist }) &&
         puedeVerSidebarSlugPorRol(item.slug, rolErp, facultadesErp) &&
         menuItemMatchesQuery(item, menuSearchQuery)
-    );
+    ).map((item) => filtrarHijosPorFacultad(item, esSuperAdmin || esRolAdminSidebar(rolErp), facultadesErp));
   }, [favoritos, menuSearchQuery, modulos, esSuperAdmin, inactiveSlugsSet, strictAllowlist, rolErp, facultadesErp]);
 
   // Agrupar los ítems visibles del menú principal por familias (solo visual).

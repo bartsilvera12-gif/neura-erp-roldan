@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         usuario: sp.get("usuario"),
       }),
       contarPorEstado({ schemaRaw: r.ctx.schema, empresaId: r.ctx.empresaId, sucursalId: r.ctx.sucursalId }),
-      puedeCrearTransferencia(r.ctx),
+      puedeCrearTransferencia(request, r.ctx),
     ]);
     // El total en guaraníes es de administración: al resto ni le llega.
     const veTotal = veTotalTransferencia(r.ctx.rol);
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const r = await resolverCtx(request);
   if (!r.ok) return r.response;
   // Crea quien tiene el módulo de transferencias (o un rol que ya podía).
-  if (!(await puedeCrearTransferencia(r.ctx))) {
+  if (!(await puedeCrearTransferencia(request, r.ctx))) {
     return respProhibido("Tu usuario puede ver las transferencias, pero no crearlas: pedile a un administrador el módulo de transferencias.");
   }
   try {

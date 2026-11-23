@@ -7,9 +7,8 @@ import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-po
 import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
 import type { LadoTransferencia } from "@/lib/transferencias/permisos";
 import { TransferenciaError } from "@/lib/transferencias/server/transferencias-pg";
-import { puedeCrearRemision } from "@/lib/transferencias/reglas";
-import { resolveEffectiveModules } from "@/lib/modulos/resolve-effective-modules";
-import { createServiceRoleClient } from "@/lib/supabase/service-admin";
+import { veTotalTransferencia } from "@/lib/transferencias/reglas";
+import { tieneFacultad } from "@/lib/perfiles/server/facultades-usuario";
 
 /** Traduce errores de dominio a respuestas HTTP; el resto es 500 genérico. */
 export function respError(err: unknown): NextResponse {
@@ -90,29 +89,18 @@ export async function cargarLado(
 }
 
 /**
- * ¿Puede crear transferencias? (pedido del cliente: «si le doy a alguien el
- * módulo de transferencia debería poder crear»).
- *
- * Antes era solo por rol: el usuario normal veía las transferencias pero no
- * las creaba, aunque tuviera el módulo en su perfil. Ahora alcanza con tener
- * el módulo «Transferencias entre sucursales» (slug `reposicion`) o el
- * Inventario completo. Los roles que ya podían, siguen pudiendo.
+ * ¿Puede crear transferencias? Casilla de perfil «Crear transferencias entre
+ * sucursales» (pedido del cliente). El administrador siempre puede; quien no
+ * tiene perfil, según su nivel (el supervisor sí, el usuario no), como antes.
  */
-export async function puedeCrearTransferencia(ctx: TransfCtx): Promise<boolean> {
-  if (puedeCrearRemision(ctx.rol)) return true;
-  if (!ctx.usuarioId) return false;
+export async function puedeCrearTransferencia(request: Request, ctx: TransfCtx): Promise<boolean> {
+  if (veTotalTransferencia(ctx.rol)) return true; // administración
   try {
-    const modulos = await resolveEffectiveModules(createServiceRoleClient(), {
-      id: ctx.usuarioId,
-      empresa_id: ctx.empresaId,
-      rol: ctx.rol,
-    });
-    return modulos.some((m) => {
-      const s = (m.slug ?? "").trim().toLowerCase();
-      return s === "reposicion" || s === "inventario";
-    });
+    const auth = await getTenantSupabaseFromAuthWithRol(request);
+    if (!auth) return false;
+    return await tieneFacultad(auth.supabase, auth.auth, "crear_transferencias");
   } catch (err) {
-    console.error("[api/transferencias] módulos", err instanceof Error ? err.message : err);
+    console.error("[api/transferencias] facultad", err instanceof Error ? err.message : err);
     return false;
   }
 }

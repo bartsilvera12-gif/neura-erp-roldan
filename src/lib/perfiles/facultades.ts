@@ -29,7 +29,8 @@ export type Facultad =
   | "reabrir_caja"
   | "autorizar_descuentos"
   | "ver_todos_presupuestos"
-  | "modificar_inventario";
+  | "modificar_inventario"
+  | "crear_transferencias";
 
 export interface FacultadInfo {
   clave: Facultad;
@@ -144,6 +145,14 @@ export const FACULTADES: readonly FacultadInfo[] = [
       "de un producto sigue siendo del administrador.)",
     grupo: "Inventario",
   },
+  {
+    clave: "crear_transferencias",
+    label: "Crear transferencias entre sucursales",
+    descripcion:
+      "Pedir o mandar mercadería a otra sucursal. Sin esta casilla se ven las " +
+      "transferencias y se pueden despachar o recibir, pero no crearlas.",
+    grupo: "Inventario",
+  },
 ] as const;
 
 const CLAVES = new Set<string>(FACULTADES.map((f) => f.clave));
@@ -174,9 +183,9 @@ export function soloFacultadesConocidas(valores: readonly unknown[] | null | und
  */
 export function facultadesDeNivel(nivel: "administrador" | "supervisor" | "usuario"): Facultad[] {
   if (nivel === "administrador") return FACULTADES.map((f) => f.clave);
-  // «modificar_inventario» va en todos los niveles: antes de esta casilla
-  // cualquiera con el módulo podía, y quien no tiene perfil sigue igual. Para
-  // dejar a alguien solo mirando, se le asigna un perfil sin la casilla.
-  if (nivel === "supervisor") return ["anular_venta", "autorizar_devolucion", "reabrir_caja", "modificar_inventario"];
-  return ["modificar_inventario"];
+  // «Modificar inventario» NO va por nivel (pedido del cliente): quien no
+  // tiene la casilla en su perfil ve e imprime, no modifica. El supervisor
+  // sigue pudiendo crear transferencias como antes de la casilla.
+  if (nivel === "supervisor") return ["anular_venta", "autorizar_devolucion", "reabrir_caja", "crear_transferencias"];
+  return [];
 }
