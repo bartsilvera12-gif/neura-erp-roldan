@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { BLOQUEO_PAGO_MENSAJE, BLOQUEO_PAGO_PATH, erpBloqueadoPorFaltaDePago } from "@/lib/bloqueo-pago";
 import { esUserAgentDeLaApp, INICIO_APP_ASESOR, rutaPermitidaEnApp } from "@/lib/app-asesor/es-app-nativa";
 
 /**
@@ -7,6 +8,27 @@ import { esUserAgentDeLaApp, INICIO_APP_ASESOR, rutaPermitidaEnApp } from "@/lib
  * Solo NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY (sin db.schema en getUser).
  */
 export async function middleware(request: NextRequest) {
+  // ===== Acceso suspendido por falta de pago (sistema de Neura, por dominio) =====
+  // Va primero: un ERP suspendido se bloquea incluso para la APK del asesor.
+  if (await erpBloqueadoPorFaltaDePago(request.headers)) {
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: BLOQUEO_PAGO_MENSAJE }, { status: 402 });
+    }
+    if (request.nextUrl.pathname !== BLOQUEO_PAGO_PATH) {
+      const bloqueoUrl = request.nextUrl.clone();
+      bloqueoUrl.pathname = BLOQUEO_PAGO_PATH;
+      bloqueoUrl.search = "";
+      return NextResponse.redirect(bloqueoUrl, 307);
+    }
+    return NextResponse.next({ request });
+  }
+  if (request.nextUrl.pathname === BLOQUEO_PAGO_PATH) {
+    const inicio = request.nextUrl.clone();
+    inicio.pathname = "/";
+    inicio.search = "";
+    return NextResponse.redirect(inicio, 307);
+  }
+
   // La APK del asesor es solo conversaciones, aunque entre un admin: cualquier
   // pantalla del ERP pedida desde la app vuelve a la lista. Las /api siguen
   // abiertas porque las pantallas de la app las usan, igual que los archivos.
