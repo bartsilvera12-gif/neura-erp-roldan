@@ -67,6 +67,10 @@ export const SLUGS_VEDADOS_ROL_USUARIO: ReadonlySet<string> = new Set([
  * perfil habilitaba la API pero el menú y el guard seguían escondiendo la
  * pantalla: una casilla que no hace nada.
  *
+ * Vale también para el SUPERVISOR, que tiene su propio techo
+ * (`SLUGS_PERMITIDOS_ROL_SUPERVISOR`): un supervisor que anula ventas
+ * necesita verlas, y antes la casilla no hacía nada en su perfil.
+ *
  * Solo levanta la veda del rol; el módulo igual tiene que estar asignado.
  */
 const FACULTAD_QUE_LEVANTA_VEDA: Readonly<Record<string, string>> = {
@@ -157,7 +161,14 @@ export function puedeVerSidebarSlugPorRol(
   rol: string | null | undefined,
   facultades?: readonly string[] | null
 ): boolean {
-  if (esSupervisorErp(rol)) return SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(slug);
+  // El supervisor tiene un techo corto a propósito, pero una casilla del
+  // perfil lo levanta igual que para el `usuario`: si no, «Ver órdenes de
+  // venta» aparecía en el perfil del supervisor y no hacía nada, porque esta
+  // línea cortaba antes de mirarla. Un supervisor que anula ventas necesita
+  // verlas.
+  if (esSupervisorErp(rol)) {
+    return SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(slug) || perfilLevantaVeda(slug, facultades);
+  }
   if (perfilLevantaVeda(slug, facultades)) return true;
   // En Darocha el control de acceso es 100% por `usuario_modulos` (los módulos
   // que un admin asigna a cada usuario). Única excepción: el Dashboard es solo
@@ -204,7 +215,11 @@ export function slugsEfectivosPorRol(
   const recortado = new Set<string>();
   if (slugs.has("cierres-caja") || slugs.has("reportes")) recortado.add("cierres-caja");
   for (const s of slugs) {
-    if (s !== "cierres-caja" && SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(s)) recortado.add(s);
+    if (s === "cierres-caja") continue;
+    // Igual que en el menú: el techo del supervisor se levanta con la casilla
+    // del perfil. Se recorre `slugs`, así que el módulo tiene que estar
+    // asignado igual: la casilla levanta la veda del rol, no reparte módulos.
+    if (SLUGS_PERMITIDOS_ROL_SUPERVISOR.has(s) || perfilLevantaVeda(s, facultades)) recortado.add(s);
   }
   return recortado;
 }
