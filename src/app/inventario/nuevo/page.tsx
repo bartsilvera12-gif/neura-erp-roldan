@@ -38,6 +38,15 @@ export default function NuevoProductoPage() {
   const [avisoCodigo, setAvisoCodigo] = useState<string | null>(null);
   const [confirmarCodigoDup, setConfirmarCodigoDup] = useState(false);
 
+  /**
+   * Abierta desde una compra en dólares (`?moneda=USD`): se avisa arriba que
+   * el costo y el precio se cargan en dólares, en «Dólares y descuentos».
+   */
+  const [enDolares, setEnDolares] = useState(false);
+  useEffect(() => {
+    setEnDolares(new URLSearchParams(window.location.search).get("moneda") === "USD");
+  }, []);
+
   const [form, setForm] = useState({
     nombre: "",
     descripcion: "",
@@ -508,6 +517,19 @@ export default function NuevoProductoPage() {
 
       <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-5xl">
         <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+          {enDolares && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              <span>
+                <b>Compra en dólares.</b> Cargá el costo y el precio en dólares en la sección
+                «Dólares y descuentos»; los guaraníes son opcionales.
+              </span>
+              <button type="button"
+                onClick={() => document.getElementById("ficha-dolares")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                className="rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100">
+                Ir a dólares
+              </button>
+            </div>
+          )}
 
           {/* Error general (validacion de codigo, duplicado de codigo barras, etc.) */}
           {errorGeneral && (
@@ -823,6 +845,7 @@ export default function NuevoProductoPage() {
             )}
 
             {showPrecioVenta && (
+              <div id="ficha-dolares" className={enDolares ? "rounded-xl ring-2 ring-sky-300" : ""}>
               <CostoDolarDescuento
                 costoUsd={form.costo_usd}
                 onCostoUsdChange={(v) => setForm((prev) => ({ ...prev, costo_usd: v }))}
@@ -837,6 +860,7 @@ export default function NuevoProductoPage() {
                 onUsarCostoGs={(gs) => handleCostoChange(gs)}
                 disabled={submitting}
               />
+              </div>
             )}
           </div>
 

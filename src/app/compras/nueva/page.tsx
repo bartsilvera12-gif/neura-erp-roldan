@@ -764,15 +764,21 @@ export default function NuevaCompraPage() {
         ...prev,
         producto_id: creado.id,
         iva_tipo: ivaDeProducto(creado.tipo_iva),
-        costo_unitario_input: creado.costo_promedio ? String(Math.round(Number(creado.costo_promedio))) : prev.costo_unitario_input,
-        precio_venta: creado.precio_venta ? String(creado.precio_venta) : prev.precio_venta,
+        // En una compra en dólares, el costo y el precio de la línea van en
+        // dólares: se toman los de la ficha en dólares del producto.
+        costo_unitario_input: cab.moneda === "USD"
+          ? (creado.costo_usd ? String(creado.costo_usd) : prev.costo_unitario_input)
+          : (creado.costo_promedio ? String(Math.round(Number(creado.costo_promedio))) : prev.costo_unitario_input),
+        precio_venta: cab.moneda === "USD"
+          ? (creado.precio_usd ? String(creado.precio_usd) : prev.precio_venta)
+          : (creado.precio_venta ? String(creado.precio_venta) : prev.precio_venta),
       }));
       setProductoCreado(creado.nombre);
       setMostrarFormProducto(false);
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [mostrarFormProducto]);
+  }, [mostrarFormProducto, cab.moneda]);
 
   function handleCancelarProducto() {
     setMostrarFormProducto(false);
@@ -1166,7 +1172,7 @@ export default function NuevaCompraPage() {
                         <button type="button" onClick={handleCancelarProducto}
                           className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100">Cerrar</button>
                       </div>
-                      <iframe src="/inventario/nuevo?embebido=1" title="Nuevo producto" className="w-full flex-1 border-0" />
+                      <iframe src={`/inventario/nuevo?embebido=1${cab.moneda === "USD" ? "&moneda=USD" : ""}`} title="Nuevo producto" className="w-full flex-1 border-0" />
                     </div>
                   </div>
                 )}
