@@ -17,7 +17,8 @@ import OrdenesEnCompras from "@/components/compras/OrdenesEnCompras";
 import type { Compra, TipoPago, Moneda } from "@/lib/compras/types";
 import NotaCreditoCompraModal from "@/components/compras/NotaCreditoCompraModal";
 
-import { FileText, Paperclip } from "lucide-react";
+import { FileText, Paperclip, History } from "lucide-react";
+import HistorialPreciosModal from "@/components/compras/HistorialPreciosModal";
 import { formatearMoneda } from "@/lib/moneda";
 
 /** Igual que LIMITE_COMPRAS_LISTADO en compras-pg.ts: llegar a ese número no es "el total". */
@@ -191,6 +192,7 @@ function VistaNutricion() {
   const [ncTarget, setNcTarget] = useState<GrupoCompra | null>(null);
   const [pagarTarget, setPagarTarget] = useState<GrupoCompra | null>(null);
   const [avisoPago, setAvisoPago] = useState<{ nivel: "ok" | "aviso"; mensaje: string } | null>(null);
+  const [historial, setHistorial] = useState(false);
   // Notas de crédito de compra imputadas, sumadas por numero_control. Se usan para
   // mostrar el saldo neto (total − NC) en la fila, así el descuento se ve acá mismo.
   const [ncMap, setNcMap] = useState<Map<string, number>>(new Map());
@@ -292,6 +294,13 @@ function VistaNutricion() {
               ])}
             />
             </span>
+            {/* A cuánto se compró cada artículo las veces anteriores. */}
+            <button
+              type="button" onClick={() => setHistorial(true)}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <History className="h-4 w-4" /> Historial de precios
+            </button>
             <Link
               href="/ordenes-compra"
               className="rounded-lg border border-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-[#3F8E91] transition-colors hover:bg-[#4FAEB2]/10"
@@ -681,6 +690,8 @@ function VistaNutricion() {
           }}
         />
       )}
+
+      {historial && <HistorialPreciosModal onClose={() => setHistorial(false)} />}
 
     </>
   );

@@ -7,11 +7,12 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
 import EnviarOrdenModal from "@/components/compras/EnviarOrdenModal";
-import { Printer, Plus, Check, X, Mail } from "lucide-react";
+import { Printer, Plus, Check, X, Mail, History } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import Link from "next/link";
 import { estadoOrden, ETIQUETA_ESTADO_ORDEN, textoConfirmaciones, confirmacionesHechas, type EstadoOrden } from "@/lib/compras/orden-estado";
 import { totalLinea, totalOrden } from "@/lib/compras/orden-linea";
+import HistorialPreciosModal from "@/components/compras/HistorialPreciosModal";
 import { FileInput, Truck, CheckCheck } from "lucide-react";
 
 /**
@@ -80,6 +81,7 @@ export default function OrdenesCompraPage() {
   const [ocupada, setOcupada] = useState<string | null>(null);
   const [enviando, setEnviando] = useState<Orden | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [historial, setHistorial] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -185,12 +187,22 @@ export default function OrdenesCompraPage() {
         title="Órdenes de compra"
         description="El pedido que se le manda al proveedor. No es una compra: no toca stock ni cuentas por pagar"
         actions={
-          <Link
-            href="/ordenes-compra/nueva"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
-          >
-            <Plus className="h-4 w-4" /> Nueva orden
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* A cuánto se venía comprando: es lo que hay que mirar antes de
+                pedir otra vez. */}
+            <button
+              type="button" onClick={() => setHistorial(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <History className="h-4 w-4" /> Historial de precios
+            </button>
+            <Link
+              href="/ordenes-compra/nueva"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
+            >
+              <Plus className="h-4 w-4" /> Nueva orden
+            </Link>
+          </div>
         }
       />
 
@@ -477,6 +489,8 @@ export default function OrdenesCompraPage() {
           onCreada={() => { setNueva(false); void cargar(); }}
         />
       )}
+
+      {historial && <HistorialPreciosModal onClose={() => setHistorial(false)} />}
     </div>
   );
 }

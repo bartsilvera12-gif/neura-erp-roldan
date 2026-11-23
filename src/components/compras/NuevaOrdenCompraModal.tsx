@@ -5,8 +5,9 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { getProveedores } from "@/lib/proveedores/storage";
 import type { Proveedor } from "@/lib/proveedores/types";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, History } from "lucide-react";
 import Selector from "@/components/ui/Selector";
+import HistorialPreciosModal from "@/components/compras/HistorialPreciosModal";
 import {
   descuentoValido, totalLinea, totalOrden, totalDescuento,
   propuestaDesdeUltimaCompra, type UltimaCompraProducto,
@@ -88,6 +89,8 @@ export default function NuevaOrdenCompraModal({
   const [datos, setDatos] = useState<Record<number, DatosArticulo>>({});
   /** En qué línea se está buscando, y qué devolvió la búsqueda. */
   const [buscando, setBuscando] = useState<{ i: number; texto: string; hits: HitProducto[] } | null>(null);
+  /** El artículo cuyo historial de precios se está mirando. */
+  const [historial, setHistorial] = useState<{ id: string; nombre: string } | null>(null);
 
   useEffect(() => { void getProveedores().then(setProveedores); }, []);
 
@@ -321,6 +324,18 @@ export default function NuevaOrdenCompraModal({
                       >
                         <Search className="h-3.5 w-3.5" />
                       </button>
+                      {/* A cuánto se compró antes: se ve sin salir del
+                          formulario, que es cuando hace falta decidir. */}
+                      {it.producto_id && (
+                        <button
+                          type="button"
+                          onClick={() => setHistorial({ id: String(it.producto_id), nombre: it.descripcion })}
+                          title="Ver el historial de precios de este artículo"
+                          className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-[#3F8E91]"
+                        >
+                          <History className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                     {buscando?.i === i && (
                       <div className="absolute left-2 right-2 top-full z-20 mt-0.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
@@ -437,6 +452,15 @@ export default function NuevaOrdenCompraModal({
           </button>
         </div>
       </div>
+
+      {/* Va fuera del cuadro para que el clic adentro no cierre la orden. */}
+      {historial && (
+        <HistorialPreciosModal
+          productoIdInicial={historial.id}
+          productoNombreInicial={historial.nombre}
+          onClose={() => setHistorial(null)}
+        />
+      )}
     </div>
   );
 }
