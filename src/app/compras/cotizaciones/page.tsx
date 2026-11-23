@@ -57,6 +57,8 @@ export default function CotizacionesPage() {
   const [nueva, setNueva] = useState(false);
   const [cargandoPrecios, setCargandoPrecios] = useState(false);
   const [ordenPara, setOrdenPara] = useState<{ id: string; nombre: string } | null>(null);
+  /** La lista completa de lo que nadie cotizó, solo si se pide. */
+  const [verSinCotizar, setVerSinCotizar] = useState(false);
 
   const cargarLista = useCallback(async () => {
     setCargando(true);
@@ -180,12 +182,25 @@ export default function CotizacionesPage() {
               </p>
             )}
 
-            {v && v.sin_cotizar.length > 0 && (
-              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
+            {/* Lo que nadie cotizó. Sin ningún precio cargado no se muestra
+                (serían todos los artículos, y el aviso de arriba ya lo dice);
+                con precios, unos pocos y el resto a pedido. */}
+            {v && detalle.proveedores.length > 0 && v.sin_cotizar.length > 0 && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
                 <strong>{v.sin_cotizar.length}</strong>{" "}
-                {v.sin_cotizar.length === 1 ? "artículo que nadie cotizó" : "artículos que nadie cotizó"}:{" "}
-                {v.sin_cotizar.map((i) => i.descripcion).join(", ")}. Hay que pedirlos aparte.
-              </p>
+                {v.sin_cotizar.length === 1 ? "artículo que nadie cotizó" : "artículos que nadie cotizó"}
+                {v.sin_cotizar.length <= 5 || verSinCotizar ? (
+                  <>: {v.sin_cotizar.map((i) => i.descripcion).join(", ")}.</>
+                ) : (
+                  <>: {v.sin_cotizar.slice(0, 5).map((i) => i.descripcion).join(", ")} y {v.sin_cotizar.length - 5} más.</>
+                )}{" "}
+                Hay que pedirlos aparte.
+                {v.sin_cotizar.length > 5 && (
+                  <button type="button" onClick={() => setVerSinCotizar((x) => !x)} className="ml-1 font-semibold underline">
+                    {verSinCotizar ? "Ver menos" : "Ver todos"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
