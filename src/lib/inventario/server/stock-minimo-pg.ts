@@ -155,3 +155,30 @@ export async function minimosSugeridosOVacio(
 }
 
 export { MESES_VENTANA };
+
+/**
+ * Escribe muchos mínimos en UNA sola consulta.
+ *
+ * Antes se hacía un UPDATE por producto a través de la API: con 355
+ * productos eran 355 viajes a la base y el botón quedaba «Actualizando…»
+ * casi un minuto, o se cortaba por tiempo.
+ */
+export async function escribirMinimos(
+  schemaRaw: string,
+  empresaId: string,
+  pares: Array<{ id: string; minimo: number }>
+): Promise<number> {
+  if (pares.length === 0) return 0;
+  const p = getChatPostgresPool();
+  if (!p) throw new Error("Pool no disponible");
+  const schema = assertAllowedChatDataSchema(schemaRaw);
+  const t = quoteSchemaTable(schema, "productos");
+  const { rowCount } = await p.query(
+    `UPDATE ${t} AS pr
+        SET stock_minimo = x.minimo, updated_at = now()
+       FROM unnest($2::uuid[], $3::numeric[]) AS x(id, minimo)
+      WHERE pr.id = x.id AND pr.empresa_id = $1::uuid`,
+    [empresaId, pares.map((x) => x.id), pares.map((x) => x.minimo)]
+  );
+  return rowCount ?? 0;
+}

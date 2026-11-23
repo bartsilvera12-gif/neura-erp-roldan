@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { traerTodas } from "@/lib/supabase/traer-todo";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { exigirSucursal, respuestaSucursalNoAsignada, aplicarFiltroSucursal } from "@/lib/sucursales/filtro";
+import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { requireAdminProductos } from "@/lib/productos/require-admin-productos";
-import { calcularMinimosSugeridos } from "@/lib/inventario/server/stock-minimo-pg";
+import { calcularMinimosSugeridos, escribirMinimos } from "@/lib/inventario/server/stock-minimo-pg";
 
 /**
  * POST /api/inventario/stock-minimo — aplica el mínimo sugerido (punto 1.2).
@@ -53,55 +53,51 @@ export async function POST(request: NextRequest) {
     }
 
     // El mínimo actual, para escribir solo lo que cambia.
+    // SIN filtro de sucursal: el catálogo es uno solo para todas las
+    // sucursales, y la pantalla cuenta los pendientes sobre todo el catálogo.
+    // Antes se filtraba por la sucursal del usuario y solo se actualizaban
+    // los productos que se habían cargado en esa sucursal: el resto quedaba
+    // igual y el contador «Hoy hay N productos…» no bajaba nunca.
     // Paginado: con más de mil productos activos, los que quedaran afuera
     // se tomarían como "sin mínimo actual".
-    const actualesQ = {
-      data: await traerTodas<Record<string, unknown>>((d, h) =>
-        aplicarFiltroSucursal(
-          supabase
-            .from("productos")
-            .select("id, stock_minimo, controla_stock")
-            .eq("empresa_id", empresaId)
-            .eq("activo", true),
-          sucursalId
-        ).order("id").range(d, h) as unknown as PromiseLike<{
+    const filasActuales = await traerTodas<Record<string, unknown>>((d, h) =>
+      supabase
+        .from("productos")
+        .select("id, stock_minimo, controla_stock")
+        .eq("empresa_id", empresaId)
+        .eq("activo", true)
+        .order("id").range(d, h) as unknown as PromiseLike<{
           data: Record<string, unknown>[] | null;
           error: { message: string } | null;
         }>
-      ),
-    };
+    );
 
     const actuales = new Map<string, { minimo: number; controla: boolean }>();
-    for (const p of (actualesQ.data ?? []) as Array<Record<string, unknown>>) {
+    for (const p of filasActuales) {
       actuales.set(String(p.id), {
         minimo: Number(p.stock_minimo) || 0,
         controla: p.controla_stock !== false,
       });
     }
 
-    let actualizados = 0;
     let sinCambios = 0;
-    const errores: string[] = [];
+    const aEscribir: Array<{ id: string; minimo: number }> = [];
 
     for (const [productoId, m] of minimos) {
       if (idsPedidos && !idsPedidos.includes(productoId)) continue;
       const actual = actuales.get(productoId);
-      // Puede no estar: producto de otra sucursal, dado de baja, o que no
-      // controla stock. En ninguno de esos casos corresponde tocar el mínimo.
+      // Puede no estar: dado de baja o que no controla stock. En ninguno de
+      // esos casos corresponde tocar el mínimo.
       if (!actual || !actual.controla) continue;
       if (soloVacios && actual.minimo > 0) { sinCambios++; continue; }
 
       const nuevo = Math.ceil(m.mediana);
       if (nuevo === actual.minimo) { sinCambios++; continue; }
-
-      const upd = await supabase
-        .from("productos")
-        .update({ stock_minimo: nuevo, updated_at: new Date().toISOString() })
-        .eq("empresa_id", empresaId)
-        .eq("id", productoId);
-      if (upd.error) { errores.push(upd.error.message); continue; }
-      actualizados++;
+      aEscribir.push({ id: productoId, minimo: nuevo });
     }
+
+    const actualizados = await escribirMinimos(schema, empresaId, aEscribir);
+    const errores: string[] = [];
 
     return NextResponse.json(successResponse({
       actualizados,
