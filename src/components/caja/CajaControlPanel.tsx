@@ -1252,7 +1252,12 @@ function ModalMovimiento({
       subtitle="Cobranzas, egresos, retiros, retenciones y anticipos de la caja (no son ventas)."
       onClose={busy ? () => {} : onClose}
     >
-      <div className="p-5 space-y-4">
+      {/* El cuerpo scrollea; el pie con «Registrar» queda fijo abajo.
+          Era el único de los tres modales del panel sin alto máximo, y como
+          el contenedor recorta lo que sobra, en una pantalla baja el
+          formulario se cortaba y no se podía llegar al botón: el movimiento
+          no se podía registrar. */}
+      <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
             Tipo

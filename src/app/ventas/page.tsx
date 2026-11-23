@@ -237,7 +237,12 @@ export default function VentasPage() {
 
       <PresupuestosEnCola />
 
-      <SobrantesFaltantes />
+      {/* Sobrantes y faltantes de caja: solo administración.
+          Es una cuenta contable propia (script 88) y la cajera no la
+          administra; pedido del cliente de sacarla de la vista del usuario
+          normal. `isAdmin` arranca en false, así que mientras no se confirme
+          el rol el bloque no se muestra: no aparece y desaparece. */}
+      {isAdmin && <SobrantesFaltantes />}
 
       <PedidosPendientesCaja />
 
