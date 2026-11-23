@@ -1,4 +1,5 @@
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
+import { canalesQrCaidos, textoEstadoQr } from "@/lib/chat/baileys-health";
 
 /**
  * Las notificaciones de la campana, según el puesto (pedido del cliente).
@@ -12,6 +13,10 @@ import type { AppSupabaseClient } from "@/lib/supabase/schema";
  *                  stock) · pedidos de descuento
  *   Administrador  todo, y puede marcar como leído
  *
+ * Administrador y administrativo además reciben el aviso de WhatsApp por QR
+ * desvinculado: el número deja de recibir y contestar chats, y antes eso solo
+ * se notaba entrando a la pantalla de conexión del canal.
+ *
  * «Cerca del límite» = le quedan 5.000.000 o menos de crédito disponible.
  *
  * Cada aviso tiene una CLAVE estable. Cuando la persona entra a verlo, la
@@ -24,7 +29,7 @@ export type Puesto = "admin" | "cajero" | "vendedor" | "administrativo";
 
 export interface Notificacion {
   clave: string;
-  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento";
+  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento" | "whatsapp";
   titulo: string;
   detalle: string | null;
   href: string | null;
@@ -247,10 +252,35 @@ export async function notificacionesDe(
         });
       }
     })());
+
+    // WhatsApp por QR desvinculado. El estado no está en la base: lo informa
+    // el puente, así que esto puede no saberse (puente inalcanzable cuenta
+    // como caído; si falla la consulta entera, no avisa nada en vez de
+    // inventar). La clave lleva el estado y el día: si se arregla y se vuelve
+    // a caer, el aviso vuelve, y si sigue caído mañana también.
+    tareas.push((async () => {
+      try {
+        const caidos = await canalesQrCaidos(empresaId);
+        for (const c of caidos) {
+          out.push({
+            clave: `whatsapp:${c.channelId}:${c.connection}:${hoyPy()}`,
+            tipo: "whatsapp",
+            titulo: `WhatsApp desconectado: ${c.nombre}`,
+            // Corto a propósito: en la campana el detalle va en una línea con
+            // truncate, así que una frase larga se corta justo donde importa.
+            detalle: `${textoEstadoQr(c)} · escaneá el QR de nuevo`,
+            href: `/configuracion/canales/${c.channelId}`,
+            fecha: null,
+          });
+        }
+      } catch {
+        /* sin aviso: preferimos no avisar que avisar de más */
+      }
+    })());
   }
 
   await Promise.all(tareas);
-  const orden: Record<Notificacion["tipo"], number> = { descuento: 0, cobrar: 1, cambio: 2, vence: 3, limite: 4, sobrepedido: 5, stock: 6 };
+  const orden: Record<Notificacion["tipo"], number> = { whatsapp: -1, descuento: 0, cobrar: 1, cambio: 2, vence: 3, limite: 4, sobrepedido: 5, stock: 6 };
   return out.sort((a, b) => orden[a.tipo] - orden[b.tipo] || String(b.fecha ?? "").localeCompare(String(a.fecha ?? "")));
 }
 

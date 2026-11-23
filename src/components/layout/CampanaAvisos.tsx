@@ -7,7 +7,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 
 type Aviso = {
   clave: string;
-  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento";
+  tipo: "cobrar" | "vence" | "limite" | "cambio" | "stock" | "sobrepedido" | "descuento" | "whatsapp";
   titulo: string;
   detalle: string | null;
   href: string | null;
@@ -22,6 +22,8 @@ const COLOR: Record<Aviso["tipo"], string> = {
   stock: "bg-orange-500",
   sobrepedido: "bg-orange-500",
   descuento: "bg-sky-500",
+  // Rojo: el número de WhatsApp desvinculado deja la atención cortada.
+  whatsapp: "bg-red-600",
 };
 
 const LS = "neura-avisos-leidos";
