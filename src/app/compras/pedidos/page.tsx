@@ -8,7 +8,7 @@ import type { Proveedor } from "@/lib/proveedores/types";
 
 import { Pencil, Printer } from "lucide-react";
 import Selector from "@/components/ui/Selector";
-import { estadoOrden, ETIQUETA_ESTADO_ORDEN, type EstadoOrden } from "@/lib/compras/orden-estado";
+import { estadoOrden, ETIQUETA_ESTADO_ORDEN, textoConfirmaciones, confirmacionesHechas, type EstadoOrden } from "@/lib/compras/orden-estado";
 
 type Item = { descripcion: string; cantidad: string; unidad: string; precio_unitario: string };
 type Orden = {
@@ -325,6 +325,16 @@ export default function OrdenesDeCompraPage() {
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO_ESTADO[estadoOrden(o)]}`}>
                         {ETIQUETA_ESTADO_ORDEN[estadoOrden(o)]}
                       </span>
+                      {/* Cuántas de las dos confirmaciones de recepción están
+                          hechas. */}
+                      {textoConfirmaciones(o) && (
+                        <span
+                          className={`ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold ${confirmacionesHechas(o) >= 2 ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+                          title={confirmacionesHechas(o) >= 2 ? "Confirmada por dos personas" : "Confirmaciones de recepción: hacen falta dos"}
+                        >
+                          {textoConfirmaciones(o)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       <button onClick={() => imprimir(o.id)} className="mr-3 text-xs font-medium text-sky-700 hover:underline"><Printer className="h-4 w-4" /> Imprimir</button>

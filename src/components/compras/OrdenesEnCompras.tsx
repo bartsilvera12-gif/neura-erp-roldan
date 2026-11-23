@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import {
   estadoOrden,
   entregaAtrasada,
+  textoConfirmaciones,
+  confirmacionesHechas,
   ETIQUETA_ESTADO_ORDEN,
   type EstadoOrden,
 } from "@/lib/compras/orden-estado";
@@ -24,6 +26,21 @@ type Orden = {
   recibida_por_2_at?: string | null;
   _recepcion?: Acciones;
 };
+
+/** «1/2»: cuántas de las dos confirmaciones de recepción están hechas. */
+function Confirmaciones({ o }: { o: Orden }) {
+  const texto = textoConfirmaciones(o);
+  if (!texto) return null;
+  const completas = confirmacionesHechas(o) >= 2;
+  return (
+    <span
+      className={`ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold ${completas ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+      title={completas ? "Confirmada por dos personas" : "Confirmaciones de recepción: hacen falta dos"}
+    >
+      {texto}
+    </span>
+  );
+}
 
 const fmtFecha = (iso?: string | null) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
@@ -180,6 +197,9 @@ export default function OrdenesEnCompras() {
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO[e]}`}>
                       {ETIQUETA_ESTADO_ORDEN[e]}
                     </span>
+                    {/* Cuántas de las dos confirmaciones están hechas: de un
+                        vistazo se ve si falta alguien. */}
+                    <Confirmaciones o={o} />
                     {/* Quién confirmó qué: el control de dos personas sirve si
                         se puede ver. */}
                     {o.recibida_por_1_nombre && (

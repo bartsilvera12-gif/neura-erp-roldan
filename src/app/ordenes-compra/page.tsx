@@ -10,7 +10,7 @@ import EnviarOrdenModal from "@/components/compras/EnviarOrdenModal";
 import { Printer, Plus, Check, X, Mail } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import Link from "next/link";
-import { estadoOrden, ETIQUETA_ESTADO_ORDEN, type EstadoOrden } from "@/lib/compras/orden-estado";
+import { estadoOrden, ETIQUETA_ESTADO_ORDEN, textoConfirmaciones, confirmacionesHechas, type EstadoOrden } from "@/lib/compras/orden-estado";
 import { FileInput, Truck, CheckCheck } from "lucide-react";
 
 /**
@@ -301,6 +301,16 @@ export default function OrdenesCompraPage() {
                           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO[estadoOrden(o)]}`}>
                             {ETIQUETA_ESTADO_ORDEN[estadoOrden(o)]}
                           </span>
+                          {/* Cuántas de las dos confirmaciones de recepción
+                              están hechas. */}
+                          {textoConfirmaciones(o) && (
+                            <span
+                              className={`ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold ${confirmacionesHechas(o) >= 2 ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+                              title={confirmacionesHechas(o) >= 2 ? "Confirmada por dos personas" : "Confirmaciones de recepción: hacen falta dos"}
+                            >
+                              {textoConfirmaciones(o)}
+                            </span>
+                          )}
                           {o.compra_numero && <span className="ml-1 font-mono text-[10px] text-slate-400">{o.compra_numero}</span>}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">

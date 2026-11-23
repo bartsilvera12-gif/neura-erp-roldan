@@ -70,6 +70,31 @@ export function estadoOrden(o: OrdenParaEstado): EstadoOrden {
   return "en_transito";
 }
 
+/** Cuántas confirmaciones de recepción hacen falta. */
+export const CONFIRMACIONES_RECEPCION = 2;
+
+/**
+ * Cuántas de las dos confirmaciones están hechas, para mostrarlo como «1/2».
+ *
+ * Una orden anulada no cuenta nada: no hay nada que recibir. Las marcadas
+ * recibidas con la regla anterior (un solo click, sin rastro de quién) se
+ * muestran completas: ya se dieron por recibidas y no se les va a pedir las
+ * dos confirmaciones ahora.
+ */
+export function confirmacionesHechas(o: OrdenParaEstado): number {
+  if (o.estado === "anulada") return 0;
+  if (o.recibida_por_2_at) return 2;
+  if (o.recibida_por_1_at) return 1;
+  if (o.estado === "recibida") return CONFIRMACIONES_RECEPCION;
+  return 0;
+}
+
+/** «0/2», «1/2» o «2/2». Vacío si la orden está anulada: no aplica. */
+export function textoConfirmaciones(o: OrdenParaEstado): string | null {
+  if (o.estado === "anulada") return null;
+  return `${confirmacionesHechas(o)}/${CONFIRMACIONES_RECEPCION}`;
+}
+
 /**
  * La mercadería tendría que haber llegado y nadie confirmó la recepción.
  * Reemplaza a la regla vieja de darla por recibida sola: avisa, no confirma.

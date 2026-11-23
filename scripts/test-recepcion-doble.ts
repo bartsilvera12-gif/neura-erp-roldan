@@ -15,7 +15,7 @@ import {
   esperandoSegunda,
   type OrdenRecepcion,
 } from "../src/lib/compras/recepcion";
-import { estadoOrden, entregaAtrasada } from "../src/lib/compras/orden-estado";
+import { estadoOrden, entregaAtrasada, confirmacionesHechas, textoConfirmaciones } from "../src/lib/compras/orden-estado";
 
 const AHORA = "2026-11-23T12:00:00.000Z";
 const DEPOSITERO = { usuarioId: "u-deposito", nombre: "Ramón", esAdmin: false };
@@ -167,6 +167,20 @@ check("ya recibida, admin: puede volver a tránsito", accionesRecepcion(paso2, A
   { confirmar: false, aceptar: false, deshacer: true, esperandoOtro: false });
 check("anulada: ningún botón", accionesRecepcion({ estado: "anulada" }, ADMIN),
   { confirmar: false, aceptar: false, deshacer: false, esperandoOtro: false });
+
+seccion("El contador «1/2» que se ve en el listado");
+
+check("orden nueva: 0/2", textoConfirmaciones(nueva), "0/2");
+check("una confirmación: 1/2", textoConfirmaciones(paso1), "1/2");
+check("las dos: 2/2", textoConfirmaciones(paso2), "2/2");
+check("anulada: no se muestra", textoConfirmaciones({ estado: "anulada" }), null);
+// Las de la regla vieja ya se dieron por recibidas: no se les pide de nuevo.
+check("orden de la regla vieja: 2/2", textoConfirmaciones(vieja), "2/2");
+check("facturada sin confirmar: 0/2", textoConfirmaciones({ estado: "pendiente", compra_numero: "C-1" }), "0/2");
+check("el número suelto, nueva", confirmacionesHechas(nueva), 0);
+check("el número suelto, paso 1", confirmacionesHechas(paso1), 1);
+check("el número suelto, paso 2", confirmacionesHechas(paso2), 2);
+check("anulada no cuenta ninguna", confirmacionesHechas({ estado: "anulada" }), 0);
 
 console.log(`\n${fallos === 0 ? "TODO OK" : "HAY FALLOS"} — ${ok} pasaron, ${fallos} fallaron\n`);
 process.exit(fallos === 0 ? 0 : 1);
