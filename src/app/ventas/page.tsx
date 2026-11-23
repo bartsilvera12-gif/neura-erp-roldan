@@ -122,8 +122,14 @@ export default function VentasPage() {
    * (pedido del cliente): la cajera cobra en la Caja, no revisa lo vendido.
    * Hasta saber el rol no se muestra, para que no aparezca y desaparezca.
    */
-  const { rol, loaded: rolCargado } = useRolErp();
-  const verListado = isAdmin || (rolCargado && !esUsuarioLimitadoErp(rol));
+  const { rol, facultades, loaded: rolCargado } = useRolErp();
+  /**
+   * El usuario normal la ve si su perfil tiene «Ver órdenes de venta» (pedido
+   * del cliente). Lo que puede hacer en cada venta sale de las demás casillas
+   * del perfil; el servidor lo vuelve a controlar.
+   */
+  const puede = (f: string) => isAdmin || facultades.includes(f);
+  const verListado = isAdmin || (rolCargado && (!esUsuarioLimitadoErp(rol) || facultades.includes("ver_ordenes_venta")));
   const [reloadKey, setReloadKey] = useState(0);
   /** Venta a la que se le está emitiendo la factura del talonario. */
   const [facturando, setFacturando] = useState<string | null>(null);
@@ -531,7 +537,7 @@ export default function VentasPage() {
                               Caja cerrada
                             </span>
                           )}
-                          {!isAnulada && !v.caja_cerrada && isAdmin && (
+                          {!isAnulada && !v.caja_cerrada && puede("editar_venta") && (
                             <button
                               type="button"
                               onClick={() => setEditar(v)}
@@ -541,7 +547,7 @@ export default function VentasPage() {
                               Editar
                             </button>
                           )}
-                          {!isAnulada && !v.caja_cerrada && (
+                          {!isAnulada && !v.caja_cerrada && puede("cambiar_medio_pago") && (
                             <button
                               type="button"
                               onClick={() => setReclasificar(v)}
@@ -551,7 +557,7 @@ export default function VentasPage() {
                               Medio de cobro
                             </button>
                           )}
-                          {!isAnulada && !v.caja_cerrada && (
+                          {!isAnulada && !v.caja_cerrada && puede("anular_venta") && (
                             <button
                               type="button"
                               onClick={() => setAnularTarget(v)}

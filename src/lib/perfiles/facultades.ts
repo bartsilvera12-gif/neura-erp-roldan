@@ -111,8 +111,9 @@ export const FACULTADES: readonly FacultadInfo[] = [
     clave: "ver_ordenes_venta",
     label: "Ver órdenes de venta",
     descripcion:
-      "El compromiso comercial previo a la factura: quién le prometió qué, a " +
-      "qué precio y con qué plazo.",
+      "La lista de ventas de la Caja («Órdenes de venta») y la pantalla de " +
+      "órdenes de venta. Lo que puede hacer con cada venta (anular, cambiar el " +
+      "medio de pago, editar) depende de las casillas de Caja y ventas.",
     grupo: "Comercial",
   },
   {
