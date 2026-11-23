@@ -10,7 +10,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { calcMontoIvaIncluido, type IvaTipoPresupuesto } from "@/lib/presupuestos/types";
 import { aplicarCambio, descuentoPorPrecio, descuentoTotalLinea } from "@/lib/presupuestos/descuento-linea";
-import { FORMA_PAGO_CONTADO, clienteTieneCredito, formasPagoPermitidas, pideAnticipo } from "@/lib/presupuestos/formas-pago";
+import { FORMA_PAGO_CONTADO, clienteTieneCredito, formaBaseSinAnticipo, formasPagoPermitidas, pideAnticipo } from "@/lib/presupuestos/formas-pago";
 import { validarRucOCedula } from "@/lib/clientes/identificador";
 import { faltantesDelPresupuesto, textoFaltantes } from "@/lib/presupuestos/faltantes";
 import { useExistencias, ExistenciaLinea, ExistenciaPendiente, AvisoFaltantes, lineasSinStock } from "@/components/presupuestos/existencias";
@@ -479,7 +479,27 @@ export default function NuevoPresupuestoPage() {
     void cargarPlantillaPresupuesto().then((pl) => {
       if (!pl) return; // sin plantilla, el PDF igual imprime la suya
       if (pl.condiciones.trim()) setCondiciones((prev) => (prev.trim() ? prev : pl.condiciones));
-      if (pl.formaPago.trim()) setFormaPago((prev) => (prev.trim() ? prev : pl.formaPago));
+      /**
+       * ── EL ANTICIPO ARRANCA DESTILDADO ──────────────────────────────────
+       *
+       * El tilde «Con anticipo» no es un estado aparte: sale de la forma de
+       * pago. Si la plantilla de la casa es «Anticipo del {anticipo}% y saldo
+       * al retirar», el formulario abría con el anticipo ya puesto, y un
+       * presupuesto sin anticipo salía con uno salvo que el vendedor se
+       * acordara de destildarlo.
+       *
+       * Por eso se precarga la forma BASE —Contado, o Contado contra entrega
+       * si la plantilla pedía contra entrega—. El resto queda igual: la
+       * plantilla no se toca, el impreso tampoco, y el porcentaje de la casa
+       * se sigue cargando acá abajo para proponerlo cuando alguien tilde.
+       *
+       * Solo afecta al presupuesto nuevo: si se está retomando un borrador,
+       * su forma de pago ya está puesta y este `setFormaPago` no la pisa.
+       */
+      if (pl.formaPago.trim()) {
+        const base = formaBaseSinAnticipo(pl.formaPago);
+        setFormaPago((prev) => (prev.trim() ? prev : base));
+      }
       setAnticipoCasa(pl.anticipoPct);
     });
 

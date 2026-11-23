@@ -80,6 +80,24 @@ export function esFormaCredito(valor: string | null | undefined): boolean {
   return /cr[eé]dito/i.test(String(valor ?? ""));
 }
 
+/**
+ * La misma forma de pago pero SIN anticipo.
+ *
+ * «Anticipo del {anticipo}% y saldo al retirar» → «Contado»
+ * «Anticipo del {anticipo}% y saldo contra entrega» → «Contado contra entrega»
+ * Cualquier otra se devuelve igual.
+ *
+ * Es el mismo par que ya usaba `CondicionPago` para saber qué mostrar en el
+ * desplegable cuando el tilde está puesto. Vive acá para no tenerlo escrito
+ * dos veces: si mañana se agrega otra variante con anticipo, se corrige en un
+ * solo lugar.
+ */
+export function formaBaseSinAnticipo(valor: string | null | undefined): string {
+  const v = String(valor ?? "");
+  if (!pideAnticipo(v) || esFormaCredito(v)) return v;
+  return /contra entrega/i.test(v) ? "Contado contra entrega" : FORMA_PAGO_CONTADO;
+}
+
 /** ¿La forma de pago pide anticipo? */
 export function pideAnticipo(valor: string | null | undefined): boolean {
   return /\{anticipo\}|anticipo/i.test(String(valor ?? ""));
