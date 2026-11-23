@@ -36,6 +36,7 @@ function mapProveedorRow(r: ProveedorRow): Proveedor {
     plazo_pago_dias: r.plazo_pago_dias != null ? Number(r.plazo_pago_dias) : null,
     moneda_preferida: r.moneda_preferida === "USD" ? "USD" : r.moneda_preferida === "GS" ? "GS" : null,
     observaciones: r.observaciones ?? null,
+    codigo: r.codigo ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -124,6 +125,7 @@ export async function POST(request: NextRequest) {
     const direccion = normalizeUpperNullable(body.direccion);
     const contacto = normalizeUpperNullable(body.contacto);
     const observaciones = normalizeUpperNullable(body.observaciones);
+    const codigo = normalizeUpperNullable(body.codigo);
     const estado = body.estado === "inactivo" ? "inactivo" : "activo";
     const condicion_pago =
       body.condicion_pago === "contado" ||
@@ -200,6 +202,7 @@ export async function POST(request: NextRequest) {
         plazo_pago_dias,
         moneda_preferida,
         observaciones,
+        codigo,
       });
 
       // Relaciones categorias (opcional)
@@ -232,7 +235,7 @@ export async function POST(request: NextRequest) {
       const code = (e as { code?: string })?.code;
       if (code === "23505" || /unique|duplicate/i.test(msg)) {
         return NextResponse.json(
-          errorResponse("Ya existe un proveedor con datos únicos en conflicto (RUC/nombre)."),
+          errorResponse(/codigo/i.test(msg) ? "Ese código ya lo tiene otro proveedor." : "Ya existe un proveedor con datos únicos en conflicto (RUC/nombre)."),
           { status: 409 }
         );
       }

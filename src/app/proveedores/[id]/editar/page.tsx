@@ -45,6 +45,7 @@ export default function EditarProveedorPage() {
         plazo_pago_dias: p.plazo_pago_dias != null ? String(p.plazo_pago_dias) : "",
         moneda_preferida: p.moneda_preferida ?? "",
         observaciones: p.observaciones ?? "",
+        codigo: p.codigo ?? "",
         categoria_ids: (p.categorias ?? []).map((c) => c.id),
       });
       setLoading(false);
@@ -77,6 +78,7 @@ export default function EditarProveedorPage() {
         form.plazo_pago_dias.trim() === "" ? null : parseInt(form.plazo_pago_dias, 10),
       moneda_preferida: form.moneda_preferida === "" ? null : form.moneda_preferida,
       observaciones: form.observaciones.trim() || null,
+      codigo: form.codigo.trim() || null,
       categoria_ids: form.categoria_ids,
     });
     setSaving(false);

@@ -30,6 +30,8 @@ export interface Proveedor {
   plazo_pago_dias: number | null;
   moneda_preferida: "GS" | "USD" | null;
   observaciones: string | null;
+  /** Código propio del proveedor (script 101). */
+  codigo?: string | null;
   created_at: string;
   updated_at: string;
   /** Solo en lecturas que join-ean rubros */
@@ -51,5 +53,6 @@ export type NuevoProveedorInput = {
   plazo_pago_dias?: number | null;
   moneda_preferida?: "GS" | "USD" | null;
   observaciones?: string | null;
+  codigo?: string | null;
   categoria_ids?: string[];
 };

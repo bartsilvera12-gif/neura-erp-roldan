@@ -3,6 +3,7 @@ import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
 import { normalizeUpperText, normalizeUpperNullable } from "@/lib/text/normalize";
 import type { PreviewRow, PreviewResponse } from "@/lib/excel/import-types";
 import { pick, pickBool, chunked } from "./import-helpers";
+import { proveedoresConCodigo } from "@/lib/proveedores/server/proveedores-pg";
 
 export interface ProveedorParsed {
   row_number: number;
@@ -15,6 +16,8 @@ export interface ProveedorParsed {
   contacto: string | null;
   rubros: string[];
   observaciones: string | null;
+  /** Columna CODIGO (script 101). Vacía no borra el código que ya tiene. */
+  codigo: string | null;
   activo: boolean;
   errors: string[];
   warnings: string[];
@@ -43,6 +46,7 @@ export function parseProveedoresRows(rows: Record<string, string>[]): ProveedorP
       contacto: normalizeUpperNullable(pick(r, "CONTACTO")),
       rubros,
       observaciones: normalizeUpperNullable(pick(r, "OBSERVACIONES")),
+      codigo: normalizeUpperNullable(pick(r, "CODIGO", "CÓDIGO", "COD")),
       activo: pickBool(r, "ACTIVO"),
       errors,
       warnings: [],
@@ -104,7 +108,7 @@ export function buildProvPreview(parsed: ProveedorParsed[], maps: ProvResolverMa
     if (p.warnings.length > 0) warnings++;
     return {
       row_number: p.row_number, action, errors: p.errors, warnings: p.warnings,
-      data: { RAZON_SOCIAL: p.nombre, RUC: p.ruc ?? "", EMAIL: p.email ?? "", RUBROS: p.rubros.join(", ") },
+      data: { CODIGO: p.codigo ?? "", RAZON_SOCIAL: p.nombre, RUC: p.ruc ?? "", EMAIL: p.email ?? "", RUBROS: p.rubros.join(", ") },
     };
   });
   return {
@@ -113,7 +117,7 @@ export function buildProvPreview(parsed: ProveedorParsed[], maps: ProvResolverMa
       faltantes: { categorias: [...rubrosFaltantes], proveedores: [], ubicaciones: [] },
     },
     rows,
-    headers: ["RAZON_SOCIAL_NOMBRE","NOMBRE_COMERCIAL","RUC","TELEFONO","EMAIL","DIRECCION","CONTACTO","RUBROS","OBSERVACIONES","ACTIVO"],
+    headers: ["CODIGO","RAZON_SOCIAL_NOMBRE","NOMBRE_COMERCIAL","RUC","TELEFONO","EMAIL","DIRECCION","CONTACTO","RUBROS","OBSERVACIONES","ACTIVO"],
   };
 }
 
@@ -129,6 +133,7 @@ export async function commitProveedores(
   const tC = quoteSchemaTable(schema, "proveedor_categorias");
   const tR = quoteSchemaTable(schema, "proveedor_categoria_rel");
   const out: ProvCommit = { inserted: 0, updated: 0, skipped: 0, errors: 0, warnings: 0, errorMessages: [], warningMessages: [] };
+  const conCodigo = await proveedoresConCodigo(schemaRaw);
 
   if (crearFaltantes) {
     const faltantes = new Set<string>();
@@ -171,6 +176,15 @@ export async function commitProveedores(
           pid = r.rows[0].id;
           out.inserted++;
         }
+        if (conCodigo && p.codigo && pid) {
+          try {
+            await pool.query(`UPDATE ${tP} SET codigo=$1 WHERE id=$2::uuid AND empresa_id=$3::uuid`, [p.codigo, pid, empresaId]);
+          } catch (e) {
+            const m = (e as Error).message;
+            out.warnings++;
+            out.warningMessages.push(`Fila ${p.row_number}: ${/unique|duplicate/i.test(m) ? `el código ${p.codigo} ya lo tiene otro proveedor` : m.slice(0, 160)}`);
+          }
+        }
         // Rubros relacionados
         if (p.rubros.length > 0 && pid) {
           const rubroIds = p.rubros.map((r) => maps.rubrosByName.get(r)).filter((x): x is string => !!x);
@@ -191,6 +205,7 @@ export async function commitProveedores(
 }
 
 export const PROVEEDORES_TEMPLATE_ROW = {
+  CODIGO: "P0001",
   RAZON_SOCIAL_NOMBRE: "DISTRIBUIDORA EJEMPLO S.A.",
   NOMBRE_COMERCIAL: "DON HERRAMIENTAS",
   RUC: "80012345-6",

@@ -54,6 +54,7 @@ export default function ProveedoresPage() {
       const cats = (p.categorias ?? []).map((c) => c.nombre.toLowerCase()).join(" ");
       return (
         p.nombre.toLowerCase().includes(t) ||
+        (p.codigo ?? "").toLowerCase().includes(t) ||
         (p.ruc ?? "").toLowerCase().includes(t) ||
         (p.email ?? "").toLowerCase().includes(t) ||
         cats.includes(t)
@@ -75,8 +76,9 @@ export default function ProveedoresPage() {
             <ExportExcelButton url="/api/proveedores/export" />
             <ImprimirTablaButton
             titulo="Proveedores"
-            columnas={["Proveedor", "RUC", "Contacto", "Teléfono", "Rubros", "Condición", "Plazo (días)", "Estado"]}
+            columnas={["Código", "Proveedor", "RUC", "Contacto", "Teléfono", "Rubros", "Condición", "Plazo (días)", "Estado"]}
             filas={filtradas.map((p2) => [
+              p2.codigo ?? "",
               p2.nombre,
               p2.ruc ?? "",
               p2.contacto ?? "",
@@ -118,7 +120,7 @@ export default function ProveedoresPage() {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <input
             type="search"
-            placeholder="Buscar por nombre, RUC, email o rubro…"
+            placeholder="Buscar por código, nombre, RUC, email o rubro…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-[#4FAEB2]"
@@ -132,6 +134,7 @@ export default function ProveedoresPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-slate-600">
+                <th className="py-3 pr-4 font-semibold">Código</th>
                 <th className="py-3 pr-4 font-semibold">Proveedor</th>
                 <th className="py-3 pr-4 font-semibold">RUC</th>
                 <th className="py-3 pr-4 font-semibold">Contacto</th>
@@ -144,19 +147,20 @@ export default function ProveedoresPage() {
             <tbody>
               {cargando ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     Cargando…
                   </td>
                 </tr>
               ) : filtradas.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     {lista.length === 0 ? "No hay proveedores cargados." : "Sin resultados."}
                   </td>
                 </tr>
               ) : (
                 filtradas.map((p) => (
                   <tr key={p.id} className="border-b border-slate-50 last:border-0 hover:bg-[#4FAEB2]/[0.04] transition-colors">
+                    <td className="py-3 pr-4 font-mono text-xs text-slate-600">{p.codigo ?? "—"}</td>
                     <td className="py-3 pr-4">
                       <div className="font-medium text-slate-800">{p.nombre}</div>
                       {p.nombre_comercial && (

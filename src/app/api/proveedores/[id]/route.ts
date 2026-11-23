@@ -36,6 +36,7 @@ function mapProveedorRow(r: ProveedorRow): Proveedor {
     plazo_pago_dias: r.plazo_pago_dias != null ? Number(r.plazo_pago_dias) : null,
     moneda_preferida: r.moneda_preferida === "USD" ? "USD" : r.moneda_preferida === "GS" ? "GS" : null,
     observaciones: r.observaciones ?? null,
+    codigo: r.codigo ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -121,6 +122,7 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
         : null;
     }
     if (body.observaciones !== undefined) patch.observaciones = normalizeUpperNullable(body.observaciones);
+    if (body.codigo !== undefined) patch.codigo = normalizeUpperNullable(body.codigo);
 
     // RUC duplicado (excluyendo el propio)
     if (patch.ruc) {
@@ -155,7 +157,7 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
       const code = (e as { code?: string })?.code;
       if (code === "23505" || /unique|duplicate/i.test(msg)) {
         return NextResponse.json(
-          errorResponse("Ya existe otro proveedor con datos únicos en conflicto."),
+          errorResponse(/codigo/i.test(msg) ? "Ese código ya lo tiene otro proveedor." : "Ya existe otro proveedor con datos únicos en conflicto."),
           { status: 409 }
         );
       }

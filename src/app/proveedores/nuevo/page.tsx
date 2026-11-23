@@ -41,6 +41,7 @@ export default function NuevoProveedorPage() {
         form.plazo_pago_dias.trim() === "" ? null : parseInt(form.plazo_pago_dias, 10),
       moneda_preferida: form.moneda_preferida === "" ? null : form.moneda_preferida,
       observaciones: form.observaciones.trim() || null,
+      codigo: form.codigo.trim() || null,
       categoria_ids: form.categoria_ids,
     };
     const res = await createProveedor(payload);

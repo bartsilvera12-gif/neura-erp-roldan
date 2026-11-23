@@ -9,6 +9,7 @@ import {
 } from "@/lib/proveedores/server/proveedores-pg";
 
 interface Row {
+  codigo: string;
   razon_social_nombre: string;
   nombre_comercial: string;
   ruc: string;
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     const rows: Row[] = provs.map((p) => ({
+      codigo: p.codigo ?? "",
       razon_social_nombre: p.nombre,
       nombre_comercial: p.nombre_comercial ?? "",
       ruc: p.ruc ?? "",
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
     }));
 
     const buf = buildXlsxBuffer<Row>(rows, [
+      { header: "CODIGO", value: (r) => r.codigo, width: 12 },
       { header: "RAZON_SOCIAL_NOMBRE", value: (r) => r.razon_social_nombre, width: 38 },
       { header: "NOMBRE_COMERCIAL", value: (r) => r.nombre_comercial, width: 30 },
       { header: "RUC", value: (r) => r.ruc, width: 16 },

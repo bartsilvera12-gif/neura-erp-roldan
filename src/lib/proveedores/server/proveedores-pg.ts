@@ -16,6 +16,26 @@ function pool(): Pool {
   return p;
 }
 
+/**
+ * ¿Ya corrió el script 101 (columna `proveedores.codigo`)? Se pregunta una
+ * vez por esquema y se recuerda. Mientras no corra, todo funciona sin código.
+ */
+const conCodigoCache = new Map<string, boolean>();
+export async function proveedoresConCodigo(schemaRaw: string): Promise<boolean> {
+  const schema = assertAllowedChatDataSchema(schemaRaw);
+  const ya = conCodigoCache.get(schema);
+  if (ya === true) return true;
+  const { rows } = await pool().query(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = 'proveedores' AND column_name = 'codigo' LIMIT 1`,
+    [schema]
+  );
+  const hay = rows.length > 0;
+  // Solo se recuerda el «sí»: así, cuando el script corre, se nota sin reiniciar.
+  if (hay) conCodigoCache.set(schema, true);
+  return hay;
+}
+
 // ─── Categorias de proveedor ──────────────────────────────────────────────
 
 export interface ProveedorCategoriaRow {
@@ -119,15 +139,22 @@ export interface ProveedorRow {
   plazo_pago_dias: number | null;
   moneda_preferida: string | null;
   observaciones: string | null;
+  /** Script 101. null si no tiene o si el script no corrió. */
+  codigo: string | null;
   created_at: string;
   updated_at: string;
 }
 
-const PROV_COLS = `
+const PROV_COLS_BASE = `
   id, empresa_id, nombre, nombre_comercial, razon_social, ruc, telefono, email,
   direccion, contacto, estado, condicion_pago, plazo_pago_dias, moneda_preferida,
   observaciones, created_at, updated_at
 `;
+async function provCols(schemaRaw: string): Promise<string> {
+  return (await proveedoresConCodigo(schemaRaw))
+    ? `${PROV_COLS_BASE}, codigo`
+    : `${PROV_COLS_BASE}, NULL::text AS codigo`;
+}
 
 export async function listProveedores(
   schemaRaw: string,
@@ -136,7 +163,7 @@ export async function listProveedores(
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const t = quoteSchemaTable(schema, "proveedores");
   const { rows } = await pool().query<ProveedorRow>(
-    `SELECT ${PROV_COLS} FROM ${t} WHERE empresa_id = $1::uuid ORDER BY nombre`,
+    `SELECT ${await provCols(schemaRaw)} FROM ${t} WHERE empresa_id = $1::uuid ORDER BY nombre`,
     [empresaId]
   );
   return rows;
@@ -150,7 +177,7 @@ export async function getProveedorById(
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const t = quoteSchemaTable(schema, "proveedores");
   const { rows } = await pool().query<ProveedorRow>(
-    `SELECT ${PROV_COLS} FROM ${t} WHERE id = $1::uuid AND empresa_id = $2::uuid LIMIT 1`,
+    `SELECT ${await provCols(schemaRaw)} FROM ${t} WHERE id = $1::uuid AND empresa_id = $2::uuid LIMIT 1`,
     [id, empresaId]
   );
   return rows[0] ?? null;
@@ -170,6 +197,8 @@ export interface InsertProveedorInput {
   plazo_pago_dias?: number | null;
   moneda_preferida?: "GS" | "USD" | null;
   observaciones?: string | null;
+  /** Solo se guarda si corrió el script 101. */
+  codigo?: string | null;
 }
 
 export async function findProveedorByRuc(
@@ -194,15 +223,16 @@ export async function insertProveedor(
 ): Promise<ProveedorRow> {
   const schema = assertAllowedChatDataSchema(schemaRaw);
   const t = quoteSchemaTable(schema, "proveedores");
+  const conCodigo = await proveedoresConCodigo(schemaRaw);
   const { rows } = await pool().query<ProveedorRow>(
     `INSERT INTO ${t} (
        empresa_id, nombre, nombre_comercial, razon_social, ruc, telefono, email,
        direccion, contacto, estado, condicion_pago, plazo_pago_dias,
-       moneda_preferida, observaciones
+       moneda_preferida, observaciones${conCodigo ? ", codigo" : ""}
      ) VALUES (
        $1::uuid, $2, $3, $4, $5, $6, $7,
-       $8, $9, $10, $11, $12::integer, $13, $14
-     ) RETURNING ${PROV_COLS}`,
+       $8, $9, $10, $11, $12::integer, $13, $14${conCodigo ? ", $15" : ""}
+     ) RETURNING ${await provCols(schemaRaw)}`,
     [
       empresaId,
       d.nombre,
@@ -218,6 +248,7 @@ export async function insertProveedor(
       d.plazo_pago_dias ?? null,
       d.moneda_preferida ?? null,
       d.observaciones ?? null,
+      ...(conCodigo ? [d.codigo ?? null] : []),
     ]
   );
   return rows[0];
@@ -252,13 +283,14 @@ export async function updateProveedor(
   if (d.plazo_pago_dias !== undefined) setIf("plazo_pago_dias", d.plazo_pago_dias ?? null, "::integer");
   if (d.moneda_preferida !== undefined) setIf("moneda_preferida", d.moneda_preferida ?? null);
   if (d.observaciones !== undefined) setIf("observaciones", d.observaciones ?? null);
+  if (d.codigo !== undefined && (await proveedoresConCodigo(schemaRaw))) setIf("codigo", d.codigo ?? null);
   if (sets.length === 0) return await getProveedorById(schemaRaw, empresaId, id);
   sets.push("updated_at = now()");
   params.push(id, empresaId);
   const { rows } = await pool().query<ProveedorRow>(
     `UPDATE ${t} SET ${sets.join(", ")}
        WHERE id = $${i++}::uuid AND empresa_id = $${i}::uuid
-       RETURNING ${PROV_COLS}`,
+       RETURNING ${await provCols(schemaRaw)}`,
     params
   );
   return rows[0] ?? null;

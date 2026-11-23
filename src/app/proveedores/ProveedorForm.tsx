@@ -25,6 +25,8 @@ export interface ProveedorFormValues {
   plazo_pago_dias: string;
   moneda_preferida: "" | "GS" | "USD";
   observaciones: string;
+  /** Código propio del proveedor. */
+  codigo: string;
   categoria_ids: string[];
 }
 
@@ -43,6 +45,7 @@ export function emptyProveedorForm(): ProveedorFormValues {
     plazo_pago_dias: "",
     moneda_preferida: "",
     observaciones: "",
+    codigo: "",
     categoria_ids: [],
   };
 }
@@ -85,6 +88,16 @@ export default function ProveedorForm({
           <p className="mt-1 text-xs text-slate-400">
             Se guarda en mayúsculas para unificar reportes.
           </p>
+        </div>
+        <div>
+          <label className={labelClass}>Código</label>
+          <input
+            className={`${inputClass} uppercase`}
+            value={values.codigo}
+            onChange={(e) => patch("codigo", e.target.value)}
+            placeholder="Ej: P0001 (opcional)"
+            disabled={disabled}
+          />
         </div>
         <div>
           <label className={labelClass}>RUC</label>
