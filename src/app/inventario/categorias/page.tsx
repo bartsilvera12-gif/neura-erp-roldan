@@ -324,33 +324,6 @@ export default function CategoriasProductosPage() {
   }
 
   /**
-   * Días de cobertura crítica del rubro (punto 1.3).
-   *
-   * Vacío lo deja sin configurar, que es distinto de cero: significa "usá el
-   * umbral general de Reposición".
-   */
-  function editarDiasCritico(cat: Categoria) {
-    setCampo({
-      cat,
-      titulo: `Crítico bajo · ${cat.nombre}`,
-      descripcion: "Días de stock por debajo de los cuales este rubro se marca CRÍTICO en Reposición.",
-      etiqueta: "Días",
-      valorInicial: cat.dias_critico == null ? "" : String(cat.dias_critico),
-      sufijo: "días",
-      tipo: "number",
-      ayuda: "En la práctica es lo que tarda reponerlo: si la chapa tarda 15 días, poné 15. Vacío usa el umbral general.",
-      validar: (v) => {
-        const t = v.trim();
-        if (t === "") return null;
-        const n = Number(t);
-        if (!Number.isFinite(n) || n < 1 || n > 365) return "Tiene que ser un número entre 1 y 365.";
-        return null;
-      },
-      cuerpo: (v) => ({ dias_critico: v === "" ? null : Number(v) }),
-    });
-  }
-
-  /**
    * "Desc. Grupo %" (script 32): descuento que aplica a todos los artículos
    * del rubro.
    *
@@ -448,7 +421,7 @@ export default function CategoriasProductosPage() {
               parece un dato de la fila y no un control. Se dice en una línea
               en vez de esperar que alguien pruebe hacerle clic. */}
           <p className="mt-1 text-xs text-slate-500">
-            Las columnas <strong>Crítico bajo</strong> y <strong>Descuento máx.</strong> se
+            Las columnas <strong>Remarcación</strong> y <strong>Descuento máx.</strong> se
             configuran haciendo clic sobre su valor, rubro por rubro.
           </p>
           <div className="mt-3 max-w-2xl rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
@@ -462,12 +435,11 @@ export default function CategoriasProductosPage() {
             <ExportExcelButton url="/api/inventario/categorias/export" />
             <ImprimirTablaButton
             titulo="Rubros"
-            columnas={["Nombre", "Código", "Padre", "Crítico bajo (días)", "Remarcación %", "Descuento máx. %", "Estado"]}
+            columnas={["Nombre", "Código", "Padre", "Remarcación %", "Descuento máx. %", "Estado"]}
             filas={visibles.map((c) => [
               c.nombre,
               c.codigo ?? "",
               items.find((i) => i.id === c.parent_id)?.nombre ?? "",
-              c.dias_critico ?? "general",
               c.markup_pct ?? (items.find((i) => i.id === c.parent_id)?.markup_pct ?? ""),
               c.descuento_pct ?? 0,
               c.activo ? "Activo" : "Inactivo",
@@ -603,7 +575,7 @@ export default function CategoriasProductosPage() {
                 ver los lápices solo en algunos renglones. */}
             {!hayFiltro && padresConHijos.length > 0 && (
               <span className="text-[11px] leading-snug text-slate-500">
-                El crítico, la remarcación y el descuento se cargan en el rubro mayor: sus grupos
+                La remarcación y el descuento se cargan en el rubro mayor: sus grupos
                 los heredan.
               </span>
             )}
@@ -623,9 +595,6 @@ export default function CategoriasProductosPage() {
               <tr>
                 <th className="text-left px-4 py-2">Rubro</th>
                 <th className="text-left px-4 py-2">Código</th>
-                <th className="text-left px-4 py-2" title="Días de stock por debajo de los cuales el rubro se marca crítico en Reposición">
-                  Crítico bajo
-                </th>
                 <th className="text-left px-4 py-2" title="Remarcación de referencia del rubro. No cambia los precios ya cargados.">
                   Remarcación
                 </th>
@@ -687,37 +656,9 @@ export default function CategoriasProductosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-gray-500">{c.codigo ?? "—"}</td>
-                    {/* Las tres columnas de política del rubro se editan SOLO
-                        en el padre. Ver `ValorDelPadre`. */}
-                    <td className="px-4 py-2">
-                      {esGrupo ? (
-                        <ValorDelPadre
-                          propio={c.dias_critico}
-                          delPadre={parent?.dias_critico}
-                          sufijo=" d"
-                          vacio="general"
-                        />
-                      ) : (
-                      /* Se dibuja como un campo editable y no como texto: con
-                         el estilo anterior —gris, subrayado solo al pasar por
-                         encima— se leía como un dato y nadie adivinaba que
-                         ahí se hace clic para configurarlo. */
-                      <button
-                        onClick={() => editarDiasCritico(c)}
-                        className="group inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-xs transition-colors hover:border-[#4FAEB2] hover:bg-[#4FAEB2]/5"
-                        title="Clic para cambiar los días de cobertura crítica de este rubro"
-                      >
-                        {c.dias_critico == null ? (
-                          <span className="text-slate-400 group-hover:text-[#3F8E91]">general</span>
-                        ) : (
-                          <span className="font-semibold text-slate-700 tabular-nums group-hover:text-[#3F8E91]">
-                            {c.dias_critico} d
-                          </span>
-                        )}
-                        <Pencil className="h-3 w-3 text-slate-300 group-hover:text-[#4FAEB2]" />
-                      </button>
-                      )}
-                    </td>
+                    {/* Las columnas de política del rubro se editan SOLO
+                        en el padre. Ver `ValorDelPadre`. (El «Crítico bajo»
+                        se sacó de la pantalla a pedido del cliente.) */}
                     <td className="px-4 py-2">
                       {esGrupo ? (
                         <ValorDelPadre

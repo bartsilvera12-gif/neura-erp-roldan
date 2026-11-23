@@ -57,7 +57,7 @@ export default function EditarRubroModal({
   const [descripcion, setDescripcion] = useState(rubro.descripcion ?? "");
   const [parentId, setParentId] = useState(rubro.parent_id ?? "");
   const [activo, setActivo] = useState(rubro.activo);
-  const [diasCritico, setDiasCritico] = useState(rubro.dias_critico == null ? "" : String(rubro.dias_critico));
+  const [diasCritico] = useState(rubro.dias_critico == null ? "" : String(rubro.dias_critico));
   const [markup, setMarkup] = useState(rubro.markup_pct == null ? "" : String(rubro.markup_pct));
   const [descuento, setDescuento] = useState(rubro.descuento_pct ? String(rubro.descuento_pct) : "");
 
@@ -198,30 +198,13 @@ export default function EditarRubroModal({
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-semibold text-slate-700">Política del rubro</p>
             <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-              Estos tres <strong>no cambian el precio de ningún producto ya cargado</strong>. Son el
+              Estos dos <strong>no cambian el precio de ningún producto ya cargado</strong>. Son el
               valor que se le propone a uno nuevo y los topes con los que se vende.
             </p>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <label className="block">
-                <span className={label}>Crítico bajo</span>
-                <div className="relative">
-                  <input
-                    value={diasCritico}
-                    onChange={(e) => setDiasCritico(e.target.value.replace(/[^\d]/g, ""))}
-                    placeholder="general"
-                    className={`${campo} pr-12 ${errores.dias_critico ? malo : ""}`}
-                  />
-                  <span className="pointer-events-none absolute right-3 top-3 text-[11px] text-slate-400">días</span>
-                </div>
-                <span className="mt-1 block text-[11px] text-slate-500">
-                  Lo que tarda reponerlo. Vacío usa el umbral general.
-                </span>
-                {errores.dias_critico && (
-                  <span className="mt-1 block text-[11px] text-rose-700">{errores.dias_critico}</span>
-                )}
-              </label>
-
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {/* «Crítico bajo» se sacó a pedido del cliente: el valor guardado
+                  queda como estaba (se reenvía sin cambios). */}
               <label className="block">
                 <span className={label}>Remarcación</span>
                 <div className="relative">
