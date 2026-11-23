@@ -6,9 +6,10 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
 import NuevaCotizacionModal from "@/components/compras/NuevaCotizacionModal";
+import CotizacionDesdeExcelModal from "@/components/compras/CotizacionDesdeExcelModal";
 import CargarPreciosModal from "@/components/compras/CargarPreciosModal";
 import { lineasParaProveedor, type FilaComparativo } from "@/lib/compras/comparativo";
-import { Plus, ShoppingCart, Trophy } from "lucide-react";
+import { FileSpreadsheet, Plus, ShoppingCart, Trophy } from "lucide-react";
 
 /**
  * Comparativo de cotizaciones entre proveedores.
@@ -59,6 +60,8 @@ export default function CotizacionesPage() {
   const [ordenPara, setOrdenPara] = useState<{ id: string; nombre: string } | null>(null);
   /** La lista completa de lo que nadie cotizó, solo si se pide. */
   const [verSinCotizar, setVerSinCotizar] = useState(false);
+  /** Nueva cotización armada con los Excel de los proveedores. */
+  const [desdeExcel, setDesdeExcel] = useState(false);
 
   const cargarLista = useCallback(async () => {
     setCargando(true);
@@ -100,12 +103,21 @@ export default function CotizacionesPage() {
         title="Comparativo de cotizaciones"
         description="Los mismos artículos pedidos a varios proveedores, lado a lado"
         actions={
-          <button
-            type="button" onClick={() => setNueva(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
-          >
-            <Plus className="h-4 w-4" /> Pedir cotización
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button" onClick={() => setDesdeExcel(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+              title="Subir las listas de precios de los proveedores: arma la cotización sola"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Desde Excel
+            </button>
+            <button
+              type="button" onClick={() => setNueva(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F8E91]"
+            >
+              <Plus className="h-4 w-4" /> Pedir cotización
+            </button>
+          </div>
         }
       />
 
@@ -327,6 +339,13 @@ export default function CotizacionesPage() {
             Por eso el ganador se elige entre los que cotizaron <strong>todo</strong>.
           </p>
         </>
+      )}
+
+      {desdeExcel && (
+        <CotizacionDesdeExcelModal
+          onClose={() => setDesdeExcel(false)}
+          onCreada={(id) => { setDesdeExcel(false); void cargarLista(); setAbierta(id); }}
+        />
       )}
 
       {nueva && (

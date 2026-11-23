@@ -31,6 +31,46 @@ function aNumero(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Un renglón de la lista del proveedor, tal como viene (sin normalizar). */
+export type RenglonExcel = { codigo: string; descripcion: string; unidad: string; precio: number };
+
+/**
+ * Los renglones con precio de la lista de un proveedor. Lo usa «Nueva
+ * cotización desde Excel», que arma la cotización con estos artículos.
+ */
+export async function leerRenglonesExcel(file: File): Promise<RenglonExcel[]> {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const hoja = wb.Sheets[wb.SheetNames[0]!];
+  if (!hoja) throw new Error("El archivo no tiene hojas.");
+  const filas = XLSX.utils.sheet_to_json<unknown[]>(hoja, { header: 1, blankrows: false, defval: "" });
+  let cab = -1, colPrecio = -1, colDesc = -1, colCod = -1, colUni = -1;
+  for (let r = 0; r < Math.min(filas.length, 30) && cab < 0; r++) {
+    const fila = (filas[r] ?? []).map(norm);
+    const p = fila.findIndex((c) => /\b(PRECIO|COSTO|VALOR|UNITARIO|P UNIT)\b/.test(c));
+    if (p < 0) continue;
+    cab = r;
+    colPrecio = p;
+    colDesc = fila.findIndex((c) => /\b(DESCRIPCION|ARTICULO|PRODUCTO|NOMBRE|DETALLE|ITEM)\b/.test(c));
+    colCod = fila.findIndex((c) => /\b(CODIGO|COD|SKU|REF|REFERENCIA)\b/.test(c));
+    colUni = fila.findIndex((c) => /\b(UNIDAD|UNID|UM|U M)\b/.test(c));
+  }
+  if (cab < 0) throw new Error("No encontré la columna del precio (un título como «Precio», «Costo» o «Valor»).");
+  if (colDesc < 0 && colCod < 0) throw new Error("No encontré la columna del artículo ni la del código.");
+  const txt = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
+  return filas.slice(cab + 1).map((f) => ({
+    codigo: colCod >= 0 ? txt(f[colCod]) : "",
+    descripcion: colDesc >= 0 ? txt(f[colDesc]) : "",
+    unidad: colUni >= 0 ? txt(f[colUni]) : "",
+    precio: aNumero(f[colPrecio]),
+  })).filter((d) => d.precio > 0 && (d.descripcion || d.codigo));
+}
+
+/** Clave para reconocer el mismo artículo en listas de distintos proveedores. */
+export function claveRenglon(r: { codigo: string; descripcion: string }): string {
+  return r.codigo ? `C:${norm(r.codigo)}` : `D:${norm(r.descripcion)}`;
+}
+
 export async function leerExcelCotizacion(file: File, items: ItemParaCruzar[]): Promise<ResultadoExcel> {
   const XLSX = await import("xlsx");
   const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
