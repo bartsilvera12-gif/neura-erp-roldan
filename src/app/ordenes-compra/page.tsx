@@ -151,7 +151,11 @@ export default function OrdenesCompraPage() {
   const filtradas = useMemo(() => {
     const s = q.trim().toLowerCase();
     return ordenes.filter((o) => {
-      if (estado && estadoOrden(o) !== estado) return false;
+      // «Pendientes» junta las dos etapas internas (sin confirmar y esperando
+      // al administrador): el cliente pidió ver aprobado y rechazado nomás.
+      if (estado === "pendiente") {
+        if (!["en_transito", "por_confirmar"].includes(estadoOrden(o))) return false;
+      } else if (estado && estadoOrden(o) !== estado) return false;
       if (!s) return true;
       return (
         o.proveedor_nombre.toLowerCase().includes(s) ||
@@ -204,10 +208,10 @@ export default function OrdenesCompraPage() {
             className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="">Todas</option>
-            <option value="en_transito">En tránsito</option>
-            <option value="recibida">Recibidas (sin factura)</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="recibida">Aprobadas (sin factura)</option>
             <option value="facturada">Facturadas</option>
-            <option value="anulada">Anuladas</option>
+            <option value="anulada">Rechazadas</option>
           </Selector>
         </label>
 

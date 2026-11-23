@@ -26,12 +26,24 @@
  */
 export type EstadoOrden = "en_transito" | "por_confirmar" | "recibida" | "facturada" | "anulada";
 
+/**
+ * Cómo se muestran los estados (pedido del cliente: «que salga aprobado y
+ * rechazado nomás, sin la parte de en tránsito y demás»).
+ *
+ * El flujo NO cambia: por dentro siguen estando `en_transito` y
+ * `por_confirmar`, y la doble confirmación funciona igual. Lo que cambia es la
+ * palabra: mientras no esté resuelta la orden dice «Pendiente», y las dos
+ * puntas se llaman «Aprobado» y «Rechazado».
+ *
+ * A quién le falta hacer qué se ve en la fila (quién recibió, el botón
+ * «Aceptar»), no en la etiqueta del estado.
+ */
 export const ETIQUETA_ESTADO_ORDEN: Record<EstadoOrden, string> = {
-  en_transito: "En tránsito",
-  por_confirmar: "Por confirmar",
-  recibida: "Recibida",
+  en_transito: "Pendiente",
+  por_confirmar: "Pendiente",
+  recibida: "Aprobado",
   facturada: "Facturada",
-  anulada: "Anulada",
+  anulada: "Rechazado",
 };
 
 /** Lo que `estadoOrden` necesita leer de una orden. */

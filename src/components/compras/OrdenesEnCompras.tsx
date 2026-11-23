@@ -74,7 +74,13 @@ export default function OrdenesEnCompras() {
     () => ordenes.filter((o) => ["en_transito", "por_confirmar", "recibida"].includes(estadoOrden(o))),
     [ordenes]
   );
-  const visibles = filtro === "todas" ? abiertas : abiertas.filter((o) => estadoOrden(o) === filtro);
+  const visibles =
+    filtro === "todas"
+      ? abiertas
+      : filtro === "en_transito"
+        // El chip «Pendientes» muestra las dos etapas internas.
+        ? abiertas.filter((o) => ["en_transito", "por_confirmar"].includes(estadoOrden(o)))
+        : abiertas.filter((o) => estadoOrden(o) === filtro);
   if (abiertas.length === 0) return null;
 
   /** `confirmar` = «Recibido» o «Aceptar»; si no, vuelve a tránsito. */
@@ -124,10 +130,13 @@ export default function OrdenesEnCompras() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold text-slate-800">Órdenes de compra sin factura</h3>
         <div className="flex flex-wrap gap-1.5">
+          {/* «Pendientes» junta las dos etapas internas (sin confirmar y
+              esperando al administrador): el cliente pidió ver aprobado y
+              rechazado nomás, no el detalle del tránsito. Quién tiene que
+              hacer qué se ve en la fila. */}
           {chip("todas", "Todas", abiertas.length)}
-          {chip("en_transito", "En tránsito", cuenta("en_transito"))}
-          {chip("por_confirmar", "Por confirmar", cuenta("por_confirmar"))}
-          {chip("recibida", "Recibidas", cuenta("recibida"))}
+          {chip("en_transito", "Pendientes", cuenta("en_transito") + cuenta("por_confirmar"))}
+          {chip("recibida", "Aprobadas", cuenta("recibida"))}
         </div>
       </div>
 
