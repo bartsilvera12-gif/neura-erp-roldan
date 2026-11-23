@@ -19,6 +19,12 @@ const STANDALONE_ROUTES = ["/login"];
 const STANDALONE_PREFIXES = ["/fichar/", "/m/asesor"];
 
 const noSuscribir = () => () => {};
+/**
+ * `?embebido=1`: la pantalla se muestra sola, sin menú ni encabezado, para
+ * abrirla dentro de un modal (por ejemplo la ficha completa del cliente desde
+ * un presupuesto, pedido del cliente).
+ */
+const leerEmbebido = () => new URLSearchParams(window.location.search).get("embebido") === "1";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,6 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // window, y leerlo en el render rompería la hidratación.
   const enApp = useSyncExternalStore(noSuscribir, esAppNativa, () => false);
   const fueraDeLaApp = enApp && !!pathname && !rutaPermitidaEnApp(pathname);
+  const embebido = useSyncExternalStore(noSuscribir, leerEmbebido, () => false);
   useEffect(() => {
     if (fueraDeLaApp) router.replace(INICIO_APP_ASESOR);
   }, [fueraDeLaApp, router]);
@@ -41,6 +48,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isStandalone) {
     return <>{children}</>;
+  }
+  if (embebido) {
+    return <main className="h-svh overflow-y-auto bg-[#EEF2F7] p-4 sm:p-6">{children}</main>;
   }
 
   return (

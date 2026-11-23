@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { History, Loader2, X } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
@@ -36,6 +35,8 @@ export default function DatosClienteModal({
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [verHistorial, setVerHistorial] = useState(false);
+  /** La ficha completa del cliente, en un modal (no en otra pestaña). */
+  const [verFicha, setVerFicha] = useState(false);
 
   async function cargar() {
     setError(null);
@@ -175,10 +176,23 @@ export default function DatosClienteModal({
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-[#4FAEB2]">
               <History className="h-3.5 w-3.5" /> Historial de compras
             </button>
-            <Link href={`/clientes/${clienteId}`} target="_blank" className="text-xs font-medium text-sky-700 hover:underline">Abrir la ficha completa</Link>
+            <button type="button" onClick={() => setVerFicha(true)} className="text-xs font-medium text-sky-700 hover:underline">Abrir la ficha completa</button>
           </div>
         </div>
       </div>
+      {verFicha && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-slate-900/50 p-3 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) { setVerFicha(false); void cargar(); } }}>
+          <div className="relative flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2.5">
+              <p className="text-sm font-semibold text-slate-800">Ficha de {nombre}</p>
+              <button type="button" onClick={() => { setVerFicha(false); void cargar(); onGuardado?.(); }}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Cerrar"><X className="h-4 w-4" /></button>
+            </div>
+            <iframe title={`Ficha de ${nombre}`} src={`/clientes/${clienteId}?embebido=1`} className="min-h-0 w-full flex-1 border-0" />
+          </div>
+        </div>
+      )}
       {verHistorial && (
         // El modal del historial es z-50: dentro de este contexto queda arriba.
         <div className="relative z-[70]">
