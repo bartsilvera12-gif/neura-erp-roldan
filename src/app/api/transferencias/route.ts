@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { resolverCtx, respError, respProhibido } from "./_ctx";
-import { MAX_ITEMS_TRANSFERENCIA, mensajeTope, puedeCrearRemision, veTotalTransferencia } from "@/lib/transferencias/reglas";
+import { resolverCtx, respError, respProhibido, puedeCrearTransferencia } from "./_ctx";
+import { MAX_ITEMS_TRANSFERENCIA, mensajeTope, veTotalTransferencia } from "@/lib/transferencias/reglas";
 import { crearTransferencia } from "@/lib/transferencias/server/transferencias-pg";
 import { listarTransferencias, contarPorEstado } from "@/lib/transferencias/server/transferencias-queries";
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const filtroRaw = sp.get("filtro");
     const filtro = filtroRaw === "realizadas" || filtroRaw === "recibidas" ? filtroRaw : "todas";
 
-    const [transferencias, conteos] = await Promise.all([
+    const [transferencias, conteos, puedeCrear] = await Promise.all([
       listarTransferencias({
         schemaRaw: r.ctx.schema,
         empresaId: r.ctx.empresaId,
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         usuario: sp.get("usuario"),
       }),
       contarPorEstado({ schemaRaw: r.ctx.schema, empresaId: r.ctx.empresaId, sucursalId: r.ctx.sucursalId }),
+      puedeCrearTransferencia(r.ctx),
     ]);
     // El total en guaraníes es de administración: al resto ni le llega.
     const veTotal = veTotalTransferencia(r.ctx.rol);
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       transferencias: veTotal ? transferencias : transferencias.map((t) => ({ ...t, total_gs: null })),
       conteos,
       ve_total: veTotal,
-      puede_crear: puedeCrearRemision(r.ctx.rol),
+      puede_crear: puedeCrear,
     }));
   } catch (err) {
     return respError(err);
@@ -51,9 +52,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const r = await resolverCtx(request);
   if (!r.ok) return r.response;
-  // Pedido del cliente: el usuario normal ve las remisiones pero no las crea.
-  if (!puedeCrearRemision(r.ctx.rol)) {
-    return respProhibido("Tu usuario puede ver las remisiones y transferencias, pero no crearlas.");
+  // Crea quien tiene el módulo de transferencias (o un rol que ya podía).
+  if (!(await puedeCrearTransferencia(r.ctx))) {
+    return respProhibido("Tu usuario puede ver las transferencias, pero no crearlas: pedile a un administrador el módulo de transferencias.");
   }
   try {
     const body = (await request.json().catch(() => ({}))) as {

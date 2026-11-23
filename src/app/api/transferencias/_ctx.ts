@@ -7,6 +7,9 @@ import { getChatPostgresPool, quoteSchemaTable } from "@/lib/supabase/chat-pg-po
 import { assertAllowedChatDataSchema } from "@/lib/supabase/chat-data-schema";
 import type { LadoTransferencia } from "@/lib/transferencias/permisos";
 import { TransferenciaError } from "@/lib/transferencias/server/transferencias-pg";
+import { puedeCrearRemision } from "@/lib/transferencias/reglas";
+import { resolveEffectiveModules } from "@/lib/modulos/resolve-effective-modules";
+import { createServiceRoleClient } from "@/lib/supabase/service-admin";
 
 /** Traduce errores de dominio a respuestas HTTP; el resto es 500 genérico. */
 export function respError(err: unknown): NextResponse {
@@ -84,4 +87,32 @@ export async function cargarLado(
     [transferenciaId, empresaId]
   );
   return rows[0] ?? null;
+}
+
+/**
+ * ¿Puede crear transferencias? (pedido del cliente: «si le doy a alguien el
+ * módulo de transferencia debería poder crear»).
+ *
+ * Antes era solo por rol: el usuario normal veía las transferencias pero no
+ * las creaba, aunque tuviera el módulo en su perfil. Ahora alcanza con tener
+ * el módulo «Transferencias entre sucursales» (slug `reposicion`) o el
+ * Inventario completo. Los roles que ya podían, siguen pudiendo.
+ */
+export async function puedeCrearTransferencia(ctx: TransfCtx): Promise<boolean> {
+  if (puedeCrearRemision(ctx.rol)) return true;
+  if (!ctx.usuarioId) return false;
+  try {
+    const modulos = await resolveEffectiveModules(createServiceRoleClient(), {
+      id: ctx.usuarioId,
+      empresa_id: ctx.empresaId,
+      rol: ctx.rol,
+    });
+    return modulos.some((m) => {
+      const s = (m.slug ?? "").trim().toLowerCase();
+      return s === "reposicion" || s === "inventario";
+    });
+  } catch (err) {
+    console.error("[api/transferencias] módulos", err instanceof Error ? err.message : err);
+    return false;
+  }
 }
