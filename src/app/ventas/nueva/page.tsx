@@ -1748,6 +1748,19 @@ export default function NuevaVentaPage() {
       // creó la factura ERP, saltamos directo al panel /facturas/[id]?auto=1 que
       // arranca el pipeline SIFEN (borrador → firma → envío → KUDE). Si el puente
       // no aplicó o falló (resultado.factura null), seguimos el flujo de ticket.
+      // El presupuesto de origen queda cobrado (convertido) ANTES de cualquier
+      // salida: con factura, el flujo terminaba antes de llegar acá y el
+      // presupuesto seguía en la cola de cobro aunque ya se hubiera cobrado.
+      if (presupuestoId && resultado.venta?.id) {
+        try {
+          await fetchWithSupabaseSession(`/api/presupuestos/${presupuestoId}/marcar-convertido`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ venta_id: resultado.venta.id }),
+          });
+        } catch { /* best-effort: si falla, se puede marcar a mano */ }
+      }
+
       if (modoSifen && tipoDocumento === "factura" && resultado.factura?.id) {
         router.push(`/facturas/${resultado.factura.id}?auto=1`);
         return;
@@ -1775,17 +1788,6 @@ export default function NuevaVentaPage() {
       const ticketUrl = `/api/ventas/${v.id}/comprobante-a4`;
       const remisionUrl = `/api/ventas/${v.id}/ticket?tipo=remision&auto=1`;
 
-      // Si esta venta se origino desde un presupuesto, marcar el presupuesto
-      // como convertido (guardando el venta_id como convertido_pedido_id).
-      if (presupuestoId) {
-        try {
-          await fetchWithSupabaseSession(`/api/presupuestos/${presupuestoId}/marcar-convertido`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ venta_id: v.id }),
-          });
-        } catch { /* best-effort: si falla, se puede marcar a mano */ }
-      }
       // Intento de apertura automática del ticket (popup; el navegador puede
       // bloquearlo). Si pasa, el cajero puede reimprimirlo desde el listado.
       try { window.open(ticketUrl, "_blank", "noopener"); } catch {}
