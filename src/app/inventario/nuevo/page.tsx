@@ -22,6 +22,12 @@ interface CatRow { id: string; nombre: string; descuento_pct?: number | null }
 interface UbiRow { id: string; nombre: string; tipo: string }
 interface ProvRow { id: string; nombre: string }
 
+/** ¿Está abierta dentro de un modal de otra pantalla (`?embebido=1`)? */
+function embebido(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("embebido") === "1" && window.parent !== window;
+}
+
 export default function NuevoProductoPage() {
   const router = useRouter();
   // Alta de productos: solo admin. Un no-admin es redirigido al listado.
@@ -458,6 +464,12 @@ export default function NuevoProductoPage() {
         }
       }
 
+      // Abierto dentro de otra pantalla (p. ej. Nueva compra): se avisa a la
+      // pantalla de afuera con el producto creado, en vez de navegar.
+      if (embebido()) {
+        window.parent.postMessage({ tipo: "neura:producto-creado", producto: guardado }, window.location.origin);
+        return;
+      }
       router.push("/inventario");
     } catch (err) {
       console.error("[inventario/nuevo] handleSubmit error:", err);
@@ -1103,7 +1115,13 @@ export default function NuevoProductoPage() {
 
             <button
               type="button"
-              onClick={() => router.push("/inventario")}
+              onClick={() => {
+                if (embebido()) {
+                  window.parent.postMessage({ tipo: "neura:producto-cancelado" }, window.location.origin);
+                  return;
+                }
+                router.push("/inventario");
+              }}
               className="border border-slate-200 px-5 py-3 rounded-lg text-sm hover:bg-slate-50 transition-colors"
             >
               Cancelar

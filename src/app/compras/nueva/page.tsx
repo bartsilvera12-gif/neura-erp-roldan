@@ -6,13 +6,13 @@ import MontoInput from "@/components/ui/MontoInput";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { saveCompraMulti, uploadComprobante, type CompraItemPayload } from "@/lib/compras/storage";
 import { getProveedores, proveedorExiste, createProveedor } from "@/lib/proveedores/storage";
-import { getProductos, productoExiste, saveProducto } from "@/lib/inventario/storage";
+import { getProductos } from "@/lib/inventario/storage";
 import type { TipoIva, TipoPago, Moneda } from "@/lib/compras/types";
 import {
   MEDIOS_PAGO_COMPRA, normalizarMedioCompra, type MedioPagoCompra,
 } from "@/lib/compras/pago-caja";
 import type { Proveedor } from "@/lib/proveedores/types";
-import type { MetodoValuacion, Producto } from "@/lib/inventario/types";
+import type { Producto } from "@/lib/inventario/types";
 import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib/formato/numero-factura";
 
 import { Check } from "lucide-react";
@@ -294,11 +294,6 @@ export default function NuevaCompraPage() {
   const [proveedorCreado, setProveedorCreado] = useState<string | null>(null);
 
   const [mostrarFormProducto, setMostrarFormProducto] = useState(false);
-  const [formProducto, setFormProducto] = useState({
-    nombre: "", sku: "", unidad_medida: "UNIDAD", metodo_valuacion: "CPP" as MetodoValuacion,
-    stock_minimo: "0", precio_venta_sugerido: "", tipo: "reventa" as "reventa" | "menu" | "materia",
-  });
-  const [errorSku, setErrorSku] = useState<string | null>(null);
   const [productoCreado, setProductoCreado] = useState<string | null>(null);
 
   // Comprobante / factura del proveedor (opcional, para toda la compra)
@@ -750,47 +745,37 @@ export default function NuevaCompraPage() {
   }
 
   // ── Inline producto ──────────────────────────────────────────────────────────
-  function handleProductoInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    if (e.target.name === "sku") setErrorSku(null);
-    setFormProducto((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  }
-  async function handleAgregarProducto() {
-    if (!formProducto.nombre.trim() || !formProducto.sku.trim()) return;
-    setErrorSku(null);
-    const dup = await productoExiste(formProducto.sku, formProducto.nombre);
-    if (dup) { setErrorSku(`Ya existe un producto con ese SKU o nombre ("${dup.nombre}" — ${dup.sku}).`); return; }
-    // Mapear el tipo elegido a los flags del producto (igual que en Inventario → Nuevo).
-    const flags =
-      formProducto.tipo === "materia"
-        ? { es_vendible: false, es_insumo: true, controla_stock: false }
-        : formProducto.tipo === "menu"
-        ? { es_vendible: true, es_insumo: false, controla_stock: false }
-        : { es_vendible: true, es_insumo: false, controla_stock: true };
-    const creado = await saveProducto({
-      nombre: formProducto.nombre.trim().toUpperCase(), sku: formProducto.sku.trim().toUpperCase(),
-      unidad_medida: formProducto.unidad_medida.toUpperCase(), metodo_valuacion: formProducto.metodo_valuacion,
-      stock_actual: 0, stock_minimo: parseInt(formProducto.stock_minimo) || 0,
-      costo_promedio: nlCostoPYG || 0, precio_venta: parseFloat(formProducto.precio_venta_sugerido) || 0,
-      ...flags,
-    });
-    if (!creado) return;
-    // Insert optimista para que la línea reconozca de inmediato si es insumo (precio opcional).
-    setProductos((prev) => (prev.some((p) => p.id === creado.id) ? prev : [...prev, creado]));
-    recargarProductos();
-    const creadoInsumo = formProducto.tipo === "materia";
-    setNl((prev) => ({
-      ...prev, producto_id: creado.id, iva_tipo: ivaDeProducto(creado.tipo_iva),
-      // Para materia prima dejamos el precio vacío (es opcional).
-      precio_venta: creadoInsumo ? "" : (formProducto.precio_venta_sugerido || prev.precio_venta),
-    }));
-    setProductoCreado(creado.nombre);
-    setMostrarFormProducto(false);
-    setFormProducto({ nombre: "", sku: "", unidad_medida: "UNIDAD", metodo_valuacion: "CPP", stock_minimo: "0", precio_venta_sugerido: "", tipo: "reventa" });
-  }
+  /**
+   * El producto se crea con la ficha completa de Inventario (en un modal). Al
+   * guardar, esa ficha avisa con el producto creado y acá queda elegido en la
+   * línea, con su IVA, su costo y su precio.
+   */
+  useEffect(() => {
+    if (!mostrarFormProducto) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { tipo?: string; producto?: Producto } | null;
+      if (d?.tipo === "neura:producto-cancelado") { setMostrarFormProducto(false); return; }
+      if (d?.tipo !== "neura:producto-creado" || !d.producto) return;
+      const creado = d.producto;
+      setProductos((prev) => (prev.some((p) => p.id === creado.id) ? prev : [...prev, creado]));
+      recargarProductos();
+      setNl((prev) => ({
+        ...prev,
+        producto_id: creado.id,
+        iva_tipo: ivaDeProducto(creado.tipo_iva),
+        costo_unitario_input: creado.costo_promedio ? String(Math.round(Number(creado.costo_promedio))) : prev.costo_unitario_input,
+        precio_venta: creado.precio_venta ? String(creado.precio_venta) : prev.precio_venta,
+      }));
+      setProductoCreado(creado.nombre);
+      setMostrarFormProducto(false);
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [mostrarFormProducto]);
+
   function handleCancelarProducto() {
     setMostrarFormProducto(false);
-    setFormProducto({ nombre: "", sku: "", unidad_medida: "UNIDAD", metodo_valuacion: "CPP", stock_minimo: "0", precio_venta_sugerido: "", tipo: "reventa" });
-    setErrorSku(null);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1171,73 +1156,19 @@ export default function NuevaCompraPage() {
                     ¿No encontrás el producto? Crear nuevo
                   </button>
                 ) : (
-                  <InlineFormBox titulo="Nuevo producto" onCancel={handleCancelarProducto} onSave={handleAgregarProducto}
-                    saveDisabled={!formProducto.nombre.trim() || !formProducto.sku.trim()}>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="col-span-2">
-                        <label className={labelSmClass}>Tipo de producto</label>
-                        <SegmentedControl<"reventa" | "menu" | "materia"> small value={formProducto.tipo}
-                          options={[
-                            { value: "reventa", label: "Reventa" },
-                            { value: "menu", label: "Menú" },
-                            { value: "materia", label: "Materia prima" },
-                          ]}
-                          onChange={(v) => setFormProducto((prev) => ({
-                            ...prev,
-                            tipo: v,
-                            // Materia prima suele medirse en gramos; si está en "Unidad", sugerimos "G".
-                            unidad_medida: v === "materia" && prev.unidad_medida === "UNIDAD" ? "G" : prev.unidad_medida,
-                          }))} />
-                        {formProducto.tipo === "materia" && (
-                          <p className="mt-1.5 text-xs text-amber-600">
-                            Materia prima / insumo: se usa en recetas. No requiere precio de venta.
-                          </p>
-                        )}
+                  /* La ficha COMPLETA del producto (pedido del cliente: «que
+                     salgan todos los datos para completar»), solo Reventa, en un
+                     modal. Al guardar, el producto queda elegido en la línea. */
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+                    <div className="flex h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+                      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                        <p className="text-sm font-semibold text-slate-800">Nuevo producto</p>
+                        <button type="button" onClick={handleCancelarProducto}
+                          className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100">Cerrar</button>
                       </div>
-                      <div>
-                        <label className={labelSmClass}>Nombre <span className="text-red-500">*</span></label>
-                        <input type="text" name="nombre" value={formProducto.nombre} onChange={handleProductoInputChange}
-                          placeholder="Ej: CHÍA 500G" className={`${inputSmClass} uppercase`} />
-                      </div>
-                      <div>
-                        <label className={labelSmClass}>SKU / Código <span className="text-red-500">*</span></label>
-                        <input type="text" name="sku" value={formProducto.sku} onChange={handleProductoInputChange}
-                          placeholder="Ej: CHIA-500" className={`${inputSmClass} uppercase ${errorSku ? "border-red-300 bg-red-50" : ""}`} />
-                        {errorSku && <p className="mt-1 text-xs text-red-600">{errorSku}</p>}
-                      </div>
-                      <div>
-                        <label className={labelSmClass}>Unidad de medida</label>
-                        <Selector name="unidad_medida" value={formProducto.unidad_medida} onChange={handleProductoInputChange} className={inputSmClass}>
-                          <option value="UNIDAD">Unidad</option>
-                          <option value="BOLSA">Bolsa</option>
-                          <option value="KG">Kg</option>
-                          <option value="G">G</option>
-                          <option value="LT">Litro</option>
-                          <option value="ML">Ml</option>
-                          <option value="CAJA">Caja</option>
-                          <option value="PAQUETE">Paquete</option>
-                          <option value="DOCENA">Docena</option>
-                          <option value="LATA">Lata</option>
-                          <option value="BOTELLA">Botella</option>
-                          <option value="PORCION">Porción</option>
-                          <option value="COMBO">Combo</option>
-                        </Selector>
-                      </div>
-                      <div>
-                        <label className={labelSmClass}>Stock mínimo</label>
-                        <input type="number" name="stock_minimo" value={formProducto.stock_minimo} onChange={handleProductoInputChange}
-                          placeholder="Ej: 5" min={0} className={inputSmClass} />
-                      </div>
-                      {formProducto.tipo !== "materia" && (
-                        <div className="col-span-2">
-                          <label className={labelSmClass}>Precio de venta sugerido (Gs.)</label>
-                          <MontoInput value={formProducto.precio_venta_sugerido}
-                            onChange={(n) => setFormProducto((prev) => ({ ...prev, precio_venta_sugerido: String(n) }))}
-                            placeholder="Ej: 25000" className={inputSmClass} decimals={false} />
-                        </div>
-                      )}
+                      <iframe src="/inventario/nuevo?embebido=1" title="Nuevo producto" className="w-full flex-1 border-0" />
                     </div>
-                  </InlineFormBox>
+                  </div>
                 )}
               </div>
 
