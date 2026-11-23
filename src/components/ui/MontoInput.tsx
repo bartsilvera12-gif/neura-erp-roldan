@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 /** Formatea número con separador de miles (Paraguay: 1.200.000) */
 export function formatMontoDisplay(value: number | string, decimals = true): string {
   const n = typeof value === "string" ? parseMontoInput(value) : value;
@@ -57,11 +59,18 @@ export default function MontoInput({
         ? Number(value.trim()) || 0
         : parseMontoInput(value))
     : Number(value) || 0;
-  const display = (typeof value === "string" && value === "") ? "" : formatMontoDisplay(numValue, decimals);
+  // Mientras se escribe un decimal («12.», «12.5», «12,50») se muestra tal
+  // cual se tipea. Antes se reformateaba en cada tecla: «12.» pasaba a «12» y
+  // el punto desaparecía, así que no se podían cargar centavos (en dólares).
+  const [borrador, setBorrador] = useState<string | null>(null);
+  const formateado = (typeof value === "string" && value === "") ? "" : formatMontoDisplay(numValue, decimals);
+  // Si desde afuera vaciaron el campo (p. ej. al agregar la línea), manda eso.
+  const display = borrador !== null && value !== "" ? borrador : formateado;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const n = parseMontoInput(e.target.value);
-    onChange(n);
+    const t = e.target.value.replace(/\s/g, "");
+    setBorrador(decimals && /^\d+[.,]\d{0,2}$/.test(t) ? t : null);
+    onChange(parseMontoInput(t));
   };
 
   return (
@@ -72,6 +81,7 @@ export default function MontoInput({
       onChange={handleChange}
       className={className}
       {...rest}
+      onBlur={(e) => { setBorrador(null); rest.onBlur?.(e); }}
     />
   );
 }

@@ -53,6 +53,11 @@ const labelSmClass = "block text-xs font-medium text-slate-600 mb-1.5";
 
 const ivaLabel: Record<TipoIva, string> = { exenta: "Exenta", "5": "IVA 5%", "10": "IVA 10%" };
 
+/** El IVA es del producto (pedido del cliente): en la compra no se elige. */
+function ivaDeProducto(tipo?: string | null): TipoIva {
+  return tipo === "EXENTA" ? "exenta" : tipo === "5%" ? "5" : "10";
+}
+
 // ── Tipos locales ────────────────────────────────────────────────────────────
 
 type LineaCompra = {
@@ -774,7 +779,7 @@ export default function NuevaCompraPage() {
     recargarProductos();
     const creadoInsumo = formProducto.tipo === "materia";
     setNl((prev) => ({
-      ...prev, producto_id: creado.id,
+      ...prev, producto_id: creado.id, iva_tipo: ivaDeProducto(creado.tipo_iva),
       // Para materia prima dejamos el precio vacío (es opcional).
       precio_venta: creadoInsumo ? "" : (formProducto.precio_venta_sugerido || prev.precio_venta),
     }));
@@ -1139,6 +1144,7 @@ export default function NuevaCompraPage() {
                     setNl((prev) => ({
                       ...prev,
                       producto_id: id,
+                      iva_tipo: ivaDeProducto(p?.tipo_iva),
                       costo_unitario_input: p ? String(Math.round(Number(p.costo_promedio) || 0)) : "",
                       precio_venta: !p || insumoNoVendible ? "" : String(p.precio_venta),
                     }));
@@ -1250,9 +1256,10 @@ export default function NuevaCompraPage() {
                 </div>
                 <div>
                   <label className={labelSmClass}>IVA</label>
-                  <SegmentedControl<TipoIva> small value={nl.iva_tipo}
-                    options={[{ value: "exenta", label: "Ex." }, { value: "5", label: "5%" }, { value: "10", label: "10%" }]}
-                    onChange={(v) => setNl((p) => ({ ...p, iva_tipo: v }))} />
+                  {/* Fijo: sale de la ficha del producto. */}
+                  <div className={`${inputSmClass} cursor-not-allowed bg-slate-50 text-slate-700`} title="El IVA es el de la ficha del producto.">
+                    {nl.producto_id ? ivaLabel[nl.iva_tipo] : "—"}
+                  </div>
                 </div>
                 <div>
                   {/* El precio de venta sigue la moneda de la compra, igual que
