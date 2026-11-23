@@ -17,12 +17,13 @@ import MontoInput from "@/components/ui/MontoInput";
  * El modal no guarda nada propio: maneja los mismos estados de la pantalla de
  * Nueva venta, así que lo que se elige acá es lo que se manda al confirmar.
  */
-export type FormaPago = "efectivo" | "transferencia" | "tarjeta" | "mixto" | "credito";
+export type FormaPago = "efectivo" | "transferencia" | "tarjeta" | "cheque" | "mixto" | "credito";
 
 const FORMAS: Array<{ v: FormaPago; label: string; Icon: typeof Banknote }> = [
   { v: "efectivo", label: "Efectivo", Icon: Banknote },
   { v: "transferencia", label: "Transferencia", Icon: Landmark },
   { v: "tarjeta", label: "Tarjeta", Icon: CreditCard },
+  { v: "cheque", label: "Cheque", Icon: FileText },
   { v: "mixto", label: "Mixto", Icon: Layers },
   { v: "credito", label: "Crédito", Icon: CalendarClock },
 ];

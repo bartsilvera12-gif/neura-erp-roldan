@@ -332,7 +332,7 @@ export default function NuevaVentaPage() {
 
   // ── Pago mixto (contado con varios metodos) ───────────────────────────────
   type PagoMixtoLinea = {
-    metodo: "efectivo" | "transferencia" | "tarjeta";
+    metodo: "efectivo" | "transferencia" | "tarjeta" | "cheque";
     monto: string;
     entidad_id: string;
     referencia: string;
@@ -1677,7 +1677,9 @@ export default function NuevaVentaPage() {
               entidad_nombre_snapshot:
                 entidades.find((e) => e.id === p.entidad_id)?.nombre ?? null,
               referencia: p.referencia.trim() || null,
-              titular: p.metodo === "transferencia" ? p.titular.trim() || null : null,
+              // El titular vale para transferencia Y para cheque: en el cheque
+              // es quien lo firma, que es a quien se le reclama si rebota.
+              titular: p.metodo === "transferencia" || p.metodo === "cheque" ? p.titular.trim() || null : null,
             }))
         : null;
 
@@ -1703,7 +1705,7 @@ export default function NuevaVentaPage() {
           entidad_bancaria_id: pagoEntidadId || null,
           entidad_nombre_snapshot: entidades.find((e) => e.id === pagoEntidadId)?.nombre ?? null,
           referencia: pagoReferencia.trim() || null,
-          titular: metodoPago === "transferencia" ? pagoTitular.trim() || null : null,
+          titular: metodoPago === "transferencia" || metodoPago === "cheque" ? pagoTitular.trim() || null : null,
           observacion: pagoObservacion.trim() || null,
         },
         {
@@ -1816,7 +1818,9 @@ export default function NuevaVentaPage() {
   const formaPago: FormaPago =
     tipoVenta === "CREDITO" ? "credito"
     : pagoMixto ? "mixto"
-    : metodoPago === "transferencia" || metodoPago === "tarjeta" ? metodoPago
+    // Cheque incluido: sin él, elegir cheque dejaba el botón marcado en
+    // «Efectivo» y la venta se registraba como efectivo.
+    : metodoPago === "transferencia" || metodoPago === "tarjeta" || metodoPago === "cheque" ? metodoPago
     : "efectivo";
   function elegirForma(f: FormaPago) {
     if (f === "credito") {
@@ -2807,11 +2811,12 @@ export default function NuevaVentaPage() {
                       )}
 
                       {!pagoMixto && (
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-2 gap-1.5">
                         {([
                           { v: "efectivo", label: "Efectivo" },
                           { v: "transferencia", label: "Transferencia" },
                           { v: "tarjeta", label: "Tarjeta/Débito" },
+                          { v: "cheque", label: "Cheque" },
                         ] as { v: MetodoPago; label: string }[]).map((m) => (
                           <button
                             key={m.v}
@@ -3266,7 +3271,7 @@ export default function NuevaVentaPage() {
 // ── Combobox rubro con búsqueda (paleta Zentra) ───────────────────────────
 // ── Editor de pago mixto (2+ metodos por venta) ───────────────────────────────
 type PagoMixtoLinea = {
-  metodo: "efectivo" | "transferencia" | "tarjeta";
+  metodo: "efectivo" | "transferencia" | "tarjeta" | "cheque";
   monto: string;
   entidad_id: string;
   referencia: string;
@@ -3312,7 +3317,7 @@ function PagosMixtoEditor({
   return (
     <div className="space-y-3">
       {pagos.map((p, i) => {
-        const needEntidad = p.metodo === "transferencia" || p.metodo === "tarjeta";
+        const needEntidad = p.metodo === "transferencia" || p.metodo === "tarjeta" || p.metodo === "cheque";
         return (
         <div key={i} className="rounded-xl border border-slate-200 bg-white p-3">
           {/* Grid fijo: metodo | monto | entidad | ref | titular | +resto | ×
@@ -3328,6 +3333,7 @@ function PagosMixtoEditor({
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="tarjeta">Tarjeta/Débito</option>
+              <option value="cheque">Cheque</option>
             </Selector>
             <input
               type="number"
@@ -3400,6 +3406,7 @@ function PagosMixtoEditor({
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="tarjeta">Tarjeta/Débito</option>
+              <option value="cheque">Cheque</option>
             </Selector>
             <input
               type="number"

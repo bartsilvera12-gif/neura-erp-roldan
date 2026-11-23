@@ -80,7 +80,7 @@ export async function getVentas(
  */
 /** Una línea de cobro cuando la venta se paga con más de un método (pago mixto). */
 export interface PagoLinea {
-  metodo_pago: "efectivo" | "transferencia" | "tarjeta";
+  metodo_pago: "efectivo" | "transferencia" | "tarjeta" | "cheque";
   monto: number;
   entidad_bancaria_id?: string | null;
   entidad_nombre_snapshot?: string | null;

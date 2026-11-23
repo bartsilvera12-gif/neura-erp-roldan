@@ -279,7 +279,7 @@ export async function getReporteCajas(
   // 2b) Desglose por metodo desde ventas_pagos_detalle (pago mixto).
   //     Solo lo cargamos para las ventas de estos turnos.
   const ventaIds = ventas.map((v) => v.id);
-  type PagosBreakdown = { efectivo: number; tarjeta: number; transferencia: number };
+  type PagosBreakdown = { efectivo: number; tarjeta: number; transferencia: number; cheque: number };
   const pagosByVenta = new Map<string, PagosBreakdown>();
   if (ventaIds.length > 0) {
     const pdQ = await sb
@@ -296,12 +296,23 @@ export async function getReporteCajas(
       for (const r of rows) {
         let b = pagosByVenta.get(r.venta_id);
         if (!b) {
-          b = { efectivo: 0, tarjeta: 0, transferencia: 0 };
+          b = { efectivo: 0, tarjeta: 0, transferencia: 0, cheque: 0 };
           pagosByVenta.set(r.venta_id, b);
         }
         const monto = num(r.monto);
+        /*
+          ── EL CHEQUE NO ES EFECTIVO ──────────────────────────────────────
+          Este `else` mandaba a efectivo TODO lo que no fuera tarjeta ni
+          transferencia, cheque incluido. En el pago mixto eso no es solo un
+          número mal en el resumen: el efectivo ESPERADO del arqueo sale de
+          acá, así que a la cajera le aparecía un faltante del tamaño del
+          cheque, y el cheque mismo no figuraba en ningún lado.
+          Sigue cayendo a efectivo lo que no tiene medio cargado ("otro",
+          null): eso sí es plata del cajón mientras no se diga otra cosa.
+        */
         if (r.metodo_pago === "tarjeta") b.tarjeta += monto;
         else if (r.metodo_pago === "transferencia") b.transferencia += monto;
+        else if (r.metodo_pago === "cheque") b.cheque += monto;
         else b.efectivo += monto;
       }
     }
@@ -397,6 +408,7 @@ export async function getReporteCajas(
       a.total_efectivo += bk.efectivo;
       a.total_tarjeta += bk.tarjeta;
       a.total_transferencia += bk.transferencia;
+      a.total_cheque += bk.cheque;
     } else if (v.metodo_pago === "tarjeta") a.total_tarjeta += cobradoHoy;
     else if (v.metodo_pago === "cheque") a.total_cheque += cobradoHoy;
     else if (v.metodo_pago === "transferencia") a.total_transferencia += cobradoHoy;
@@ -595,7 +607,7 @@ export async function getDetalleCaja(
 
   // Desglose por metodo desde ventas_pagos_detalle (para pago mixto).
   const detalleIds = ventas.map((v) => v.id);
-  const detallePagos = new Map<string, { efectivo: number; tarjeta: number; transferencia: number }>();
+  const detallePagos = new Map<string, { efectivo: number; tarjeta: number; transferencia: number; cheque: number }>();
   if (detalleIds.length > 0) {
     const pdQ = await sb
       .from("ventas_pagos_detalle")
@@ -605,10 +617,21 @@ export async function getDetalleCaja(
     if (!pdQ.error) {
       for (const r of (pdQ.data ?? []) as Array<{ venta_id: string; metodo_pago: string | null; monto: number | string }>) {
         let b = detallePagos.get(r.venta_id);
-        if (!b) { b = { efectivo: 0, tarjeta: 0, transferencia: 0 }; detallePagos.set(r.venta_id, b); }
+        if (!b) { b = { efectivo: 0, tarjeta: 0, transferencia: 0, cheque: 0 }; detallePagos.set(r.venta_id, b); }
         const monto = num(r.monto);
+        /*
+          ── EL CHEQUE NO ES EFECTIVO ──────────────────────────────────────
+          Este `else` mandaba a efectivo TODO lo que no fuera tarjeta ni
+          transferencia, cheque incluido. En el pago mixto eso no es solo un
+          número mal en el resumen: el efectivo ESPERADO del arqueo sale de
+          acá, así que a la cajera le aparecía un faltante del tamaño del
+          cheque, y el cheque mismo no figuraba en ningún lado.
+          Sigue cayendo a efectivo lo que no tiene medio cargado ("otro",
+          null): eso sí es plata del cajón mientras no se diga otra cosa.
+        */
         if (r.metodo_pago === "tarjeta") b.tarjeta += monto;
         else if (r.metodo_pago === "transferencia") b.transferencia += monto;
+        else if (r.metodo_pago === "cheque") b.cheque += monto;
         else b.efectivo += monto;
       }
     }
@@ -1151,7 +1174,7 @@ async function computeResumen(
 
   // Desglose por metodo desde ventas_pagos_detalle (pago mixto).
   const ventaIdsR = ventas.map((v) => v.id);
-  const detalleByVenta = new Map<string, { efectivo: number; tarjeta: number; transferencia: number }>();
+  const detalleByVenta = new Map<string, { efectivo: number; tarjeta: number; transferencia: number; cheque: number }>();
   if (ventaIdsR.length > 0) {
     const pdQ = await sb
       .from("ventas_pagos_detalle")
@@ -1161,10 +1184,21 @@ async function computeResumen(
     if (!pdQ.error) {
       for (const r of (pdQ.data ?? []) as Array<{ venta_id: string; metodo_pago: string | null; monto: number | string }>) {
         let b = detalleByVenta.get(r.venta_id);
-        if (!b) { b = { efectivo: 0, tarjeta: 0, transferencia: 0 }; detalleByVenta.set(r.venta_id, b); }
+        if (!b) { b = { efectivo: 0, tarjeta: 0, transferencia: 0, cheque: 0 }; detalleByVenta.set(r.venta_id, b); }
         const monto = num(r.monto);
+        /*
+          ── EL CHEQUE NO ES EFECTIVO ──────────────────────────────────────
+          Este `else` mandaba a efectivo TODO lo que no fuera tarjeta ni
+          transferencia, cheque incluido. En el pago mixto eso no es solo un
+          número mal en el resumen: el efectivo ESPERADO del arqueo sale de
+          acá, así que a la cajera le aparecía un faltante del tamaño del
+          cheque, y el cheque mismo no figuraba en ningún lado.
+          Sigue cayendo a efectivo lo que no tiene medio cargado ("otro",
+          null): eso sí es plata del cajón mientras no se diga otra cosa.
+        */
         if (r.metodo_pago === "tarjeta") b.tarjeta += monto;
         else if (r.metodo_pago === "transferencia") b.transferencia += monto;
+        else if (r.metodo_pago === "cheque") b.cheque += monto;
         else b.efectivo += monto;
       }
     }

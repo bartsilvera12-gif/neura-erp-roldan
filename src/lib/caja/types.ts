@@ -177,7 +177,7 @@ export interface CajaDetalleVenta {
   /** Por qué se anuló, cuando se anuló. */
   anulacion_motivo?: string | null;
   /** Si fue pago mixto, desglose real por metodo (desde ventas_pagos_detalle). */
-  desglose_pago?: { efectivo: number; tarjeta: number; transferencia: number } | null;
+  desglose_pago?: { efectivo: number; tarjeta: number; transferencia: number; cheque: number } | null;
   /**
    * Parte del total que pagó un anticipo del cliente: plata que entró al
    * cajón en un turno anterior. El arqueo de HOY no la cuenta — si la contara,

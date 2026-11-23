@@ -367,13 +367,19 @@ export async function GET(request: NextRequest) {
         total: num(r.total),
         tipo_venta: r.tipo_venta === "CREDITO" ? "CREDITO" : "CONTADO",
         plazo_dias: r.plazo_dias ?? undefined,
-        metodo_pago: (r as unknown as { metodo_pago?: string }).metodo_pago === "tarjeta"
-          ? "tarjeta"
-          : (r as unknown as { metodo_pago?: string }).metodo_pago === "transferencia"
-          ? "transferencia"
-          : (r as unknown as { metodo_pago?: string }).metodo_pago === "efectivo"
-          ? "efectivo"
-          : undefined,
+        /*
+          La cadena de ternarios reconocía tres medios y devolvía `undefined`
+          para el resto: una venta en CHEQUE —o mixta— salía en el listado sin
+          medio de pago, aunque estuviera bien guardada. Se pasa a una lista
+          para que agregar un medio sea agregarlo acá y nada más.
+        */
+        metodo_pago: (() => {
+          const m = (r as unknown as { metodo_pago?: string }).metodo_pago;
+          const conocidos = ["efectivo", "tarjeta", "transferencia", "cheque", "mixto"] as const;
+          return (conocidos as readonly string[]).includes(String(m))
+            ? (m as (typeof conocidos)[number])
+            : undefined;
+        })(),
         genera_nota_remision: (r as unknown as { genera_nota_remision?: boolean }).genera_nota_remision === true,
         nota_remision_numero: (r as unknown as { nota_remision_numero?: string | null }).nota_remision_numero ?? null,
         fecha: r.fecha,
