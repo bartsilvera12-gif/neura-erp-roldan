@@ -608,7 +608,7 @@ function MovimientosAgrupados({ resumen }: { resumen: CajaResumen }) {
   }
   const orden: Array<[ClaseMovimiento | "anticipo", string, string]> = [
     ["cobranza", ETIQUETA_CLASE.cobranza, "text-emerald-700"],
-    ["anticipo", "Anticipos", "text-emerald-700"],
+    ["anticipo", "Anticipos de facturación", "text-emerald-700"],
     ["retencion", ETIQUETA_CLASE.retencion, "text-sky-700"],
     ["egreso", ETIQUETA_CLASE.egreso, "text-red-600"],
     ["retiro", ETIQUETA_CLASE.retiro, "text-red-600"],
