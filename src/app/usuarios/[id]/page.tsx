@@ -229,6 +229,47 @@ function UsuarioDetailContent() {
     setForm((prev) => ({ ...prev, [name]: normalized } as UsuarioFormValues));
   }
 
+  /**
+   * Perfil y reportes se eligen en la ficha (fuera de «Editar») y no había
+   * con qué guardarlos (pedido del cliente: «le pongo el perfil pero no me
+   * deja guardar»). Este botón manda solo esos dos.
+   */
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [errorPerfil, setErrorPerfil] = useState<string | null>(null);
+  const reportesOriginales = Array.isArray(usuario?.reportes_permitidos) ? usuario!.reportes_permitidos! : [];
+  const reportesCambiaron =
+    !!usuario?.reportes_disponible && !usuario?.es_admin_empresa &&
+    [...reportesSel].sort().join(",") !== [...reportesOriginales].sort().join(",");
+  const perfilCambio = !!usuario && perfilId !== (usuario.perfil_id ?? "");
+  const hayCambiosPerfil = !!usuario?.puede_editar_rol && (perfilCambio || reportesCambiaron);
+
+  async function guardarPerfilYReportes() {
+    if (!usuario) return;
+    setErrorPerfil(null);
+    setGuardandoPerfil(true);
+    try {
+      const body: Record<string, unknown> = { perfil_id: perfilId };
+      if (usuario.reportes_disponible && !usuario.es_admin_empresa) body.reportes_permitidos = reportesSel;
+      const res = await fetchWithSupabaseSession(`/api/empresas/usuarios/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? `Error al guardar (${res.status})`);
+      setUsuario({
+        ...usuario,
+        perfil_id: perfilId || null,
+        ...(body.reportes_permitidos ? { reportes_permitidos: reportesSel } : {}),
+      });
+      setSuccessMessage("Perfil guardado.");
+    } catch (err) {
+      setErrorPerfil(err instanceof Error ? err.message : "No se pudo guardar el perfil.");
+    } finally {
+      setGuardandoPerfil(false);
+    }
+  }
+
   async function handleGuardar(e: React.FormEvent) {
     e.preventDefault();
     if (!usuario) return;
@@ -713,6 +754,22 @@ function UsuarioDetailContent() {
                 </>
               )}
             </SectionCard>
+          )}
+
+          {(hayCambiosPerfil || errorPerfil) && (
+            <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+              <span className="text-sm text-amber-900">
+                {errorPerfil ?? "Cambiaste el perfil o los reportes. Falta guardar."}
+              </span>
+              <button
+                type="button"
+                onClick={guardarPerfilYReportes}
+                disabled={guardandoPerfil}
+                className="ml-auto rounded-lg bg-gray-900 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
+              >
+                {guardandoPerfil ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
           )}
 
           {(usuario.modulos_empresa?.length ?? 0) > 0 && (
