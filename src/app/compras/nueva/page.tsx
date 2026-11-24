@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MontoInput from "@/components/ui/MontoInput";
-import SearchableSelect from "@/components/ui/SearchableSelect";
+import SearchableSelect, { type SearchableSelectHandle } from "@/components/ui/SearchableSelect";
 import { saveCompraMulti, uploadComprobante, type CompraItemPayload } from "@/lib/compras/storage";
 import { getProveedores, proveedorExiste, createProveedor } from "@/lib/proveedores/storage";
 import { getProductos } from "@/lib/inventario/storage";
@@ -135,11 +135,19 @@ function fechaDiaPy(iso: string): string {
   return `${d}/${m}/${a}`;
 }
 
+/** ¿El producto tiene costo o precio cargado en dólares (ficha del producto)? */
+function productoEnDolares(p: { costo_usd?: number | null; precio_usd?: number | null }): boolean {
+  return Number(p.costo_usd) > 0 || Number(p.precio_usd) > 0;
+}
+
 export default function NuevaCompraPage() {
   const router = useRouter();
 
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  /** Carga por teclado: producto → Enter → cantidad → costo → precio → Enter agrega y vuelve al producto. */
+  const buscadorProductoRef = useRef<SearchableSelectHandle>(null);
+  const cantidadRef = useRef<HTMLInputElement>(null);
 
   // Cabecera (compartida por toda la compra)
   const [cab, setCab] = useState({
@@ -591,6 +599,15 @@ export default function NuevaCompraPage() {
     ]);
     setNl({ producto_id: "", cantidad: "", costo_unitario_input: "", iva_tipo: "10", precio_venta: "", lote_numero: "", lote_fecha_vencimiento: "" });
     setProductoCreado(null);
+    setTimeout(() => buscadorProductoRef.current?.abrir(), 0);
+  }
+
+  /** Enter en el último campo de la línea (precio de venta): agrega la línea. */
+  function enterAgregaLinea(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handleAgregarLinea();
   }
 
   function handleQuitarLinea(idx: number) {
@@ -1127,23 +1144,31 @@ export default function NuevaCompraPage() {
               <div>
                 <label className={labelSmClass}>Producto <span className="text-red-500">*</span></label>
                 <SearchableSelect
+                  ref={buscadorProductoRef}
                   value={nl.producto_id || null}
                   onChange={(id) => {
                     const p = productos.find((x) => x.id === id);
                     setProductoCreado(null);
                     const insumoNoVendible = !!p && p.es_insumo === true && p.es_vendible !== true;
+                    // En una compra en dólares, si el producto tiene costo/precio
+                    // en dólares se usan esos; si no, queda para cargar.
+                    const usd = cab.moneda === "USD";
+                    const costoUsd = Number(p?.costo_usd) || 0;
+                    const precioUsd = Number(p?.precio_usd) || 0;
                     setNl((prev) => ({
                       ...prev,
                       producto_id: id,
                       iva_tipo: ivaDeProducto(p?.tipo_iva),
-                      costo_unitario_input: p ? String(Math.round(Number(p.costo_promedio) || 0)) : "",
-                      precio_venta: !p || insumoNoVendible ? "" : String(p.precio_venta),
+                      costo_unitario_input: !p ? "" : usd ? (costoUsd > 0 ? String(costoUsd) : "") : String(Math.round(Number(p.costo_promedio) || 0)),
+                      precio_venta: !p || insumoNoVendible ? "" : usd ? (precioUsd > 0 ? String(precioUsd) : "") : String(p.precio_venta),
                     }));
+                    // Elegido el producto, el cursor pasa a la cantidad.
+                    setTimeout(() => { cantidadRef.current?.focus(); cantidadRef.current?.select(); }, 40);
                   }}
                   options={productos.map((p) => ({
                     id: p.id,
                     label: p.nombre,
-                    hint: `${p.sku} · stock ${p.stock_actual}`,
+                    hint: `${p.sku} · stock ${p.stock_actual}${productoEnDolares(p) ? " · USD" : ""}`,
                   }))}
                   placeholder="Buscar producto por nombre o SKU…"
                   emptyText="Sin productos que coincidan"
@@ -1151,6 +1176,13 @@ export default function NuevaCompraPage() {
                 {productoSel && !productoCreado && (
                   <p className="mt-1.5 text-xs text-gray-400">
                     Costo promedio actual: {formatGs(productoSel.costo_promedio)} · Precio venta actual: {formatGs(productoSel.precio_venta)}
+                  </p>
+                )}
+                {productoSel && productoEnDolares(productoSel) && (
+                  <p className="mt-1 text-xs font-medium text-emerald-700">
+                    Producto en dólares
+                    {Number(productoSel.costo_usd) > 0 && ` · costo US$ ${Number(productoSel.costo_usd).toLocaleString("es-PY", { maximumFractionDigits: 2 })}`}
+                    {Number(productoSel.precio_usd) > 0 && ` · precio US$ ${Number(productoSel.precio_usd).toLocaleString("es-PY", { maximumFractionDigits: 2 })}`}
                   </p>
                 )}
                 {productoCreado && (
@@ -1181,7 +1213,7 @@ export default function NuevaCompraPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label className={labelSmClass}>Cantidad <span className="text-red-500">*</span></label>
-                  <input type="number" value={nl.cantidad} onChange={(e) => setNl((p) => ({ ...p, cantidad: e.target.value }))}
+                  <input ref={cantidadRef} type="number" value={nl.cantidad} onChange={(e) => setNl((p) => ({ ...p, cantidad: e.target.value }))}
                     placeholder="Ej: 50" className={inputSmClass} min={0} step="any" />
                 </div>
                 <div>
@@ -1198,7 +1230,7 @@ export default function NuevaCompraPage() {
                     {nl.producto_id ? ivaLabel[nl.iva_tipo] : "—"}
                   </div>
                 </div>
-                <div>
+                <div onKeyDown={enterAgregaLinea}>
                   {/* El precio de venta sigue la moneda de la compra, igual que
                       el costo. Antes estaba siempre en guaraníes y no lo decía:
                       al lado de un costo en dólares, un 12 se leía como 12 Gs.
