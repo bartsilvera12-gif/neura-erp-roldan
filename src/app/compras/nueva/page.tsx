@@ -622,7 +622,23 @@ export default function NuevaCompraPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorSubmit(null);
-    if (!cab.proveedor_id) return setErrorSubmit("Seleccioná o agregá un proveedor.");
+    // Todo lo que falta, junto y dicho con nombre (pedido del cliente: antes
+    // salía un error a la vez, o uno genérico que no decía qué faltaba).
+    const faltan: string[] = [];
+    if (!cab.proveedor_id) faltan.push("Elegí el proveedor.");
+    if (lineas.length === 0) {
+      faltan.push(
+        nl.producto_id
+          ? `Elegiste ${productoSel?.nombre ?? "un producto"} pero no lo agregaste: ${motivoNoAgregar ? motivoNoAgregar.toLowerCase().replace(/\.$/, "") + " y " : ""}tocá «+ Agregar producto a la compra».`
+          : "Agregá al menos un producto a la compra."
+      );
+    } else if (nl.producto_id) {
+      faltan.push(`${productoSel?.nombre ?? "Hay un producto"} quedó elegido sin agregar: agregalo con «+ Agregar producto a la compra» o borrá la selección.`);
+    }
+    if (cab.moneda === "USD" && tipoCambioNum <= 0) faltan.push("Cargá el tipo de cambio (USD → Gs.).");
+    if (faltan.length > 0) {
+      return setErrorSubmit(faltan.length === 1 ? faltan[0] : `Para guardar la compra falta:\n• ${faltan.join("\n• ")}`);
+    }
     // Timbrado y N° de factura sin controles (pedido del cliente: «quitá las
     // validaciones de compra»): opcionales y con el formato que se escriba.
     if (lineas.length === 0) return setErrorSubmit("Agregá al menos un producto a la compra.");
@@ -1385,7 +1401,7 @@ export default function NuevaCompraPage() {
 
           {errorSubmit && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-700">{errorSubmit}</p>
+              <p className="whitespace-pre-line text-sm text-red-700">{errorSubmit}</p>
             </div>
           )}
 

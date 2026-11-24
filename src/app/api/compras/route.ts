@@ -549,8 +549,23 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
+      // Decir QUÉ falló (pedido del cliente: «no te dice qué falta»).
+      const column = (e as { column?: string })?.column;
+      const CAMPO: Record<string, string> = {
+        nro_timbrado: "el N° de timbrado", numero_factura: "el N° de factura", proveedor_id: "el proveedor",
+        producto_id: "el producto", cantidad: "la cantidad", costo_unitario: "el costo unitario",
+        tipo_cambio: "el tipo de cambio", tipo_pago: "la condición de pago", fecha_factura: "la fecha de la factura",
+        metodo_pago: "el método de pago", sucursal_id: "la sucursal del usuario", iva_tipo: "el IVA",
+      };
+      const campo = column ? (CAMPO[column] ?? `el dato «${column}»`) : null;
+      let detalle: string;
+      if (code === "23502") detalle = `Falta ${campo ?? "un dato obligatorio"}.`;
+      else if (code === "22P02" || code === "22007" || code === "22008") detalle = `Hay un dato con formato inválido${campo ? ` (${campo})` : ""}. Revisá fechas y números.`;
+      else if (code === "23514") detalle = "Algún valor no está permitido (por ejemplo, un importe negativo).";
+      else if (code === "42703") detalle = "A la base le falta un script por correr. Avisale al soporte.";
+      else detalle = `Error de la base: ${msg || "desconocido"}.`;
       return NextResponse.json(
-        errorResponse("No se pudo guardar la compra. Revisá los datos e intentá nuevamente."),
+        errorResponse(`No se pudo guardar la compra. ${detalle}`),
         { status: 500 }
       );
     }
