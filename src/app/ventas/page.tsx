@@ -461,19 +461,23 @@ export default function VentasPage() {
         {/* Tabla — min-w fuerza scroll horizontal en mobile; columnas secundarias
             (Items, Cant total, IVA, Pago) se ocultan progresivamente. */}
         <EdgeScrollArea>
-          {/* Tabla rediseñada como la de Compras (pedido del cliente): menos
-              columnas, cabecera limpia y las acciones (imprimir, factura,
-              devolver, editar, anular…) en el detalle que abre la fila. */}
-          <table className="w-full min-w-[820px] lg:min-w-0 text-left text-sm">
+          {/* Las columnas de siempre, con el estilo de Compras: cabecera suave,
+              etiquetas de color y la hora bajo la fecha. Los botones
+              (imprimir, factura, devolver, editar, anular…) están en el
+              detalle que abre la fila. */}
+          <table className="w-full min-w-[760px] lg:min-w-0 text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                <th className="whitespace-nowrap py-3 pl-4 pr-3">Venta</th>
-                <th className="whitespace-nowrap px-3 py-3">Cliente</th>
+                <th className="whitespace-nowrap py-3 pl-4 pr-3">Número</th>
                 <th className="whitespace-nowrap px-3 py-3">Productos</th>
-                <th className="hidden whitespace-nowrap px-3 py-3 text-right lg:table-cell">Cant.</th>
+                <th className="whitespace-nowrap px-3 py-3">Cliente</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 text-center lg:table-cell">Ítems</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 text-right lg:table-cell">Cant. total</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">IVA</th>
                 <th className="whitespace-nowrap px-3 py-3 text-right">Total</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Tipo</th>
                 <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Pago</th>
-                <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">Vendedor</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Vendedor</th>
                 <th className="whitespace-nowrap px-3 py-3">Fecha</th>
                 <th className="w-8 py-3 pr-4" />
               </tr>
@@ -481,7 +485,7 @@ export default function VentasPage() {
             <tbody>
               {filtradas.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-gray-400">
+                  <td colSpan={12} className="py-12 text-center text-gray-400">
                     {todas.length === 0
                       ? "No hay ventas registradas"
                       : "Ninguna venta coincide con los filtros"}
@@ -500,11 +504,11 @@ export default function VentasPage() {
                         ? { txt: "Dev. parcial", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-400" }
                         : null;
                   const metodo =
-                    v.metodo_pago === "mixto" ? "Mixto"
-                    : v.metodo_pago === "cheque" ? "Cheque"
-                    : v.metodo_pago === "tarjeta" ? "Tarjeta"
-                    : v.metodo_pago === "transferencia" ? "Transferencia"
-                    : v.metodo_pago === "efectivo" ? "Efectivo"
+                    v.metodo_pago === "mixto" ? { txt: "Mixto", cls: "bg-violet-50 text-violet-700" }
+                    : v.metodo_pago === "cheque" ? { txt: "Cheque", cls: "bg-amber-50 text-amber-700" }
+                    : v.metodo_pago === "tarjeta" ? { txt: "Tarjeta", cls: "bg-sky-50 text-sky-700" }
+                    : v.metodo_pago === "transferencia" ? { txt: "Transfer.", cls: "bg-indigo-50 text-indigo-700" }
+                    : v.metodo_pago === "efectivo" ? { txt: "Efectivo", cls: "bg-emerald-50 text-emerald-700" }
                     : null;
                   return (
                     <tr
@@ -513,22 +517,24 @@ export default function VentasPage() {
                       title="Ver la venta"
                       className={`group cursor-pointer border-b border-slate-100 transition-colors hover:bg-[#4FAEB2]/[0.05] ${isAnulada ? "opacity-55" : ""}`}
                     >
-                      <td className="whitespace-nowrap py-3.5 pl-4 pr-3 align-top">
+                      <td className="whitespace-nowrap py-3.5 pl-4 pr-3">
                         <div className={`font-mono text-xs font-medium ${isAnulada ? "line-through text-slate-400" : "text-slate-700"}`}>
                           {v.numero_control}
                         </div>
-                        {estado ? (
+                        {estado && (
                           <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${estado.cls}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${estado.dot}`} />
                             {estado.txt}
                           </span>
-                        ) : v.numero_factura ? (
-                          <div className="mt-0.5 font-mono text-[11px] text-slate-400">Fact. {v.numero_factura}</div>
-                        ) : (
-                          <div className="mt-0.5 text-[11px] text-slate-400">Ticket</div>
                         )}
                       </td>
-                      <td className="max-w-[220px] px-3 py-3.5 align-top">
+                      <td className="max-w-[280px] px-3 py-3.5">
+                        <ResumenProductos v={v} />
+                      </td>
+                      {/* A quién se le vendió. Estaba en el detalle pero no en
+                          el listado, así que para contestar "¿esta venta de
+                          quién era?" había que abrir una por una. */}
+                      <td className="max-w-[220px] px-3 py-3.5">
                         {v.cliente_nombre ? (
                           <>
                             <div className={`font-medium text-slate-800 ${isAnulada ? "line-through" : ""}`}>{v.cliente_nombre}</div>
@@ -540,32 +546,44 @@ export default function VentasPage() {
                           <span className="text-slate-400">Consumidor final</span>
                         )}
                       </td>
-                      <td className="max-w-[280px] px-3 py-3.5 align-top">
-                        <ResumenProductos v={v} />
+                      <td className="hidden px-3 py-3.5 text-center lg:table-cell">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                          {v.items.length}
+                        </span>
                       </td>
-                      <td className="hidden px-3 py-3.5 text-right align-top tabular-nums text-slate-700 lg:table-cell">
+                      <td className="hidden px-3 py-3.5 text-right tabular-nums text-slate-700 lg:table-cell">
                         {cantTotal}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-3.5 text-right align-top tabular-nums">
-                        <div className={`font-semibold ${isAnulada ? "line-through text-slate-500" : "text-slate-900"}`}>{formatGs(v.total)}</div>
-                        <div className="mt-0.5 text-[11px] text-slate-400">{ivaResumen(v)}</div>
-                      </td>
-                      <td className="hidden whitespace-nowrap px-3 py-3.5 align-top lg:table-cell">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tipoVentaBadge[v.tipo_venta]}`}>
-                          {v.tipo_venta === "CONTADO" ? "Contado" : `Crédito ${v.plazo_dias ?? ""} días`}
+                      <td className="hidden whitespace-nowrap px-3 py-3.5 lg:table-cell">
+                        <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                          {ivaResumen(v)}
                         </span>
-                        {metodo && <div className="mt-1 pl-1 text-[11px] text-slate-500">{metodo}</div>}
                       </td>
-                      <td className="hidden max-w-[160px] truncate px-3 py-3.5 align-top text-xs text-slate-600 xl:table-cell">
+                      <td className={`whitespace-nowrap px-3 py-3.5 text-right font-semibold tabular-nums ${isAnulada ? "line-through text-slate-500" : "text-slate-900"}`}>
+                        {formatGs(v.total)}
+                      </td>
+                      <td className="hidden whitespace-nowrap px-3 py-3.5 lg:table-cell">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tipoVentaBadge[v.tipo_venta]}`}>
+                          {v.tipo_venta === "CONTADO" ? "Contado" : `Crédito ${v.plazo_dias ?? ""}d`}
+                        </span>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-3 py-3.5 lg:table-cell">
+                        {metodo ? (
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${metodo.cls}`}>{metodo.txt}</span>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="hidden max-w-[160px] truncate px-3 py-3.5 text-xs text-slate-600 lg:table-cell">
                         {/* El vendedor asignado manda sobre el cajero. En las
                             ventas viejas `usuario_nombre` guardó el email. */}
                         {v.vendedor_nombre || v.usuario_nombre || "—"}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-3.5 align-top tabular-nums">
+                      <td className="whitespace-nowrap px-3 py-3.5 tabular-nums">
                         <div className="text-xs text-slate-700">{fechaDia}</div>
                         <div className="text-[11px] text-slate-400">{fechaHora}</div>
                       </td>
-                      <td className="py-3.5 pr-4 text-right align-top text-lg leading-none text-slate-300 transition-colors group-hover:text-[#3F8E91]">
+                      <td className="py-3.5 pr-4 text-right text-lg leading-none text-slate-300 transition-colors group-hover:text-[#3F8E91]">
                         ›
                       </td>
                     </tr>
