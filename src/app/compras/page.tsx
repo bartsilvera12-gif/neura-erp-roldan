@@ -365,30 +365,34 @@ function VistaNutricion() {
         </div>
 
         <EdgeScrollArea>
-          {/* Tabla rediseñada (pedido del cliente: «se ve feíto»). Menos
-              columnas: N° de factura va bajo el N° de control, el monto en
-              dólares y el tipo de cambio bajo el total, y el método bajo la
-              condición de pago. Nada en dos renglones que no tenga que ir. */}
-          <table className="w-full min-w-[900px] lg:min-w-0 text-left text-sm">
+          {/* Las mismas columnas del listado de siempre (las del sistema viejo,
+              pedidas por el cliente), con un estilo más prolijo: cabecera
+              suave, sin títulos partidos, etiquetas de color y la hora bajo
+              la fecha. */}
+          <table className="w-full min-w-[960px] lg:min-w-0 text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                <th className="whitespace-nowrap py-3 pl-4 pr-3">Compra</th>
+                <th className="whitespace-nowrap py-3 pl-4 pr-3">N° Control</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">N° Factura</th>
                 <th className="whitespace-nowrap px-3 py-3">Proveedor</th>
                 <th className="whitespace-nowrap px-3 py-3">Productos</th>
                 <th className="whitespace-nowrap px-3 py-3 text-right">Cant.</th>
-                <th className="whitespace-nowrap px-3 py-3 text-right">Total</th>
-                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Moneda</th>
-                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Pago</th>
                 <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">Estado</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 text-right xl:table-cell">M. Dólar</th>
+                <th className="whitespace-nowrap px-3 py-3 text-right">Total Gs.</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">Moneda</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 text-right xl:table-cell">TC</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Pago</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Método</th>
                 <th className="whitespace-nowrap px-3 py-3">Fecha</th>
-                <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">Fecha factura</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Fecha factura</th>
                 <th className="w-8 py-3 pr-4" />
               </tr>
             </thead>
             <tbody>
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-gray-400">
+                  <td colSpan={15} className="py-12 text-center text-gray-400">
                     {grupos.length === 0 ? "No hay compras registradas" : "Ninguna compra coincide con los filtros"}
                   </td>
                 </tr>
@@ -406,7 +410,7 @@ function VistaNutricion() {
                         onClick={() => setDetalle(g)}
                         title="Ver los datos de la compra"
                       >
-                        <td className="whitespace-nowrap py-3.5 pl-4 pr-3 align-top">
+                        <td className="whitespace-nowrap py-3.5 pl-4 pr-3">
                           <div className="flex items-center gap-1">
                             {multi && (
                               <button
@@ -422,14 +426,14 @@ function VistaNutricion() {
                               {g.numero_control}
                             </span>
                           </div>
-                          <div className="mt-0.5 font-mono text-[11px] text-slate-400">
-                            {g.numero_factura ? `Fact. ${g.numero_factura}` : "Sin N° factura"}
-                          </div>
                         </td>
-                        <td className="px-3 py-3.5 align-top">
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 font-mono text-xs text-slate-600 xl:table-cell">
+                          {g.numero_factura || <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="px-3 py-3.5">
                           <span className={`font-medium text-slate-800 ${g.anulada ? "line-through" : ""}`}>{g.proveedor_nombre}</span>
                         </td>
-                        <td className="max-w-[260px] px-3 py-3.5 align-top text-slate-600">
+                        <td className="max-w-[240px] px-3 py-3.5 text-slate-600">
                           <div className="line-clamp-2">{resumenProductos(g.items)}</div>
                           {g.comprobante && (
                             <a
@@ -443,76 +447,90 @@ function VistaNutricion() {
                             </a>
                           )}
                         </td>
-                        <td className="px-3 py-3.5 text-right align-top tabular-nums text-slate-700">
+                        <td className="px-3 py-3.5 text-right tabular-nums text-slate-700">
                           {g.items.reduce((s, it) => s + (Number(it.cantidad) || 0), 0)}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-3.5 text-right align-top tabular-nums">
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 xl:table-cell">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${g.anulada ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${g.anulada ? "bg-rose-500" : "bg-emerald-500"}`} />
+                            {g.anulada ? "Anulado" : "Activo"}
+                          </span>
+                        </td>
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 text-right tabular-nums text-slate-700 xl:table-cell">
+                          {usd == null ? <span className="text-slate-300">—</span> : formatUsd(usd)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3.5 text-right tabular-nums">
                           {nc > 0 ? (
                             <div className="flex flex-col items-end leading-tight">
-                              <span className="font-semibold text-slate-900">Saldo {formatGs(Math.max(0, g.total - nc))}</span>
                               <span className="text-[11px] text-slate-400 line-through">{formatGs(g.total)}</span>
                               <span className="text-[11px] font-medium text-violet-600">NC −{formatGs(nc)}</span>
+                              <span className="font-semibold text-slate-900">Saldo {formatGs(Math.max(0, g.total - nc))}</span>
                             </div>
                           ) : (
                             <span className={`font-semibold ${g.anulada ? "line-through text-slate-500" : "text-slate-900"}`}>{formatGs(g.total)}</span>
                           )}
-                          {usd != null && (
-                            <div className="mt-0.5 text-[11px] text-slate-500">
-                              {formatUsd(usd)} · TC {(Number(g.tipo_cambio) || 0).toLocaleString("es-PY")}
-                            </div>
-                          )}
                         </td>
-                        <td className="hidden px-3 py-3.5 align-top lg:table-cell">
+                        <td className="hidden px-3 py-3.5 xl:table-cell">
                           <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${
                             g.moneda === "USD" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-100 text-slate-600"
                           }`}>
-                            {g.moneda === "USD" ? "USD" : "Gs."}
+                            {g.moneda === "USD" ? "Dólar" : "Gs."}
                           </span>
                         </td>
-                        <td className="hidden whitespace-nowrap px-3 py-3.5 align-top lg:table-cell">
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 text-right text-xs tabular-nums text-slate-600 xl:table-cell">
+                          {g.moneda === "USD"
+                            ? (Number(g.tipo_cambio) || 1).toLocaleString("es-PY")
+                            : <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 lg:table-cell">
                           <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${g.tipo_pago ? tipoPagoBadge[g.tipo_pago] : "bg-gray-100 text-gray-500"}`}>
-                            {g.tipo_pago === "contado" ? "Contado" : g.tipo_pago === "credito" ? `Crédito ${g.plazo_dias ?? ""} días` : "—"}
+                            {g.tipo_pago === "contado" ? "Contado" : g.tipo_pago === "credito" ? `Crédito ${g.plazo_dias ?? ""}d` : "—"}
                           </span>
-                          {g.metodo_pago && metodoPagoBadge[g.metodo_pago] && (
-                            <div className="mt-1 pl-1 text-[11px] text-slate-500">{metodoPagoBadge[g.metodo_pago].label}</div>
+                        </td>
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 lg:table-cell">
+                          {g.metodo_pago && metodoPagoBadge[g.metodo_pago] ? (
+                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${metodoPagoBadge[g.metodo_pago].className}`}>
+                              {metodoPagoBadge[g.metodo_pago].label}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="hidden whitespace-nowrap px-3 py-3.5 align-top xl:table-cell">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                            g.anulada ? "bg-rose-50 text-rose-700" : g.pagada ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                          }`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${g.anulada ? "bg-rose-500" : g.pagada ? "bg-emerald-500" : "bg-amber-500"}`} />
-                            {g.anulada ? "Anulada" : g.pagada ? "Pagada" : "Pendiente"}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3.5 align-top tabular-nums">
+                        <td className="whitespace-nowrap px-3 py-3.5 tabular-nums">
                           <div className="text-xs text-slate-700">{fechaDia}</div>
                           <div className="text-[11px] text-slate-400">{fechaHora}</div>
                         </td>
-                        <td className="hidden whitespace-nowrap px-3 py-3.5 align-top text-xs tabular-nums text-slate-500 xl:table-cell">
-                          {formatFechaDate(g.fecha_factura)}
+                        <td className="hidden whitespace-nowrap px-3 py-3.5 text-xs tabular-nums text-slate-500 lg:table-cell">
+                          {g.fecha_factura ? formatFechaDate(g.fecha_factura) : <span className="text-slate-300">—</span>}
                         </td>
-                        <td className="py-3.5 pr-4 text-right align-top text-lg leading-none text-slate-300 transition-colors group-hover:text-[#3F8E91]">
+                        <td className="py-3.5 pr-4 text-right text-lg leading-none text-slate-300 transition-colors group-hover:text-[#3F8E91]">
                           {/* Nota de crédito, Pagar y Anular están en el detalle. */}
                           ›
                         </td>
                       </tr>
 
                       {abierto && multi && g.items.map((it) => (
+                        // Las celdas vacías acompañan a las columnas de la
+                        // cabecera: el nombre cae bajo «Productos», la cantidad
+                        // bajo «Cant.» y el importe bajo «Total Gs.».
                         <tr key={it.id} className="border-b border-slate-100 bg-slate-50/60 text-xs">
                           <td className="py-2 pl-4 pr-3" />
+                          <td className="hidden xl:table-cell" />
                           <td className="px-3 py-2" />
                           <td className="px-3 py-2 text-slate-700">
                             <span className="font-medium">{it.producto_nombre}</span>
                             <span className="ml-2 font-mono text-slate-400">{formatGs(it.costo_unitario)}/u</span>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums text-slate-600">{it.cantidad}</td>
+                          <td className="hidden xl:table-cell" />
+                          <td className="hidden xl:table-cell" />
                           <td className="px-3 py-2 text-right tabular-nums text-slate-700">{formatGs(it.total)}</td>
-                          <td className="hidden lg:table-cell" />
-                          <td className="hidden lg:table-cell" />
                           <td className="hidden xl:table-cell" />
+                          <td className="hidden xl:table-cell" />
+                          <td className="hidden lg:table-cell" />
+                          <td className="hidden lg:table-cell" />
                           <td />
-                          <td className="hidden xl:table-cell" />
+                          <td className="hidden lg:table-cell" />
                           <td />
                         </tr>
                       ))}
@@ -523,7 +541,8 @@ function VistaNutricion() {
             </tbody>
             {/* Totales de lo que se está viendo (con los filtros aplicados).
                 Las anuladas no suman: revirtieron su stock y su plata. Una
-                celda por columna, con la misma visibilidad que la cabecera. */}
+                celda por columna, con la misma visibilidad que la cabecera:
+                con colSpan el pie se corre donde se ocultan columnas. */}
             {filtrados.length > 0 && (() => {
               const vivas = filtrados.filter((g) => !g.anulada);
               const totalGs = vivas.reduce((s, g) => s + (Number(g.total) || 0), 0);
@@ -531,30 +550,30 @@ function VistaNutricion() {
               const hayAnuladas = filtrados.length > vivas.length;
               return (
                 <tfoot>
-                  <tr className="border-t border-slate-200 bg-slate-50/80 text-slate-800">
-                    <td className="whitespace-nowrap py-3 pl-4 pr-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <tr className="border-t border-slate-200 bg-slate-50/80 font-semibold text-slate-800">
+                    <td className="whitespace-nowrap py-3 pl-4 pr-3 text-[11px] uppercase tracking-wide text-slate-500">
                       Totales
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-500" colSpan={2}>
+                    <td className="hidden xl:table-cell" />
+                    <td className="px-3 py-3 text-xs font-normal text-slate-500">
                       {vivas.length} compra{vivas.length === 1 ? "" : "s"}
                       {hayAnuladas ? " (sin las anuladas)" : ""}
                     </td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums">
+                    <td className="px-3 py-3" />
+                    <td className="px-3 py-3 text-right tabular-nums">
                       {vivas.reduce((s, g) => s + g.items.reduce((t, it) => t + (Number(it.cantidad) || 0), 0), 0)}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
-                      <div className="font-semibold text-slate-900">{formatGs(totalGs)}</div>
-                      {totalUsd > 0 && (
-                        <div className="text-[11px] text-slate-500" title="Suma de las compras hechas en dólares">
-                          {formatUsd(totalUsd)} en dólares
-                        </div>
-                      )}
+                    <td className="hidden xl:table-cell" />
+                    <td className="hidden whitespace-nowrap px-3 py-3 text-right tabular-nums xl:table-cell" title="Suma de las compras hechas en dólares">
+                      {totalUsd > 0 ? formatUsd(totalUsd) : <span className="font-normal text-slate-300">—</span>}
                     </td>
-                    <td className="hidden lg:table-cell" />
-                    <td className="hidden lg:table-cell" />
+                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{formatGs(totalGs)}</td>
                     <td className="hidden xl:table-cell" />
+                    <td className="hidden xl:table-cell" />
+                    <td className="hidden lg:table-cell" />
+                    <td className="hidden lg:table-cell" />
                     <td />
-                    <td className="hidden xl:table-cell" />
+                    <td className="hidden lg:table-cell" />
                     <td />
                   </tr>
                 </tfoot>
