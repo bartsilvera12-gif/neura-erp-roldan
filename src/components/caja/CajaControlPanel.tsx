@@ -1085,6 +1085,15 @@ function ModalCerrar({
 
 /** Lo que se elige arriba del modal. Cobranza = `ingreso`; Anticipo va a Anticipos. */
 type TipoPantalla = "ingreso" | "egreso" | "retiro" | "retencion" | "anticipo";
+
+/** Una factura emitida hoy, para elegirla en la retención. */
+type FacturaDelDia = {
+  numero: string;
+  cliente_id: string | null;
+  cliente_nombre: string | null;
+  total: number;
+  monto_iva: number;
+};
 const TIPOS_PANTALLA: Array<[TipoPantalla, string]> = [
   ["ingreso", "Cobranza"],
   ["egreso", "Egreso"],
@@ -1121,6 +1130,36 @@ function ModalMovimiento({
   const [cliente, setCliente] = useState<ClienteElegido | null>(null);
   /** Retención: número de la factura retenida. */
   const [factura, setFactura] = useState("");
+  /**
+   * Retención: las facturas emitidas HOY en el sistema, para elegirla en vez
+   * de tipear el número (pedido del cliente: «que se estire una factura del
+   * día»). Se piden al pasar a Retención; si fallan, el campo sigue libre.
+   */
+  const [facturasHoy, setFacturasHoy] = useState<FacturaDelDia[] | null>(null);
+  useEffect(() => {
+    if (tipo !== "retencion" || facturasHoy !== null) return;
+    const hoy = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10); // Paraguay
+    let vivo = true;
+    fetch(`/api/ventas?desde=${hoy}&hasta=${hoy}&limite=500`, { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!vivo) return;
+        const filas = (Array.isArray(j?.data) ? j.data : (j?.data?.ventas ?? [])) as Array<Record<string, unknown>>;
+        setFacturasHoy(
+          filas
+            .filter((v) => v.numero_factura && v.estado !== "anulada")
+            .map((v) => ({
+              numero: String(v.numero_factura),
+              cliente_id: v.cliente_id ? String(v.cliente_id) : null,
+              cliente_nombre: v.cliente_nombre ? String(v.cliente_nombre) : null,
+              total: Number(v.total) || 0,
+              monto_iva: Number(v.monto_iva) || 0,
+            }))
+        );
+      })
+      .catch(() => { if (vivo) setFacturasHoy([]); });
+    return () => { vivo = false; };
+  }, [tipo, facturasHoy]);
   // Punto 5.7: qué clase de egreso es. Sin esto no se puede contestar
   // "¿cuánto se fue en fletes este mes?" sin leer los conceptos uno por uno.
   const [tipoEgreso, setTipoEgreso] = useState<string>("proveedor");
@@ -1238,7 +1277,8 @@ function ModalMovimiento({
         tipo_egreso: tipo === "egreso" ? tipoEgreso : null,
         proveedor: tipo === "egreso" ? (proveedor.trim() || null) : null,
         // Solo en egresos: un ingreso o un retiro no tienen factura de proveedor.
-        adjuntos: tipo === "egreso" && adjuntos.length > 0 ? adjuntos : null,
+        // Egresos: factura y recibo. Retención: el comprobante que dejó el cliente.
+        adjuntos: (tipo === "egreso" || tipo === "retencion") && adjuntos.length > 0 ? adjuntos : null,
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error");
@@ -1294,6 +1334,60 @@ function ModalMovimiento({
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Cliente</label>
             <BuscadorCliente value={cliente} onChange={setCliente} disabled={busy} autoFocus />
+          </div>
+        )}
+
+        {tipo === "retencion" && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Facturas de hoy
+            </label>
+            {facturasHoy === null ? (
+              <p className="text-xs text-slate-400">Buscando las facturas emitidas hoy…</p>
+            ) : (() => {
+              const lista = cliente ? facturasHoy.filter((x) => x.cliente_id === cliente.id) : facturasHoy;
+              if (lista.length === 0) {
+                return (
+                  <p className="text-xs text-slate-400">
+                    {cliente ? "Este cliente no tiene facturas emitidas hoy. Escribí el número abajo." : "No hay facturas emitidas hoy. Escribí el número abajo."}
+                  </p>
+                );
+              }
+              return (
+                <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-1">
+                  {lista.map((x) => {
+                    const elegida = factura.trim() === x.numero;
+                    return (
+                      <button
+                        key={x.numero}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setFactura(x.numero);
+                          setErr(null);
+                          // Sin cliente elegido, se toma el de la factura.
+                          if (!cliente && x.cliente_id && x.cliente_nombre) {
+                            setCliente({ id: x.cliente_id, nombre: x.cliente_nombre, ruc: "" });
+                          }
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-xs transition-colors ${
+                          elegida ? "bg-[#4FAEB2]/15 ring-1 ring-[#4FAEB2]" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-mono font-semibold text-slate-800">{x.numero}</span>
+                          <span className="block truncate text-slate-500">{x.cliente_nombre ?? "Sin cliente"}</span>
+                        </span>
+                        <span className="shrink-0 text-right tabular-nums">
+                          <span className="block font-semibold text-slate-800">Gs. {Math.round(x.total).toLocaleString("es-PY")}</span>
+                          <span className="block text-[10px] text-slate-400">IVA {Math.round(x.monto_iva).toLocaleString("es-PY")}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1440,6 +1534,15 @@ function ModalMovimiento({
             proveedor que adjuntar. */}
         {tipo === "egreso" && (
           <AdjuntosEgreso value={adjuntos} onChange={setAdjuntos} disabled={busy} />
+        )}
+        {/* Retención: el archivo del comprobante (pedido del cliente). */}
+        {tipo === "retencion" && (
+          <AdjuntosEgreso
+            value={adjuntos}
+            onChange={setAdjuntos}
+            disabled={busy}
+            tipos={[{ tipo: "recibo", label: "Comprobante de retención", ayuda: "Foto o PDF del comprobante que dejó el cliente" }]}
+          />
         )}
 
         {err && (

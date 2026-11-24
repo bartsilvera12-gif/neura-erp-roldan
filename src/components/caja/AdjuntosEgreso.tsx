@@ -37,10 +37,13 @@ export default function AdjuntosEgreso({
   value,
   onChange,
   disabled,
+  tipos = TIPOS,
 }: {
   value: AdjuntoEgreso[];
   onChange: (v: AdjuntoEgreso[]) => void;
   disabled?: boolean;
+  /** Qué recuadros mostrar. La retención usa uno solo: el comprobante. */
+  tipos?: { tipo: "factura" | "recibo"; label: string; ayuda: string }[];
 }) {
   const [subiendo, setSubiendo] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -125,8 +128,8 @@ export default function AdjuntosEgreso({
       <p className="mb-1.5 text-[11px] leading-snug text-slate-500">
         Podés <strong>pegar una captura con Ctrl+V</strong>: hacé clic en el recuadro y pegá.
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        {TIPOS.map(({ tipo, label, ayuda }) => {
+      <div className={`grid gap-2 ${tipos.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+        {tipos.map(({ tipo, label, ayuda }) => {
           const cargado = value.find((a) => a.tipo === tipo);
           const ocupado = subiendo === tipo;
           return (

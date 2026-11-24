@@ -131,7 +131,11 @@ export async function POST(request: NextRequest) {
     if (tipo === "retencion") {
       let mov;
       try {
-        mov = await registrarMovimiento(ctx.supabase, { ...base, tipo: "retencion", medioPago: "otro", proveedor: contraparte });
+        mov = await registrarMovimiento(ctx.supabase, {
+          ...base, tipo: "retencion", medioPago: "otro", proveedor: contraparte,
+          // El comprobante de retención (pedido del cliente: «agregar un archivo»).
+          adjuntos: adjuntosValidos(o.adjuntos, ctx.auth.empresa_id),
+        });
       } catch (e) {
         // Sin el script 95 la base no acepta el tipo: se guarda como una
         // cobranza con medio «otro» (no toca el efectivo) y el concepto
@@ -141,6 +145,7 @@ export async function POST(request: NextRequest) {
         mov = await registrarMovimiento(ctx.supabase, {
           ...base, tipo: "ingreso", medioPago: "otro",
           concepto: `${conceptoFinal} · ${contraparte}`.slice(0, 200),
+          adjuntos: adjuntosValidos(o.adjuntos, ctx.auth.empresa_id),
         });
       }
       return NextResponse.json(successResponse({ movimiento: mov, asiento: null }));
