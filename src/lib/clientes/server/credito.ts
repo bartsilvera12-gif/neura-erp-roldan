@@ -25,6 +25,8 @@ export interface CreditoCliente {
   deuda: number;
   /** Cuánto le queda. null cuando no hay límite. */
   disponible: number | null;
+  /** Condición de pago de la ficha: la venta la toma fija. null = sin definir. */
+  condicion?: "CONTADO" | "CREDITO" | null;
 }
 
 const n = (v: unknown): number => Number(v) || 0;
@@ -36,7 +38,7 @@ export async function creditoDe(
 ): Promise<CreditoCliente | null> {
   const c = await sb
     .from("clientes")
-    .select("limite_credito, dias_credito")
+    .select("limite_credito, dias_credito, condicion_pago")
     .eq("empresa_id", empresaId)
     .eq("id", clienteId)
     .maybeSingle();
@@ -44,27 +46,34 @@ export async function creditoDe(
   // vez de dejar de vender a crédito por una migración que falta.
   let limite: number | null = null;
   let dias: number | null = null;
+  let condicion: "CONTADO" | "CREDITO" | null = null;
+  const leerCondicion = (v: unknown) => {
+    const t = String(v ?? "").trim().toUpperCase();
+    return t === "CREDITO" || t === "CRÉDITO" ? "CREDITO" : t === "CONTADO" ? "CONTADO" : null;
+  };
   if (c.error) {
     if (!/dias_credito/.test(c.error.message ?? "")) throw new Error(c.error.message);
     const c2 = await sb
       .from("clientes")
-      .select("limite_credito")
+      .select("limite_credito, condicion_pago")
       .eq("empresa_id", empresaId)
       .eq("id", clienteId)
       .maybeSingle();
     if (c2.error) throw new Error(c2.error.message);
     if (!c2.data) return null;
-    const f = c2.data as { limite_credito?: number | string | null };
+    const f = c2.data as { limite_credito?: number | string | null; condicion_pago?: string | null };
     limite = f.limite_credito == null ? null : n(f.limite_credito);
+    condicion = leerCondicion(f.condicion_pago);
   } else {
     if (!c.data) return null;
-    const f = c.data as { limite_credito?: number | string | null; dias_credito?: number | string | null };
+    const f = c.data as { limite_credito?: number | string | null; dias_credito?: number | string | null; condicion_pago?: string | null };
     limite = f.limite_credito == null ? null : n(f.limite_credito);
     dias = f.dias_credito == null ? null : n(f.dias_credito);
+    condicion = leerCondicion(f.condicion_pago);
   }
 
   // Sin límite no hace falta sumar nada: la consulta de la deuda es lo caro.
-  if (limite == null) return { limite: null, dias, deuda: 0, disponible: null };
+  if (limite == null) return { limite: null, dias, deuda: 0, disponible: null, condicion };
 
   // La deuda sale de las cuentas por cobrar y no de las ventas: ahí está el
   // saldo real, ya descontados los cobros parciales. Una venta a crédito
@@ -85,7 +94,7 @@ export async function creditoDe(
     if (saldo > 0) deuda += saldo;
   }
 
-  return { limite, dias, deuda, disponible: Math.max(0, limite - deuda) };
+  return { limite, dias, deuda, disponible: Math.max(0, limite - deuda), condicion };
 }
 
 /**

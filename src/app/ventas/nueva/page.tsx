@@ -388,7 +388,11 @@ export default function NuevaVentaPage() {
 
   const [credito, setCredito] = useState<{
     limite: number | null; dias: number | null; deuda: number; disponible: number | null;
+    /** Condición de la ficha del cliente: si está, la venta la toma fija. */
+    condicion?: "CONTADO" | "CREDITO" | null;
   } | null>(null);
+  /** Para volver a leer el crédito después de editar el cliente. */
+  const [creditoRecarga, setCreditoRecarga] = useState(0);
   const comboInputRef    = useRef<HTMLInputElement>(null);
   const comboContainerRef = useRef<HTMLDivElement>(null);
   const comboTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -792,7 +796,27 @@ export default function NuevaVentaPage() {
       })
       .catch(() => { if (!cancel) setCredito(null); });
     return () => { cancel = true; };
-  }, [clienteId]);
+  }, [clienteId, creditoRecarga]);
+
+  /**
+   * Condición y plazo FIJOS según el cliente (pedido del cliente): si su ficha
+   * dice Contado o Crédito, la venta va así, y a crédito con los días
+   * acordados. Se cambian desde «Editar datos del cliente», no en la venta.
+   */
+  const condicionFija = clienteId ? (credito?.condicion ?? null) : null;
+  const plazoFijo = condicionFija === "CREDITO" && credito?.dias != null;
+  useEffect(() => {
+    if (!condicionFija) return;
+    if (condicionFija === "CREDITO") {
+      setTipoVenta("CREDITO");
+      setPagoMixto(false);
+      if (credito?.dias != null) setPlazoDias(String(credito.dias));
+      else setPlazoDias((p) => p || "30");
+    } else {
+      setTipoVenta("CONTADO");
+      setPlazoDias("");
+    }
+  }, [condicionFija, credito?.dias]);
 
   /**
    * Al elegir el cliente se pregunta si dejó algo a cuenta.
@@ -1407,6 +1431,7 @@ export default function NuevaVentaPage() {
       const c = (j?.data?.cliente ?? j?.data ?? null) as Record<string, unknown> | null;
       if (!c) return;
       const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+      setCreditoRecarga((n) => n + 1);
       setClientes((prev) => prev.map((x) => x.id !== id ? x : {
         ...x,
         label: t(c.empresa) || t(c.nombre_contacto) || t(c.nombre) || x.label,
@@ -1849,6 +1874,9 @@ export default function NuevaVentaPage() {
     : metodoPago === "transferencia" || metodoPago === "tarjeta" || metodoPago === "cheque" ? metodoPago
     : "efectivo";
   function elegirForma(f: FormaPago) {
+    // Condición fija por el cliente: no se pasa de contado a crédito ni al revés.
+    if (condicionFija === "CONTADO" && f === "credito") return;
+    if (condicionFija === "CREDITO" && f !== "credito") return;
     if (f === "credito") {
       setTipoVenta("CREDITO");
       setPagoMixto(false);
@@ -2136,15 +2164,49 @@ export default function NuevaVentaPage() {
 
             {/* Condición: Contado / Crédito */}
             <div>
-              <label className={labelClass}>Condición</label>
+              <label className={labelClass}>
+                Condición
+                {condicionFija && <span className="ml-1 text-xs font-normal text-gray-400">(la del cliente)</span>}
+              </label>
               <SegmentedControl<TipoVenta>
                 value={tipoVenta}
                 options={[
                   { value: "CONTADO", label: "Contado" },
                   { value: "CREDITO", label: "Crédito" },
                 ]}
-                onChange={(v) => { setTipoVenta(v); if (v === "CONTADO") setPlazoDias(""); }}
+                disabled={!!condicionFija}
+                onChange={(v) => { if (condicionFija) return; setTipoVenta(v); if (v === "CONTADO") setPlazoDias(""); }}
               />
+              {condicionFija && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Fijada en la ficha del cliente. Para cambiarla: «Editar datos del cliente».
+                </p>
+              )}
+
+              {/* Límite y disponible, grandes y a la vista (pedido del cliente:
+                  «ponelo grande, porque parece que no se ve»). */}
+              {clienteId && credito && credito.limite != null && (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Límite de crédito</p>
+                    <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{formatGs(credito.limite)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Debe</p>
+                    <p className={`mt-0.5 text-lg font-bold tabular-nums ${credito.deuda > 0 ? "text-amber-700" : "text-slate-900"}`}>{formatGs(credito.deuda)}</p>
+                  </div>
+                  <div className={`rounded-xl border px-3 py-2 ${
+                    (credito.disponible ?? 0) <= 0 || (tipoVenta === "CREDITO" && totalGeneral > (credito.disponible ?? 0))
+                      ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"
+                  }`}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Disponible</p>
+                    <p className={`mt-0.5 text-lg font-bold tabular-nums ${
+                      (credito.disponible ?? 0) <= 0 || (tipoVenta === "CREDITO" && totalGeneral > (credito.disponible ?? 0))
+                        ? "text-red-700" : "text-emerald-700"
+                    }`}>{formatGs(credito.disponible ?? 0)}</p>
+                  </div>
+                </div>
+              )}
               {tipoVenta === "CREDITO" && (
                 <div className="mt-3">
                   <label className={labelClass}>Plazo de crédito (días)</label>
@@ -2152,9 +2214,11 @@ export default function NuevaVentaPage() {
                     type="number"
                     min={1}
                     value={plazoDias}
-                    onChange={(e) => setPlazoDias(e.target.value)}
+                    onChange={(e) => { if (!plazoFijo) setPlazoDias(e.target.value); }}
+                    readOnly={plazoFijo}
+                    title={plazoFijo ? "Plazo acordado en la ficha del cliente" : undefined}
                     placeholder="Ej: 30"
-                    className={`${inputClass} ${plazoDiasNum < 1 ? "border-red-300 bg-red-50" : ""}`}
+                    className={`${inputClass} ${plazoFijo ? "cursor-not-allowed bg-slate-50 text-slate-700" : ""} ${plazoDiasNum < 1 ? "border-red-300 bg-red-50" : ""}`}
                   />
                   {plazoDiasNum < 1 && (
                     <p className="mt-1 text-[11px] text-red-600">Ingresá un plazo de al menos 1 día.</p>
