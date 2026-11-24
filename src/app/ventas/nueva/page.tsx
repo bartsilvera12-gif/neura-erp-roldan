@@ -1421,6 +1421,29 @@ export default function NuevaVentaPage() {
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null;
   // Punto 3.3: historial comercial, a mano en el mostrador.
   const [verHistorial, setVerHistorial] = useState(false);
+  /**
+   * En las líneas de la venta, Enter pasa al campo siguiente (cantidad →
+   * precio → descuento → la línea de abajo) en vez de tener que usar Tab
+   * (pedido del cliente). Después del último campo vuelve al buscador de
+   * productos, para seguir cargando.
+   */
+  function enterEnLineas(e: React.KeyboardEvent<HTMLTableSectionElement>) {
+    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const t = e.target as HTMLElement;
+    if (!(t instanceof HTMLInputElement)) return;
+    e.preventDefault();
+    const campos = Array.from(e.currentTarget.querySelectorAll<HTMLInputElement>("input:not([disabled])"))
+      .filter((el) => !el.readOnly && el.type !== "checkbox" && el.tabIndex !== -1 && el.offsetParent !== null);
+    const i = campos.indexOf(t);
+    const sig = i >= 0 ? campos[i + 1] : undefined;
+    if (sig) {
+      sig.focus();
+      sig.select();
+    } else {
+      t.blur();
+      setTimeout(() => comboInputRef.current?.focus(), 0);
+    }
+  }
   /** Ficha del cliente en un modal, para corregir sus datos sin salir de la venta (como en Presupuesto). */
   const [verDatosCliente, setVerDatosCliente] = useState(false);
   /** Después de editar el cliente: se vuelve a leer para que RUC, teléfono y nivel de precio queden al día. */
@@ -2466,7 +2489,7 @@ export default function NuevaVentaPage() {
                       <th className="w-10 px-2 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100" onKeyDown={enterEnLineas}>
                     {items.map((item, idx) => {
                       const prod = productos.find((p) => p.id === item.producto_id);
                       const esManual = item.producto_id.startsWith("manual:");
