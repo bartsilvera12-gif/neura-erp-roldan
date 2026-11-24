@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndEmpresa } from "@/lib/middleware/auth";
+import { getUserAndEmpresa, getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import { firmaUsuario } from "@/lib/usuarios/server/firma-usuario";
 import { descuentoMaximoDe, lineasSobreTope, topesPorArticulo } from "@/lib/ventas/server/descuento-maximo";
@@ -473,6 +473,11 @@ export async function POST(request: NextRequest) {
       // cajero explícitamente eligió "solo ticket" al confirmar la venta.
       emitirFactura: emitirFacturaFlag,
       createdBy: auth.usuarioCatalogId ?? null,
+      // Solo en una caja que pueda operar (script 105).
+      operador: await (async () => {
+        const conRol = await getAuthWithRol(request);
+        return { usuarioId: auth.usuarioCatalogId ?? null, esAdmin: !!conRol && isAdmin(conRol) };
+      })(),
       // El nombre y no el email: es lo que se ve en Movimientos, en la hoja de
       // comisiones que el vendedor firma y en el detalle de la caja. Un
       // "ventas03@..." ahí no le dice nada a nadie.

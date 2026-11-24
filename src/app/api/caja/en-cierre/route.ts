@@ -3,6 +3,8 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { ponerCajaEnCierre } from "@/lib/caja/server";
+import { bloqueoCaja } from "@/lib/caja/responsables";
+import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 
 /**
  * POST /api/caja/en-cierre — pasa una caja abierta a estado 'en_cierre' (conteo).
@@ -17,6 +19,11 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const cajaId = body.caja_id != null ? String(body.caja_id) : "";
     if (!cajaId) return NextResponse.json(errorResponse("Falta la caja."), { status: 400 });
+    {
+      const conRol = await getAuthWithRol(request);
+      const msg = await bloqueoCaja(ctx.supabase, ctx.auth.empresa_id, cajaId, ctx.auth.usuarioCatalogId ?? null, !!conRol && isAdmin(conRol));
+      if (msg) return NextResponse.json(errorResponse(msg), { status: 403 });
+    }
 
     const caja = await ponerCajaEnCierre(ctx.supabase, ctx.auth.empresa_id, cajaId, ctx.auth.sucursal_id ?? null);
     return NextResponse.json(successResponse({ caja }));

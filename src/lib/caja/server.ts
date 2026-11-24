@@ -861,6 +861,11 @@ export async function abrirCaja(
      * administración queda afuera de la regla.
      */
     unaPorUsuario?: boolean;
+    /**
+     * Quiénes pueden operar la caja además de los administradores (script
+     * 105). null = sin restricción. Si la columna no existe, se ignora.
+     */
+    responsables?: string[] | null;
   }
 ): Promise<Caja> {
   const sucursalId = params.sucursalId ?? null;
@@ -922,6 +927,17 @@ export async function abrirCaja(
       throw new Error(`La Caja ${numero} ya está activa. Cerrala antes de reabrir ese número.`);
     }
     throw new Error(ins.error.message);
+  }
+  if (params.responsables && params.responsables.length > 0) {
+    // Aparte del insert: sin el script 105 la columna no existe y la caja
+    // tiene que abrirse igual (queda sin restricción, como antes).
+    const up = await sb
+      .from("cajas")
+      .update({ responsables: params.responsables })
+      .eq("id", (ins.data as unknown as { id: string }).id);
+    if (up.error && !/responsables/i.test(up.error.message)) {
+      console.error("[caja] responsables", up.error.message);
+    }
   }
   return mapCaja(ins.data as unknown as CajaRow);
 }

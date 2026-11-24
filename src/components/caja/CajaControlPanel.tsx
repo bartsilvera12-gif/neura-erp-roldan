@@ -68,9 +68,18 @@ import { TIPOS_EGRESO } from "@/lib/caja/tipos-egreso";
 import Selector from "@/components/ui/Selector";
 import BuscadorCliente, { type ClienteElegido } from "@/components/clientes/BuscadorCliente";
 import { claseMovimiento, ETIQUETA_CLASE, type ClaseMovimiento } from "@/lib/caja/clase-movimiento";
+import { useIsAdmin } from "@/lib/auth/use-is-admin";
+
+/** Lo que agrega /api/caja/estado sobre quién opera la caja (script 105). */
+type CajaConPermiso = CajaResumen & {
+  puede_operar?: boolean;
+  abierta_por_nombre?: string | null;
+  responsables_nombres?: string[] | null;
+};
 
 export default function CajaControlPanel({ onStateChange }: Props) {
-  const [cajas, setCajas] = useState<CajaResumen[]>([]);
+  const [cajas, setCajas] = useState<CajaConPermiso[]>([]);
+  const { isAdmin: esAdminCaja } = useIsAdmin();
   const [target, setTarget] = useState<CajaResumen | null>(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalKind>(null);
@@ -89,7 +98,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
       });
       const j = await r.json();
       if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo cargar");
-      setCajas((j.data?.cajas ?? []) as CajaResumen[]);
+      setCajas((j.data?.cajas ?? []) as CajaConPermiso[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red");
     } finally {
@@ -114,7 +123,8 @@ export default function CajaControlPanel({ onStateChange }: Props) {
     monto: number,
     observacion: string | null,
     numeroCaja: number,
-    arqueo: ArqueoItem[] | null
+    arqueo: ArqueoItem[] | null,
+    responsables: string[]
   ) {
     const r = await fetch("/api/caja/abrir", {
       method: "POST",
@@ -125,6 +135,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
         observacion,
         numero_caja: numeroCaja,
         arqueo_apertura: arqueo,
+        responsables,
       }),
     });
     const j = await r.json();
@@ -262,6 +273,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
             error={error}
             numeroSugerido={numeroSugerido}
             numerosOcupados={numerosOcupados}
+            esAdmin={esAdminCaja}
           />
         )}
 
@@ -315,6 +327,9 @@ export default function CajaControlPanel({ onStateChange }: Props) {
 
       {cajas.map((cr) => {
         const c = cr.caja;
+        // Script 105: la caja es de quien la abrió y de los administradores.
+        // Los demás la ven, sin botones para operarla.
+        const puede = cr.puede_operar !== false;
         const enCierre = c.estado === "en_cierre";
         return (
           <div key={c.id} className="rounded-xl border border-2 border-[#4FAEB2]/25 bg-white shadow-[0_2px_10px_-2px_rgba(79,174,178,0.12)] overflow-hidden">
@@ -342,7 +357,18 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     Abierta el {fmtFechaHora(c.fecha_apertura)}
+                    {cr.abierta_por_nombre ? ` por ${cr.abierta_por_nombre}` : ""}
                   </p>
+                  {cr.responsables_nombres && cr.responsables_nombres.length > 0 && (
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      La operan: <strong className="text-slate-700">{cr.responsables_nombres.join(", ")}</strong> y los administradores
+                    </p>
+                  )}
+                  {!puede && (
+                    <p className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                      Solo lectura: no es tu caja
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -375,7 +401,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                     Imprimir lista de ventas
                   </a>
                 )}
-                {!enCierre && (
+                {!enCierre && puede && (
                   <>
                     {/* Acceso rápido a facturar (pedido del cliente): es lo
                         que más se usa, así que va más grande que el resto. */}
@@ -404,6 +430,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                     </button>
                   </>
                 )}
+                {puede && (
                 <button
                   type="button"
                   onClick={() => { setTarget(cr); setModal("cerrar"); }}
@@ -412,6 +439,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
                   <Lock className="h-3.5 w-3.5" />
                   Cerrar
                 </button>
+                )}
               </div>
             </div>
 
@@ -468,6 +496,7 @@ export default function CajaControlPanel({ onStateChange }: Props) {
           error={error}
           numeroSugerido={numeroSugerido}
           numerosOcupados={numerosOcupados}
+          esAdmin={esAdminCaja}
         />
       )}
       {modal === "cerrar" && target && (
@@ -807,13 +836,34 @@ function ModalAbrir({
   error,
   numeroSugerido,
   numerosOcupados,
+  esAdmin,
 }: {
   onClose: () => void;
-  onConfirm: (monto: number, obs: string | null, numeroCaja: number, arqueo: ArqueoItem[] | null) => Promise<void>;
+  onConfirm: (monto: number, obs: string | null, numeroCaja: number, arqueo: ArqueoItem[] | null, responsables: string[]) => Promise<void>;
   error: string | null;
   numeroSugerido: number;
   numerosOcupados: number[];
+  /** El administrador elige quién más puede operar la caja (script 105). */
+  esAdmin: boolean;
 }) {
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [responsables, setResponsables] = useState<string[]>([]);
+  useEffect(() => {
+    if (!esAdmin) return;
+    let vivo = true;
+    fetch("/api/empresas/usuarios", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!vivo) return;
+        const lista = ((j?.usuarios ?? j?.data?.usuarios ?? []) as Array<Record<string, unknown>>)
+          .filter((u) => String(u.estado ?? "activo") !== "inactivo")
+          .map((u) => ({ id: String(u.id), nombre: String(u.nombre ?? "").trim() || String(u.email ?? "Usuario") }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        setUsuarios(lista);
+      })
+      .catch(() => { /* sin lista: la abre y la opera el administrador */ });
+    return () => { vivo = false; };
+  }, [esAdmin]);
   const [cant, setCant] = useState<ArqueoCantidades>(arqueoVacio());
   const [obs, setObs] = useState("");
   const [numero, setNumero] = useState(numeroSugerido);
@@ -830,7 +880,7 @@ function ModalAbrir({
     setBusy(true);
     setErr(null);
     try {
-      await onConfirm(montoFinal, obs.trim() || null, numero, arqueo);
+      await onConfirm(montoFinal, obs.trim() || null, numero, arqueo, responsables);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error");
       setBusy(false);
@@ -898,6 +948,35 @@ function ModalAbrir({
             className="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm focus:border-[#4FAEB2] focus:ring-2 focus:ring-[#4FAEB2]/20 outline-none resize-none"
           />
         </div>
+        {/* Quién puede operar la caja (pedido del cliente): la abre el
+            administrador y elige a los cajeros. Los demás la ven, sin poder
+            cargarle movimientos, cobrar en ella ni cerrarla. */}
+        {esAdmin && usuarios.length > 0 && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Quién puede operar esta caja
+            </label>
+            <p className="mb-1.5 text-[11px] text-slate-500">
+              Además de los administradores. Los demás la van a ver, pero sin poder cargarle movimientos, cobrar ventas ni cerrarla.
+            </p>
+            <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-slate-200 p-2 sm:grid-cols-2">
+              {usuarios.map((u) => (
+                <label key={u.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm text-slate-700 hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300"
+                    checked={responsables.includes(u.id)}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setResponsables((prev) => (e.target.checked ? [...prev, u.id] : prev.filter((x) => x !== u.id)))
+                    }
+                  />
+                  {u.nombre}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         {err && (
           <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {err}

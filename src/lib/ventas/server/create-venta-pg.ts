@@ -1,4 +1,6 @@
 import { createServiceRoleClientWithDbSchema } from "@/lib/supabase/empresa-data-schema";
+import { duenosDeCajas, puedeOperarCaja, MSG_CAJA_AJENA } from "@/lib/caja/responsables";
+import type { AppSupabaseClient } from "@/lib/supabase/schema";
 import { ajustarStockUbicacion } from "@/lib/multideposito/server";
 import { convertirCantidad } from "@/lib/unidades/convert";
 
@@ -91,6 +93,11 @@ export interface CreateVentaPgParams {
    *  para que /inventario/movimientos muestre quién hizo la salida de stock. */
   createdBy?: string | null;
   usuarioNombre?: string | null;
+  /**
+   * Quién vende (script 105): sin ser administrador solo puede cobrar en una
+   * caja que abrió él o en la que lo agregaron. Sin esto, cualquier caja.
+   */
+  operador?: { usuarioId: string | null; esAdmin: boolean } | null;
   /**
    * Parte del total que se paga con un anticipo del cliente (plata que entró
    * al cajón en un turno anterior). El total de la venta NO cambia: cambia
@@ -515,7 +522,19 @@ export async function createVentaTransaccionalPg(
     .eq("estado", "abierta")
     .order("numero_caja", { ascending: true });
   if (cajasQ.error) throw new Error(cajasQ.error.message);
-  const cajasAbiertas = (cajasQ.data ?? []) as Array<{ id: string; numero_caja: number | string }>;
+  const todasAbiertas = (cajasQ.data ?? []) as Array<{ id: string; numero_caja: number | string }>;
+  let cajasAbiertas = todasAbiertas;
+  if (params.operador && !params.operador.esAdmin && todasAbiertas.length > 0) {
+    const duenos = await duenosDeCajas(sb as unknown as AppSupabaseClient, params.empresaId, todasAbiertas.map((c) => String(c.id)));
+    cajasAbiertas = todasAbiertas.filter((c) => puedeOperarCaja(duenos.get(String(c.id)), params.operador!.usuarioId, false));
+    if (cajasAbiertas.length === 0) {
+      throw new Error("Las cajas abiertas son de otras personas: abrí tu propia caja para vender, o pedile a un administrador que te agregue.");
+    }
+    const pedida = params.cajaId ? String(params.cajaId) : null;
+    if (pedida && todasAbiertas.some((c) => String(c.id) === pedida) && !cajasAbiertas.some((c) => String(c.id) === pedida)) {
+      throw new Error(MSG_CAJA_AJENA);
+    }
+  }
 
   let cajaIdActual: string;
   const cajaPedida = params.cajaId ? String(params.cajaId) : null;

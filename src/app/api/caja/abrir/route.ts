@@ -43,6 +43,15 @@ export async function POST(request: NextRequest) {
     const numeroRaw = Number(o.numero_caja);
     const numeroCaja = Number.isFinite(numeroRaw) && numeroRaw >= 1 ? Math.floor(numeroRaw) : null;
 
+    // Quién puede operarla (script 105, pedido del cliente): quien la abre y,
+    // si la abre un administrador, los usuarios que él elija.
+    const yo = ctx.auth.usuarioCatalogId ?? null;
+    const esAdmin = isAdmin(ctx.auth);
+    const elegidos = Array.isArray(o.responsables)
+      ? (o.responsables as unknown[]).map((x) => String(x)).filter((x) => /^[0-9a-f-]{36}$/i.test(x))
+      : [];
+    const responsables = [...new Set([...(yo ? [yo] : []), ...(esAdmin ? elegidos : [])])];
+
     const caja = await abrirCaja(ctx.supabase, {
       empresaId: ctx.auth.empresa_id,
       sucursalId: ctx.auth.sucursal_id ?? null,
@@ -51,7 +60,8 @@ export async function POST(request: NextRequest) {
       usuarioId: ctx.auth.usuarioCatalogId ?? null,
       numeroCaja,
       arqueoApertura,
-      unaPorUsuario: !isAdmin(ctx.auth),
+      unaPorUsuario: !esAdmin,
+      responsables: responsables.length > 0 ? responsables : null,
     });
     return NextResponse.json(successResponse({ caja }));
   } catch (err) {

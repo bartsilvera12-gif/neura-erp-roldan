@@ -3,6 +3,8 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { cerrarCaja, getCajaAbierta } from "@/lib/caja/server";
+import { bloqueoCaja } from "@/lib/caja/responsables";
+import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 import { normalizarArqueo } from "@/lib/caja/denominaciones";
 
 /**
@@ -55,6 +57,11 @@ export async function POST(request: NextRequest) {
       cajaId = abierta.id;
     }
 
+    {
+      const conRol = await getAuthWithRol(request);
+      const msg = await bloqueoCaja(ctx.supabase, ctx.auth.empresa_id, cajaId, ctx.auth.usuarioCatalogId ?? null, !!conRol && isAdmin(conRol));
+      if (msg) return NextResponse.json(errorResponse(msg), { status: 403 });
+    }
     const resumen = await cerrarCaja(ctx.supabase, {
       empresaId: ctx.auth.empresa_id,
       sucursalId,

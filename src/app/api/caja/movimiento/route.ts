@@ -3,6 +3,8 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { registrarMovimiento, getCajaAbierta } from "@/lib/caja/server";
+import { bloqueoCaja } from "@/lib/caja/responsables";
+import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 import { comprobantePathBelongsToEmpresa } from "@/lib/compras/comprobante-storage";
 import { esTipoEgresoValido } from "@/lib/caja/tipos-egreso";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
@@ -103,6 +105,13 @@ export async function POST(request: NextRequest) {
         );
       }
       cajaId = abierta.id;
+    }
+
+    // La caja es de quien la abrió y de los administradores (script 105).
+    {
+      const conRol = await getAuthWithRol(request);
+      const msg = await bloqueoCaja(ctx.supabase, ctx.auth.empresa_id, cajaId, ctx.auth.usuarioCatalogId ?? null, !!conRol && isAdmin(conRol));
+      if (msg) return NextResponse.json(errorResponse(msg), { status: 403 });
     }
 
     // Retención: cliente y factura obligatorios. El cliente va en `proveedor`

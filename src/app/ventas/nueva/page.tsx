@@ -1191,7 +1191,9 @@ export default function NuevaVentaPage() {
       try {
         const res = await fetchWithSupabaseSession("/api/caja/estado", { cache: "no-store" });
         const j = await res.json();
-        const list = ((j?.data?.cajas ?? []) as Array<{ caja: { id: string; numero_caja: number; estado: string } }>)
+        const list = ((j?.data?.cajas ?? []) as Array<{ caja: { id: string; numero_caja: number; estado: string }; puede_operar?: boolean }>)
+          // Solo las cajas que este usuario puede operar (script 105).
+          .filter((r) => r.puede_operar !== false)
           .map((r) => r.caja)
           .filter((c) => c.estado === "abierta")
           .map((c) => ({ id: String(c.id), numero_caja: Number(c.numero_caja) || 1 }));
