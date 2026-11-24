@@ -342,10 +342,14 @@ export async function insertComprasConImpacto(
                 -- cambio de ESTA compra. Ese guaraní es el que se cobra, aunque
                 -- después cambie la cotización (ver precioListaGs).
                 precio_usd = CASE WHEN $6::numeric > 0 THEN $6::numeric ELSE precio_usd END,
+                -- Último costo en dólares (pedido del cliente): la próxima
+                -- compra en dólares de este producto arranca con este valor.
+                costo_usd = CASE WHEN $7::numeric > 0 THEN $7::numeric ELSE costo_usd END,
                 updated_at = now()
           WHERE id = $4::uuid AND empresa_id = $5::uuid`,
         [it.cantidad, it.costo_unitario, it.precio_venta, it.producto_id, empresaId,
-         it.precio_venta_usd ?? 0]
+         it.precio_venta_usd ?? 0,
+         header.moneda === "USD" ? Number(it.costo_unitario_original) || 0 : 0]
       );
 
       // Sumar al depósito (inventario_stock_ubicacion). Si no se eligió depósito,
