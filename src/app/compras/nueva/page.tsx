@@ -18,6 +18,9 @@ import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib
 import { Check } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import { aGuaranies } from "@/lib/moneda";
+import HistorialPreciosModal from "@/components/compras/HistorialPreciosModal";
+import { precioEnDolares, type FilaHistorial } from "@/lib/compras/historial-precios";
+import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import { MAX_ITEMS_COMPRA, mensajeTopeCompra } from "@/lib/compras/tope";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -148,6 +151,8 @@ export default function NuevaCompraPage() {
   /** Carga por teclado: producto → Enter → cantidad → costo → precio → Enter agrega y vuelve al producto. */
   const buscadorProductoRef = useRef<SearchableSelectHandle>(null);
   const cantidadRef = useRef<HTMLInputElement>(null);
+  /** «Ver historial completo» del producto elegido. */
+  const [historialAbierto, setHistorialAbierto] = useState(false);
 
   // Cabecera (compartida por toda la compra)
   const [cab, setCab] = useState({
@@ -1185,6 +1190,16 @@ export default function NuevaCompraPage() {
                     {Number(productoSel.precio_usd) > 0 && ` · precio US$ ${Number(productoSel.precio_usd).toLocaleString("es-PY", { maximumFractionDigits: 2 })}`}
                   </p>
                 )}
+                {productoSel && !productoCreado && (
+                  <UltimasCompras key={productoSel.id} productoId={productoSel.id} onVerTodo={() => setHistorialAbierto(true)} />
+                )}
+                {historialAbierto && productoSel && (
+                  <HistorialPreciosModal
+                    productoIdInicial={productoSel.id}
+                    productoNombreInicial={productoSel.nombre}
+                    onClose={() => setHistorialAbierto(false)}
+                  />
+                )}
                 {productoCreado && (
                   <p className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-green-600"><Check className="h-4 w-4" /> Producto &quot;{productoCreado}&quot; creado y seleccionado.</p>
                 )}
@@ -1390,6 +1405,86 @@ export default function NuevaCompraPage() {
 }
 
 // ── Sub-componentes ────────────────────────────────────────────────────────────
+
+/**
+ * Las últimas compras del producto elegido (pedido del cliente: «acá debería
+ * haber un historial de precios»), para ver a cuánto se venía comprando antes
+ * de cargar el costo. Solo lee; las anuladas no salen.
+ */
+function UltimasCompras({ productoId, onVerTodo }: { productoId: string; onVerTodo: () => void }) {
+  const [filas, setFilas] = useState<FilaHistorial[] | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    // Al cambiar de producto el componente se monta de nuevo (key), así
+    // arranca vacío sin tener que limpiarlo acá.
+    let vivo = true;
+    apiFetch(`/api/compras/historial-precios?producto_id=${encodeURIComponent(productoId)}`, { cache: "no-store" })
+      .then((r) => r.json().catch(() => null).then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (!vivo) return;
+        if (!ok || !j?.success) { setError(true); return; }
+        setFilas(((j.data?.filas ?? []) as FilaHistorial[]).slice(0, 5));
+      })
+      .catch(() => { if (vivo) setError(true); });
+    return () => { vivo = false; };
+  }, [productoId]);
+
+  const fFecha = (iso?: string | null) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ""));
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-white">
+      <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Últimas compras</p>
+        <button type="button" onClick={onVerTodo} className="text-xs font-medium text-[#3F8E91] hover:underline">
+          Ver historial completo
+        </button>
+      </div>
+      {error ? (
+        <p className="px-3 py-2 text-xs text-slate-400">No se pudo leer el historial.</p>
+      ) : filas === null ? (
+        <p className="px-3 py-2 text-xs text-slate-400">Buscando compras anteriores…</p>
+      ) : filas.length === 0 ? (
+        <p className="px-3 py-2 text-xs text-slate-400">Este producto todavía no tiene compras.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
+                <th className="px-3 py-1.5 font-medium">Fecha</th>
+                <th className="px-3 py-1.5 font-medium">Proveedor</th>
+                <th className="px-3 py-1.5 text-right font-medium">Cant.</th>
+                <th className="px-3 py-1.5 text-right font-medium">Costo US$</th>
+                <th className="px-3 py-1.5 text-right font-medium">Costo Gs.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f, i) => {
+                const usd = precioEnDolares(f);
+                return (
+                  <tr key={`${f.numero_control}-${i}`} className="border-t border-slate-50">
+                    <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-slate-600">{fFecha(f.fecha)}</td>
+                    <td className="max-w-[200px] truncate px-3 py-1.5 text-slate-700">{f.proveedor_nombre || "—"}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-slate-600">{Number(f.cantidad) || 0}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-slate-800">
+                      {usd != null ? usd.toLocaleString("es-PY", { maximumFractionDigits: 4 }) : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-slate-800">
+                      {Math.round(Number(f.costo_unitario) || 0).toLocaleString("es-PY")}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{children}</h3>;
