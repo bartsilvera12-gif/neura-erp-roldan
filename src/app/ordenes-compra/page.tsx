@@ -7,13 +7,13 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import { apiFetch } from "@/lib/api/fetch-with-supabase-session";
 import NuevaOrdenCompraModal from "@/components/compras/NuevaOrdenCompraModal";
 import EnviarOrdenModal from "@/components/compras/EnviarOrdenModal";
-import { Printer, Plus, Check, X, Mail, History } from "lucide-react";
+import { Printer, Plus, X, Mail, History } from "lucide-react";
 import Selector from "@/components/ui/Selector";
 import Link from "next/link";
-import { estadoOrden, ETIQUETA_ESTADO_ORDEN, textoConfirmaciones, confirmacionesHechas, type EstadoOrden } from "@/lib/compras/orden-estado";
+import { estadoOrden } from "@/lib/compras/orden-estado";
 import { totalLinea, totalOrden } from "@/lib/compras/orden-linea";
 import HistorialPreciosModal from "@/components/compras/HistorialPreciosModal";
-import { FileInput, Truck, CheckCheck } from "lucide-react";
+import { FileInput } from "lucide-react";
 
 /**
  * Órdenes de compra: el PEDIDO que se le manda al proveedor.
@@ -62,12 +62,21 @@ const fmtFecha = (iso: string | null) => {
 // Con el descuento de cada línea aplicado (pedido del cliente).
 const totalDe = (o: Orden) => totalOrden(o.items ?? []);
 
-const TONO: Record<EstadoOrden, string> = {
-  en_transito: "bg-violet-100 text-violet-800",
-  por_confirmar: "bg-amber-100 text-amber-900",
-  recibida: "bg-emerald-100 text-emerald-800",
-  facturada: "bg-sky-100 text-sky-800",
-  anulada: "bg-slate-100 text-slate-500 line-through",
+/**
+ * Estado simple de la orden (pedido del cliente: «quitá lo de pendiente y
+ * demás»). Sin Pendiente/Aprobado ni el «1/2» de la recepción: la aprobación
+ * y la recepción ahora están en la compra (script 104). La orden solo dice si
+ * sigue abierta, si ya se cargó su factura o si se anuló.
+ */
+type EstadoSimple = "abierta" | "facturada" | "anulada";
+function estadoSimple(o: Orden): EstadoSimple {
+  const e = estadoOrden(o);
+  return e === "anulada" ? "anulada" : e === "facturada" ? "facturada" : "abierta";
+}
+const ESTADO_SIMPLE: Record<EstadoSimple, { txt: string; cls: string }> = {
+  abierta: { txt: "Abierta", cls: "bg-violet-100 text-violet-800" },
+  facturada: { txt: "Facturada", cls: "bg-sky-100 text-sky-800" },
+  anulada: { txt: "Anulada", cls: "bg-slate-100 text-slate-500 line-through" },
 };
 
 export default function OrdenesCompraPage() {
@@ -119,46 +128,10 @@ export default function OrdenesCompraPage() {
     }
   }
 
-  /**
-   * «Recibido» (1ª confirmación), «Aceptar» (2ª, del administrador) y volver a
-   * tránsito. La regla de las dos personas la aplica el servidor; acá solo se
-   * muestra lo que contesta.
-   */
-  async function recepcion(o: Orden, confirmar: boolean) {
-    setOcupada(o.id);
-    try {
-      const r = await apiFetch("/api/ordenes-compra", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          confirmar ? { id: o.id, confirmar_recepcion: true } : { id: o.id, deshacer_recepcion: true }
-        ),
-      });
-      const j = await r.json().catch(() => null);
-      if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se pudo registrar la recepción.");
-      setAviso(
-        typeof j.data?.aviso === "string"
-          ? j.data.aviso
-          : typeof j.data?.mensaje === "string"
-            ? j.data.mensaje
-            : null
-      );
-      await cargar();
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "No se pudo registrar la recepción.");
-    } finally {
-      setOcupada(null);
-    }
-  }
-
   const filtradas = useMemo(() => {
     const s = q.trim().toLowerCase();
     return ordenes.filter((o) => {
-      // «Pendientes» junta las dos etapas internas (sin confirmar y esperando
-      // al administrador): el cliente pidió ver aprobado y rechazado nomás.
-      if (estado === "pendiente") {
-        if (!["en_transito", "por_confirmar"].includes(estadoOrden(o))) return false;
-      } else if (estado && estadoOrden(o) !== estado) return false;
+      if (estado && estadoSimple(o) !== estado) return false;
       if (!s) return true;
       return (
         o.proveedor_nombre.toLowerCase().includes(s) ||
@@ -170,14 +143,14 @@ export default function OrdenesCompraPage() {
 
   const filasExport = useMemo(
     () => filtradas.map((o) => [
-      o.numero_control, fmtFecha(o.fecha), o.proveedor_nombre, ETIQUETA_ESTADO_ORDEN[estadoOrden(o)],
+      o.numero_control, fmtFecha(o.fecha), o.proveedor_nombre, ESTADO_SIMPLE[estadoSimple(o)].txt,
       (o.items ?? []).length, o.moneda, Math.round(totalDe(o)),
     ]),
     [filtradas]
   );
 
   const totalPendiente = filtradas
-    .filter((o) => estadoOrden(o) === "en_transito" || estadoOrden(o) === "recibida")
+    .filter((o) => estadoSimple(o) === "abierta")
     .reduce((s, o) => s + totalDe(o), 0);
 
   return (
@@ -221,10 +194,9 @@ export default function OrdenesCompraPage() {
             className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="">Todas</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="recibida">Aprobadas (sin factura)</option>
+            <option value="abierta">Abiertas (sin factura)</option>
             <option value="facturada">Facturadas</option>
-            <option value="anulada">Rechazadas</option>
+            <option value="anulada">Anuladas</option>
           </Selector>
         </label>
 
@@ -311,19 +283,9 @@ export default function OrdenesCompraPage() {
                           {o.moneda === "USD" ? "US$ " : ""}{gs(totalDe(o))}
                         </td>
                         <td className="px-3 py-2.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONO[estadoOrden(o)]}`}>
-                            {ETIQUETA_ESTADO_ORDEN[estadoOrden(o)]}
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${ESTADO_SIMPLE[estadoSimple(o)].cls}`}>
+                            {ESTADO_SIMPLE[estadoSimple(o)].txt}
                           </span>
-                          {/* Cuántas de las dos confirmaciones de recepción
-                              están hechas. */}
-                          {textoConfirmaciones(o) && (
-                            <span
-                              className={`ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold ${confirmacionesHechas(o) >= 2 ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
-                              title={confirmacionesHechas(o) >= 2 ? "Confirmada por dos personas" : "Confirmaciones de recepción: hacen falta dos"}
-                            >
-                              {textoConfirmaciones(o)}
-                            </span>
-                          )}
                           {o.compra_numero && <span className="ml-1 font-mono text-[10px] text-slate-400">{o.compra_numero}</span>}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
@@ -345,54 +307,9 @@ export default function OrdenesCompraPage() {
                           >
                             <Printer className="h-3.5 w-3.5" /> Imprimir
                           </a>
-                          {/* Recepción con DOS personas: quien recibe marca
-                              «Recibido» y un administrador «Aceptar». Quién puede
-                              qué lo decide el servidor (`_recepcion`).
-                              Va aparte de «Cargar factura» / «Anular» y alcanza
-                              también a las facturadas: ahora cargar la factura no
-                              da la mercadería por recibida, así que una orden
-                              facturada antes de confirmarse tiene que poder
-                              confirmarse igual. */}
-                          {estadoOrden(o) !== "anulada" && (
-                            <>
-                              {(o._recepcion?.confirmar ?? estadoOrden(o) === "en_transito") && (
-                                <button
-                                  type="button" disabled={ocupada === o.id}
-                                  onClick={(e) => { e.stopPropagation(); void recepcion(o, true); }}
-                                  className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:underline disabled:opacity-50"
-                                  title="Marcar que la mercadería llegó. Después un administrador lo acepta."
-                                >
-                                  <Check className="h-3.5 w-3.5" /> Recibido
-                                </button>
-                              )}
-                              {o._recepcion?.aceptar && (
-                                <button
-                                  type="button" disabled={ocupada === o.id}
-                                  onClick={(e) => { e.stopPropagation(); void recepcion(o, true); }}
-                                  className="mr-2 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline disabled:opacity-50"
-                                  title="Aceptar la recepción: es la segunda confirmación"
-                                >
-                                  <CheckCheck className="h-3.5 w-3.5" /> Aceptar
-                                </button>
-                              )}
-                              {o._recepcion?.esperandoOtro && !o._recepcion?.aceptar && (
-                                <span className="mr-2 text-[11px] text-amber-800">Espera al administrador</span>
-                              )}
-                              {o._recepcion?.deshacer && (
-                                <button
-                                  type="button" disabled={ocupada === o.id}
-                                  onClick={(e) => { e.stopPropagation(); void recepcion(o, false); }}
-                                  className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:underline disabled:opacity-50"
-                                  title="Volver la orden a «En tránsito»"
-                                >
-                                  <Truck className="h-3.5 w-3.5" /> En tránsito
-                                </button>
-                              )}
-                            </>
-                          )}
                           {/* «Cargar factura» y «Anular»: como antes, solo
                               mientras la orden no está facturada ni anulada. */}
-                          {(estadoOrden(o) === "en_transito" || estadoOrden(o) === "por_confirmar" || estadoOrden(o) === "recibida") && (
+                          {estadoSimple(o) === "abierta" && (
                             <>
                               {/* Pedido del cliente: en vez de «Recibida», cargar
                                   la factura: arma la compra con esta orden. */}
