@@ -253,6 +253,21 @@ export async function PUT(request: NextRequest) {
     if (del.error) return NextResponse.json(errorResponse(del.error.message), { status: 500 });
     const ins = await ctx.supabase.from("compras").insert(rows);
     if (ins.error) return NextResponse.json(errorResponse(ins.error.message), { status: 500 });
+
+    // Compra en dólares editada: el costo en dólares corregido queda como el
+    // último del producto, igual que al crearla (pedido del cliente). Si falla
+    // no se corta: la compra ya quedó guardada.
+    if (moneda === "USD" && estado === "registrada") {
+      for (const r of rows) {
+        if (!r.producto_id || !(r.costo_unitario_original > 0)) continue;
+        const up = await ctx.supabase
+          .from("productos")
+          .update({ costo_usd: r.costo_unitario_original, updated_at: new Date().toISOString() })
+          .eq("empresa_id", empresaId)
+          .eq("id", r.producto_id);
+        if (up.error) console.error("[/api/compras PUT] costo_usd", up.error.message);
+      }
+    }
     return NextResponse.json(successResponse({ numero_control: numeroControl }));
   } catch (err) {
     console.error("[/api/compras PUT]", err instanceof Error ? err.message : err);
