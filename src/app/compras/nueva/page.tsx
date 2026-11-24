@@ -715,7 +715,11 @@ export default function NuevaCompraPage() {
         items
       );
       if (!res.success) { setErrorSubmit(res.error); return; }
-      if (res.warning) alert(res.warning);
+      // El aviso (p. ej. «pendiente de aprobación») se muestra en la lista de
+      // Compras, integrado en la pantalla, y no en una ventana del navegador.
+      if (res.warning) {
+        try { sessionStorage.setItem("compras:aviso", res.warning); } catch { /* sin storage, sin aviso */ }
+      }
       // La orden de la que salió queda facturada con esta compra.
       if (ordenId) {
         await fetch("/api/ordenes-compra", {

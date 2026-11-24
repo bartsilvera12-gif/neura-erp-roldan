@@ -247,6 +247,16 @@ function VistaNutricion() {
   /** Compra abierta en el detalle (clic en la fila). Ahí van Nota de crédito, Pagar y Anular. */
   const [detalle, setDetalle] = useState<GrupoCompra | null>(null);
   const [avisoPago, setAvisoPago] = useState<{ nivel: "ok" | "aviso"; mensaje: string } | null>(null);
+  // Aviso que deja Nueva compra al guardar (p. ej. «pendiente de aprobación»).
+  useEffect(() => {
+    let msg: string | null = null;
+    try {
+      msg = sessionStorage.getItem("compras:aviso");
+      if (msg) sessionStorage.removeItem("compras:aviso");
+    } catch { /* sin storage no hay aviso */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (msg) setAvisoPago({ nivel: "ok", mensaje: msg });
+  }, []);
   const [historial, setHistorial] = useState(false);
   // Notas de crédito de compra imputadas, sumadas por numero_control. Se usan para
   // mostrar el saldo neto (total − NC) en la fila, así el descuento se ve acá mismo.
@@ -324,6 +334,25 @@ function VistaNutricion() {
 
   return (
     <>
+      {avisoPago && (
+        <div className={`mb-4 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-snug shadow-sm ${
+          avisoPago.nivel === "aviso"
+            ? "border-amber-200 bg-amber-50 text-amber-900"
+            : "border-emerald-200 bg-emerald-50 text-emerald-900"
+        }`}>
+          <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
+            avisoPago.nivel === "aviso" ? "bg-amber-500" : "bg-emerald-500"
+          }`}>{avisoPago.nivel === "aviso" ? "!" : "✓"}</span>
+          <span className="flex-1">{avisoPago.mensaje}</span>
+          <button
+            type="button" onClick={() => setAvisoPago(null)}
+            className="shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold hover:bg-black/5"
+            aria-label="Cerrar aviso"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white p-4 ring-1 ring-[#4FAEB2]/15 sm:p-5 lg:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Órdenes de compra</h2>
@@ -644,21 +673,6 @@ function VistaNutricion() {
       {/* Qué pasó con el pago. El caso que hay que avisar sí o sí es que no
           hubiera turno abierto: la compra queda pagada igual, pero la plata no
           salió de ninguna caja y antes eso pasaba en silencio. */}
-      {avisoPago && (
-        <div className={`mt-3 flex items-start gap-3 rounded-lg border px-3 py-2 text-[12px] leading-snug ${
-          avisoPago.nivel === "aviso"
-            ? "border-amber-200 bg-amber-50 text-amber-800"
-            : "border-emerald-200 bg-emerald-50 text-emerald-800"
-        }`}>
-          <span className="flex-1">{avisoPago.mensaje}</span>
-          <button
-            type="button" onClick={() => setAvisoPago(null)}
-            className="shrink-0 text-xs font-semibold underline underline-offset-2"
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
 
       <MobileFab href="/compras/nueva" label="Nueva compra" />
 
