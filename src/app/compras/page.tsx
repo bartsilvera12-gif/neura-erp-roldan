@@ -191,6 +191,8 @@ function VistaNutricion() {
   const [anularTarget, setAnularTarget] = useState<{ numero: string; proveedor: string } | null>(null);
   const [ncTarget, setNcTarget] = useState<GrupoCompra | null>(null);
   const [pagarTarget, setPagarTarget] = useState<GrupoCompra | null>(null);
+  /** Compra abierta en el detalle (clic en la fila). Ahí van Nota de crédito, Pagar y Anular. */
+  const [detalle, setDetalle] = useState<GrupoCompra | null>(null);
   const [avisoPago, setAvisoPago] = useState<{ nivel: "ok" | "aviso"; mensaje: string } | null>(null);
   const [historial, setHistorial] = useState(false);
   // Notas de crédito de compra imputadas, sumadas por numero_control. Se usan para
@@ -409,11 +411,21 @@ function VistaNutricion() {
                   return (
                     <FragmentRow key={g.numero_control}>
                       <tr
-                        className={`border-b border-slate-200 transition-colors hover:bg-[#4FAEB2]/[0.04] ${multi ? "cursor-pointer" : ""} ${g.anulada ? "opacity-60" : ""}`}
-                        onClick={() => multi && toggle(g.numero_control)}
+                        className={`cursor-pointer border-b border-slate-200 transition-colors hover:bg-[#4FAEB2]/[0.04] ${g.anulada ? "opacity-60" : ""}`}
+                        onClick={() => setDetalle(g)}
+                        title="Ver los datos de la compra"
                       >
                         <td className={`py-4 pr-4 font-mono text-xs ${g.anulada ? "line-through text-gray-400" : "text-gray-500"}`}>
-                          {multi && <span className="mr-1 inline-block text-gray-400">{abierto ? "▾" : "▸"}</span>}
+                          {multi && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggle(g.numero_control); }}
+                              className="mr-1 inline-block text-gray-400 hover:text-gray-700"
+                              title={abierto ? "Ocultar productos" : "Ver productos"}
+                            >
+                              {abierto ? "▾" : "▸"}
+                            </button>
+                          )}
                           {g.numero_control}
                         </td>
                         <td className="hidden py-4 pr-4 font-mono text-xs text-gray-600 xl:table-cell">
@@ -499,57 +511,9 @@ function VistaNutricion() {
                           {formatFechaDate(g.fecha_factura)}
                         </td>
                         <td className="py-4 text-right whitespace-nowrap">
-                          {/* Una compra anulada ya revirtió su stock: editarla
-                              volvería a aplicar las cantidades sobre un
-                              documento que no existe más. */}
-                          {/* «Editar» se sacó para todos (pedido del cliente). */}
-                          {false && isAdmin && !g.anulada && (
-                            <Link
-                              href={`/compras/nueva?numero=${encodeURIComponent(g.numero_control)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mr-2 inline-flex items-center justify-center rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 transition-colors"
-                              title="Editar esta compra (solo admin)"
-                            >
-                              Editar
-                            </Link>
-                          )}
-                          {/* Nota de crédito, pagar y anular: solo administración. */}
-                          {isAdmin && !g.anulada && g.tipo_pago === "credito" && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNcTarget(g);
-                              }}
-                              className="mr-2 inline-flex items-center justify-center rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50 transition-colors"
-                              title="Cargar una nota de crédito recibida del proveedor e imputarla a esta compra"
-                            >
-                              Nota de crédito
-                            </button>
-                          )}
-                          {isAdmin && !g.anulada && !g.pagada && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setPagarTarget(g); }}
-                              className="mr-2 inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
-                              title="Registrar el pago y descontarlo del turno de caja abierto"
-                            >
-                              Pagar
-                            </button>
-                          )}
-                          {isAdmin && !g.anulada && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setAnularTarget({ numero: g.numero_control, proveedor: g.proveedor_nombre });
-                              }}
-                              className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 transition-colors"
-                              title="Anular esta compra (reintegra stock en reverso)"
-                            >
-                              Anular
-                            </button>
-                          )}
+                          {/* Nota de crédito, Pagar y Anular están en el detalle
+                              (pedido del cliente: que la lista se vea más limpia). */}
+                          <span className="text-xs font-medium text-[#3F8E91]">Ver ›</span>
                         </td>
                       </tr>
 
@@ -664,6 +628,18 @@ function VistaNutricion() {
         />
       )}
 
+      {detalle && (
+        <DetalleCompraModal
+          g={detalle}
+          nc={detalle.tipo_pago === "credito" && !detalle.anulada ? (ncMap.get(detalle.numero_control) ?? 0) : 0}
+          isAdmin={isAdmin}
+          onClose={() => setDetalle(null)}
+          onNotaCredito={() => { setNcTarget(detalle); setDetalle(null); }}
+          onPagar={() => { setPagarTarget(detalle); setDetalle(null); }}
+          onAnular={() => { setAnularTarget({ numero: detalle.numero_control, proveedor: detalle.proveedor_nombre }); setDetalle(null); }}
+        />
+      )}
+
       {anularTarget && (
         <AnularCompraModal
           numeroControl={anularTarget.numero}
@@ -715,6 +691,168 @@ interface CompraConsigRow {
   monto_iva: number | null;
   consignacion_id: string | null;
   consignacion_numero: string | null;
+}
+
+/**
+ * Detalle de una compra: cabecera, productos y las acciones (Nota de crédito,
+ * Pagar, Anular), que antes ocupaban la última columna de cada fila.
+ */
+function DetalleCompraModal({
+  g, nc, isAdmin, onClose, onNotaCredito, onPagar, onAnular,
+}: {
+  g: GrupoCompra;
+  nc: number;
+  isAdmin: boolean;
+  onClose: () => void;
+  onNotaCredito: () => void;
+  onPagar: () => void;
+  onAnular: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const usd = montoEnDolares(g);
+  const enDolares = g.moneda === "USD";
+  const timbrado = g.items[0]?.nro_timbrado || "";
+  const dato = (label: string, valor: React.ReactNode) => (
+    <div>
+      <p className="text-[11px] uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="text-sm text-slate-800">{valor}</p>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
+          <div>
+            <p className="font-mono text-xs text-slate-500">{g.numero_control}</p>
+            <p className="text-lg font-semibold text-slate-900">{g.proveedor_nombre || "—"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              g.anulada ? "bg-rose-50 text-rose-700" : g.pagada ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+            }`}>
+              {g.anulada ? "Anulada" : g.pagada ? "Pagada" : "Pendiente"}
+            </span>
+            <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100">
+              Cerrar
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-5 overflow-y-auto px-6 py-5">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+            {dato("N° factura", g.numero_factura || "—")}
+            {dato("Timbrado", timbrado || "—")}
+            {dato("Fecha factura", formatFechaDate(g.fecha_factura))}
+            {dato("Cargada", formatFecha(g.fecha))}
+            {dato("Moneda", enDolares ? "Dólares" : "Guaraníes")}
+            {dato("Tipo de cambio", enDolares ? (Number(g.tipo_cambio) || 1).toLocaleString("es-PY") : "—")}
+            {dato("Pago", g.tipo_pago === "contado" ? "Contado" : g.tipo_pago === "credito" ? `Crédito ${g.plazo_dias ?? ""} días` : "—")}
+            {dato("Método", g.metodo_pago && metodoPagoBadge[g.metodo_pago] ? metodoPagoBadge[g.metodo_pago].label : "—")}
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500">
+                  <th className="px-3 py-2 font-medium">Producto</th>
+                  <th className="px-3 py-2 text-right font-medium">Cant.</th>
+                  <th className="px-3 py-2 text-right font-medium">Costo unit.</th>
+                  <th className="px-3 py-2 text-right font-medium">IVA</th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.items.map((it) => (
+                  <tr key={it.id} className="border-b border-slate-50 last:border-0">
+                    <td className="px-3 py-2 text-slate-800">{it.producto_nombre}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{it.cantidad}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {enDolares ? (
+                        <>
+                          {formatUsd(Number(it.costo_unitario_original) || 0)}
+                          <span className="block text-[11px] text-slate-400">{formatGs(Number(it.costo_unitario) || 0)}</span>
+                        </>
+                      ) : formatGs(Number(it.costo_unitario) || 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-slate-500">
+                      {it.iva_tipo === "exenta" ? "Exenta" : `${it.iva_tipo}%`}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">{formatGs(Number(it.total) || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-col items-end gap-0.5 text-sm">
+            {usd != null && <span className="text-slate-500">Total en dólares: <strong className="text-slate-800">{formatUsd(usd)}</strong></span>}
+            <span className="text-slate-500">Total: <strong className="text-base text-slate-900">{formatGs(g.total)}</strong></span>
+            {nc > 0 && (
+              <>
+                <span className="text-violet-600">Nota de crédito −{formatGs(nc)}</span>
+                <span className="text-slate-800">Saldo {formatGs(Math.max(0, g.total - nc))}</span>
+              </>
+            )}
+          </div>
+
+          {g.comprobante && (
+            <a
+              href={`/api/compras/comprobante?numero_control=${encodeURIComponent(g.numero_control)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm font-medium text-[#4FAEB2] hover:text-[#3F8E91] hover:underline"
+            >
+              <Paperclip className="h-4 w-4" /> Ver comprobante
+            </a>
+          )}
+        </div>
+
+        {isAdmin && !g.anulada && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-6 py-4">
+            {g.tipo_pago === "credito" && (
+              <button
+                type="button"
+                onClick={onNotaCredito}
+                className="inline-flex items-center justify-center rounded-lg border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50"
+                title="Cargar una nota de crédito recibida del proveedor e imputarla a esta compra"
+              >
+                Nota de crédito
+              </button>
+            )}
+            {!g.pagada && (
+              <button
+                type="button"
+                onClick={onPagar}
+                className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                title="Registrar el pago y descontarlo del turno de caja abierto"
+              >
+                Pagar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onAnular}
+              className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+              title="Anular esta compra (reintegra stock en reverso)"
+            >
+              Anular
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function formatFechaSolo(iso: string | null) {
