@@ -368,7 +368,9 @@ export default function InventarioPage() {
                 ) : null}
               </div>
             </div>
-            <div className="ml-auto">
+            {/* Crear, editar y borrar productos: solo administración (el
+                servidor ya lo exige; acá se ocultan los botones). */}
+            {isAdmin && <div className="ml-auto">
               <Link
                 href="/inventario/nuevo"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/30 transition-all hover:bg-[#3F8E91]"
@@ -376,7 +378,7 @@ export default function InventarioPage() {
                 <Plus className="h-3.5 w-3.5" />
                 Nuevo producto
               </Link>
-            </div>
+            </div>}
           </div>
 
           {/* Filtros */}
@@ -641,6 +643,7 @@ export default function InventarioPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
+                          {isAdmin && <>
                           <Link
                             href={`/inventario/${p.id}/editar`}
                             title="Editar producto"
@@ -661,6 +664,7 @@ export default function InventarioPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
+                          </>}
                         </div>
                       </td>
                     </tr>
