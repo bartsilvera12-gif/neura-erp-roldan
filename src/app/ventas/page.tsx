@@ -203,6 +203,126 @@ export default function VentasPage() {
 
   const hayFiltros = busqueda || filtroTipo || filtroIva || mostrarAnuladas || desde || hasta;
 
+
+  /** Botones de una venta (van en el detalle, no en la fila). */
+  function accionesVenta(v: Venta) {
+    const isAnulada = v.estado === "anulada";
+    return (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {devolucionesOn && !isAnulada && v.estado !== "devuelta_total" && (
+                    <button
+                      type="button"
+                      onClick={() => { setDetalle(null); setDevolverVentaId(v.id); }}
+                      className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                      title="Ver detalle y registrar una devolución"
+                    >
+                      {v.estado === "parcialmente_devuelta" ? "Devolver más" : "Devolver"}
+                    </button>
+                  )}
+                  <a
+                    href={`/api/ventas/${v.id}/comprobante-a4`}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                    title="Abrir comprobante A4 imprimible"
+                  >
+                    Imprimir
+                  </a>
+                  {/* Puente venta→factura: si la venta tiene factura ERP, link al
+                      detalle /facturas/[id] (panel SIFEN: firma/envío/KUDE). */}
+                  {/* Venta que salió solo con ticket (o cuya factura no
+                      se emitió): se factura acá, con el talonario,
+                      mientras su caja siga abierta. */}
+                  {!v.factura_id && !isAnulada && !v.caja_cerrada && (
+                    <button
+                      type="button"
+                      disabled={facturando === v.id}
+                      onClick={() => void emitirFactura(v.id)}
+                      className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 transition-colors"
+                      title="Registrar la factura con el próximo número del talonario e imprimirla"
+                    >
+                      {facturando === v.id ? "Emitiendo…" : "Emitir factura"}
+                    </button>
+                  )}
+                  {/* Factura de talonario (sin estado SIFEN): reimprime la
+                      hoja sobre el talonario. La electrónica va a su panel. */}
+                  {v.factura_id && !v.factura_estado_sifen && (
+                    <a
+                      href={`/api/ventas/${v.id}/factura-autoimpresor`}
+                      target="_blank"
+                      rel="noopener"
+                      className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      title="Volver a imprimir la factura sobre el talonario"
+                    >
+                      {v.numero_factura ? `Factura ${v.numero_factura}` : "Factura"}
+                    </a>
+                  )}
+                  {v.factura_id && !!v.factura_estado_sifen && (
+                    <Link
+                      href={`/facturas/${v.factura_id}`}
+                      className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      title={
+                        v.factura_estado_sifen
+                          ? `Factura ${v.numero_factura ?? ""} · SIFEN: ${v.factura_estado_sifen}`
+                          : `Factura ${v.numero_factura ?? ""}`
+                      }
+                    >
+                      {v.numero_factura ? `Factura ${v.numero_factura}` : "Factura"}
+                    </Link>
+                  )}
+                  {v.genera_nota_remision && (
+                    <a
+                      href={`/api/ventas/${v.id}/ticket?tipo=remision`}
+                      target="_blank"
+                      rel="noopener"
+                      className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 transition-colors"
+                      title="Nota de remisión (documento no fiscal)"
+                    >
+                      Nota de remisión
+                    </a>
+                  )}
+                  {v.caja_cerrada && !isAnulada && (
+                    <span className="text-[10.5px] text-slate-400" title="La caja de esta venta ya cerró: solo se reimprime. Para corregirla hay que reabrir la caja.">
+                      Caja cerrada
+                    </span>
+                  )}
+                  {!isAnulada && !v.caja_cerrada && puede("editar_venta") && (
+                    <button
+                      type="button"
+                      onClick={() => { setDetalle(null); setEditar(v); }}
+                      className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                      title="Editar la venta. Queda registrado quién, cuándo y qué cambió."
+                    >
+                      Editar
+                    </button>
+                  )}
+                  {!isAnulada && !v.caja_cerrada && puede("cambiar_medio_pago") && (
+                    <button
+                      type="button"
+                      onClick={() => { setDetalle(null); setReclasificar(v); }}
+                      className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      title="El cliente pagó por otro medio del previsto. No toca la factura."
+                    >
+                      Medio de cobro
+                    </button>
+                  )}
+                  {!isAnulada && !v.caja_cerrada && puede("anular_venta") && (
+                    <button
+                      type="button"
+                      onClick={() => { setDetalle(null); setAnularTarget(v); }}
+                      className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                      title={
+                        v.estado === "devuelta_total" || v.estado === "parcialmente_devuelta"
+                          ? "Anular la operación completa (venta + devolución)"
+                          : "Anular venta y revertir stock"
+                      }
+                    >
+                      Anular
+                    </button>
+                  )}
+                </div>
+    );
+  }
   return (
     <div className="space-y-8">
 
@@ -341,27 +461,27 @@ export default function VentasPage() {
         {/* Tabla — min-w fuerza scroll horizontal en mobile; columnas secundarias
             (Items, Cant total, IVA, Pago) se ocultan progresivamente. */}
         <EdgeScrollArea>
-          <table className="w-full min-w-[760px] lg:min-w-0 text-left text-sm">
+          {/* Tabla rediseñada como la de Compras (pedido del cliente): menos
+              columnas, cabecera limpia y las acciones (imprimir, factura,
+              devolver, editar, anular…) en el detalle que abre la fila. */}
+          <table className="w-full min-w-[820px] lg:min-w-0 text-left text-sm">
             <thead>
-              <tr className="bg-slate-50 text-slate-600 text-sm font-semibold">
-                <th className="py-3 pr-4 font-medium">Número</th>
-                <th className="py-3 pr-4 font-medium">Productos</th>
-                <th className="py-3 pr-4 font-medium">Cliente</th>
-                <th className="hidden py-3 pr-4 text-center font-medium lg:table-cell">Ítems</th>
-                <th className="py-3 pr-4 font-medium text-right hidden lg:table-cell">Cant. total</th>
-                <th className="py-3 pr-4 font-medium hidden lg:table-cell">IVA</th>
-                <th className="py-3 pr-4 font-medium text-right">Total</th>
-                <th className="hidden py-3 pr-4 font-medium lg:table-cell">Tipo</th>
-                <th className="hidden py-3 pr-4 font-medium lg:table-cell">Pago</th>
-                <th className="hidden py-3 pr-4 font-medium lg:table-cell">Vendedor</th>
-                <th className="py-3 pr-4 font-medium">Fecha</th>
-                <th className="py-3 font-medium text-center">Ticket</th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <th className="whitespace-nowrap py-3 pl-4 pr-3">Venta</th>
+                <th className="whitespace-nowrap px-3 py-3">Cliente</th>
+                <th className="whitespace-nowrap px-3 py-3">Productos</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 text-right lg:table-cell">Cant.</th>
+                <th className="whitespace-nowrap px-3 py-3 text-right">Total</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell">Pago</th>
+                <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">Vendedor</th>
+                <th className="whitespace-nowrap px-3 py-3">Fecha</th>
+                <th className="w-8 py-3 pr-4" />
               </tr>
             </thead>
             <tbody>
               {filtradas.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-gray-400">
+                  <td colSpan={9} className="py-12 text-center text-gray-400">
                     {todas.length === 0
                       ? "No hay ventas registradas"
                       : "Ninguna venta coincide con los filtros"}
@@ -371,212 +491,82 @@ export default function VentasPage() {
                 filtradas.map((v) => {
                   const cantTotal = v.items.reduce((s, i) => s + i.cantidad, 0);
                   const isAnulada = v.estado === "anulada";
+                  const [fechaDia, fechaHora] = formatFecha(v.fecha).split(" ");
+                  const estado = isAnulada
+                    ? { txt: "Anulada", cls: "bg-rose-50 text-rose-700", dot: "bg-rose-500" }
+                    : v.estado === "devuelta_total"
+                      ? { txt: "Devuelta", cls: "bg-amber-50 text-amber-800", dot: "bg-amber-500" }
+                      : v.estado === "parcialmente_devuelta"
+                        ? { txt: "Dev. parcial", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-400" }
+                        : null;
+                  const metodo =
+                    v.metodo_pago === "mixto" ? "Mixto"
+                    : v.metodo_pago === "cheque" ? "Cheque"
+                    : v.metodo_pago === "tarjeta" ? "Tarjeta"
+                    : v.metodo_pago === "transferencia" ? "Transferencia"
+                    : v.metodo_pago === "efectivo" ? "Efectivo"
+                    : null;
                   return (
                     <tr
                       key={v.id}
                       onClick={() => setDetalle(v)}
-                      className={`border-b border-slate-200 last:border-0 transition-colors cursor-pointer ${
-                        isAnulada ? "bg-red-50/40 text-slate-400 line-through hover:bg-red-50/60" : "hover:bg-[#4FAEB2]/[0.04]"
-                      }`}
+                      title="Ver la venta"
+                      className={`group cursor-pointer border-b border-slate-100 transition-colors hover:bg-[#4FAEB2]/[0.05] ${isAnulada ? "opacity-55" : ""}`}
                     >
-                      <td className="py-4 pr-4 font-mono text-xs text-gray-500 align-middle">
-                        <div className="flex items-center gap-1.5">
-                          <span>{v.numero_control}</span>
-                          {isAnulada && (
-                            <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700 no-underline">
-                              Anulada
-                            </span>
-                          )}
-                          {v.estado === "devuelta_total" && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 no-underline">
-                              Devuelta
-                            </span>
-                          )}
-                          {v.estado === "parcialmente_devuelta" && (
-                            <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 no-underline">
-                              Dev. parcial
-                            </span>
-                          )}
+                      <td className="whitespace-nowrap py-3.5 pl-4 pr-3 align-top">
+                        <div className={`font-mono text-xs font-medium ${isAnulada ? "line-through text-slate-400" : "text-slate-700"}`}>
+                          {v.numero_control}
                         </div>
+                        {estado ? (
+                          <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${estado.cls}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${estado.dot}`} />
+                            {estado.txt}
+                          </span>
+                        ) : v.numero_factura ? (
+                          <div className="mt-0.5 font-mono text-[11px] text-slate-400">Fact. {v.numero_factura}</div>
+                        ) : (
+                          <div className="mt-0.5 text-[11px] text-slate-400">Ticket</div>
+                        )}
                       </td>
-                      <td className="py-4 pr-4 align-middle">
-                        <ResumenProductos v={v} />
-                      </td>
-                      {/* A quién se le vendió. Estaba en el detalle pero no en
-                          el listado, así que para contestar "¿esta venta de
-                          quién era?" había que abrir una por una. */}
-                      <td className="py-4 pr-4 align-middle text-sm text-gray-700">
+                      <td className="max-w-[220px] px-3 py-3.5 align-top">
                         {v.cliente_nombre ? (
                           <>
-                            {v.cliente_nombre}
+                            <div className={`font-medium text-slate-800 ${isAnulada ? "line-through" : ""}`}>{v.cliente_nombre}</div>
                             {v.cliente_sucursal && (
-                              <span className="block text-[11px] text-gray-400">{v.cliente_sucursal}</span>
+                              <div className="text-[11px] text-slate-400">{v.cliente_sucursal}</div>
                             )}
                           </>
                         ) : (
-                          <span className="text-gray-400">Consumidor final</span>
+                          <span className="text-slate-400">Consumidor final</span>
                         )}
                       </td>
-                      <td className="hidden py-4 pr-4 text-center align-middle lg:table-cell">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
-                          {v.items.length}
-                        </span>
+                      <td className="max-w-[280px] px-3 py-3.5 align-top">
+                        <ResumenProductos v={v} />
                       </td>
-                      <td className="py-4 pr-4 text-right tabular-nums text-gray-700 align-middle hidden lg:table-cell">
+                      <td className="hidden px-3 py-3.5 text-right align-top tabular-nums text-slate-700 lg:table-cell">
                         {cantTotal}
                       </td>
-                      <td className="py-4 pr-4 align-middle hidden lg:table-cell">
-                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
-                          {ivaResumen(v)}
+                      <td className="whitespace-nowrap px-3 py-3.5 text-right align-top tabular-nums">
+                        <div className={`font-semibold ${isAnulada ? "line-through text-slate-500" : "text-slate-900"}`}>{formatGs(v.total)}</div>
+                        <div className="mt-0.5 text-[11px] text-slate-400">{ivaResumen(v)}</div>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-3 py-3.5 align-top lg:table-cell">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tipoVentaBadge[v.tipo_venta]}`}>
+                          {v.tipo_venta === "CONTADO" ? "Contado" : `Crédito ${v.plazo_dias ?? ""} días`}
                         </span>
+                        {metodo && <div className="mt-1 pl-1 text-[11px] text-slate-500">{metodo}</div>}
                       </td>
-                      <td className="py-4 pr-4 text-right tabular-nums font-semibold text-gray-800 align-middle">
-                        {formatGs(v.total)}
-                      </td>
-                      <td className="hidden py-4 pr-4 align-middle lg:table-cell">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${tipoVentaBadge[v.tipo_venta]}`}>
-                          {v.tipo_venta === "CONTADO"
-                            ? "Contado"
-                            : `Crédito ${v.plazo_dias ?? ""}d`}
-                        </span>
-                      </td>
-                      <td className="hidden py-4 pr-4 align-middle text-xs text-gray-600 lg:table-cell">
-                        {v.metodo_pago === "mixto" ? (
-                          <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
-                            Mixto
-                          </span>
-                        ) : v.metodo_pago === "cheque" ? (
-                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
-                            Cheque
-                          </span>
-                        ) : v.metodo_pago === "tarjeta" ? "Tarjeta"
-                          : v.metodo_pago === "transferencia" ? "Transfer."
-                          : v.metodo_pago === "efectivo" ? "Efectivo"
-                          : "—"}
-                      </td>
-                      <td className="hidden py-4 pr-4 align-middle text-xs text-gray-600 lg:table-cell">
+                      <td className="hidden max-w-[160px] truncate px-3 py-3.5 align-top text-xs text-slate-600 xl:table-cell">
                         {/* El vendedor asignado manda sobre el cajero. En las
-                            ventas viejas `usuario_nombre` guardó el email, que
-                            es lo que se veía acá. */}
+                            ventas viejas `usuario_nombre` guardó el email. */}
                         {v.vendedor_nombre || v.usuario_nombre || "—"}
                       </td>
-                      <td className="py-4 pr-4 text-gray-500 text-xs tabular-nums align-middle">
-                        {formatFecha(v.fecha)}
+                      <td className="whitespace-nowrap px-3 py-3.5 align-top tabular-nums">
+                        <div className="text-xs text-slate-700">{fechaDia}</div>
+                        <div className="text-[11px] text-slate-400">{fechaHora}</div>
                       </td>
-                      <td className="py-4 text-center align-middle" onClick={(e) => e.stopPropagation()}>
-                        <div className="inline-flex items-center gap-1.5">
-                          {devolucionesOn && !isAnulada && v.estado !== "devuelta_total" && (
-                            <button
-                              type="button"
-                              onClick={() => setDevolverVentaId(v.id)}
-                              className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
-                              title="Ver detalle y registrar una devolución"
-                            >
-                              {v.estado === "parcialmente_devuelta" ? "Devolver más" : "Devolver"}
-                            </button>
-                          )}
-                          <a
-                            href={`/api/ventas/${v.id}/comprobante-a4`}
-                            target="_blank"
-                            rel="noopener"
-                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
-                            title="Abrir comprobante A4 imprimible"
-                          >
-                            Imprimir
-                          </a>
-                          {/* Puente venta→factura: si la venta tiene factura ERP, link al
-                              detalle /facturas/[id] (panel SIFEN: firma/envío/KUDE). */}
-                          {/* Venta que salió solo con ticket (o cuya factura no
-                              se emitió): se factura acá, con el talonario,
-                              mientras su caja siga abierta. */}
-                          {!v.factura_id && !isAnulada && !v.caja_cerrada && (
-                            <button
-                              type="button"
-                              disabled={facturando === v.id}
-                              onClick={() => void emitirFactura(v.id)}
-                              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 transition-colors"
-                              title="Registrar la factura con el próximo número del talonario e imprimirla"
-                            >
-                              {facturando === v.id ? "Emitiendo…" : "Emitir factura"}
-                            </button>
-                          )}
-                          {/* Factura de talonario (sin estado SIFEN): reimprime la
-                              hoja sobre el talonario. La electrónica va a su panel. */}
-                          {v.factura_id && !v.factura_estado_sifen && (
-                            <a
-                              href={`/api/ventas/${v.id}/factura-autoimpresor`}
-                              target="_blank"
-                              rel="noopener"
-                              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                              title="Volver a imprimir la factura sobre el talonario"
-                            >
-                              {v.numero_factura ? `Factura ${v.numero_factura}` : "Factura"}
-                            </a>
-                          )}
-                          {v.factura_id && !!v.factura_estado_sifen && (
-                            <Link
-                              href={`/facturas/${v.factura_id}`}
-                              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                              title={
-                                v.factura_estado_sifen
-                                  ? `Factura ${v.numero_factura ?? ""} · SIFEN: ${v.factura_estado_sifen}`
-                                  : `Factura ${v.numero_factura ?? ""}`
-                              }
-                            >
-                              {v.numero_factura ? `Factura ${v.numero_factura}` : "Factura"}
-                            </Link>
-                          )}
-                          {v.genera_nota_remision && (
-                            <a
-                              href={`/api/ventas/${v.id}/ticket?tipo=remision`}
-                              target="_blank"
-                              rel="noopener"
-                              className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 transition-colors"
-                              title="Nota de remisión (documento no fiscal)"
-                            >
-                              Nota de remisión
-                            </a>
-                          )}
-                          {v.caja_cerrada && !isAnulada && (
-                            <span className="text-[10.5px] text-slate-400" title="La caja de esta venta ya cerró: solo se reimprime. Para corregirla hay que reabrir la caja.">
-                              Caja cerrada
-                            </span>
-                          )}
-                          {!isAnulada && !v.caja_cerrada && puede("editar_venta") && (
-                            <button
-                              type="button"
-                              onClick={() => setEditar(v)}
-                              className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
-                              title="Editar la venta. Queda registrado quién, cuándo y qué cambió."
-                            >
-                              Editar
-                            </button>
-                          )}
-                          {!isAnulada && !v.caja_cerrada && puede("cambiar_medio_pago") && (
-                            <button
-                              type="button"
-                              onClick={() => setReclasificar(v)}
-                              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                              title="El cliente pagó por otro medio del previsto. No toca la factura."
-                            >
-                              Medio de cobro
-                            </button>
-                          )}
-                          {!isAnulada && !v.caja_cerrada && puede("anular_venta") && (
-                            <button
-                              type="button"
-                              onClick={() => setAnularTarget(v)}
-                              className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
-                              title={
-                                v.estado === "devuelta_total" || v.estado === "parcialmente_devuelta"
-                                  ? "Anular la operación completa (venta + devolución)"
-                                  : "Anular venta y revertir stock"
-                              }
-                            >
-                              Anular
-                            </button>
-                          )}
-                        </div>
+                      <td className="py-3.5 pr-4 text-right align-top text-lg leading-none text-slate-300 transition-colors group-hover:text-[#3F8E91]">
+                        ›
                       </td>
                     </tr>
                   );
@@ -592,7 +582,9 @@ export default function VentasPage() {
       {/* FAB mobile: acceso 1-tap a "+ Nueva venta" desde cualquier scroll position */}
       <MobileFab href="/ventas/nueva" label="Nueva venta" />
 
-      {detalle && <VentaDetalleModal venta={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && (
+        <VentaDetalleModal venta={detalle} onClose={() => setDetalle(null)} acciones={accionesVenta(detalle)} />
+      )}
 
       {devolucionesOn && devolverVentaId && (
         <DevolucionWizard
@@ -728,7 +720,7 @@ function AnularVentaModal({
 
 // ── Modal de detalle de venta ───────────────────────────────────────────────────
 
-function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => void }) {
+function VentaDetalleModal({ venta, onClose, acciones }: { venta: Venta; onClose: () => void; acciones?: React.ReactNode }) {
   const cantTotal = venta.items.reduce((s, i) => s + i.cantidad, 0);
   return (
     <div
@@ -818,6 +810,12 @@ function VentaDetalleModal({ venta, onClose }: { venta: Venta; onClose: () => vo
             </div>
           </div>
         </div>
+
+        {acciones && (
+          <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-3">
+            {acciones}
+          </div>
+        )}
       </div>
     </div>
   );
