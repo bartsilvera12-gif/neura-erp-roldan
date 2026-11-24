@@ -64,4 +64,16 @@ export interface Compra {
   created_at?: string | null;
   anulada_at?: string | null;
   anulacion_motivo?: string | null;
+  /**
+   * Aprobación y recepción (script 104). `recepcion` null = compra de antes
+   * del script (ya entró al stock al guardarse).
+   */
+  stock_aplicado?: boolean;
+  recepcion?: "pendiente" | "en_transito" | "recibida" | null;
+  aprobada_1_nombre?: string | null;
+  aprobada_2_nombre?: string | null;
+  en_transito_nombre?: string | null;
+  recibida_nombre?: string | null;
+  /** Quien mira ya la aprobó (no puede aprobarla dos veces). */
+  yo_aprobe?: boolean;
 }

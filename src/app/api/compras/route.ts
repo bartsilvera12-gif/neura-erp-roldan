@@ -9,6 +9,7 @@ import { API_ERRORS } from "@/lib/api/errors";
 import {
   listCompras,
   insertComprasConImpacto,
+  comprasConAprobacion,
   type CompraItemInput,
 } from "@/lib/compras/server/compras-pg";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
@@ -112,7 +113,14 @@ export async function GET(request: NextRequest) {
 
     const schema = await fetchDataSchemaForEmpresaId(ctx.auth.empresa_id);
     const rows = await listCompras(schema, ctx.auth.empresa_id, exigirSucursal(ctx.auth.sucursal_id));
-    return NextResponse.json(successResponse({ compras: rows }));
+    // Para la pantalla: si quien mira ya aprobó la compra (no puede aprobarla
+    // dos veces; hacen falta dos administradores distintos).
+    const yo = ctx.auth.usuarioCatalogId ?? null;
+    const compras = rows.map((r) => ({
+      ...r,
+      yo_aprobe: !!yo && (r.aprobada_1_por === yo || r.aprobada_2_por === yo),
+    }));
+    return NextResponse.json(successResponse({ compras }));
   } catch (err) {
     console.error("[/api/compras GET]", err instanceof Error ? err.message : err);
     return NextResponse.json(errorResponse("No se pudieron cargar las compras."), { status: 500 });
@@ -192,6 +200,25 @@ export async function PUT(request: NextRequest) {
       .eq("numero_control", numeroControl)
       .limit(1)
       .maybeSingle();
+
+    // Editar borra y vuelve a crear las filas: en una compra todavía sin
+    // recibir (script 104) se perderían las aprobaciones y el stock quedaría
+    // marcado como aplicado sin haber entrado.
+    {
+      const { data: flujo } = await ctx.supabase
+        .from("compras")
+        .select("*")
+        .eq("empresa_id", empresaId)
+        .eq("numero_control", numeroControl)
+        .limit(1)
+        .maybeSingle();
+      if (flujo && (flujo as { stock_aplicado?: boolean }).stock_aplicado === false) {
+        return NextResponse.json(
+          errorResponse("Esta compra todavía no se recibió: no se edita. Anulala y cargala de nuevo."),
+          { status: 409 }
+        );
+      }
+    }
 
     const moneda = body.moneda === "USD" ? "USD" : "PYG";
     const tipoCambio = moneda === "USD" ? Number(body.tipo_cambio) || 1 : 1;
@@ -429,7 +456,25 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const out = await insertComprasConImpacto(schema, empresaId, exigirSucursal(ctx.auth.sucursal_id), header, items);
+      // Aprobación (script 104, pedido del cliente): la compra queda pendiente
+      // y NO toca el stock hasta que dos administradores la aprueben y uno la
+      // marque «Recibido». Si la carga un administrador, cuenta como la
+      // primera aprobación.
+      const conAprobacion = await comprasConAprobacion(schema);
+      let aprobacionInicial: { por: string | null; nombre: string | null } | null = null;
+      if (conAprobacion) {
+        const ctxRol = await getTenantSupabaseFromAuthWithRol(request);
+        if (ctxRol && isAdmin(ctxRol.auth)) {
+          aprobacionInicial = {
+            por: ctxRol.auth.usuarioCatalogId ?? null,
+            nombre: ctxRol.auth.nombre?.trim() || ctxRol.auth.user?.email || "Administrador",
+          };
+        }
+      }
+      const out = await insertComprasConImpacto(
+        schema, empresaId, exigirSucursal(ctx.auth.sucursal_id), header, items,
+        { diferirStock: conAprobacion, aprobacionInicial }
+      );
 
       // Crear filas en producto_lotes para las líneas cuyo producto controla lote.
       // Best-effort: si falla la creación de un lote, no rompemos la compra
@@ -474,8 +519,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const avisoAprobacion = conAprobacion
+        ? `Compra ${out.numero_control} guardada y pendiente de aprobación (${aprobacionInicial ? "1/2" : "0/2"}). ` +
+          "La mercadería entra al stock cuando dos administradores la aprueben y se marque «Recibido»."
+        : null;
       const warning =
-        [out.movimiento_warning, ...loteWarnings].filter(Boolean).join(" · ") || null;
+        [avisoAprobacion, out.movimiento_warning, ...loteWarnings].filter(Boolean).join(" · ") || null;
 
       return NextResponse.json(successResponse({
         numero_control: out.numero_control,

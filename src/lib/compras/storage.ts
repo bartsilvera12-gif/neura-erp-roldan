@@ -17,6 +17,15 @@ interface CompraApiRow {
   comprobante_mime_type?: string | null;
   anulada_at?: string | null;
   anulacion_motivo?: string | null;
+  numero_factura?: string | null;
+  created_at?: string | null;
+  stock_aplicado?: boolean | null;
+  recepcion?: string | null;
+  aprobada_1_nombre?: string | null;
+  aprobada_2_nombre?: string | null;
+  en_transito_nombre?: string | null;
+  recibida_nombre?: string | null;
+  yo_aprobe?: boolean;
 }
 
 function mapRow(r: CompraApiRow): Compra {
@@ -50,6 +59,16 @@ function mapRow(r: CompraApiRow): Compra {
     estado: (r.estado === "anulada" || r.estado === "pendiente" || r.estado === "pagada" ? r.estado : "registrada") as Compra["estado"],
     anulada_at: r.anulada_at ?? null,
     anulacion_motivo: r.anulacion_motivo ?? null,
+    // Antes no se pasaban y el listado mostraba siempre «—» en N° factura.
+    numero_factura: r.numero_factura ?? null,
+    created_at: r.created_at ?? null,
+    stock_aplicado: r.stock_aplicado !== false,
+    recepcion: (r.recepcion === "pendiente" || r.recepcion === "en_transito" || r.recepcion === "recibida") ? r.recepcion : null,
+    aprobada_1_nombre: r.aprobada_1_nombre ?? null,
+    aprobada_2_nombre: r.aprobada_2_nombre ?? null,
+    en_transito_nombre: r.en_transito_nombre ?? null,
+    recibida_nombre: r.recibida_nombre ?? null,
+    yo_aprobe: r.yo_aprobe === true,
   };
 }
 

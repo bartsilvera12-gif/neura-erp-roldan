@@ -33,6 +33,8 @@ interface CompraRow {
   cantidad: number | string;
   costo_unitario: number | string;
   estado: string | null;
+  /** Script 104: false = la compra no se recibió y no sumó al stock. */
+  stock_aplicado?: boolean | null;
 }
 
 export async function POST(
@@ -86,7 +88,9 @@ export async function POST(
     // 1) Cargar todas las filas de la compra.
     const filasQ = await sb
       .from("compras")
-      .select("id, producto_id, producto_nombre, cantidad, costo_unitario, estado")
+      // «*» y no una lista: con el script 104 viene `stock_aplicado`, y sin
+      // él pedirlo por nombre rompería la consulta.
+      .select("*")
       .eq("empresa_id", empresaId)
       .eq("numero_control", numero);
     if (filasQ.error) {
@@ -110,6 +114,8 @@ export async function POST(
       // 2) Por cada fila que no esté ya anulada, reintegrar en reverso stock + insertar SALIDA.
       for (const f of filas) {
         if (f.estado === "anulada") continue;
+        // Compra todavía sin recibir (script 104): no sumó stock, no hay qué devolver.
+        if (f.stock_aplicado === false) continue;
         const cantidad = Number(f.cantidad);
         if (!Number.isFinite(cantidad) || cantidad <= 0) continue;
 

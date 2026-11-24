@@ -103,7 +103,62 @@ type GrupoCompra = {
   tipo_cambio: number;
   /** Para la hora de carga. */
   created_at: string | null;
+  /** Aprobación y recepción (script 104). recepcion null = compra de antes. */
+  recepcion: "pendiente" | "en_transito" | "recibida" | null;
+  aprobada_1_nombre: string | null;
+  aprobada_2_nombre: string | null;
+  en_transito_nombre: string | null;
+  recibida_nombre: string | null;
+  yo_aprobe: boolean;
 };
+
+type EtapaCompra = "anulada" | "activa" | "pendiente" | "aprobada" | "en_transito" | "recibida";
+
+/** En qué paso está la compra y cuántas aprobaciones tiene. */
+function etapaCompra(g: GrupoCompra): { etapa: EtapaCompra; aprob: number } {
+  const aprob = (g.aprobada_1_nombre ? 1 : 0) + (g.aprobada_2_nombre ? 1 : 0);
+  if (g.anulada) return { etapa: "anulada", aprob };
+  if (g.recepcion == null) return { etapa: "activa", aprob }; // de antes del script 104
+  if (g.recepcion === "recibida") return { etapa: "recibida", aprob };
+  if (g.recepcion === "en_transito") return { etapa: "en_transito", aprob };
+  return { etapa: aprob >= 2 ? "aprobada" : "pendiente", aprob };
+}
+
+const ETAPA: Record<EtapaCompra, { txt: string; cls: string; dot: string }> = {
+  anulada: { txt: "Anulado", cls: "bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+  activa: { txt: "Activo", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  pendiente: { txt: "Pendiente", cls: "bg-amber-50 text-amber-800", dot: "bg-amber-500" },
+  aprobada: { txt: "Aprobado", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  en_transito: { txt: "En tránsito", cls: "bg-violet-50 text-violet-700", dot: "bg-violet-500" },
+  recibida: { txt: "Recibido", cls: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
+};
+
+/** Etiqueta de estado + «1/2» + quién aprobó, como en las órdenes de compra. */
+function EstadoCompra({ g }: { g: GrupoCompra }) {
+  const { etapa, aprob } = etapaCompra(g);
+  const e = ETAPA[etapa];
+  const conFlujo = etapa !== "activa" && etapa !== "anulada";
+  const quienes = [g.aprobada_1_nombre, g.aprobada_2_nombre].filter(Boolean).join(" · ");
+  return (
+    <div>
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${e.cls}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${e.dot}`} />
+        {e.txt}
+      </span>
+      {conFlujo && (
+        <span
+          className={`ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold ${aprob >= 2 ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+          title="Aprobaciones de administradores: hacen falta dos"
+        >
+          {aprob}/2
+        </span>
+      )}
+      {conFlujo && quienes && (
+        <span className="mt-0.5 block text-[11px] text-slate-500">Aprobó {quienes}</span>
+      )}
+    </div>
+  );
+}
 
 function agrupar(rows: Compra[]): GrupoCompra[] {
   const map = new Map<string, GrupoCompra>();
@@ -129,6 +184,12 @@ function agrupar(rows: Compra[]): GrupoCompra[] {
         numero_factura: c.numero_factura ?? null,
         tipo_cambio: Number(c.tipo_cambio) || 1,
         created_at: c.created_at ?? null,
+        recepcion: c.recepcion ?? null,
+        aprobada_1_nombre: c.aprobada_1_nombre ?? null,
+        aprobada_2_nombre: c.aprobada_2_nombre ?? null,
+        en_transito_nombre: c.en_transito_nombre ?? null,
+        recibida_nombre: c.recibida_nombre ?? null,
+        yo_aprobe: c.yo_aprobe === true,
       };
       map.set(key, g);
     }
@@ -451,10 +512,7 @@ function VistaNutricion() {
                           {g.items.reduce((s, it) => s + (Number(it.cantidad) || 0), 0)}
                         </td>
                         <td className="hidden whitespace-nowrap px-3 py-3.5 xl:table-cell">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${g.anulada ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${g.anulada ? "bg-rose-500" : "bg-emerald-500"}`} />
-                            {g.anulada ? "Anulado" : "Activo"}
-                          </span>
+                          <EstadoCompra g={g} />
                         </td>
                         <td className="hidden whitespace-nowrap px-3 py-3.5 text-right tabular-nums text-slate-700 xl:table-cell">
                           {usd == null ? <span className="text-slate-300">—</span> : formatUsd(usd)}
@@ -624,6 +682,22 @@ function VistaNutricion() {
           onNotaCredito={() => { setNcTarget(detalle); setDetalle(null); }}
           onPagar={() => { setPagarTarget(detalle); setDetalle(null); }}
           onAnular={() => { setAnularTarget({ numero: detalle.numero_control, proveedor: detalle.proveedor_nombre }); setDetalle(null); }}
+          onFlujo={async (accion) => {
+            const r = await apiFetch(`/api/compras/${encodeURIComponent(detalle.numero_control)}/flujo`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ accion }),
+            });
+            const j = await r.json().catch(() => null);
+            if (!r.ok || !j?.success) return j?.error ?? `No se pudo registrar (${r.status}).`;
+            setDetalle(null);
+            setAvisoPago({
+              nivel: j.data?.warning ? "aviso" : "ok",
+              mensaje: [j.data?.mensaje, j.data?.warning].filter(Boolean).join(" "),
+            });
+            void recargar();
+            return null;
+          }}
         />
       )}
 
@@ -685,7 +759,7 @@ interface CompraConsigRow {
  * Pagar, Anular), que antes ocupaban la última columna de cada fila.
  */
 function DetalleCompraModal({
-  g, nc, isAdmin, onClose, onNotaCredito, onPagar, onAnular,
+  g, nc, isAdmin, onClose, onNotaCredito, onPagar, onAnular, onFlujo,
 }: {
   g: GrupoCompra;
   nc: number;
@@ -694,7 +768,29 @@ function DetalleCompraModal({
   onNotaCredito: () => void;
   onPagar: () => void;
   onAnular: () => void;
+  /** Aprobar / En tránsito / Recibido. Devuelve el error para mostrar, o null. */
+  onFlujo: (accion: "aprobar" | "en_transito" | "recibido") => Promise<string | null>;
 }) {
+  const [flujoOcupado, setFlujoOcupado] = useState(false);
+  const [flujoError, setFlujoError] = useState<string | null>(null);
+  async function paso(accion: "aprobar" | "en_transito" | "recibido") {
+    setFlujoOcupado(true);
+    setFlujoError(null);
+    try {
+      const err = await onFlujo(accion);
+      if (err) setFlujoError(err);
+    } catch {
+      setFlujoError("No se pudo conectar. Probá de nuevo.");
+    } finally {
+      setFlujoOcupado(false);
+    }
+  }
+  const { etapa, aprob } = etapaCompra(g);
+  const conFlujo = etapa !== "activa" && etapa !== "anulada";
+  const puedeAprobar = isAdmin && conFlujo && aprob < 2 && !g.yo_aprobe;
+  const puedeTransito = isAdmin && conFlujo && aprob >= 2 && etapa === "aprobada";
+  const puedeRecibir = isAdmin && conFlujo && aprob >= 2 && (etapa === "aprobada" || etapa === "en_transito");
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
@@ -725,11 +821,10 @@ function DetalleCompraModal({
             <p className="text-lg font-semibold text-slate-900">{g.proveedor_nombre || "—"}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              g.anulada ? "bg-rose-50 text-rose-700" : g.pagada ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-            }`}>
-              {g.anulada ? "Anulada" : g.pagada ? "Pagada" : "Pendiente"}
-            </span>
+            <EstadoCompra g={g} />
+            {g.pagada && !g.anulada && (
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">Pagada</span>
+            )}
             <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100">
               Cerrar
             </button>
@@ -747,6 +842,60 @@ function DetalleCompraModal({
             {dato("Pago", g.tipo_pago === "contado" ? "Contado" : g.tipo_pago === "credito" ? `Crédito ${g.plazo_dias ?? ""} días` : "—")}
             {dato("Método", g.metodo_pago && metodoPagoBadge[g.metodo_pago] ? metodoPagoBadge[g.metodo_pago].label : "—")}
           </div>
+
+          {conFlujo && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aprobación y recepción</p>
+              <ol className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                {[
+                  { t: "Aprobación 1", v: g.aprobada_1_nombre },
+                  { t: "Aprobación 2", v: g.aprobada_2_nombre },
+                  { t: "En tránsito", v: g.en_transito_nombre },
+                  { t: "Recibido", v: g.recibida_nombre },
+                ].map((p) => (
+                  <li key={p.t} className={`rounded-lg border px-3 py-2 ${p.v ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                    <p className={`font-semibold ${p.v ? "text-emerald-800" : "text-slate-500"}`}>{p.v ? "✓ " : ""}{p.t}</p>
+                    <p className="mt-0.5 truncate text-slate-500">{p.v || "Falta"}</p>
+                  </li>
+                ))}
+              </ol>
+              {etapa !== "recibida" && (
+                <p className="mt-3 text-xs text-slate-500">
+                  {aprob < 2
+                    ? "Necesita la aprobación de dos administradores. La mercadería entra al stock recién al marcar «Recibido»."
+                    : "Aprobada. La mercadería entra al stock al marcar «Recibido»."}
+                </p>
+              )}
+              {flujoError && (
+                <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{flujoError}</p>
+              )}
+              {(puedeAprobar || puedeTransito || puedeRecibir) && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {puedeAprobar && (
+                    <button type="button" disabled={flujoOcupado} onClick={() => void paso("aprobar")}
+                      className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+                      Aprobar ({aprob + 1}/2)
+                    </button>
+                  )}
+                  {puedeTransito && (
+                    <button type="button" disabled={flujoOcupado} onClick={() => void paso("en_transito")}
+                      className="rounded-lg border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-50">
+                      En tránsito
+                    </button>
+                  )}
+                  {puedeRecibir && (
+                    <button type="button" disabled={flujoOcupado} onClick={() => void paso("recibido")}
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      Recibido
+                    </button>
+                  )}
+                </div>
+              )}
+              {isAdmin && g.yo_aprobe && aprob < 2 && (
+                <p className="mt-2 text-xs text-amber-800">Ya la aprobaste. Falta otro administrador.</p>
+              )}
+            </div>
+          )}
 
           <div className="overflow-x-auto rounded-xl border border-slate-100">
             <table className="w-full text-sm">
