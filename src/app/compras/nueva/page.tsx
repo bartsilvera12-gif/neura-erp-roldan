@@ -1218,7 +1218,9 @@ export default function NuevaCompraPage() {
                 </div>
                 <div>
                   <label className={labelSmClass}>Costo unit. ({cab.moneda === "USD" ? "USD" : "Gs."}) <span className="text-red-500">*</span></label>
-                  <MontoInput value={nl.costo_unitario_input}
+                  {/* Como número, no como texto: «0.841» (costo en dólares con
+                      3 decimales) el campo lo leía como miles y mostraba 841. */}
+                  <MontoInput value={nl.costo_unitario_input === "" ? "" : Number(nl.costo_unitario_input) || 0}
                     onChange={(n) => setNl((p) => ({ ...p, costo_unitario_input: String(n) }))}
                     placeholder={cab.moneda === "USD" ? "Ej: 12" : "Ej: 18000"} className={inputSmClass}
                     decimals={cab.moneda === "USD"} />
@@ -1239,7 +1241,7 @@ export default function NuevaCompraPage() {
                     Precio venta {cab.moneda === "USD" ? "(USD)" : "(Gs.)"}{" "}
                     <span className="font-normal text-gray-400">(opcional)</span>
                   </label>
-                  <MontoInput value={nl.precio_venta}
+                  <MontoInput value={nl.precio_venta === "" ? "" : Number(nl.precio_venta) || 0}
                     onChange={(n) => setNl((p) => ({ ...p, precio_venta: String(n) }))}
                     placeholder="Opcional" className={inputSmClass}
                     decimals={cab.moneda === "USD"} />
