@@ -13,7 +13,6 @@ import {
 } from "@/lib/compras/pago-caja";
 import type { Proveedor } from "@/lib/proveedores/types";
 import type { Producto } from "@/lib/inventario/types";
-import { formatearNumeroFactura, errorTimbrado, errorNumeroFactura } from "@/lib/formato/numero-factura";
 
 import { Check } from "lucide-react";
 import Selector from "@/components/ui/Selector";
@@ -624,10 +623,8 @@ export default function NuevaCompraPage() {
     e.preventDefault();
     setErrorSubmit(null);
     if (!cab.proveedor_id) return setErrorSubmit("Seleccioná o agregá un proveedor.");
-    const errTimbrado = errorTimbrado(cab.nro_timbrado);
-    if (errTimbrado) return setErrorSubmit(errTimbrado);
-    const errFactura = errorNumeroFactura(cab.numero_factura);
-    if (errFactura) return setErrorSubmit(errFactura);
+    // Timbrado y N° de factura sin controles (pedido del cliente: «quitá las
+    // validaciones de compra»): opcionales y con el formato que se escriba.
     if (lineas.length === 0) return setErrorSubmit("Agregá al menos un producto a la compra.");
     if (cab.moneda === "USD" && tipoCambioNum <= 0)
       return setErrorSubmit("Cargá el tipo de cambio (USD → Gs.).");
@@ -830,7 +827,7 @@ export default function NuevaCompraPage() {
             <SectionTitle>Comprobante y proveedor</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelClass}>N° de timbrado <span className="text-red-500">*</span></label>
+                <label className={labelClass}>N° de timbrado <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <input type="text" name="nro_timbrado" value={cab.nro_timbrado}
                   onChange={(e) => setCab((p) => ({ ...p, nro_timbrado: e.target.value }))}
                   placeholder="Ej: 16110567" className={inputClass} />
@@ -838,8 +835,8 @@ export default function NuevaCompraPage() {
               <div>
                 <label className={labelClass}>N° de factura <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <input type="text" name="numero_factura" value={cab.numero_factura}
-                  onChange={(e) => setCab((p) => ({ ...p, numero_factura: formatearNumeroFactura(e.target.value) }))}
-                  placeholder="Ej: 007-001-0016173" className={inputClass} inputMode="numeric" />
+                  onChange={(e) => setCab((p) => ({ ...p, numero_factura: e.target.value }))}
+                  placeholder="Ej: 007-001-0016173" className={inputClass} />
               </div>
               <div>
                 <label className={labelClass}>Fecha de la factura <span className="text-gray-400 font-normal">(opcional)</span></label>

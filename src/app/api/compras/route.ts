@@ -289,8 +289,7 @@ export async function POST(request: NextRequest) {
     const req = (k: string) => body[k] != null && String(body[k]).trim() !== "";
 
     if (!req("proveedor_id")) return NextResponse.json(errorResponse("Falta el proveedor."), { status: 400 });
-    if (!req("nro_timbrado"))
-      return NextResponse.json(errorResponse("Falta el N° de timbrado."), { status: 400 });
+    // El timbrado es opcional (pedido del cliente: sin validaciones en compras).
 
     const ivaOk = (v: unknown) => (["exenta", "0", "5", "10"].includes(String(v)) ? (String(v) === "0" ? "exenta" : String(v)) : "10");
 
@@ -346,7 +345,7 @@ export async function POST(request: NextRequest) {
       tipo_cambio: Number(body.tipo_cambio) || 1,
       tipo_pago: tipoPagoPost,
       plazo_dias: plazoDiasPost,
-      nro_timbrado: String(body.nro_timbrado).trim().toUpperCase(),
+      nro_timbrado: String(body.nro_timbrado ?? "").trim().toUpperCase(),
       numero_factura: body.numero_factura != null && String(body.numero_factura).trim() !== "" ? String(body.numero_factura).trim() : null,
       fecha_factura: fechaFactura,
       metodo_pago: metodoPago,
