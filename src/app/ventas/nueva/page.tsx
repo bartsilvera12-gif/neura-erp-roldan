@@ -18,6 +18,7 @@ import HistorialClienteModal from "@/components/clientes/HistorialClienteModal";
 import { generarYAbrirRecibo } from "@/lib/recibos/client";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta } from "@/lib/ventas/types";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
+import DatosClienteModal from "@/components/clientes/DatosClienteModal";
 import { useFacultades } from "@/lib/perfiles/use-facultades";
 import { margenBruto, remarcacionSobreCosto, utilidadBruta, colorMargen, pct } from "@/lib/precios/margen";
 import { sinIva } from "@/lib/precios/iva";
@@ -1396,6 +1397,26 @@ export default function NuevaVentaPage() {
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null;
   // Punto 3.3: historial comercial, a mano en el mostrador.
   const [verHistorial, setVerHistorial] = useState(false);
+  /** Ficha del cliente en un modal, para corregir sus datos sin salir de la venta (como en Presupuesto). */
+  const [verDatosCliente, setVerDatosCliente] = useState(false);
+  /** Después de editar el cliente: se vuelve a leer para que RUC, teléfono y nivel de precio queden al día. */
+  async function refrescarCliente(id: string) {
+    try {
+      const r = await fetch(`/api/clientes/${id}`, { credentials: "include", cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      const c = (j?.data?.cliente ?? j?.data ?? null) as Record<string, unknown> | null;
+      if (!c) return;
+      const t = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+      setClientes((prev) => prev.map((x) => x.id !== id ? x : {
+        ...x,
+        label: t(c.empresa) || t(c.nombre_contacto) || t(c.nombre) || x.label,
+        ruc: t(c.ruc) || null,
+        telefono: t(c.telefono) || null,
+        usa_nota_remision: c.usa_nota_remision === true,
+        nivel_precio: c.nivel_precio === "mayorista" || c.nivel_precio === "distribuidor" ? c.nivel_precio : "minorista",
+      }));
+    } catch { /* se ve al recargar la pantalla */ }
+  }
   const clientesFiltrados = (clienteQuery.trim() === ""
     ? clientes
     : clientes.filter((c) => productoMatchesQuery(clienteQuery, c.label, c.ruc))
@@ -2018,7 +2039,7 @@ export default function NuevaVentaPage() {
             {/* Cliente (opcional) */}
             <div ref={clienteContainerRef} className="relative">
               <label className={labelClass}>
-                Cliente <span className="text-xs font-normal text-gray-400">(opcional)</span>
+                Cliente <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <input
@@ -2054,6 +2075,18 @@ export default function NuevaVentaPage() {
                   >
                     Ver historial de compras
                   </button>
+                  {esAdminCaja && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setVerDatosCliente(true)}
+                        className="font-medium text-[#4FAEB2] underline-offset-2 hover:underline"
+                      >
+                        Editar datos del cliente
+                      </button>
+                    </>
+                  )}
                 </p>
               )}
               {clienteOpen && !clienteSel && (
@@ -3036,6 +3069,13 @@ export default function NuevaVentaPage() {
         </div>
       )}
 
+      {verDatosCliente && clienteSel && esAdminCaja && (
+        <DatosClienteModal
+          clienteId={clienteSel.id}
+          onClose={() => { setVerDatosCliente(false); void refrescarCliente(clienteSel.id); }}
+          onGuardado={() => void refrescarCliente(clienteSel.id)}
+        />
+      )}
       {verHistorial && clienteSel && (
         <HistorialClienteModal
           clienteId={clienteSel.id}
