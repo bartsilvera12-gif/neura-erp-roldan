@@ -173,7 +173,6 @@ const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { label: "Caja", href: "/ventas", exactMatch: true },
       { label: "Nueva venta", href: "/ventas/nueva" },
-      { label: "Devoluciones", href: "/ventas/devoluciones" },
       { label: "Arqueo mensual", href: "/ventas/arqueo-mensual" },
       { label: "Anticipos", href: "/anticipos" },
     ],
