@@ -866,9 +866,35 @@ export async function abrirCaja(
      * 105). null = sin restricción. Si la columna no existe, se ignora.
      */
     responsables?: string[] | null;
+    /**
+     * Una sola caja por día en la sucursal (pedido del cliente), salvo que la
+     * abra un administrador. Cuenta cualquier caja abierta hoy, aunque ya se
+     * haya cerrado.
+     */
+    unaPorDiaSucursal?: boolean;
   }
 ): Promise<Caja> {
   const sucursalId = params.sucursalId ?? null;
+  if (params.unaPorDiaSucursal) {
+    // Hoy en Paraguay (UTC−3): desde las 00:00 de acá.
+    const hoyPy = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+    let q = sb
+      .from("cajas")
+      .select("numero_caja, estado")
+      .eq("empresa_id", params.empresaId)
+      .gte("fecha_apertura", `${hoyPy}T00:00:00-03:00`)
+      .order("fecha_apertura", { ascending: true })
+      .limit(1);
+    if (sucursalId) q = q.eq("sucursal_id", sucursalId);
+    const hoy = await q;
+    if (!hoy.error && (hoy.data ?? []).length > 0) {
+      const c = (hoy.data as Array<{ numero_caja?: number | null; estado?: string }>)[0];
+      throw new Error(
+        `Hoy ya se abrió la Caja ${c.numero_caja ?? ""} en esta sucursal${c.estado === "cerrada" ? " (ya está cerrada)" : ""}. ` +
+        "Se abre una sola caja por día: si hace falta otra, la abre un administrador."
+      );
+    }
+  }
   if (params.unaPorUsuario && params.usuarioId) {
     const ya = await sb
       .from("cajas")

@@ -61,12 +61,14 @@ export async function POST(request: NextRequest) {
       numeroCaja,
       arqueoApertura,
       unaPorUsuario: !esAdmin,
+      // Una caja por día en la sucursal, salvo el administrador (pedido del cliente).
+      unaPorDiaSucursal: !esAdmin,
       responsables: responsables.length > 0 ? responsables : null,
     });
     return NextResponse.json(successResponse({ caja }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo abrir la caja.";
-    const status = /ya está activa|Ya tenés abierta/i.test(msg) ? 409 : 500;
+    const status = /ya está activa|Ya tenés abierta|Hoy ya se abrió/i.test(msg) ? 409 : 500;
     return NextResponse.json(errorResponse(msg), { status });
   }
 }
