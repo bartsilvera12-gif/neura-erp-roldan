@@ -31,14 +31,6 @@ function formatGs(valor: number) {
   return `Gs. ${Math.round(valor).toLocaleString("es-PY")}`;
 }
 
-/** Solo la hora de carga, como en el listado del sistema viejo. */
-function soloHora(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
 /**
  * Cuántos dólares fue la compra.
  *
@@ -392,7 +384,6 @@ function VistaNutricion() {
                 <th className="hidden py-3 pr-4 font-medium lg:table-cell">Pago</th>
                 <th className="hidden py-3 pr-4 font-medium lg:table-cell">Método</th>
                 <th className="py-3 pr-4 font-medium">Fecha</th>
-                <th className="hidden py-3 pr-4 font-medium xl:table-cell">Hora</th>
                 <th className="hidden py-3 pr-4 font-medium lg:table-cell">Fecha factura</th>
                 <th className="py-3 font-medium text-right"></th>
               </tr>
@@ -504,9 +495,6 @@ function VistaNutricion() {
                           )}
                         </td>
                         <td className="py-4 pr-4 text-gray-500 text-xs tabular-nums">{formatFecha(g.fecha)}</td>
-                        <td className="hidden py-4 pr-4 text-gray-500 text-xs tabular-nums xl:table-cell">
-                          {soloHora(g.created_at)}
-                        </td>
                         <td className="hidden py-4 pr-4 text-gray-500 text-xs tabular-nums lg:table-cell">
                           {formatFechaDate(g.fecha_factura)}
                         </td>
@@ -538,7 +526,6 @@ function VistaNutricion() {
                           <td className="hidden lg:table-cell" />
                           <td className="hidden lg:table-cell" />
                           <td />
-                          <td className="hidden xl:table-cell" />
                           <td className="hidden lg:table-cell" />
                           <td />
                         </tr>
@@ -585,7 +572,6 @@ function VistaNutricion() {
                     <td className="hidden lg:table-cell" />
                     <td className="hidden lg:table-cell" />
                     <td />
-                    <td className="hidden xl:table-cell" />
                     <td className="hidden lg:table-cell" />
                     <td />
                   </tr>
