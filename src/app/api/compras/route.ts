@@ -571,7 +571,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     console.error("[/api/compras POST] outer", err instanceof Error ? err.message : err);
-    return NextResponse.json(errorResponse("No se pudo guardar la compra."), { status: 500 });
+    const motivo = err instanceof Error && err.message ? ` Motivo: ${err.message}` : "";
+    return NextResponse.json(errorResponse(`No se pudo guardar la compra.${motivo}`), { status: 500 });
   }
 }
 
