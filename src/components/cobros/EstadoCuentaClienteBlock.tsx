@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePuedoCobrar } from "@/lib/caja/use-puedo-cobrar";
 import { Check, ChevronDown, ChevronUp, Download, Loader2 } from "lucide-react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { RegistrarCobroModalCxc, type CxcRef } from "@/components/cobros/RegistrarCobroModalCxc";
@@ -55,6 +56,8 @@ export function EstadoCuentaClienteBlock({
   onCambio?: () => void;
 }) {
   const [resumen, setResumen] = useState<Resumen | null>(null);
+  /** Cobrar: solo la cajera de la caja abierta y los administradores. */
+  const puedoCobrar = usePuedoCobrar();
   const [movs, setMovs] = useState<Mov[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,7 +198,7 @@ export function EstadoCuentaClienteBlock({
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right">
-                          {x.estado === "pagado" || x.estado === "anulado" ? (
+                          {x.estado === "pagado" || x.estado === "anulado" || !puedoCobrar ? (
                             <span className="text-xs text-gray-400">—</span>
                           ) : (
                             <button

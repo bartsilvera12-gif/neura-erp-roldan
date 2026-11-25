@@ -6,6 +6,8 @@ import { emitEvent, EVENT_TYPES } from "@/lib/integrations/events";
 import { toCalendarDateStr } from "@/lib/fechas/calendario";
 import { etiquetaVisibleTipoServicio } from "@/lib/clientes/tipo-servicio-catalogo";
 import { exigirSucursal, respuestaSucursalNoAsignada } from "@/lib/sucursales/filtro";
+import { puedeCobrar, MSG_SOLO_CAJERA_COBRA } from "@/lib/caja/responsables";
+import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 
 
 export async function GET(request: NextRequest) {
@@ -124,6 +126,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     }
     const { auth, supabase } = ctx;
+
+    // Cobrar: solo la cajera de una caja abierta y los administradores.
+    {
+      const conRol = await getAuthWithRol(request);
+      if (!(await puedeCobrar(supabase, auth.empresa_id, auth.sucursal_id ?? null, auth.usuarioCatalogId ?? null, !!conRol && isAdmin(conRol)))) {
+        return NextResponse.json(errorResponse(MSG_SOLO_CAJERA_COBRA), { status: 403 });
+      }
+    }
 
     const body = await request.json();
     const { factura_id, monto, fecha_pago, metodo_pago, referencia } = body;

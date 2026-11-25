@@ -60,3 +60,34 @@ export async function bloqueoCaja(
   const m = await duenosDeCajas(sb, empresaId, [cajaId]);
   return puedeOperarCaja(m.get(cajaId), usuarioId, esAdmin) ? null : MSG_CAJA_AJENA;
 }
+
+export const MSG_SOLO_CAJERA_COBRA =
+  "Cobrar lo hace la cajera que abrió la caja (o quien ella tenga agregado) y los administradores.";
+
+/**
+ * ¿Puede cobrar? (pedido del cliente: «los usuarios de ventas no deben poder
+ * cobrar, solo la cajera que abrió la caja y los administradores».)
+ *
+ * El administrador siempre. Los demás, solo si hay una caja ABIERTA en su
+ * sucursal que abrieron ellos o en la que los agregaron como responsables.
+ * Acá no vale la «caja de antes del script, sin restricción»: tiene que ser
+ * su caja.
+ */
+export async function puedeCobrar(
+  sb: AppSupabaseClient,
+  empresaId: string,
+  sucursalId: string | null,
+  usuarioId: string | null,
+  esAdmin: boolean
+): Promise<boolean> {
+  if (esAdmin) return true;
+  if (!usuarioId) return false;
+  let q = sb.from("cajas").select("id, abierta_por").eq("empresa_id", empresaId).eq("estado", "abierta");
+  if (sucursalId) q = q.eq("sucursal_id", sucursalId);
+  const r = await q;
+  if (r.error) return false;
+  const cajas = (r.data ?? []) as Array<{ id: string; abierta_por: string | null }>;
+  if (cajas.some((c) => c.abierta_por === usuarioId)) return true;
+  const duenos = await duenosDeCajas(sb, empresaId, cajas.map((c) => String(c.id)));
+  return [...duenos.values()].some((d) => (d.responsables ?? []).includes(usuarioId));
+}

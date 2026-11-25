@@ -3,7 +3,7 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { getEstadoCajas } from "@/lib/caja/server";
-import { duenosDeCajas, puedeOperarCaja } from "@/lib/caja/responsables";
+import { duenosDeCajas, puedeOperarCaja, puedeCobrar } from "@/lib/caja/responsables";
 import { getAuthWithRol, isAdmin } from "@/lib/middleware/auth";
 
 /**
@@ -50,6 +50,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       successResponse({
         cajas,
+        // Para mostrar u ocultar «Cobrar» en otras pantallas.
+        puedo_cobrar: await puedeCobrar(ctx.supabase, ctx.auth.empresa_id, ctx.auth.sucursal_id ?? null, yo, esAdmin),
         caja: primera ? primera.caja : null,
         resumen: primera ?? null,
       })

@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { registrarCobro, reversarCobro, CobroError } from "@/lib/cobros/server/cobros-pg";
 import { isAdmin } from "@/lib/middleware/auth";
+import { puedeCobrar, MSG_SOLO_CAJERA_COBRA } from "@/lib/caja/responsables";
 
 /** POST /api/cobros — registra un cobro contra una cuenta por cobrar. */
 export async function POST(request: NextRequest) {
@@ -12,6 +13,10 @@ export async function POST(request: NextRequest) {
     if (!ctx) return NextResponse.json(errorResponse(API_ERRORS.UNAUTHORIZED), { status: 401 });
     const usuarioNombre = ctx.auth.nombre ?? ctx.auth.user?.email ?? null;
     const usuarioId = ctx.auth.user?.id ?? null;
+
+    if (!(await puedeCobrar(ctx.supabase, ctx.auth.empresa_id, ctx.auth.sucursal_id ?? null, ctx.auth.usuarioCatalogId ?? null, isAdmin(ctx.auth)))) {
+      return NextResponse.json(errorResponse(MSG_SOLO_CAJERA_COBRA), { status: 403 });
+    }
 
     let body: Record<string, unknown>;
     try {

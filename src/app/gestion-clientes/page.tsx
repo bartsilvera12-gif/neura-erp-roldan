@@ -22,6 +22,7 @@ import { estadoFacturaParaUi } from "@/lib/gestion-clientes/estado-factura-ui";
 import type { Cliente } from "@/lib/clientes/types";
 import type { EstadoFactura, Factura } from "@/lib/gestion-clientes/types";
 import Selector from "@/components/ui/Selector";
+import { usePuedoCobrar } from "@/lib/caja/use-puedo-cobrar";
 
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
@@ -714,6 +715,8 @@ function GestionClientesPageInner() {
   const [modalCambioPlan, setModalCambioPlan] = useState(false);
   const [modalHistorialCliente, setModalHistorialCliente] = useState(false);
   const [facturaCobroModal, setFacturaCobroModal] = useState<Factura | null>(null);
+  /** Cobrar: solo la cajera de la caja abierta y los administradores. */
+  const puedoCobrar = usePuedoCobrar();
   const [facturasDetalleAbierto, setFacturasDetalleAbierto] = useState(true);
   const [panelFiltrosFacturas, setPanelFiltrosFacturas] = useState(false);
   /** Evita carrera: al limpiar, `?cliente=` aún no se quitó y el efecto URL→estado reabría la ficha. */
@@ -1268,7 +1271,7 @@ function GestionClientesPageInner() {
                                   <FacturaRowAccionesSifen
                                     facturaId={f.id}
                                     sifenAprobado={sifenPorFactura[f.id]?.estado_sifen === "aprobado"}
-                                    puedeCobrar={facturaPermiteCobro(f)}
+                                    puedeCobrar={facturaPermiteCobro(f) && puedoCobrar}
                                     onCobrar={() => setFacturaCobroModal(f)}
                                   />
                                 </td>
