@@ -570,7 +570,16 @@ export default function VentasPage() {
       <MobileFab href="/ventas/nueva" label="Nueva venta" />
 
       {detalle && (
-        <VentaDetalleModal venta={detalle} onClose={() => setDetalle(null)} acciones={accionesVenta(detalle)} />
+        <VentaDetalleModal
+          venta={detalle}
+          onClose={() => setDetalle(null)}
+          acciones={accionesVenta(detalle)}
+          puedeCambiarVendedor={isAdmin}
+          onVendedorCambiado={(nombre) => {
+            setDetalle((d) => (d ? { ...d, vendedor_nombre: nombre } : d));
+            setTodas((prev) => prev.map((x) => (x.id === detalle.id ? { ...x, vendedor_nombre: nombre } : x)));
+          }}
+        />
       )}
 
       {editar && (
@@ -696,8 +705,71 @@ function AnularVentaModal({
 
 // ── Modal de detalle de venta ───────────────────────────────────────────────────
 
-function VentaDetalleModal({ venta, onClose, acciones }: { venta: Venta; onClose: () => void; acciones?: React.ReactNode }) {
+function VentaDetalleModal({
+  venta,
+  onClose,
+  acciones,
+  puedeCambiarVendedor = false,
+  onVendedorCambiado,
+}: {
+  venta: Venta;
+  onClose: () => void;
+  acciones?: React.ReactNode;
+  /** Solo el administrador cambia el vendedor (es a quién va la comisión). */
+  puedeCambiarVendedor?: boolean;
+  onVendedorCambiado?: (nombre: string) => void;
+}) {
   const cantTotal = venta.items.reduce((s, i) => s + i.cantidad, 0);
+  const [editandoVendedor, setEditandoVendedor] = useState(false);
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [vendedorSel, setVendedorSel] = useState("");
+  const [guardandoVendedor, setGuardandoVendedor] = useState(false);
+  const [errVendedor, setErrVendedor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editandoVendedor || usuarios.length > 0) return;
+    let vivo = true;
+    fetch("/api/empresas/usuarios", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!vivo) return;
+        const lista = ((j?.usuarios ?? j?.data?.usuarios ?? []) as Array<Record<string, unknown>>)
+          .filter((u) => String(u.estado ?? "activo") !== "inactivo")
+          .map((u) => ({ id: String(u.id), nombre: String(u.nombre ?? "").trim() || String(u.email ?? "Usuario") }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        setUsuarios(lista);
+        const actual = lista.find((u) => u.nombre === (venta.vendedor_nombre ?? ""));
+        if (actual) setVendedorSel(actual.id);
+      })
+      .catch(() => { if (vivo) setErrVendedor("No se pudo cargar la lista de usuarios."); });
+    return () => { vivo = false; };
+  }, [editandoVendedor, usuarios.length, venta.vendedor_nombre]);
+
+  async function guardarVendedor() {
+    if (!vendedorSel) { setErrVendedor("Elegí el vendedor."); return; }
+    setGuardandoVendedor(true);
+    setErrVendedor(null);
+    try {
+      const r = await fetch(`/api/ventas/${venta.id}/vendedor`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendedor_usuario_id: vendedorSel }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j?.success === false) {
+        setErrVendedor(j?.error?.message ?? j?.error ?? "No se pudo cambiar el vendedor.");
+        return;
+      }
+      const nombre = String(j?.data?.vendedor_nombre ?? usuarios.find((u) => u.id === vendedorSel)?.nombre ?? "");
+      onVendedorCambiado?.(nombre);
+      setEditandoVendedor(false);
+    } catch {
+      setErrVendedor("No se pudo cambiar el vendedor.");
+    } finally {
+      setGuardandoVendedor(false);
+    }
+  }
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
@@ -726,7 +798,56 @@ function VentaDetalleModal({ venta, onClose, acciones }: { venta: Venta; onClose
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-4 sm:grid-cols-4">
           <Meta label="Fecha y hora" value={formatFecha(venta.fecha)} />
           <Meta label="Cliente" value={venta.cliente_nombre ?? "Consumidor final"} />
-          <Meta label="Vendedor" value={venta.vendedor_nombre || venta.usuario_nombre || "—"} />
+          <div>
+            <p className="text-[10px] font-medium text-slate-400">Vendedor</p>
+            {editandoVendedor ? (
+              <div className="mt-1 space-y-1.5">
+                <select
+                  value={vendedorSel}
+                  onChange={(e) => setVendedorSel(e.target.value)}
+                  disabled={guardandoVendedor}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]"
+                >
+                  <option value="">{usuarios.length === 0 ? "Cargando…" : "Elegí…"}</option>
+                  {usuarios.map((u) => (
+                    <option key={u.id} value={u.id}>{u.nombre}</option>
+                  ))}
+                </select>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void guardarVendedor()}
+                    disabled={guardandoVendedor || !vendedorSel}
+                    className="rounded-md bg-[#4FAEB2] px-2 py-1 text-xs font-semibold text-white hover:bg-[#3F8E91] disabled:opacity-50"
+                  >
+                    {guardandoVendedor ? "Guardando…" : "Guardar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditandoVendedor(false); setErrVendedor(null); }}
+                    disabled={guardandoVendedor}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                {errVendedor && <p className="text-xs text-red-600">{errVendedor}</p>}
+              </div>
+            ) : (
+              <p className="mt-0.5 text-sm font-medium text-slate-800">
+                {venta.vendedor_nombre || venta.usuario_nombre || "—"}
+                {puedeCambiarVendedor && (
+                  <button
+                    type="button"
+                    onClick={() => setEditandoVendedor(true)}
+                    className="ml-2 text-xs font-semibold text-[#3F8E91] hover:underline"
+                  >
+                    Cambiar
+                  </button>
+                )}
+              </p>
+            )}
+          </div>
           <Meta
             label="Tipo"
             value={venta.tipo_venta === "CONTADO" ? "Contado" : `Crédito ${venta.plazo_dias ?? ""}d`}
